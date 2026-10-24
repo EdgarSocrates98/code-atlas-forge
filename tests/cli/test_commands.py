@@ -18,7 +18,7 @@ def test_help_clean_of_future_verbs(capsys: pytest.CaptureFixture[str]) -> None:
                 "search", "symbol", "references", "graph",
                 "index-plan", "definitions", "dependencies"):
         assert cmd in out
-    for fake in ("impact", "context", "mcp", "serve", "ui", "workspace", "plugin"):
+    for fake in ("impact", "mcp", "serve", "ui", "workspace", "plugin"):
         assert fake not in out
 
 

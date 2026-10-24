@@ -747,6 +747,49 @@ def _run_search_engine(
     return _emit_page(args, payload)
 
 
+def run_context(args: argparse.Namespace) -> int:
+    """`code-atlas context TASK` — pack de contexto sob budget (lf-0040)."""
+    conn, _repo_id, snap_id, _info, err = _search_context(args)
+    if err:
+        return _emit_error(args, err)
+    assert conn is not None and snap_id is not None
+    from code_atlas.context import (
+        ContextEngine,
+        ContextRequest,
+        render_json,
+        render_markdown,
+    )
+
+    try:
+        pack = ContextEngine(conn).build(ContextRequest(
+            task=args.task,
+            repository_root=str(resolve_root(args.root)),
+            snapshot_id=snap_id,
+            level=args.level,
+            budget_tokens=args.budget,
+            max_symbols=clamp_limit(args.limit),
+        ))
+    finally:
+        conn.close()
+    if args.format == "markdown":
+        print(render_markdown(pack))
+        return EXIT_OK
+    if args.json or args.format == "json":
+        print(render_json(pack))
+        return EXIT_OK
+    # humano: linhas resumidas
+    m = pack.manifest
+    print(f"# pack snapshot={m.snapshot_id} level={m.level} "
+          f"selected={m.selected} omitted={m.omitted} "
+          f"truncated={str(m.truncated).lower()}")
+    for i in pack.items:
+        print(f"  [{i.priority}] {i.kind:<10} {i.title} "
+              f"(~{i.est_tokens} tok)")
+    if pack.diagnostics.codes:
+        print(f"diagnostics: {', '.join(pack.diagnostics.codes)}")
+    return EXIT_OK
+
+
 def run_symbol(args: argparse.Namespace) -> int:
     conn, repo_id, snap_id, repo_info, err = _search_context(args)
     if err:
@@ -1053,6 +1096,18 @@ def build_parser() -> argparse.ArgumentParser:
         help="structural|lexical|graph|hybrid (default structural)")
     _add_query_args(p_search, p_path=True)
     p_search.set_defaults(func=run_search)
+
+    p_ctx = sub.add_parser(
+        "context", help="context pack sob budget de tokens (lf-0040)")
+    p_ctx.add_argument("task", metavar="TASK", help="descrição da tarefa")
+    p_ctx.add_argument("--level", choices=("orientation", "focus", "deep"),
+                       default="focus", help="nível de detalhe")
+    p_ctx.add_argument("--budget", metavar="TOKENS", type=int, default=4000,
+                       help="orçamento estimado (default 4000)")
+    p_ctx.add_argument("--format", choices=("json", "markdown", "human"),
+                       default="human", help="renderer de saída")
+    _add_query_args(p_ctx, filters=False)
+    p_ctx.set_defaults(func=run_context)
 
     p_symbol = sub.add_parser("symbol", help="detalhe de um símbolo + ocorrências")
     p_symbol.add_argument("ident", metavar="SYMBOL", help="id numérico ou qualified_name")
