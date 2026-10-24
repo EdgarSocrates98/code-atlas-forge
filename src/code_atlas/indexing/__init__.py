@@ -1,4 +1,5 @@
-"""Coordenação de indexação incremental e publicação atômica de snapshots.
+"""Coordenação de indexação incremental e publicação atômica de snapshots."""
 
-Implementado em lf-0003/lf-0004.
-"""
+from code_atlas.indexing.coordinator import IndexCoordinator, IndexOutcome
+
+__all__ = ["IndexCoordinator", "IndexOutcome"]

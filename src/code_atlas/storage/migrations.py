@@ -1,0 +1,207 @@
+"""Runner de migrações versionadas (Blueprint §6).
+
+Cada migração é ``(version, name, sql)``; aplicação é sequencial,
+transacional e idempotente (versões aplicadas são puladas). O checksum do
+SQL aplicado é gravado em ``schema_migrations`` e validado em execuções
+posteriores — drift levanta ``MigrationError``.
+"""
+
+from __future__ import annotations
+
+import hashlib
+import sqlite3
+from dataclasses import dataclass
+
+
+class MigrationError(Exception):
+    """Migração inválida ou drift de schema detectado."""
+
+
+@dataclass(frozen=True)
+class Migration:
+    version: int
+    name: str
+    sql: str
+
+
+_SCHEMA_V1 = """
+CREATE TABLE repositories (
+    id INTEGER PRIMARY KEY,
+    origin TEXT NOT NULL DEFAULT '',
+    root_handle TEXT NOT NULL,
+    git_provider TEXT NOT NULL DEFAULT '',
+    default_branch TEXT NOT NULL DEFAULT '',
+    created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now'))
+);
+
+CREATE TABLE snapshots (
+    id INTEGER PRIMARY KEY,
+    repository_id INTEGER NOT NULL REFERENCES repositories(id),
+    git_ref TEXT NOT NULL DEFAULT '',
+    commit_sha TEXT,
+    worktree_digest TEXT NOT NULL,
+    analyzer_versions TEXT NOT NULL DEFAULT '{}',
+    parent_snapshot_id INTEGER REFERENCES snapshots(id),
+    status TEXT NOT NULL CHECK (status IN ('BUILDING','READY','FAILED','STALE')),
+    error TEXT,
+    created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now'))
+);
+
+CREATE TABLE source_files (
+    id INTEGER PRIMARY KEY,
+    repository_id INTEGER NOT NULL REFERENCES repositories(id),
+    relative_path TEXT NOT NULL,
+    language TEXT NOT NULL,
+    sha256 TEXT,
+    size_bytes INTEGER NOT NULL DEFAULT 0,
+    ignored INTEGER NOT NULL DEFAULT 0,
+    UNIQUE (repository_id, relative_path)
+);
+
+CREATE TABLE file_inventory (
+    snapshot_id INTEGER NOT NULL REFERENCES snapshots(id) ON DELETE CASCADE,
+    source_file_id INTEGER NOT NULL REFERENCES source_files(id),
+    sha256 TEXT,
+    size_bytes INTEGER NOT NULL DEFAULT 0,
+    ignored INTEGER NOT NULL DEFAULT 0,
+    PRIMARY KEY (snapshot_id, source_file_id)
+);
+
+CREATE TABLE symbols (
+    id INTEGER PRIMARY KEY,
+    repository_id INTEGER NOT NULL REFERENCES repositories(id),
+    language TEXT NOT NULL,
+    qualified_name TEXT NOT NULL,
+    kind TEXT NOT NULL,
+    UNIQUE (repository_id, language, qualified_name, kind)
+);
+
+CREATE TABLE symbol_occurrences (
+    id INTEGER PRIMARY KEY,
+    snapshot_id INTEGER NOT NULL REFERENCES snapshots(id) ON DELETE CASCADE,
+    logical_symbol_id INTEGER NOT NULL REFERENCES symbols(id),
+    source_file_id INTEGER NOT NULL REFERENCES source_files(id),
+    span_start INTEGER,
+    span_end INTEGER,
+    line INTEGER,
+    col INTEGER,
+    content_hash TEXT,
+    parse_status TEXT NOT NULL DEFAULT 'parsed'
+);
+
+CREATE TABLE relations (
+    id INTEGER PRIMARY KEY,
+    snapshot_id INTEGER NOT NULL REFERENCES snapshots(id) ON DELETE CASCADE,
+    from_id INTEGER NOT NULL,
+    to_id INTEGER,
+    to_unresolved TEXT,
+    type TEXT NOT NULL CHECK (type IN (
+        'CONTAINS','DEFINES','IMPORTS','CALLS','IMPLEMENTS',
+        'EXTENDS','REFERENCES','CONFIGURES','TESTS')),
+    resolution_status TEXT NOT NULL CHECK (resolution_status IN (
+        'resolved','ambiguous','unresolved','external')),
+    confidence_class TEXT NOT NULL CHECK (confidence_class IN (
+        'resolved','syntactic','heuristic','inferred')),
+    resolver TEXT NOT NULL,
+    evidence_ids TEXT NOT NULL DEFAULT '[]'
+);
+
+CREATE TABLE evidence (
+    id INTEGER PRIMARY KEY,
+    snapshot_id INTEGER NOT NULL REFERENCES snapshots(id) ON DELETE CASCADE,
+    source_file_id INTEGER NOT NULL REFERENCES source_files(id),
+    path TEXT NOT NULL,
+    span TEXT,
+    content_hash TEXT NOT NULL,
+    extractor TEXT NOT NULL,
+    extractor_version TEXT NOT NULL,
+    notes TEXT NOT NULL DEFAULT ''
+);
+
+CREATE TABLE index_jobs (
+    id INTEGER PRIMARY KEY,
+    repository_id INTEGER NOT NULL REFERENCES repositories(id),
+    snapshot_id INTEGER REFERENCES snapshots(id),
+    status TEXT NOT NULL CHECK (status IN ('running','success','failed','noop')),
+    started_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+    finished_at TEXT,
+    counts TEXT NOT NULL DEFAULT '{}',
+    failures TEXT NOT NULL DEFAULT '[]',
+    manifest_hash TEXT
+);
+
+CREATE INDEX idx_snapshots_repo_status ON snapshots (repository_id, status);
+CREATE INDEX idx_file_inventory_snapshot ON file_inventory (snapshot_id);
+CREATE INDEX idx_source_files_repo_path ON source_files (repository_id, relative_path);
+CREATE INDEX idx_occurrences_snap_file ON symbol_occurrences (snapshot_id, source_file_id);
+CREATE INDEX idx_relations_from ON relations (from_id, type);
+CREATE INDEX idx_relations_to ON relations (to_id, type);
+"""
+
+_SCHEMA_V2_FTS = """
+CREATE VIRTUAL TABLE fts_symbols USING fts5(
+    qualified_name, language, kind, content=''
+);
+"""
+
+
+def migrations(*, fts5: bool) -> list[Migration]:
+    """Lista de migrações; a v2 (FTS5) só existe quando a build suporta."""
+    m = [Migration(1, "core schema (blueprint §6)", _SCHEMA_V1)]
+    if fts5:
+        m.append(Migration(2, "fts_symbols virtual table", _SCHEMA_V2_FTS))
+    return m
+
+
+def _checksum(sql: str) -> str:
+    return hashlib.sha256(sql.encode("utf-8")).hexdigest()
+
+
+def migrate(conn: sqlite3.Connection, *, fts5: bool | None = None) -> int:
+    """Aplica migrações pendentes; retorna o schema_version resultante."""
+    if fts5 is None:
+        from code_atlas.storage.db import fts5_available
+
+        fts5 = fts5_available(conn)
+    conn.execute(
+        """
+        CREATE TABLE IF NOT EXISTS schema_migrations (
+            version INTEGER PRIMARY KEY,
+            name TEXT NOT NULL,
+            checksum TEXT NOT NULL,
+            applied_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now'))
+        )
+        """
+    )
+    applied = {
+        row["version"]: row["checksum"]
+        for row in conn.execute("SELECT version, checksum FROM schema_migrations")
+    }
+    for mig in migrations(fts5=fts5):
+        digest = _checksum(mig.sql)
+        if mig.version in applied:
+            if applied[mig.version] != digest:
+                raise MigrationError(
+                    f"migration v{mig.version} checksum drift "
+                    f"(applied {applied[mig.version][:12]} != current {digest[:12]})"
+                )
+            continue
+        try:
+            with conn:
+                conn.executescript(mig.sql)
+                conn.execute(
+                    "INSERT INTO schema_migrations (version, name, checksum) VALUES (?, ?, ?)",
+                    (mig.version, mig.name, digest),
+                )
+        except sqlite3.Error as exc:
+            raise MigrationError(f"migration v{mig.version} failed: {exc}") from exc
+    return schema_version(conn)
+
+
+def schema_version(conn: sqlite3.Connection) -> int:
+    """Maior versão aplicada; 0 se nenhuma."""
+    try:
+        row = conn.execute("SELECT MAX(version) AS v FROM schema_migrations").fetchone()
+    except sqlite3.Error:
+        return 0
+    return int(row["v"] or 0)
