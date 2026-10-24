@@ -1,0 +1,15 @@
+{
+  "agent": "claude",
+  "command": [
+    "claude",
+    "-p",
+    "$(cat /home/edgar/Documentos/projetos/forjas/code-atlas-forge/factory/prompts/lf-0006.implement.claude.md)"
+  ],
+  "created_at": "2026-10-24T11:13:49+00:00",
+  "id": "lf-0006",
+  "prompt_path": "/home/edgar/Documentos/projetos/forjas/code-atlas-forge/factory/prompts/lf-0006.implement.claude.md",
+  "spec_path": "/home/edgar/Documentos/projetos/forjas/code-atlas-forge/factory/specs/active/lf-0006.md",
+  "spec_sha256": "31036348ff6b5112364d17cfb7c20c3d9daf35a74da5bdd4958b94f70bef0eef",
+  "status": "planned",
+  "title": "Cycle 1 - Documentation, ADRs, roadmap and evidence report"
+}

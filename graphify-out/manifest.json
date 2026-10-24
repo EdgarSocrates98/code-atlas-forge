@@ -36,9 +36,9 @@
     "semantic_hash": ""
   },
   "src/code_atlas/cli.py": {
-    "mtime": 1792840158.1495752,
-    "seen": 1792840210.678093,
-    "ast_hash": "1306c79058e296115b7c5c897ea62664",
+    "mtime": 1792840311.8641212,
+    "seen": 1792840430.4328094,
+    "ast_hash": "9af3958c9aa1042987e8d1ee4332fa71",
     "semantic_hash": ""
   },
   "src/code_atlas/config.py": {
@@ -66,9 +66,9 @@
     "semantic_hash": ""
   },
   "src/code_atlas/observability/__init__.py": {
-    "mtime": 1792839362.3081083,
-    "seen": 1792839517.891707,
-    "ast_hash": "a7eb7385c57b21ead24fba86225d0065",
+    "mtime": 1792840311.2031233,
+    "seen": 1792840430.4328253,
+    "ast_hash": "6f3c2b9a754daa903bf945c6b0a7e8e2",
     "semantic_hash": ""
   },
   "src/code_atlas/storage/__init__.py": {
@@ -132,9 +132,9 @@
     "semantic_hash": ""
   },
   "README.md": {
-    "mtime": 1792839435.103277,
-    "seen": 1792839517.891717,
-    "ast_hash": "4d25857a05278978dc8b05402360831f",
+    "mtime": 1792840427.4947276,
+    "seen": 1792840430.4328656,
+    "ast_hash": "60873c47578700253d4d34c4a278c17b",
     "semantic_hash": ""
   },
   "SECURITY.md": {
@@ -185,12 +185,6 @@
     "ast_hash": "35d028288538547cf6e8881f1c302688",
     "semantic_hash": ""
   },
-  "factory/specs/inbox/lf-0006.md": {
-    "mtime": 1792839272.4467983,
-    "seen": 1792839517.8917289,
-    "ast_hash": "c4bd0358f7a91bd561998eac6063674e",
-    "semantic_hash": ""
-  },
   "factory/reviews/lf-0002.accepted.json": {
     "mtime": 1792839722.327699,
     "seen": 1792839723.1163087,
@@ -216,9 +210,9 @@
     "semantic_hash": ""
   },
   "src/code_atlas/discovery/scanner.py": {
-    "mtime": 1792839709.12941,
-    "seen": 1792839723.1163282,
-    "ast_hash": "03c8d84278ed8f958390c71a2b18d106",
+    "mtime": 1792840402.7237556,
+    "seen": 1792840430.432821,
+    "ast_hash": "e828bef5425d3cdfba96eb5bfea9ac0f",
     "semantic_hash": ""
   },
   "tests/discovery/conftest.py": {
@@ -425,12 +419,6 @@
     "ast_hash": "7f839d54282adb72d4fc4346ee949263",
     "semantic_hash": ""
   },
-  "factory/specs/active/lf-0005.md": {
-    "mtime": 1792839271.7367954,
-    "seen": 1792840210.6782327,
-    "ast_hash": "4cece515ee94342945b8b1f2b4175b54",
-    "semantic_hash": ""
-  },
   "factory/specs/archive/2026/lf-0004.md": {
     "mtime": 1792839270.9827921,
     "seen": 1792840210.6782432,
@@ -441,6 +429,102 @@
     "mtime": 1792840059.046689,
     "seen": 1792840210.678248,
     "ast_hash": "ff3eb2af96739436650fe106770542be",
+    "semantic_hash": ""
+  },
+  "benchmarks/bench_scan.py": {
+    "mtime": 1792840361.347027,
+    "seen": 1792840430.4327824,
+    "ast_hash": "5ffc1899fba86a6013450e2b08401f38",
+    "semantic_hash": ""
+  },
+  "factory/reviews/lf-0005.accepted.json": {
+    "mtime": 1792840428.9950025,
+    "seen": 1792840430.4327962,
+    "ast_hash": "4599f9ca4ae43fa9119146d47fbe597a",
+    "semantic_hash": ""
+  },
+  "factory/runs/2026-10-24T111349Z0000.lf-0006.json": {
+    "mtime": 1792840429.22642,
+    "seen": 1792840430.4328043,
+    "ast_hash": "45917b5fe30a9a6218a5d83ec6ade5ec",
+    "semantic_hash": ""
+  },
+  "src/code_atlas/gitbin.py": {
+    "mtime": 1792840288.835193,
+    "seen": 1792840430.4328218,
+    "ast_hash": "487ec676f4e19d4cd0d1a8ba0bcbcf43",
+    "semantic_hash": ""
+  },
+  "src/code_atlas/observability/logging.py": {
+    "mtime": 1792840402.7237556,
+    "seen": 1792840430.4328263,
+    "ast_hash": "b23a69c9746353ac703bce16e46afb30",
+    "semantic_hash": ""
+  },
+  "tests/e2e/test_hardening.py": {
+    "mtime": 1792840407.1359322,
+    "seen": 1792840430.4328403,
+    "ast_hash": "d88dbf1968d0f9938506f6a6345ce00b",
+    "semantic_hash": ""
+  },
+  "tests/observability/test_logging.py": {
+    "mtime": 1792840402.7237556,
+    "seen": 1792840430.4328449,
+    "ast_hash": "1e152dd1f7d20ad8dcf3531b955a04cf",
+    "semantic_hash": ""
+  },
+  ".github/dependabot.yml": {
+    "mtime": 1792840360.5919943,
+    "seen": 1792840430.4328578,
+    "ast_hash": "eb30b31811b1f0510e397180bbb41356",
+    "semantic_hash": ""
+  },
+  ".github/workflows/ci.yml": {
+    "mtime": 1792840359.832961,
+    "seen": 1792840430.4328606,
+    "ast_hash": "f8c78b6e7e7b6159dc6658f5568c368b",
+    "semantic_hash": ""
+  },
+  "benchmarks/README.md": {
+    "mtime": 1792840394.1444082,
+    "seen": 1792840430.4328675,
+    "ast_hash": "61e8170eefa6f2786f610788f02c3bdb",
+    "semantic_hash": ""
+  },
+  "docs/threat-model.md": {
+    "mtime": 1792840394.9304404,
+    "seen": 1792840430.4328709,
+    "ast_hash": "f879c74f91f29dd47b93a302a931980b",
+    "semantic_hash": ""
+  },
+  "factory/prompts/lf-0005.review.claude.md": {
+    "mtime": 1792840428.9349444,
+    "seen": 1792840430.4328837,
+    "ast_hash": "2f8aa3c78edffd72c94daa8009190c26",
+    "semantic_hash": ""
+  },
+  "factory/prompts/lf-0006.implement.claude.md": {
+    "mtime": 1792840429.2262669,
+    "seen": 1792840430.4328847,
+    "ast_hash": "b4aac9b3d5aad54b2200b271465c3415",
+    "semantic_hash": ""
+  },
+  "factory/reviews/lf-0005.md": {
+    "mtime": 1792840428.259757,
+    "seen": 1792840430.4328907,
+    "ast_hash": "ed173830fd3e614c39aa2d6940d40dd5",
+    "semantic_hash": ""
+  },
+  "factory/specs/active/lf-0006.md": {
+    "mtime": 1792839272.4467983,
+    "seen": 1792840430.432893,
+    "ast_hash": "c4bd0358f7a91bd561998eac6063674e",
+    "semantic_hash": ""
+  },
+  "factory/specs/archive/2026/lf-0005.md": {
+    "mtime": 1792839271.7367954,
+    "seen": 1792840430.432899,
+    "ast_hash": "4cece515ee94342945b8b1f2b4175b54",
     "semantic_hash": ""
   }
 }

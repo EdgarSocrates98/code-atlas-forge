@@ -36,9 +36,9 @@
     "semantic_hash": ""
   },
   "src/code_atlas/cli.py": {
-    "mtime": 1792839469.6953344,
-    "seen": 1792839517.8917022,
-    "ast_hash": "d62e965ac53bd548942ffb8a9021df77",
+    "mtime": 1792840158.1495752,
+    "seen": 1792840210.678093,
+    "ast_hash": "1306c79058e296115b7c5c897ea62664",
     "semantic_hash": ""
   },
   "src/code_atlas/config.py": {
@@ -78,9 +78,9 @@
     "semantic_hash": ""
   },
   "tests/test_cli.py": {
-    "mtime": 1792839469.6953344,
-    "seen": 1792839517.8917086,
-    "ast_hash": "a204cfa5e04d4bfca7bb0ba0d2ea402d",
+    "mtime": 1792840128.979654,
+    "seen": 1792840210.6781676,
+    "ast_hash": "50c131295c93f8f41d2465c2b4fe0867",
     "semantic_hash": ""
   },
   "tests/test_config.py": {
@@ -183,12 +183,6 @@
     "mtime": 1792839226.6425908,
     "seen": 1792839517.8917253,
     "ast_hash": "35d028288538547cf6e8881f1c302688",
-    "semantic_hash": ""
-  },
-  "factory/specs/inbox/lf-0005.md": {
-    "mtime": 1792839271.7367954,
-    "seen": 1792839517.8917282,
-    "ast_hash": "4cece515ee94342945b8b1f2b4175b54",
     "semantic_hash": ""
   },
   "factory/specs/inbox/lf-0006.md": {
@@ -294,9 +288,9 @@
     "semantic_hash": ""
   },
   "src/code_atlas/indexing/coordinator.py": {
-    "mtime": 1792839976.2910213,
-    "seen": 1792839996.0577822,
-    "ast_hash": "6ec01fe546fae233224cc7667585269a",
+    "mtime": 1792840023.1209178,
+    "seen": 1792840210.6781225,
+    "ast_hash": "4a5917361806c75a014f790761ceb19f",
     "semantic_hash": ""
   },
   "src/code_atlas/storage/db.py": {
@@ -359,16 +353,94 @@
     "ast_hash": "ce1a1a519c93f5c755371b6571cf9464",
     "semantic_hash": ""
   },
-  "factory/specs/active/lf-0004.md": {
-    "mtime": 1792839270.9827921,
-    "seen": 1792839996.057822,
-    "ast_hash": "c9707e9b624156e978b192595abfd8d2",
-    "semantic_hash": ""
-  },
   "factory/specs/archive/2026/lf-0003.md": {
     "mtime": 1792839228.098598,
     "seen": 1792839996.0578256,
     "ast_hash": "4601b78cf94a7aeaa2bec39f9c5aec42",
+    "semantic_hash": ""
+  },
+  "factory/reviews/lf-0004.accepted.json": {
+    "mtime": 1792840209.3772168,
+    "seen": 1792840210.678067,
+    "ast_hash": "014509d28e30d172847d58e9976f9633",
+    "semantic_hash": ""
+  },
+  "factory/runs/2026-10-24T111009Z0000.lf-0005.json": {
+    "mtime": 1792840209.5776117,
+    "seen": 1792840210.678082,
+    "ast_hash": "5a0cdd12cb0132389b1065ea1921ab34",
+    "semantic_hash": ""
+  },
+  "tests/cli/conftest.py": {
+    "mtime": 1792840109.4127057,
+    "seen": 1792840210.678138,
+    "ast_hash": "0b379685d7b5e9b18a0dfd27d3cbaa4a",
+    "semantic_hash": ""
+  },
+  "tests/cli/test_commands.py": {
+    "mtime": 1792840138.5186286,
+    "seen": 1792840210.6781404,
+    "ast_hash": "a4952f7ec90a8dc52c8d098f7d735b76",
+    "semantic_hash": ""
+  },
+  "tests/e2e/test_flow.py": {
+    "mtime": 1792840116.8026865,
+    "seen": 1792840210.6781504,
+    "ast_hash": "3f201cdcb2fb85274489bb1898a25042",
+    "semantic_hash": ""
+  },
+  "tests/fixtures/sample_repo/package.json": {
+    "mtime": 1792840059.0468326,
+    "seen": 1792840210.6781528,
+    "ast_hash": "52ea004dde78983aace315de8510bac4",
+    "semantic_hash": ""
+  },
+  "tests/fixtures/sample_repo/src/hello.py": {
+    "mtime": 1792840059.046689,
+    "seen": 1792840210.6781547,
+    "ast_hash": "d8601ee4deac151a2fb1eada3ecc0741",
+    "semantic_hash": ""
+  },
+  "tests/fixtures/sample_repo/src/util.py": {
+    "mtime": 1792840059.046689,
+    "seen": 1792840210.6781569,
+    "ast_hash": "b8ca78dd8037f5d3192a92c8f4221b8a",
+    "semantic_hash": ""
+  },
+  "factory/prompts/lf-0004.review.claude.md": {
+    "mtime": 1792840209.320434,
+    "seen": 1792840210.6782186,
+    "ast_hash": "95e5f21add06688992be7b9c70983e35",
+    "semantic_hash": ""
+  },
+  "factory/prompts/lf-0005.implement.claude.md": {
+    "mtime": 1792840209.577462,
+    "seen": 1792840210.6782205,
+    "ast_hash": "b49f5c67a04a92948df00ce4d98b2bdb",
+    "semantic_hash": ""
+  },
+  "factory/reviews/lf-0004.md": {
+    "mtime": 1792840208.5854328,
+    "seen": 1792840210.6782305,
+    "ast_hash": "7f839d54282adb72d4fc4346ee949263",
+    "semantic_hash": ""
+  },
+  "factory/specs/active/lf-0005.md": {
+    "mtime": 1792839271.7367954,
+    "seen": 1792840210.6782327,
+    "ast_hash": "4cece515ee94342945b8b1f2b4175b54",
+    "semantic_hash": ""
+  },
+  "factory/specs/archive/2026/lf-0004.md": {
+    "mtime": 1792839270.9827921,
+    "seen": 1792840210.6782432,
+    "ast_hash": "c9707e9b624156e978b192595abfd8d2",
+    "semantic_hash": ""
+  },
+  "tests/fixtures/sample_repo/docs/readme.md": {
+    "mtime": 1792840059.046689,
+    "seen": 1792840210.678248,
+    "ast_hash": "ff3eb2af96739436650fe106770542be",
     "semantic_hash": ""
   }
 }
