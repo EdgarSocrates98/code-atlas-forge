@@ -49,6 +49,7 @@ class Snapshot:
     id: int | None = None
     git_ref: str = ""
     commit_sha: str | None = None
+    dirty: bool = False  # lf-0021: conteúdo diverge do commit_sha
     analyzer_versions: Mapping[str, str] = field(default_factory=dict)
     parent_snapshot_id: int | None = None
     status: SnapshotStatus = SnapshotStatus.BUILDING

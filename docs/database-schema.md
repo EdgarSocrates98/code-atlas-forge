@@ -1,7 +1,8 @@
-# Database Schema — Code Atlas (schema_version 4)
+# Database Schema — Code Atlas (schema_version 5)
 
 Fonte de verdade: `src/code_atlas/storage/migrations.py` (v1 core,
-v2 FTS, v3 índices snapshot-scoped, v4 cache de ParseResult).
+v2 FTS, v3 índices snapshot-scoped, v4 cache de ParseResult, v5
+identidade lógica + dirty).
 Este documento espelha o que as migrações criam — qualquer drift aqui
 é bug.
 
@@ -16,12 +17,19 @@ Este documento espelha o que as migrações criam — qualquer drift aqui
 
 ## repositories
 
-`id PK`, `origin`, `root_handle` (path resolvido — **limitação C1: mover a
-pasta cria novo repo**), `git_provider`, `default_branch`, `created_at`.
+`id PK`, `origin`, `root_handle` (path resolvido — **diagnóstico desde
+v5**, atualizado a cada index), `git_provider`, `default_branch`,
+`created_at`, **`identity_key` (v5, UNIQUE)**.
+
+`identity_key` (lf-0021): identidade lógica — `git-remote:<url>` →
+`git-root:<sha raiz>` → `path:<root>`. Realocar o diretório físico
+mantém o repo; dois checkouts do mesmo remote compartilham o repo.
+Rows pré-v5 recebem `path:<root_handle>` na migração.
 
 ## snapshots (máquina de estados BUILDING→READY | FAILED, READY→STALE)
 
 `id PK`, `repository_id FK→repositories`, `git_ref`, `commit_sha NULL`,
+**`dirty` INTEGER (v5, default 0)** — worktree diverge do `commit_sha`,
 `worktree_digest` (sha256 do manifest canônico), `analyzer_versions` (JSON),
 `parent_snapshot_id FK→snapshots NULL`, `status CHECK('BUILDING','READY','FAILED','STALE')`, `error`, `created_at`.
 
@@ -97,6 +105,9 @@ v4 (lf-0020): `idx_cache_repo_path(repository_id, path)` +
 constraint `UNIQUE(repository_id, path, content_sha256, language,
 parser_version, grammar_version, extractor_version, resolver_version,
 builder_version, config_digest)`.
+
+v5 (lf-0021): `uq_repositories_identity(identity_key)` UNIQUE — chave
+da unicidade lógica e do `INSERT OR IGNORE` race-safe.
 
 ## parse_result_cache (v4)
 

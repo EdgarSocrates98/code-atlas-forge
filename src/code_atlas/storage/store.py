@@ -22,6 +22,7 @@ def _snapshot_from_row(row: sqlite3.Row) -> Snapshot:
         repository_id=int(row["repository_id"]),
         git_ref=str(row["git_ref"]),
         commit_sha=row["commit_sha"],
+        dirty=bool(row["dirty"]),
         worktree_digest=str(row["worktree_digest"]),
         analyzer_versions=json.loads(row["analyzer_versions"]),
         parent_snapshot_id=row["parent_snapshot_id"],
@@ -43,29 +44,52 @@ class Store:
 
     # --- repositories -------------------------------------------------
 
-    def get_or_create_repository(self, root_handle: str) -> int:
-        """Repo estável por root_handle; não duplica em rescans.
+    def get_or_create_repository(
+        self, identity_key: str, root_handle: str = ""
+    ) -> int:
+        """Repo estável por **identidade lógica** (lf-0021), não por path.
 
-        Race-safe (lf-0015): o INSERT condicional é uma única instrução
-        atômica — dois indexadores concorrentes não criam dois repos para
-        o mesmo root_handle mesmo sem constraint UNIQUE.
+        ``identity_key`` vem de ``discovery.identity`` (git remote →
+        commit raiz → path). ``root_handle`` é só diagnóstico —
+        atualizado a cada index para refletir a localização atual
+        (realocação mantém identidade).
+
+        Race-safe (lf-0015 + v5): UNIQUE em ``identity_key`` +
+        ``INSERT OR IGNORE`` — dois indexadores concorrentes convergem
+        para a mesma linha.
         """
-        self._conn.execute(
-            "INSERT INTO repositories (root_handle) "
-            "SELECT ? WHERE NOT EXISTS "
-            "(SELECT 1 FROM repositories WHERE root_handle = ?)",
-            (root_handle, root_handle),
-        )
         row = self._conn.execute(
-            "SELECT id FROM repositories WHERE root_handle = ?", (root_handle,)
+            "SELECT id, root_handle FROM repositories WHERE identity_key = ?",
+            (identity_key,),
         ).fetchone()
-        assert row is not None  # insert condicional garante a linha
-        return int(row["id"])
+        if row is not None:
+            if root_handle and row["root_handle"] != root_handle:
+                self._conn.execute(
+                    "UPDATE repositories SET root_handle = ? WHERE id = ?",
+                    (root_handle, int(row["id"])),
+                )
+            return int(row["id"])
+        self._conn.execute(
+            "INSERT OR IGNORE INTO repositories (root_handle, identity_key) "
+            "VALUES (?, ?)",
+            (root_handle, identity_key),
+        )
+        row2 = self._conn.execute(
+            "SELECT id FROM repositories WHERE identity_key = ?", (identity_key,)
+        ).fetchone()
+        assert row2 is not None  # UNIQUE + INSERT OR IGNORE garante a linha
+        return int(row2["id"])
 
-    def repository_id_for(self, root_handle: str) -> int | None:
-        """Id do repo indexado ou None (read-only — nunca cria)."""
+    def repository_id_for(self, key_or_handle: str) -> int | None:
+        """Id do repo por ``identity_key`` **ou** ``root_handle``.
+
+        Compat de lookup: busca por identity primeiro (repos novos) e
+        cai para root_handle (repos pré-v5/sem git indexados por path).
+        """
         row = self._conn.execute(
-            "SELECT id FROM repositories WHERE root_handle = ?", (root_handle,)
+            "SELECT id FROM repositories WHERE identity_key = ?"
+            " OR root_handle = ? ORDER BY id LIMIT 1",
+            (key_or_handle, key_or_handle),
         ).fetchone()
         return int(row["id"]) if row else None
 
@@ -107,16 +131,24 @@ class Store:
         parent_snapshot_id: int | None,
         git_ref: str = "",
         commit_sha: str | None = None,
+        dirty: bool = False,
     ) -> int:
-        """Cria snapshot em estado BUILDING."""
+        """Cria snapshot em estado BUILDING.
+
+        ``dirty`` (lf-0021): worktree com alterações não commitadas —
+        snapshot é **vinculado ao estado atual**, nunca ao ``commit_sha``
+        limpo (queries veem ``commit_sha`` do HEAD mas ``dirty=1`` marca
+        que o conteúdo indexado diverge dele).
+        """
         cur = self._conn.execute(
-            "INSERT INTO snapshots (repository_id, git_ref, commit_sha, "
+            "INSERT INTO snapshots (repository_id, git_ref, commit_sha, dirty, "
             "worktree_digest, analyzer_versions, parent_snapshot_id, status) "
-            "VALUES (?, ?, ?, ?, ?, ?, 'BUILDING')",
+            "VALUES (?, ?, ?, ?, ?, ?, ?, 'BUILDING')",
             (
                 repository_id,
                 git_ref,
                 commit_sha,
+                int(dirty),
                 worktree_digest,
                 json.dumps(analyzer_versions, sort_keys=True),
                 parent_snapshot_id,

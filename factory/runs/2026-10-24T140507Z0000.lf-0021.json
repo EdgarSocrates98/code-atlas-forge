@@ -1,0 +1,15 @@
+{
+  "agent": "codex",
+  "command": [
+    "codex",
+    "exec",
+    "$(cat /home/edgar/Documentos/projetos/forjas/code-atlas-forge/factory/prompts/lf-0021.implement.codex.md)"
+  ],
+  "created_at": "2026-10-24T14:05:07+00:00",
+  "id": "lf-0021",
+  "prompt_path": "/home/edgar/Documentos/projetos/forjas/code-atlas-forge/factory/prompts/lf-0021.implement.codex.md",
+  "spec_path": "/home/edgar/Documentos/projetos/forjas/code-atlas-forge/factory/specs/active/lf-0021.md",
+  "spec_sha256": "11bcd03721f387516216d3f31046dbd89a47e8051cf6fed26dad361fbb8ebf14",
+  "status": "planned",
+  "title": "Cycle 3 Phase 6 \u2014 git-aware change intelligence (renames, branches, worktrees, dirty state)"
+}

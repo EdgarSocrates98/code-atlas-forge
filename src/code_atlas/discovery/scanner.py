@@ -66,6 +66,13 @@ def probe_git(root: Path, git_available: bool | None = None) -> GitInfo:
     git_dir = _out(["rev-parse", "--git-dir"])
     common = _out(["rev-parse", "--git-common-dir"])
     is_worktree = bool(git_dir and common and git_dir != common) or not (root / ".git").is_dir()
+    # lf-0021: identidade lógica — remote URL preferida; commit raiz como
+    # fallback (repo sem remote). ``rev-list --max-parents=0`` pode ter
+    # múltiplas raízes em históricos merged — ordenado para estabilidade.
+    remote_url = _out(["config", "--get", "remote.origin.url"])
+    roots = sorted(
+        x for x in _out(["rev-list", "--max-parents=0", "HEAD"]).splitlines() if x
+    )
     return GitInfo(
         available=True,
         is_repo=True,
@@ -73,6 +80,8 @@ def probe_git(root: Path, git_available: bool | None = None) -> GitInfo:
         head_sha=head,
         dirty=dirty,
         is_worktree=is_worktree,
+        remote_url=remote_url,
+        root_commit=roots[0] if roots else "",
     )
 
 

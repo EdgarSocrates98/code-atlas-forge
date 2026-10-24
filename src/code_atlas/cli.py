@@ -31,6 +31,7 @@ from code_atlas.config import (
     resolve_root,
     write_config,
 )
+from code_atlas.discovery.identity import identity_key_for_root
 from code_atlas.discovery.scanner import probe_git
 from code_atlas.indexing import IndexCoordinator, IndexOutcome
 from code_atlas.search.structural import (
@@ -172,7 +173,10 @@ def run_init(args: argparse.Namespace) -> int:
         return EXIT_ERROR
     conn = _open_db()
     try:
-        repo_id = Store(conn).get_or_create_repository(str(root))
+        # lf-0021: identidade lógica via probe git — sem scan completo.
+        repo_id = Store(conn).get_or_create_repository(
+            identity_key_for_root(root), str(root)
+        )
         conn.commit()
     finally:
         conn.close()

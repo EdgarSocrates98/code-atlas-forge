@@ -31,6 +31,7 @@ from typing import TypeGuard
 
 from code_atlas.contracts.enums import SnapshotStatus
 from code_atlas.contracts.models import Snapshot
+from code_atlas.discovery.identity import identity_key
 from code_atlas.discovery.models import ScanResult
 from code_atlas.discovery.scanner import read_file_verified
 from code_atlas.discovery.scanner import scan as default_scan
@@ -134,8 +135,11 @@ class IndexCoordinator:
         # até esta escrita mínima falha → outcome failed honesto (lf-0015).
         try:
             with self._conn:
+                # lf-0021: identidade lógica (git remote/raiz/path) —
+                # realocação do diretório mantém o mesmo repo_id.
+                ikey = identity_key(scan.git, Path(root))
                 repo_id = store.get_or_create_repository(
-                    str(Path(root).resolve()))
+                    ikey, str(Path(root).resolve()))
                 job_id = store.insert_index_job(repo_id, digest)
         except sqlite3.OperationalError as exc:
             return IndexOutcome(
@@ -235,6 +239,7 @@ class IndexCoordinator:
                 parent_snapshot_id=current.id if current else None,
                 git_ref=scan.git.branch,
                 commit_sha=scan.git.head_sha or None,
+                dirty=scan.git.dirty,
             )
             rows = [(store.upsert_source_file(repo_id, f), f) for f in scan.files]
             store.insert_inventory_rows(snapshot_id, rows)
