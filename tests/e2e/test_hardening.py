@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import ast
 import os
+import sys
 from pathlib import Path
 
 import pytest
@@ -90,6 +91,8 @@ def test_zero_byte_and_oversize_files(tmp_path: Path, monkeypatch: pytest.Monkey
     assert by["big.bin"].sha256 is None
 
 
+@pytest.mark.skipif(sys.platform == "win32",
+                    reason="os.symlink exige privilégio no Windows")
 def test_symlink_to_etc_warns_not_follows(tmp_path: Path) -> None:
     if not Path("/etc").exists():
         pytest.skip("/etc absent")

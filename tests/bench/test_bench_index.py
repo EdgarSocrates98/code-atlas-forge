@@ -28,7 +28,9 @@ def test_bench_smoke_measures_all_phases(tmp_path: Path) -> None:
         "peak_tracemalloc_mb", "peak_rss_mb",
     ):
         assert key in result, key
-        assert result[key] >= 0  # type: ignore[operator]
+        # peak_rss_mb é None no Windows (sem `resource`); demais >= 0
+        if result[key] is not None:
+            assert result[key] >= 0  # type: ignore[operator]
     assert result["files"] == 30
     # mods + __init__.py dos pacotes gerados — parsed >= mods pedidos
     assert result["files_parsed"] >= 30

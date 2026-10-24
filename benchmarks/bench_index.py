@@ -27,12 +27,16 @@ import argparse
 import json
 import platform
 import random
-import resource
 import sys
 import tempfile
 import time
 import tracemalloc
 from pathlib import Path
+
+try:  # `resource` é Unix-only — Windows reporta None
+    import resource
+except ImportError:  # pragma: no cover - exercised on Windows CI
+    resource = None  # type: ignore[assignment]
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
@@ -74,8 +78,10 @@ def synth_indexable_corpus(root: Path, n_files: int, seed: int = SEED) -> Path:
     return corpus
 
 
-def _peak_rss_mb() -> float:
-    """ru_maxrss: KiB no Linux, bytes no macOS."""
+def _peak_rss_mb() -> float | None:
+    """ru_maxrss: KiB no Linux, bytes no macOS; None no Windows."""
+    if resource is None:
+        return None
     rss = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss
     return rss / 1024 if sys.platform != "darwin" else rss / (1024 * 1024)
 
@@ -154,7 +160,9 @@ def bench_size(tmp: Path, n_files: int) -> dict[str, object]:
             "n": len(lat),
         },
         "peak_tracemalloc_mb": round(tracemalloc_peak / 1e6, 1),
-        "peak_rss_mb": round(_peak_rss_mb(), 1),
+        "peak_rss_mb": (
+            round(rss, 1) if (rss := _peak_rss_mb()) is not None else None
+        ),
         "db_size_mb": round(
             sum(
                 p.stat().st_size
