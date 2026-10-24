@@ -1,10 +1,11 @@
 # Evidência — Cycle 3
 
 - SHA inicial (início do Cycle 3): `275a435de323d02a59623276d26567c2312ab1c0`
-- SHA final: ver rodapé do PR (commit final do branch cycle-3)
+- SHA final do branch: `45ab02f` — merge squash em main: `233ff7f`
+  (PR #4, MERGED 2026-10-24T15:15:25Z, CI 5/5 verde)
 - Branch: `cycle-3` → `main` (PR aberto após gates verdes)
 - Specs: lf-0015 … lf-0025 (arquivos em `factory/specs/archive/2026/`)
-- Reviews: `factory/reviews/lf-0015.md` … `lf-0024.md`
+- Reviews: `factory/reviews/lf-0015.md` … `lf-0025.md`
 
 ## Commits
 
