@@ -1,0 +1,15 @@
+{
+  "agent": "codex",
+  "command": [
+    "codex",
+    "exec",
+    "$(cat /home/edgar/Documentos/projetos/forjas/code-atlas-forge/factory/prompts/lf-0025.implement.codex.md)"
+  ],
+  "created_at": "2026-10-24T14:39:17+00:00",
+  "id": "lf-0025",
+  "prompt_path": "/home/edgar/Documentos/projetos/forjas/code-atlas-forge/factory/prompts/lf-0025.implement.codex.md",
+  "spec_path": "/home/edgar/Documentos/projetos/forjas/code-atlas-forge/factory/specs/active/lf-0025.md",
+  "spec_sha256": "b730c3da8a9ba632ee0122b80feeaa0925d8ce61813193588b343477bfa6370e",
+  "status": "planned",
+  "title": "Cycle 3 Phases 11+12 \u2014 documentation set, final homologation, PR + merge"
+}

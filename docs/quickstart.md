@@ -106,11 +106,13 @@ $ code-atlas index-plan . --json   # dry-run, zero writes
 - `index-plan`: dry-run que renderiza o `IndexPlan` sem tocar no DB.
 - `ambiguous` nunca aparece como `resolved` — status sai verbatim.
 
-## O que o Cycle 2 **não** faz
+## O que o Cycle 3 **não** faz
 
 `impact`, `context`, `mcp`, `serve`, `ui` — não existem e não aparecem no
-`--help`. Resolução semântica profunda (tipos inferidos, overloads reais)
-fica para o Cycle 3 — aqui `resolved` significa "alvo único no snapshot".
+`--help`. Resolução syntactic não é type-checking (sem tipos inferidos,
+overloads reais, barrel reexports) — `ambiguous`/`unresolved`/`external`
+são fatos honestos. Resolvers SCIP/LSP sobem a cobertura, opt-in — ver
+`docs/semantic-resolution.md`.
 
 ## Troubleshooting
 
