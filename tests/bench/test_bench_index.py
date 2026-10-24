@@ -25,7 +25,7 @@ def test_bench_smoke_measures_all_phases(tmp_path: Path) -> None:
     for key in (
         "total_s", "discovery_s", "parse_s", "graph_s",
         "persist_residual_s", "noop_reindex_s", "db_size_mb",
-        "peak_tracemalloc_mb", "peak_rss_mb",
+        "peak_rss_mb",
     ):
         assert key in result, key
         # peak_rss_mb é None no Windows (sem `resource`); demais >= 0

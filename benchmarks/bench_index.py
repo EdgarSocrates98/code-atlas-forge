@@ -6,7 +6,9 @@ sintéticos deterministicamente seeded (mesmo seed → mesma árvore), mais:
 
 - p50/p95 de latência de query (StructuralSearch) sobre o snapshot pronto
 - tempo de reindex no-op (digest+versões inalterados)
-- peak memory via tracemalloc (processo corrente)
+- peak memory via ``ru_maxrss`` (kernel, zero overhead — cobre também o
+  lado C do SQLite; substitui tracemalloc no lf-0023 porque o tracing
+  inflava o workload 3-4x e o "residual de persist" herdava o artefato)
 - tamanho do DB em disco
 - contagem real de símbolos/arestas persistidas
 - hardware/OS/python do ambiente
@@ -30,7 +32,6 @@ import random
 import sys
 import tempfile
 import time
-import tracemalloc
 from pathlib import Path
 
 try:  # `resource` é Unix-only — Windows reporta None
@@ -50,7 +51,7 @@ from code_atlas.storage import connect, migrate
 SEED = 20261024
 
 PY_BODY = '''"""mod{i} — corpus sintético seeded."""
-from pkg{n}.util import helper{n}
+from pkg{n}.util import Base{n}, helper{n}
 
 
 class K{i}(Base{n}):
@@ -62,17 +63,36 @@ def f{i}(a, b):
     return a + b
 '''
 
+UTIL_BODY = '''"""util{n} — alvo de imports do corpus (lf-0023)."""
+
+
+class Base{n}:
+    pass
+
+
+def helper{n}():
+    return {n}
+'''
+
 
 def synth_indexable_corpus(root: Path, n_files: int, seed: int = SEED) -> Path:
     """Corpus Python parseável: imports + herança + calls (resolvidos e
-    não-resolvidos) — exercita parse+grafo de verdade."""
+    não-resolvidos) — exercita parse+grafo de verdade.
+
+    ``corpus_version=2`` (lf-0023): os 10 ``pkg*/util.py`` existem de
+    verdade — ``helper{n}``/``Base{n}`` resolvem, o que é pré-requisito
+    do cenário de mudança em módulo importado do bench de cenários.
+    """
     rng = random.Random(seed)
     corpus = root / "corpus"
     corpus.mkdir(parents=True, exist_ok=True)
-    for i in range(n_files):
-        d = corpus / f"pkg{rng.randint(0, 9)}"
+    for n in range(10):
+        d = corpus / f"pkg{n}"
         d.mkdir(parents=True, exist_ok=True)
         (d / "__init__.py").write_text("")
+        (d / "util.py").write_text(UTIL_BODY.format(n=n))
+    for i in range(n_files):
+        d = corpus / f"pkg{rng.randint(0, 9)}"
         body = PY_BODY.format(i=i, n=rng.randint(0, 9))
         (d / f"mod{i}.py").write_text(body)
     return corpus
@@ -100,12 +120,9 @@ def bench_size(tmp: Path, n_files: int) -> dict[str, object]:
     migrate(conn)
     coord = IndexCoordinator(conn)
 
-    tracemalloc.start()
     t0 = time.monotonic()
     out = coord.index(corpus)
     total_s = time.monotonic() - t0
-    _, tracemalloc_peak = tracemalloc.get_traced_memory()
-    tracemalloc.stop()
     if out.status != "success":
         raise RuntimeError(f"index failed: {out.error}")
 
@@ -159,7 +176,6 @@ def bench_size(tmp: Path, n_files: int) -> dict[str, object]:
             "p95": round(_p(lat, 0.95), 6),
             "n": len(lat),
         },
-        "peak_tracemalloc_mb": round(tracemalloc_peak / 1e6, 1),
         "peak_rss_mb": (
             round(rss, 1) if (rss := _peak_rss_mb()) is not None else None
         ),

@@ -49,6 +49,12 @@ from code_atlas.indexing.persist import persist_graph
 from code_atlas.indexing.reuse import cache_key_for, config_digest
 from code_atlas.parsers.contracts import ParseResult
 from code_atlas.parsers.engine import ParseEngine
+from code_atlas.resolvers.syntactic.resolver import (
+    RESOLVER_ID as _SYN_RESOLVER_ID,
+)
+from code_atlas.resolvers.syntactic.resolver import (
+    RESOLVER_VERSION as _SYN_RESOLVER_VERSION,
+)
 from code_atlas.storage.db import fts5_available
 from code_atlas.storage.store import Store
 
@@ -107,6 +113,9 @@ class IndexCoordinator:
                     f"{adapter.adapter_id}/{adapter.parser_version}"
                     f"+{adapter.grammar_version}"
                 )
+        # O SyntacticResolver é fixo no builder — sua versão define a
+        # extração de relações e deve invalidar o índice (lf-0023).
+        versions[f"resolver:{_SYN_RESOLVER_ID}"] = _SYN_RESOLVER_VERSION
         return versions
 
     def index(
@@ -242,9 +251,9 @@ class IndexCoordinator:
                 commit_sha=scan.git.head_sha or None,
                 dirty=scan.git.dirty,
             )
-            rows = [(store.upsert_source_file(repo_id, f), f) for f in scan.files]
+            file_ids = store.ensure_source_files(repo_id, scan.files)
+            rows = [(file_ids[f.path], f) for f in scan.files]
             store.insert_inventory_rows(snapshot_id, rows)
-            file_ids = {f.path: fid for fid, f in rows}
             pcounts = persist_graph(
                 store, repo_id, snapshot_id, file_ids, graph,
                 fts5=fts5_available(self._conn), file_status=file_status,

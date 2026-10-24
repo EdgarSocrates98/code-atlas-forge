@@ -1,0 +1,418 @@
+{
+  "corpus_version": 2,
+  "machine": "x86_64",
+  "platform": "Linux-7.0.0-38-generic-x86_64-with-glibc2.39",
+  "python": "3.12.3",
+  "runs": [
+    {
+      "db_size_mb": 11.15,
+      "files": 100,
+      "runs": {
+        "cold_index": {
+          "cache_puts": 120,
+          "files_parsed": 120,
+          "files_reused": 0,
+          "index_s": 0.1724,
+          "noop": false,
+          "occurrences": 560,
+          "plan_actions": {},
+          "relations": 940,
+          "status": "success"
+        },
+        "delete": {
+          "cache_puts": 0,
+          "files_parsed": 0,
+          "files_reused": 119,
+          "full_index_s": 0.1012,
+          "index_s": 0.0787,
+          "matches_full": true,
+          "noop": false,
+          "occurrences": 555,
+          "plan_actions": {
+            "drop": 1,
+            "reuse": 119
+          },
+          "relations": 931,
+          "status": "success"
+        },
+        "full_rebuild": {
+          "cache_puts": 120,
+          "files_parsed": 120,
+          "files_reused": 0,
+          "index_s": 0.1071,
+          "matches_cold": true,
+          "noop": false,
+          "occurrences": 560,
+          "plan_actions": {},
+          "relations": 940,
+          "status": "success"
+        },
+        "imported_module_change": {
+          "cache_puts": 12,
+          "files_parsed": 12,
+          "files_reused": 108,
+          "full_index_s": 0.1206,
+          "index_s": 0.1272,
+          "matches_full": true,
+          "noop": false,
+          "occurrences": 560,
+          "plan_actions": {
+            "reparse": 1,
+            "reuse": 108,
+            "revalidate-relations": 11
+          },
+          "relations": 940,
+          "status": "success"
+        },
+        "noop": {
+          "cache_puts": 0,
+          "files_parsed": 0,
+          "files_reused": 0,
+          "index_s": 0.018,
+          "noop": true,
+          "occurrences": 0,
+          "plan_actions": {},
+          "relations": 0,
+          "status": "noop"
+        },
+        "parser_version_change": {
+          "cache_puts": 120,
+          "files_parsed": 120,
+          "files_reused": 0,
+          "full_index_s": 0.1221,
+          "index_s": 0.133,
+          "matches_full": true,
+          "noop": false,
+          "occurrences": 560,
+          "plan_actions": {
+            "reparse": 120
+          },
+          "relations": 940,
+          "status": "success"
+        },
+        "rename": {
+          "cache_puts": 1,
+          "files_parsed": 1,
+          "files_reused": 119,
+          "full_index_s": 0.1009,
+          "index_s": 0.0749,
+          "matches_full": true,
+          "noop": false,
+          "occurrences": 560,
+          "plan_actions": {
+            "drop": 1,
+            "reparse": 1,
+            "reuse": 119
+          },
+          "relations": 940,
+          "status": "success"
+        },
+        "resolver_version_change": {
+          "cache_puts": 120,
+          "files_parsed": 120,
+          "files_reused": 0,
+          "full_index_s": 0.1299,
+          "index_s": 0.1051,
+          "matches_full": true,
+          "noop": false,
+          "occurrences": 560,
+          "plan_actions": {
+            "revalidate-relations": 120
+          },
+          "relations": 940,
+          "status": "success"
+        },
+        "single_file_change": {
+          "cache_puts": 1,
+          "files_parsed": 1,
+          "files_reused": 119,
+          "full_index_s": 0.1135,
+          "index_s": 0.0803,
+          "matches_full": true,
+          "noop": false,
+          "occurrences": 561,
+          "plan_actions": {
+            "reparse": 1,
+            "reuse": 119
+          },
+          "relations": 941,
+          "status": "success"
+        }
+      }
+    },
+    {
+      "db_size_mb": 77.72,
+      "files": 1000,
+      "runs": {
+        "cold_index": {
+          "cache_puts": 1020,
+          "files_parsed": 1020,
+          "files_reused": 0,
+          "index_s": 1.0399,
+          "noop": false,
+          "occurrences": 5060,
+          "plan_actions": {},
+          "relations": 9040,
+          "status": "success"
+        },
+        "delete": {
+          "cache_puts": 0,
+          "files_parsed": 0,
+          "files_reused": 1019,
+          "full_index_s": 1.1069,
+          "index_s": 0.8308,
+          "matches_full": true,
+          "noop": false,
+          "occurrences": 5055,
+          "plan_actions": {
+            "drop": 1,
+            "reuse": 1019
+          },
+          "relations": 9031,
+          "status": "success"
+        },
+        "full_rebuild": {
+          "cache_puts": 1020,
+          "files_parsed": 1020,
+          "files_reused": 0,
+          "index_s": 1.1238,
+          "matches_cold": true,
+          "noop": false,
+          "occurrences": 5060,
+          "plan_actions": {},
+          "relations": 9040,
+          "status": "success"
+        },
+        "imported_module_change": {
+          "cache_puts": 97,
+          "files_parsed": 97,
+          "files_reused": 923,
+          "full_index_s": 1.0555,
+          "index_s": 0.839,
+          "matches_full": true,
+          "noop": false,
+          "occurrences": 5060,
+          "plan_actions": {
+            "reparse": 1,
+            "reuse": 923,
+            "revalidate-relations": 96
+          },
+          "relations": 9040,
+          "status": "success"
+        },
+        "noop": {
+          "cache_puts": 0,
+          "files_parsed": 0,
+          "files_reused": 0,
+          "index_s": 0.1182,
+          "noop": true,
+          "occurrences": 0,
+          "plan_actions": {},
+          "relations": 0,
+          "status": "noop"
+        },
+        "parser_version_change": {
+          "cache_puts": 1020,
+          "files_parsed": 1020,
+          "files_reused": 0,
+          "full_index_s": 1.0605,
+          "index_s": 1.1704,
+          "matches_full": true,
+          "noop": false,
+          "occurrences": 5060,
+          "plan_actions": {
+            "reparse": 1020
+          },
+          "relations": 9040,
+          "status": "success"
+        },
+        "rename": {
+          "cache_puts": 1,
+          "files_parsed": 1,
+          "files_reused": 1019,
+          "full_index_s": 1.0525,
+          "index_s": 0.8388,
+          "matches_full": true,
+          "noop": false,
+          "occurrences": 5060,
+          "plan_actions": {
+            "drop": 1,
+            "reparse": 1,
+            "reuse": 1019
+          },
+          "relations": 9040,
+          "status": "success"
+        },
+        "resolver_version_change": {
+          "cache_puts": 1020,
+          "files_parsed": 1020,
+          "files_reused": 0,
+          "full_index_s": 1.0611,
+          "index_s": 1.1192,
+          "matches_full": true,
+          "noop": false,
+          "occurrences": 5060,
+          "plan_actions": {
+            "revalidate-relations": 1020
+          },
+          "relations": 9040,
+          "status": "success"
+        },
+        "single_file_change": {
+          "cache_puts": 1,
+          "files_parsed": 1,
+          "files_reused": 1019,
+          "full_index_s": 1.0334,
+          "index_s": 0.7925,
+          "matches_full": true,
+          "noop": false,
+          "occurrences": 5061,
+          "plan_actions": {
+            "reparse": 1,
+            "reuse": 1019
+          },
+          "relations": 9041,
+          "status": "success"
+        }
+      }
+    },
+    {
+      "db_size_mb": 387.81,
+      "files": 5000,
+      "runs": {
+        "cold_index": {
+          "cache_puts": 5020,
+          "files_parsed": 5020,
+          "files_reused": 0,
+          "index_s": 5.5681,
+          "noop": false,
+          "occurrences": 25060,
+          "plan_actions": {},
+          "relations": 45040,
+          "status": "success"
+        },
+        "delete": {
+          "cache_puts": 0,
+          "files_parsed": 0,
+          "files_reused": 5019,
+          "full_index_s": 6.5976,
+          "index_s": 5.4958,
+          "matches_full": true,
+          "noop": false,
+          "occurrences": 25055,
+          "plan_actions": {
+            "drop": 1,
+            "reuse": 5019
+          },
+          "relations": 45031,
+          "status": "success"
+        },
+        "full_rebuild": {
+          "cache_puts": 5020,
+          "files_parsed": 5020,
+          "files_reused": 0,
+          "index_s": 6.5677,
+          "matches_cold": true,
+          "noop": false,
+          "occurrences": 25060,
+          "plan_actions": {},
+          "relations": 45040,
+          "status": "success"
+        },
+        "imported_module_change": {
+          "cache_puts": 470,
+          "files_parsed": 470,
+          "files_reused": 4550,
+          "full_index_s": 6.4817,
+          "index_s": 5.3811,
+          "matches_full": true,
+          "noop": false,
+          "occurrences": 25060,
+          "plan_actions": {
+            "reparse": 1,
+            "reuse": 4550,
+            "revalidate-relations": 469
+          },
+          "relations": 45040,
+          "status": "success"
+        },
+        "noop": {
+          "cache_puts": 0,
+          "files_parsed": 0,
+          "files_reused": 0,
+          "index_s": 0.5423,
+          "noop": true,
+          "occurrences": 0,
+          "plan_actions": {},
+          "relations": 0,
+          "status": "noop"
+        },
+        "parser_version_change": {
+          "cache_puts": 5020,
+          "files_parsed": 5020,
+          "files_reused": 0,
+          "full_index_s": 6.8694,
+          "index_s": 6.874,
+          "matches_full": true,
+          "noop": false,
+          "occurrences": 25060,
+          "plan_actions": {
+            "reparse": 5020
+          },
+          "relations": 45040,
+          "status": "success"
+        },
+        "rename": {
+          "cache_puts": 1,
+          "files_parsed": 1,
+          "files_reused": 5019,
+          "full_index_s": 6.2159,
+          "index_s": 5.6414,
+          "matches_full": true,
+          "noop": false,
+          "occurrences": 25060,
+          "plan_actions": {
+            "drop": 1,
+            "reparse": 1,
+            "reuse": 5019
+          },
+          "relations": 45040,
+          "status": "success"
+        },
+        "resolver_version_change": {
+          "cache_puts": 5020,
+          "files_parsed": 5020,
+          "files_reused": 0,
+          "full_index_s": 6.6474,
+          "index_s": 6.7681,
+          "matches_full": true,
+          "noop": false,
+          "occurrences": 25060,
+          "plan_actions": {
+            "revalidate-relations": 5020
+          },
+          "relations": 45040,
+          "status": "success"
+        },
+        "single_file_change": {
+          "cache_puts": 1,
+          "files_parsed": 1,
+          "files_reused": 5019,
+          "full_index_s": 6.3824,
+          "index_s": 5.0606,
+          "matches_full": true,
+          "noop": false,
+          "occurrences": 25061,
+          "plan_actions": {
+            "reparse": 1,
+            "reuse": 5019
+          },
+          "relations": 45041,
+          "status": "success"
+        }
+      }
+    }
+  ],
+  "seed": 20261024,
+  "tool": "code-atlas bench_scenarios"
+}

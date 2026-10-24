@@ -190,6 +190,44 @@ class Store:
         )
         return int(cur.lastrowid)  # type: ignore[arg-type]
 
+    def ensure_source_files(
+        self, repository_id: int, files: Iterable[SourceFile]
+    ) -> dict[str, int]:
+        """Dedup de ``source_files`` em duas fases — path → id.
+
+        Mesmo padrão de ``ensure_symbols`` (lf-0023): um SELECT inicial,
+        executemany ``INSERT OR IGNORE`` dos ausentes, SELECT final.
+        Paridade com o upsert antigo: metadados da linha existente
+        NÃO são atualizados (o inventário por snapshot carrega o
+        sha256/size frescos em ``file_inventory``).
+        """
+        flist = list(files)
+        existing = self._conn.execute(
+            "SELECT id, relative_path FROM source_files"
+            " WHERE repository_id = ?",
+            (repository_id,),
+        ).fetchall()
+        ids = {r["relative_path"]: int(r["id"]) for r in existing}
+        missing = [f for f in flist if f.path not in ids]
+        if missing:
+            self._conn.executemany(
+                "INSERT OR IGNORE INTO source_files (repository_id,"
+                " relative_path, language, sha256, size_bytes, ignored)"
+                " VALUES (?, ?, ?, ?, ?, ?)",
+                [
+                    (repository_id, f.path, f.language, f.sha256,
+                     f.size_bytes, int(f.ignored))
+                    for f in missing
+                ],
+            )
+            refetch = self._conn.execute(
+                "SELECT id, relative_path FROM source_files"
+                " WHERE repository_id = ?",
+                (repository_id,),
+            ).fetchall()
+            ids = {r["relative_path"]: int(r["id"]) for r in refetch}
+        return ids
+
     def insert_inventory_rows(
         self, snapshot_id: int, rows: Iterable[tuple[int, SourceFile]]
     ) -> None:
@@ -323,57 +361,106 @@ class Store:
         return [int(r["id"]) for r in rows]
 
     # --- symbols / occurrences / relations / evidence (Cycle 2) -------
+    # --- persistência em lote (lf-0023, medido: ~145k execute/5k arquivos) --
 
-    def upsert_symbol(
-        self, repository_id: int, language: str, qualified_name: str, kind: str
-    ) -> tuple[int, bool]:
-        """Dedup por (repo, language, qname, kind) — retorna (id, created)."""
-        row = self._conn.execute(
-            "SELECT id FROM symbols WHERE repository_id = ? AND language = ? "
-            "AND qualified_name = ? AND kind = ?",
-            (repository_id, language, qualified_name, kind),
-        ).fetchone()
-        if row:
-            return int(row["id"]), False
-        cur = self._conn.execute(
-            "INSERT INTO symbols (repository_id, language, qualified_name, kind) "
-            "VALUES (?, ?, ?, ?)",
-            (repository_id, language, qualified_name, kind),
-        )
-        return int(cur.lastrowid), True  # type: ignore[arg-type]
+    _BATCH = 400  # linhas por INSERT multi-row (abaixo do limite de vars)
 
-    def insert_fts_symbol(
-        self, symbol_id: int, qualified_name: str, language: str, kind: str
+    def ensure_symbols(
+        self, repository_id: int, keys: list[tuple[str, str, str]]
+    ) -> tuple[dict[tuple[str, str, str], int], set[tuple[str, str, str]]]:
+        """Dedup de símbolos em duas fases — 145k+ round-trips → ~90.
+
+        Fase 1: SELECT dos existentes numa query. Fase 2: executemany
+        ``INSERT OR IGNORE`` só dos ausentes, seguido de SELECT final
+        dos ids (``RETURNING`` não devolve ids de linhas ignoradas).
+        ``keys``: ``(language, qualified_name, kind)`` dedupados pelo
+        caller.
+
+        Retorna ``(id_map, created)`` — ``created`` é o conjunto exato
+        de chaves que passaram a existir nesta chamada (correto mesmo
+        sob escritor concorrente: derivado do diff dos SELECTs).
+        """
+        uniq = sorted(set(keys))
+        existing = self._conn.execute(
+            "SELECT id, language, qualified_name, kind FROM symbols"
+            " WHERE repository_id = ?",
+            (repository_id,),
+        ).fetchall()
+        ids = {
+            (r["language"], r["qualified_name"], r["kind"]): int(r["id"])
+            for r in existing
+        }
+        pre = set(ids)
+        missing = [k for k in uniq if k not in ids]
+        if missing:
+            self._conn.executemany(
+                "INSERT OR IGNORE INTO symbols "
+                "(repository_id, language, qualified_name, kind) "
+                "VALUES (?, ?, ?, ?)",
+                [(repository_id, *k) for k in missing],
+            )
+            refetch = self._conn.execute(
+                "SELECT id, language, qualified_name, kind FROM symbols"
+                " WHERE repository_id = ?",
+                (repository_id,),
+            ).fetchall()
+            ids = {
+                (r["language"], r["qualified_name"], r["kind"]): int(r["id"])
+                for r in refetch
+            }
+        return ids, set(ids) - pre
+
+    def insert_symbols_batch(
+        self, rows: Iterable[tuple[int, str, str, str]]
     ) -> None:
-        """Popula o índice FTS (só chamado quando a build suporta FTS5)."""
-        self._conn.execute(
+        """FTS: inserts em lote — chamado só para símbolos novos."""
+        self._conn.executemany(
             "INSERT INTO fts_symbols (rowid, qualified_name, language, kind) "
             "VALUES (?, ?, ?, ?)",
-            (symbol_id, qualified_name, language, kind),
+            list(rows),
         )
 
-    def insert_occurrence(
-        self,
-        snapshot_id: int,
-        symbol_id: int,
-        source_file_id: int,
-        span_start: int | None,
-        span_end: int | None,
-        line: int | None,
-        col: int | None,
-        content_hash: str,
-        parse_status: str = "parsed",
-    ) -> int:
-        cur = self._conn.execute(
-            "INSERT INTO symbol_occurrences (snapshot_id, logical_symbol_id, "
-            "source_file_id, span_start, span_end, line, col, content_hash, "
-            "parse_status) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
-            (
-                snapshot_id, symbol_id, source_file_id, span_start, span_end,
-                line, col, content_hash, parse_status,
-            ),
+    def _insert_returning(
+        self, sql_prefix: str, rows: list[tuple[object, ...]], ncols: int
+    ) -> list[int]:
+        """Multi-row ``INSERT ... RETURNING id`` em chunks.
+
+        SQLite devolve ids na ordem das VALUES — o mapa com as linhas
+        de entrada é posicional e estável dentro da transação.
+        """
+        out: list[int] = []
+        ph = ",".join("?" for _ in range(ncols))
+        for i in range(0, len(rows), self._BATCH):
+            chunk = rows[i : i + self._BATCH]
+            stmt = sql_prefix + ",".join(
+                "(" + ph + ")" for _ in chunk
+            ) + " RETURNING id"
+            cur = self._conn.execute(
+                stmt, [v for row in chunk for v in row]
+            )
+            out.extend(int(r["id"]) for r in cur.fetchall())
+        return out
+
+    def insert_occurrences_batch(
+        self, rows: list[tuple[object, ...]]
+    ) -> list[int]:
+        """Batch de ocorrências — retorna ids na ordem das linhas."""
+        return self._insert_returning(
+            "INSERT INTO symbol_occurrences (snapshot_id, logical_symbol_id,"
+            " source_file_id, span_start, span_end, line, col, content_hash,"
+            " parse_status) VALUES ",
+            rows, 9,
         )
-        return int(cur.lastrowid)  # type: ignore[arg-type]
+
+    def insert_evidence_batch(
+        self, rows: list[tuple[object, ...]]
+    ) -> list[int]:
+        """Batch de evidências — retorna ids na ordem das linhas."""
+        return self._insert_returning(
+            "INSERT INTO evidence (snapshot_id, source_file_id, path, span,"
+            " content_hash, extractor, extractor_version, notes) VALUES ",
+            rows, 8,
+        )
 
     def insert_evidence(
         self,

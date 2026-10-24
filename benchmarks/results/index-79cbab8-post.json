@@ -1,0 +1,82 @@
+{
+  "baseline_note": "Cycle-1 bench_scan media discovery+hash apenas; compar\u00e1vel somente em discovery_s.",
+  "machine": "x86_64",
+  "platform": "Linux-7.0.0-38-generic-x86_64-with-glibc2.39",
+  "python": "3.12.3",
+  "runs": [
+    {
+      "db_size_mb": 1.22,
+      "discovery_s": 0.0173,
+      "edges_skipped": 130,
+      "files": 100,
+      "files_parsed": 120,
+      "graph_edges": 1070,
+      "graph_nodes": 571,
+      "graph_s": 0.0093,
+      "noop_reindex_s": 0.018,
+      "noop_status": "noop",
+      "occurrences": 560,
+      "parse_s": 0.0301,
+      "peak_rss_mb": 31.9,
+      "persist_residual_s": 0.0508,
+      "query_latency_s": {
+        "n": 60,
+        "p50": 0.000358,
+        "p95": 0.000394
+      },
+      "relations": 940,
+      "symbols": 560,
+      "total_s": 0.1075
+    },
+    {
+      "db_size_mb": 16.52,
+      "discovery_s": 0.1088,
+      "edges_skipped": 1030,
+      "files": 1000,
+      "files_parsed": 1020,
+      "graph_edges": 10070,
+      "graph_nodes": 5071,
+      "graph_s": 0.1466,
+      "noop_reindex_s": 0.1185,
+      "noop_status": "noop",
+      "occurrences": 5060,
+      "parse_s": 0.2814,
+      "peak_rss_mb": 64.8,
+      "persist_residual_s": 0.4879,
+      "query_latency_s": {
+        "n": 60,
+        "p50": 0.002637,
+        "p95": 0.003072
+      },
+      "relations": 9040,
+      "symbols": 5060,
+      "total_s": 1.0247
+    },
+    {
+      "db_size_mb": 80.94,
+      "discovery_s": 0.5301,
+      "edges_skipped": 5030,
+      "files": 5000,
+      "files_parsed": 5020,
+      "graph_edges": 50070,
+      "graph_nodes": 25071,
+      "graph_s": 1.3413,
+      "noop_reindex_s": 0.5585,
+      "noop_status": "noop",
+      "occurrences": 25060,
+      "parse_s": 1.6222,
+      "peak_rss_mb": 213.2,
+      "persist_residual_s": 2.0462,
+      "query_latency_s": {
+        "n": 60,
+        "p50": 0.012946,
+        "p95": 0.017123
+      },
+      "relations": 45040,
+      "symbols": 25060,
+      "total_s": 5.5398
+    }
+  ],
+  "seed": 20261024,
+  "tool": "code-atlas bench_index"
+}
