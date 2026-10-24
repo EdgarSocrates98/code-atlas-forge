@@ -114,11 +114,12 @@ def test_envelope_v2_fields(env: tuple[sqlite3.Connection, str]) -> None:
 
 
 def test_unknown_strategy_is_typed_error(env: tuple[sqlite3.Connection, str]) -> None:
-    res = _search(env, "x", strategy="hybrid")
+    res = _search(env, "x", strategy="vector")
     assert any(d.code == "strategy-unavailable" for d in res.diagnostics)
     caps = SearchEngine(env[0]).capabilities()
     assert "graph" in caps.strategies
-    assert "hybrid" not in caps.strategies
+    assert "hybrid" in caps.strategies
+    assert "vector" not in caps.strategies
 
 
 def test_structural_strategy_passthrough(env: tuple[sqlite3.Connection, str]) -> None:

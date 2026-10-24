@@ -5,6 +5,7 @@ tipado honesto (nunca resultado vazio silencioso)."""
 
 from __future__ import annotations
 
+import dataclasses
 import sqlite3
 
 from code_atlas.search.contracts import (
@@ -20,6 +21,7 @@ from code_atlas.search.contracts import (
     query_fingerprint,
 )
 from code_atlas.search.graph import GraphRetrieval
+from code_atlas.search.hybrid import RANKING_VERSION_HYBRID, fuse, to_search_hit
 from code_atlas.search.lexical import LexicalSearch
 from code_atlas.search.structural import StructuralSearch
 
@@ -38,11 +40,11 @@ class SearchEngine:
             "SELECT 1 FROM sqlite_master WHERE name='fts_occurrences'"
         ).fetchone() is not None
         return SearchCapability(
-            strategies=(("lexical", "structural", "graph") if fts5
-                        else ("structural", "graph")),
+            strategies=(("lexical", "structural", "graph", "hybrid")
+                        if fts5 else ("structural", "graph", "hybrid")),
             fts5=fts5,
             vector=False,
-            detail="hybrid/vector: planned (lf-0038..lf-0039)",
+            detail="vector: planned (lf-0039)",
         )
 
     def search(self, req: SearchRequest) -> SearchResult:
@@ -53,7 +55,8 @@ class SearchEngine:
                 code="repository-not-found", severity="error",
                 message=f"repositório não indexado: {req.repository_root}"))
             return self._empty(req, diags)
-        snap, snap_err = self._structural.resolve_snapshot(repo_id, None)
+        snap, snap_err = self._structural.resolve_snapshot(
+            repo_id, req.snapshot_id)
         if snap is None:
             diags.append(SearchDiagnostic(
                 code="no-ready-snapshot", severity="error",
@@ -74,6 +77,18 @@ class SearchEngine:
                 return self._empty(req, diags, snapshot_id=sid)
             offset = decoded
 
+        if req.strategy == "hybrid":
+            hits, h_diags = self._hybrid_hits(req, sid)
+            diags.extend(h_diags)
+            return SearchResult(
+                schema_version=SEARCH_SCHEMA_VERSION,
+                repository=req.repository_root,
+                snapshot_id=sid, query=req.query, strategy=req.strategy,
+                ranking_version=RANKING_VERSION_HYBRID, items=hits,
+                limit=req.limit,
+                truncated=False,
+                diagnostics=tuple(diags),
+            )
         if req.strategy == "graph":
             hits, _total, g_diags = self._graph_hits(req, sid)
             diags.extend(g_diags)
@@ -147,6 +162,28 @@ class SearchEngine:
             for it in items
         )
         return hits, int(page.total)
+
+    def _hybrid_hits(
+        self, req: SearchRequest, snapshot_id: int
+    ) -> tuple[tuple[SearchHit, ...], tuple[SearchDiagnostic, ...]]:
+        """Pipeline híbrido: lexical+structural+graph → RRF → página."""
+        diags: list[SearchDiagnostic] = []
+        fetch = max(20, min((req.limit or 20) * 3, 200))
+        rankings: dict[str, list[SearchHit]] = {}
+        lex_req = dataclasses.replace(req, limit=fetch)
+        lex_hits, _total, lex_diags = self._lexical.search(lex_req, snapshot_id)
+        diags.extend(lex_diags)
+        rankings["lexical"] = list(lex_hits)
+        repo_id = self._structural.repo_for_root(req.repository_root)
+        st_hits, _ = self._structural_hits(
+            dataclasses.replace(req, limit=fetch),
+            repo_id or 0, snapshot_id, 0)
+        rankings["structural"] = list(st_hits)
+        g_hits, _, g_diags = self._graph_hits(lex_req, snapshot_id)
+        diags.extend(d for d in g_diags if d.code != "seed-not-found")
+        rankings["graph"] = list(g_hits)
+        fused = fuse(rankings)
+        return tuple(to_search_hit(c) for c in fused), tuple(diags)
 
     def _graph_hits(
         self, req: SearchRequest, snapshot_id: int

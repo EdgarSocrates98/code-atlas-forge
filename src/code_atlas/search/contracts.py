@@ -26,6 +26,7 @@ class SearchRequest:
     query: str
     strategy: str = "lexical"
     repository_root: str = ""
+    snapshot_id: int | None = None
     limit: int = 20
     cursor: str | None = None
     language: str | None = None

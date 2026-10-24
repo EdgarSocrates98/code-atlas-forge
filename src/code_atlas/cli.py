@@ -19,7 +19,7 @@ import os
 import sqlite3
 import sys
 from collections.abc import Sequence
-from dataclasses import dataclass
+from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Any
 
@@ -663,6 +663,11 @@ def run_search(args: argparse.Namespace) -> int:
     assert (
         conn is not None and repo_id is not None and snap_id is not None
     )
+    strategy = getattr(args, "strategy", "structural") or "structural"
+    if strategy != "structural":
+        if repo_info is None:
+            return _emit_error(args, "repository info unavailable")
+        return _run_search_engine(args, conn, snap_id, repo_info, strategy)
     try:
         search = StructuralSearch(conn)
         filters = SearchFilters(
@@ -691,6 +696,54 @@ def run_search(args: argparse.Namespace) -> int:
         }
     finally:
         conn.close()
+    return _emit_page(args, payload)
+
+
+def _run_search_engine(
+    args: argparse.Namespace,
+    conn: sqlite3.Connection,
+    snap_id: int,
+    repo_info: dict[str, Any],
+    strategy: str,
+) -> int:
+    """Estratégias do SearchEngine (lexical|graph|hybrid) com envelope v2."""
+    from code_atlas.search import SearchEngine, SearchRequest
+    from code_atlas.search.contracts import encode_cursor, query_fingerprint
+
+    offset = max(0, args.offset)
+    cursor = None
+    if offset:
+        fp = query_fingerprint(args.query, {
+            "language": args.language, "kind": args.kind,
+            "path": args.path_filter})
+        cursor = encode_cursor(offset, fp)
+    try:
+        res = SearchEngine(conn).search(
+            SearchRequest(
+                query=args.query,
+                strategy=strategy,
+                language=args.language,
+                kind=args.kind,
+                path=args.path_filter,
+                repository_root=str(resolve_root(args.root)),
+                snapshot_id=snap_id,
+                limit=clamp_limit(args.limit),
+                cursor=cursor,
+            )
+        )
+    finally:
+        conn.close()
+    items = [asdict(h) for h in res.items]
+    payload: dict[str, Any] = res.to_dict()
+    payload["tool"] = "code-atlas"
+    payload["version"] = __version__
+    payload["command"] = "search"
+    payload["repository"] = repo_info
+    payload["_human"] = [
+        f"{h['qualified_name']:<40} {h['path']} "
+        f"[{','.join(h['matched_fields']) or 'structural'} "
+        f"score={h['score']:.4f}]" for h in items
+    ]
     return _emit_page(args, payload)
 
 
@@ -995,6 +1048,9 @@ def build_parser() -> argparse.ArgumentParser:
         "search", help="busca estrutural por símbolo (substring)"
     )
     p_search.add_argument("query", metavar="QUERY", help="substring do qualified_name")
+    p_search.add_argument(
+        "--strategy", metavar="NAME", default="structural",
+        help="structural|lexical|graph|hybrid (default structural)")
     _add_query_args(p_search, p_path=True)
     p_search.set_defaults(func=run_search)
 
