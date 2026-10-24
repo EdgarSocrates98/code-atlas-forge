@@ -40,6 +40,12 @@ ganham arquivo quando o ciclo correspondente as tornar reais.
 |---|---|---|
 | 020 | Modelo de grafo incremental: snapshots completos | `adr-0020-incremental-graph-model.md` |
 
+## Decididas e implementadas (Cycle 4)
+
+| ADR | Título | Arquivo |
+|---|---|---|
+| 021 | Política de precedência de evidência (verificação por tier superior) | `adr-0021-evidence-precedence.md` |
+
 ## Propostas (ciclos futuros — não implementadas)
 
 | ADR | Título | Ciclo |

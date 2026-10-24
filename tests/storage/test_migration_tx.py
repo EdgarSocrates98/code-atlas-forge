@@ -80,16 +80,17 @@ def test_older_schema_db_opens_and_migrates(
     monkeypatch.undo()
     conn.close()
 
-    conn2 = connect(tmp_path / "ws" / "atlas.db")  # reabre e aplica v2..v5
-    assert mig.migrate(conn2) == 5
-    assert mig.migrate(conn2) == 5  # idempotente
+    conn2 = connect(tmp_path / "ws" / "atlas.db")  # reabre e aplica v2..v6
+    assert mig.migrate(conn2) == 6
+    assert mig.migrate(conn2) == 6  # idempotente
     names = {r[0] for r in conn2.execute(
         "SELECT name FROM schema_migrations ORDER BY version")}
     assert names == {"core schema (blueprint §6)",
                      "fts_symbols virtual table",
                      "snapshot-scoped indexes",
                      "parse result cache (lf-0020)",
-                     "logical repo identity + dirty flag (lf-0021)"}
+                     "logical repo identity + dirty flag (lf-0021)",
+                     "evidence resolver provenance (lf-0035)"}
 
 
 def test_split_statements_handles_comments_and_multiline() -> None:

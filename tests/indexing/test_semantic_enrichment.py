@@ -14,6 +14,7 @@ Arestas que o syntactic deixa ``unresolved`` são re-tentadas via
 
 from __future__ import annotations
 
+import dataclasses
 import sqlite3
 from pathlib import Path
 
@@ -119,6 +120,25 @@ class _FakeResolver:
         return ResolutionResult(request=request, reference=ref)
 
 
+_RUN_NID = symbol_node_id("python", "function", "pkg.engine.run")
+
+
+class _ConflictingResolver(_FakeResolver):
+    """lf-0035: resolve `helper` para um ALVO DISTINTO persistível
+    (``pkg.engine.run``) — exercita o caminho de conflito."""
+
+    resolver_id = "conflicting"
+
+    def resolve(self, request: ResolutionRequest) -> ResolutionResult:
+        result = super().resolve(request)
+        if result.reference is not None:
+            ref = dataclasses.replace(
+                result.reference, target_id=_RUN_NID
+            )
+            return ResolutionResult(request=request, reference=ref)
+        return result
+
+
 class _ExplodingResolver(_FakeResolver):
     resolver_id = "exploding"
 
@@ -202,11 +222,12 @@ def test_unresolved_result_preserves_edge(
     assert mystery["to_unresolved"] == "mystery"
 
 
-def test_already_resolved_edge_never_reopened(
+def test_resolved_edge_confirmed_by_higher_tier(
     db: sqlite3.Connection, tmp_path: Path
 ) -> None:
-    """`helper` resolvido pelo syntactic (com import) não é reescrito
-    pelo resolver externo — evidência syntactic vence por ordem."""
+    """lf-0035: `helper` resolvido pelo syntactic é VERIFICADO pelo
+    resolver de tier 1; mesmo alvo → proveniência sobe, aresta segue
+    resolved e evidência ``confirmed`` é persistida."""
     repo = tmp_path / "repo"
     for rel, content in _REPO_FILES.items():
         p = repo / rel
@@ -222,8 +243,71 @@ def test_already_resolved_edge_never_reopened(
     calls = [r for r in rows if r["type"] == "CALLS"]
     assert calls, "expected CALLS edges"
     for r in calls:
-        assert r["resolver"] != "fake-semantic"
+        # lf-0035: tier superior CONFIRMA o mesmo alvo → proveniência
+        # sobe para o resolver de tier mais alto; aresta segue resolved.
+        assert r["resolver"] == "fake-semantic"
         assert r["resolution_status"] == "resolved"
+    confirmed = db.execute(
+        "SELECT COUNT(*) FROM evidence WHERE validation_status='confirmed'"
+    ).fetchone()[0]
+    assert confirmed >= 1
+
+
+def test_conflict_with_higher_tier_becomes_ambiguous(
+    db: sqlite3.Connection, tmp_path: Path
+) -> None:
+    """lf-0035: resolver de tier superior diverge → aresta vira
+    ``ambiguous``, alvo original preservado (nunca sobrescrito)."""
+    repo = tmp_path / "repo"
+    for rel, content in _REPO_FILES.items():
+        p = repo / rel
+        p.parent.mkdir(parents=True, exist_ok=True)
+        p.write_text(content)
+    (repo / "pkg" / "engine.py").write_text(
+        "from pkg.util import helper\n\n"
+        "def run():\n"
+        "    return helper()\n"
+    )
+    out = _index(db, repo, factories=(lambda u: _ConflictingResolver(),))
+    assert out.stats["semantic_conflicts"] >= 1
+    row = db.execute(
+        "SELECT r.resolution_status, s.qualified_name "
+        "FROM relations r "
+        "JOIN symbol_occurrences o ON o.id = r.to_id "
+        "JOIN symbols s ON s.id = o.logical_symbol_id "
+        "WHERE r.type='CALLS'"
+    ).fetchone()
+    assert row is not None
+    assert row["resolution_status"] == "ambiguous"
+    # to_id preserva a ocorrência de pkg.util.helper (alvo original)
+    assert "helper" in row["qualified_name"]
+    helper_ev = db.execute(
+        "SELECT COUNT(*) FROM evidence WHERE validation_status='conflict'"
+    ).fetchone()[0]
+    assert helper_ev >= 1
+
+
+def test_resolved_edge_untouched_without_higher_tier(
+    db: sqlite3.Connection, tmp_path: Path
+) -> None:
+    """Sem resolver de tier superior configurado, arestas resolved
+    passam pelo pipeline sem custo nem alteração (lf-0035)."""
+    repo = tmp_path / "repo"
+    for rel, content in _REPO_FILES.items():
+        p = repo / rel
+        p.parent.mkdir(parents=True, exist_ok=True)
+        p.write_text(content)
+    (repo / "pkg" / "engine.py").write_text(
+        "from pkg.util import helper\n\n"
+        "def run():\n"
+        "    return helper()\n"
+    )
+    out = _index(db, repo)
+    assert out.stats.get("semantic_verified", 0) == 0
+    calls = [r for r in _rels(db) if r["type"] == "CALLS"]
+    assert calls and all(
+        r["resolution_status"] == "resolved" for r in calls
+    )
 
 
 # -- resiliência ---------------------------------------------------------------

@@ -63,7 +63,8 @@ def _persist_evidence(
         rows.append(
             (snapshot_id, fid, rec.path, _span_json(rec.span),
              rec.content_hash, rec.extractor, rec.extractor_version,
-             rec.notes)
+             rec.notes, rec.resolver_id, rec.resolver_version,
+             rec.evidence_tier, rec.index_hash, rec.validation_status)
         )
         order.append(i)
     for idx, rid in zip(order, store.insert_evidence_batch(rows), strict=True):

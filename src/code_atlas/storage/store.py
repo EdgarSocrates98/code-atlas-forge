@@ -494,8 +494,10 @@ class Store:
         """Batch de evidências — retorna ids na ordem das linhas."""
         return self._insert_returning(
             "INSERT INTO evidence (snapshot_id, source_file_id, path, span,"
-            " content_hash, extractor, extractor_version, notes) VALUES ",
-            rows, 8,
+            " content_hash, extractor, extractor_version, notes,"
+            " resolver_id, resolver_version, evidence_tier, index_hash,"
+            " validation_status) VALUES ",
+            rows, 13,
         )
 
     def insert_evidence(
@@ -508,14 +510,23 @@ class Store:
         extractor: str,
         extractor_version: str,
         notes: str = "",
+        resolver_id: str = "",
+        resolver_version: str = "",
+        evidence_tier: int = 0,
+        index_hash: str = "",
+        validation_status: str = "",
     ) -> int:
         cur = self._conn.execute(
             "INSERT INTO evidence (snapshot_id, source_file_id, path, span, "
-            "content_hash, extractor, extractor_version, notes) "
-            "VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+            "content_hash, extractor, extractor_version, notes, "
+            "resolver_id, resolver_version, evidence_tier, index_hash, "
+            "validation_status) "
+            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
             (
                 snapshot_id, source_file_id, path, span_json, content_hash,
-                extractor, extractor_version, notes,
+                extractor, extractor_version, notes, resolver_id,
+                resolver_version, evidence_tier, index_hash,
+                validation_status,
             ),
         )
         return int(cur.lastrowid)  # type: ignore[arg-type]

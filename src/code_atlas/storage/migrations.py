@@ -185,6 +185,14 @@ CREATE UNIQUE INDEX uq_repositories_identity ON repositories (identity_key);
 ALTER TABLE snapshots ADD COLUMN dirty INTEGER NOT NULL DEFAULT 0;
 """
 
+_SCHEMA_V6_EVIDENCE = """
+ALTER TABLE evidence ADD COLUMN resolver_id TEXT NOT NULL DEFAULT '';
+ALTER TABLE evidence ADD COLUMN resolver_version TEXT NOT NULL DEFAULT '';
+ALTER TABLE evidence ADD COLUMN evidence_tier INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE evidence ADD COLUMN index_hash TEXT NOT NULL DEFAULT '';
+ALTER TABLE evidence ADD COLUMN validation_status TEXT NOT NULL DEFAULT '';
+"""
+
 
 def migrations(*, fts5: bool) -> list[Migration]:
     """Lista de migrações; a v2 (FTS5) só existe quando a build suporta."""
@@ -194,6 +202,7 @@ def migrations(*, fts5: bool) -> list[Migration]:
     m.append(Migration(3, "snapshot-scoped indexes", _SCHEMA_V3_INDEXES))
     m.append(Migration(4, "parse result cache (lf-0020)", _SCHEMA_V4_CACHE))
     m.append(Migration(5, "logical repo identity + dirty flag (lf-0021)", _SCHEMA_V5_IDENTITY))
+    m.append(Migration(6, "evidence resolver provenance (lf-0035)", _SCHEMA_V6_EVIDENCE))
     return m
 
 

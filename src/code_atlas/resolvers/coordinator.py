@@ -34,11 +34,26 @@ class ResolverCoordinator:
         rel = relation_for_kind(request.kind)
         return self._registry.capable(request.language, rel)
 
-    def resolve(self, request: ResolutionRequest) -> ResolutionResult:
-        """Resolve seguindo a cadeia de evidência; nunca levanta."""
+    def resolve(
+        self,
+        request: ResolutionRequest,
+        *,
+        above_tier: int | None = None,
+    ) -> ResolutionResult:
+        """Resolve seguindo a cadeia de evidência; nunca levanta.
+
+        ``above_tier`` (lf-0035): quando informado, só consulta
+        resolvedores com ``tier < above_tier`` — usado para verificar
+        uma resolução existente contra evidência estritamente superior
+        (política de precedência determinística)."""
         diagnostics: list[ResolutionDiagnostic] = []
         best: ResolutionResult | None = None
         for resolver in self.candidates(request):
+            if (
+                above_tier is not None
+                and resolver.capabilities().tier >= above_tier
+            ):
+                continue
             try:
                 result = resolver.resolve(request)
             except Exception as exc:  # resolvedor isolado → diagnóstico
