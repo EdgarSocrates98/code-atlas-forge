@@ -357,7 +357,31 @@ class AtlasMcpServer:
             " e.validation_status FROM evidence e"
             " WHERE e.snapshot_id = ? ORDER BY e.id LIMIT 200",
             (ctx.snapshot_id,)).fetchall()
+        # refs canônicas grounded por occurrence do símbolo (lf-0051)
+        from code_atlas.search.refs import EvidenceGrounder
+
+        grounder = EvidenceGrounder(ctx.conn)
+        occ_ids = [
+            int(r["id"]) for r in ctx.conn.execute(
+                "SELECT o.id FROM symbol_occurrences o JOIN symbols s"
+                " ON s.id = o.logical_symbol_id"
+                " WHERE o.snapshot_id = ? AND s.qualified_name = ?"
+                " LIMIT 25",
+                (ctx.snapshot_id, name)).fetchall()
+        ]
+        refs: list[dict[str, Any]] = []
+        for oid in occ_ids:
+            occ = grounder.occurrence_ref(ctx.repo_id, ctx.snapshot_id,
+                                          oid)
+            if occ is not None:
+                refs.append({"kind": "syntactic-occurrence",
+                             "occurrence_id": occ.occurrence_id,
+                             "qualified_name": occ.qualified_name,
+                             "path": occ.source_path,
+                             "span": [occ.span_start, occ.span_end],
+                             "content_hash": occ.content_hash})
         return {"evidence": [dict(r) for r in rows],
+                "refs": refs,
                 "snapshot_id": ctx.snapshot_id, "for": name}
 
     # ---------------------------------------------------- resources

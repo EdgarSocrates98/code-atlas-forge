@@ -183,6 +183,10 @@ class SearchEngine:
                 span=it.get("span"),
                 score=0.0,
                 strategy="structural",
+                matched_fields=("qualified_name",),
+                evidence=(
+                    (f"occ:{int(it.get('occurrence_id', 0) or 0)}",)
+                    if int(it.get("occurrence_id", 0) or 0) else ()),
             )
             for it in items
         )
