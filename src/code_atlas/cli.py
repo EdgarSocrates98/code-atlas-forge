@@ -19,7 +19,7 @@ import os
 import sqlite3
 import sys
 from collections.abc import Sequence
-from dataclasses import asdict, dataclass
+from dataclasses import asdict, dataclass, replace
 from pathlib import Path
 from typing import Any
 
@@ -1054,6 +1054,64 @@ def run_definitions(args: argparse.Namespace) -> int:
     return _emit_page(args, payload)
 
 
+def run_impact(args: argparse.Namespace) -> int:
+    """``impact`` (Cycle 5): análise de impacto base e target (snapshots)."""
+    from code_atlas.impact.contracts import (
+        ImpactLimits,
+        ImpactRequest,
+    )
+    from code_atlas.impact.engine import ImpactEngine
+    from code_atlas.impact.report import to_json, to_markdown
+
+    root = resolve_root(args.root)
+    conn = _open_db()
+    try:
+        req = ImpactRequest(
+            repository_root=str(root),
+            base_revision=args.base,
+            target_revision=(args.target if args.cmd != "worktree"
+                             else ""),
+            symbol=args.ident if args.cmd in ("symbol", "contract")
+            else None,
+            known_only=args.known_only,
+            limits=ImpactLimits(
+                max_depth=args.depth, max_nodes=args.max_nodes,
+                max_paths=args.max_paths))
+        res = ImpactEngine(conn).analyze(req)
+        if args.cmd == "tests":
+            # relatório focado em candidatos a teste
+            res = replace(
+                res, symbol_changes=(), contract_changes=(),
+                impacts=())
+        if args.format == "json":
+            print(to_json(res))
+            return 0
+        if args.format == "markdown":
+            print(to_markdown(res))
+            return 0
+        # humano: resumo determinístico
+        print(f"impact: {res.base_revision} → {res.target_revision}")
+        print(f"  snapshots: {res.base_snapshot_id} → "
+              f"{res.target_snapshot_id}")
+        print(f"  changes: {len(res.symbol_changes)} símbolo(s), "
+              f"{len(res.contract_changes)} contrato(s)")
+        print(f"  impacts: {len(res.impacts)} "
+              f"(diretos: {sum(1 for i in res.impacts if i.impact.value == 'direct')})")
+        print(f"  tests: {len(res.test_candidates)} candidato(s)")
+        print(f"  risk: {res.risk.category.value} "
+              f"(uncertainty={res.risk.uncertainty})")
+        for r in res.risk.reasons:
+            print(f"    - {r}")
+        for d in res.diagnostics:
+            print(f"  diagnostic {d.code}: {d.message}",
+                  file=sys.stderr)
+        if res.truncated:
+            print("  TRUNCATED — limites atingidos")
+        return 0
+    finally:
+        conn.close()
+
+
 def run_dependencies(args: argparse.Namespace) -> int:
     """``dependencies`` (lf-0022): arestas saíntes, BFS limitado."""
     conn, repo_id, snap_id, repo_info, err = _search_context(args)
@@ -1252,6 +1310,30 @@ def build_parser() -> argparse.ArgumentParser:
     )
     _add_query_args(p_deps, filters=False)
     p_deps.set_defaults(func=run_dependencies)
+
+    p_impact = sub.add_parser(
+        "impact", help="análise de impacto entre revisões (Cycle 5)")
+    p_impact.add_argument(
+        "cmd", nargs="?", default="report",
+        choices=("diff", "worktree", "symbol", "tests", "contract",
+                 "report"))
+    p_impact.add_argument("ident", nargs="?", metavar="SYMBOL",
+                          help="qualified_name para symbol/contract")
+    p_impact.add_argument("--base", metavar="REV", default="",
+                          help="revisão base (HEAD~1, sha, branch)")
+    p_impact.add_argument("--target", metavar="REV", default="",
+                          help="revisão alvo (vazio = worktree)")
+    p_impact.add_argument("--depth", metavar="N", type=int, default=4)
+    p_impact.add_argument("--max-nodes", metavar="N", type=int,
+                          default=500)
+    p_impact.add_argument("--max-paths", metavar="N", type=int,
+                          default=50)
+    p_impact.add_argument("--known-only", action="store_true")
+    p_impact.add_argument("--format",
+                          choices=("json", "markdown", "human"),
+                          default="human")
+    _add_query_args(p_impact, filters=False)
+    p_impact.set_defaults(func=run_impact)
 
     return parser
 

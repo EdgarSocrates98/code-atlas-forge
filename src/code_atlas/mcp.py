@@ -13,7 +13,8 @@ from __future__ import annotations
 import json
 import sqlite3
 import sys
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
+from pathlib import Path
 from typing import Any, TextIO
 
 PROTOCOL_VERSION = "2024-11-05"
@@ -81,6 +82,30 @@ _TOOLS: dict[str, dict[str, Any]] = {
             "name": {"type": "string"}, "root": {"type": "string"},
             "delivered": {"type": "string"}},
             "required": ["name"], "additionalProperties": False},
+    },
+    "atlas_impact": {
+        "description": "análise de impacto entre revisões/snapshots",
+        "inputSchema": {"type": "object", "properties": {
+            "base": {"type": "string"}, "target": {"type": "string"},
+            "symbol": {"type": "string"},
+            "root": {"type": "string"},
+            "known_only": {"type": "boolean"},
+            "max_paths": {"type": "integer", "maximum": 200}},
+            "additionalProperties": False},
+    },
+    "atlas_diff": {
+        "description": "ChangeSet git read-only entre revisões",
+        "inputSchema": {"type": "object", "properties": {
+            "base": {"type": "string"}, "target": {"type": "string"},
+            "root": {"type": "string"}},
+            "required": ["base"], "additionalProperties": False},
+    },
+    "atlas_test_impact": {
+        "description": "testes candidatos relacionados às mudanças",
+        "inputSchema": {"type": "object", "properties": {
+            "base": {"type": "string"}, "target": {"type": "string"},
+            "root": {"type": "string"}},
+            "additionalProperties": False},
     },
 }
 
@@ -309,6 +334,7 @@ class AtlasMcpServer:
                     ctx, str(args.get("relation_type") or ""))
             if name == "atlas_evidence":
                 return self._evidence(ctx, str(args["name"]))
+            return self._run_impact_tool(ctx, name, args)
         finally:
             ctx.conn.close()
         raise LookupError(f"tool '{name}' não implementada")
@@ -403,6 +429,57 @@ class AtlasMcpServer:
         return {"evidence": [dict(r) for r in rows],
                 "refs": refs,
                 "snapshot_id": ctx.snapshot_id, "for": name}
+
+    def _run_impact_tool(
+        self, ctx: _Ctx, name: str, args: dict[str, Any],
+    ) -> dict[str, Any]:
+        """Despacho das tools de impacto (Cycle 5)."""
+        if name in ("atlas_impact", "atlas_test_impact"):
+            return self._impact(
+                ctx, args, tests_only=name == "atlas_test_impact")
+        if name == "atlas_diff":
+            return self._diff(ctx, args)
+        raise LookupError(f"tool '{name}' não implementada")
+
+    def _impact(
+        self, ctx: _Ctx, args: dict[str, Any], *, tests_only: bool,
+    ) -> dict[str, Any]:
+        """atlas_impact/atlas_test_impact — mesmo ImpactEngine da CLI."""
+        from code_atlas.impact.contracts import (
+            ImpactLimits,
+            ImpactRequest,
+        )
+        from code_atlas.impact.engine import ImpactEngine
+        from code_atlas.impact.report import _jsonable
+
+        req = ImpactRequest(
+            repository_root=ctx.root,
+            base_revision=str(args.get("base") or ""),
+            target_revision=str(args.get("target") or ""),
+            symbol=str(args["symbol"]) if args.get("symbol") else None,
+            known_only=bool(args.get("known_only")),
+            limits=ImpactLimits(
+                max_paths=min(200, int(args.get("max_paths") or 50))))
+        res = ImpactEngine(ctx.conn).analyze(req)
+        if tests_only:
+            res = replace(res, symbol_changes=(), contract_changes=(),
+                          impacts=())
+        return _jsonable(res)  # type: ignore[return-value]
+
+    def _diff(
+        self, ctx: _Ctx, args: dict[str, Any],
+    ) -> dict[str, Any]:
+        """atlas_diff — ChangeSet git read-only (sem tocar workspace)."""
+        from code_atlas.impact import diff_reader
+        from code_atlas.impact.report import _jsonable
+
+        cs, diags = diff_reader.read_diff(
+            Path(ctx.root), str(args["base"]),
+            str(args["target"]) if args.get("target") else None)
+        return {
+            "change_set": _jsonable(cs),
+            "diagnostics": [_jsonable(d) for d in diags],
+            "snapshot_id": ctx.snapshot_id}
 
     # ---------------------------------------------------- resources
     def _resources_read(

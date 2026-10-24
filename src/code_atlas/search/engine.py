@@ -85,8 +85,10 @@ class SearchEngine:
             return self._empty(req, diags)
         sid = int(snap.id or 0)
 
+        # lf-0058: snapshot no fingerprint — cursor de outra revisão é
+        # rejeitado (proteção cross-revision exigida pela Phase 0.2).
         filters = {"language": req.language, "kind": req.kind,
-                   "path": req.path}
+                   "path": req.path, "snapshot": str(sid)}
         fp = query_fingerprint(req.query, filters)
         offset = 0
         if req.cursor:
@@ -99,15 +101,22 @@ class SearchEngine:
             offset = decoded
 
         if req.strategy == "hybrid":
-            hits, h_diags = self._hybrid_hits(req, sid)
+            fused, h_diags = self._hybrid_hits(req, sid)
             diags.extend(h_diags)
+            # lf-0058 Phase 0.2: limit/offset APLICADOS após fusão —
+            # antes retornava todos os candidatos (P1).
+            lim = max(1, min(req.limit or 20, 200))
+            page = fused[offset:offset + lim]
+            truncated = offset + len(page) < len(fused)
             return SearchResult(
                 schema_version=SEARCH_SCHEMA_VERSION,
                 repository=req.repository_root,
                 snapshot_id=sid, query=req.query, strategy=req.strategy,
-                ranking_version=RANKING_VERSION_HYBRID, items=hits,
-                limit=req.limit,
-                truncated=False,
+                ranking_version=RANKING_VERSION_HYBRID, items=page,
+                limit=lim,
+                truncated=truncated,
+                next_cursor=(encode_cursor(offset + len(page), fp)
+                             if truncated else None),
                 diagnostics=tuple(diags),
             )
         if req.strategy == "graph":
@@ -199,21 +208,22 @@ class SearchEngine:
         diags: list[SearchDiagnostic] = []
         fetch = max(20, min((req.limit or 20) * 3, 200))
         rankings: dict[str, list[SearchHit]] = {}
-        lex_req = dataclasses.replace(req, limit=fetch)
+        # lf-0058: cursor NÃO pode vazar para os sub-canais — a lista
+        # fundida deve ser idêntica entre páginas (paginação estável).
+        lex_req = dataclasses.replace(req, limit=fetch, cursor=None)
         lex_hits, _total, lex_diags = self._lexical.search(lex_req, snapshot_id)
         diags.extend(lex_diags)
         rankings["lexical"] = list(lex_hits)
         repo_id = self._structural.repo_for_root(req.repository_root)
         st_hits, _ = self._structural_hits(
-            dataclasses.replace(req, limit=fetch),
-            repo_id or 0, snapshot_id, 0)
+            lex_req, repo_id or 0, snapshot_id, 0)
         rankings["structural"] = list(st_hits)
         g_hits, _, g_diags = self._graph_hits(lex_req, snapshot_id)
         diags.extend(d for d in g_diags if d.code != "seed-not-found")
         rankings["graph"] = list(g_hits)
         if self._vec:
             v_hits, _vt, v_diags = self._vector_hits(
-                dataclasses.replace(req, limit=fetch), snapshot_id, 0)
+                lex_req, snapshot_id, 0)
             diags.extend(
                 d for d in v_diags if d.code != "vector-empty")
             rankings["vector"] = list(v_hits)
