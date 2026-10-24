@@ -8,8 +8,10 @@ shell). Nada é escrito dentro do diretório varrido.
 
 from __future__ import annotations
 
+import contextlib
 import hashlib
 import os
+import stat
 import time
 from collections.abc import Iterator
 from dataclasses import dataclass
@@ -74,16 +76,44 @@ def probe_git(root: Path, git_available: bool | None = None) -> GitInfo:
     )
 
 
-def _hash_file(path: Path, chunk_size: int) -> str | None:
-    """SHA-256 por streaming; None em erro de leitura."""
-    digest = hashlib.sha256()
+def _file_open_flags() -> int:
+    """Flags de abertura defensiva; ausentes na plataforma viram no-op."""
+    flags = os.O_RDONLY
+    for name in ("O_NOFOLLOW", "O_CLOEXEC", "O_NONBLOCK", "O_BINARY"):
+        flags |= getattr(os, name, 0)
+    return flags
+
+
+def _hash_file(path: Path, chunk_size: int, root_real: Path) -> str | None:
+    """SHA-256 por streaming; None em erro de leitura ou escape.
+
+    Mitigação TOCTOU proporcional (Phase 0 / P1.1): resolve o caminho,
+    reconfere contenção na raiz e abre o alvo via ``os.open`` com
+    ``O_NOFOLLOW`` — se o último componente virar symlink entre resolve e
+    open, a abertura falha em vez de seguir o link. ``O_NONBLOCK`` evita
+    bloqueio em FIFOs; ``fstat`` garante arquivo regular.
+    """
     try:
-        with path.open("rb") as fh:
-            while chunk := fh.read(chunk_size):
-                digest.update(chunk)
+        resolved = path.resolve(strict=True)
+        if not resolved.is_relative_to(root_real):
+            return None
+        fd = os.open(resolved, _file_open_flags())
     except OSError:
         return None
-    return digest.hexdigest()
+    try:
+        if not stat.S_ISREG(os.fstat(fd).st_mode):
+            return None
+        digest = hashlib.sha256()
+        with os.fdopen(fd, "rb") as fh:
+            while chunk := fh.read(chunk_size):
+                digest.update(chunk)
+        return digest.hexdigest()
+    except OSError:
+        return None
+    finally:
+        # fdopen assume a posse do fd quando tem sucesso; EBADF é esperado.
+        with contextlib.suppress(OSError):
+            os.close(fd)
 
 
 def _rel_posix(root: Path, path: Path) -> str:
@@ -144,6 +174,7 @@ def _classify_and_hash(
     options: ScanOptions,
     acc: _Accumulator,
     budget: _Budget,
+    root_real: Path,
 ) -> None:
     """Monta o registro SourceFile aplicando segredos, limites e hash."""
     if is_secret(rel):
@@ -178,7 +209,7 @@ def _classify_and_hash(
             SourceFile(path=rel, language=language_for(rel), size_bytes=size, sha256=None)
         )
         return
-    digest = _hash_file(abs_path, options.hash_chunk_size)
+    digest = _hash_file(abs_path, options.hash_chunk_size, root_real)
     if digest is None:
         budget.warnings.append(
             ScanWarning(WarningKind.READ_ERROR, "unreadable or vanished during scan", rel)
@@ -309,9 +340,18 @@ def scan(
             if budget.check_timeout():
                 partial = True
                 break
+            # modo git: symlinks rastreados nunca passaram pelo filtro do
+            # walk — checar escape aqui cobre os dois enumeradores.
+            if abs_path.is_symlink() and _symlink_escapes(abs_path, root_real):
+                budget.warnings.append(
+                    ScanWarning(
+                        WarningKind.SYMLINK_ESCAPE, "symlink escapes root", rel
+                    )
+                )
+                continue
             if abs_path.is_dir() or not abs_path.exists():
                 continue
-            _classify_and_hash(abs_path, rel, ignored, options, acc, budget)
+            _classify_and_hash(abs_path, rel, ignored, options, acc, budget, root_real)
     except KeyboardInterrupt:
         partial = True
         budget.warnings.append(

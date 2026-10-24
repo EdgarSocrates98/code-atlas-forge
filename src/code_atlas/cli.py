@@ -21,6 +21,7 @@ import sys
 from collections.abc import Sequence
 from dataclasses import dataclass
 from pathlib import Path
+from typing import Any
 
 from code_atlas import __version__, gitbin
 from code_atlas.config import (
@@ -32,6 +33,14 @@ from code_atlas.config import (
 )
 from code_atlas.discovery.scanner import probe_git
 from code_atlas.indexing import IndexCoordinator, IndexOutcome
+from code_atlas.search.structural import (
+    DEFAULT_LIMIT,
+    MAX_LIMIT,
+    SCHEMA_VERSION,
+    SearchFilters,
+    StructuralSearch,
+    clamp_limit,
+)
 from code_atlas.storage import connect, migrate, schema_version
 from code_atlas.storage.store import Store
 
@@ -132,7 +141,7 @@ def run_doctor(args: argparse.Namespace) -> int:
 
     failed = [c for c in checks if not c.ok]
     if args.json:
-        payload = {
+        payload: dict[str, Any] = {
             "tool": "code-atlas",
             "version": __version__,
             "healthy": not failed,
@@ -309,6 +318,7 @@ def run_index(args: argparse.Namespace) -> int:
         "warnings": list(outcome.warnings),
         "noop": outcome.noop,
         "error": outcome.error,
+        "stats": outcome.stats,
     }
     if args.json:
         print(json.dumps(payload))
@@ -316,6 +326,12 @@ def run_index(args: argparse.Namespace) -> int:
         if outcome.status == "success":
             print(f"snapshot #{outcome.snapshot_id} READY — "
                   f"{outcome.files_indexed} inventory files")
+            s = outcome.stats
+            if s.get("occurrences") or s.get("relations"):
+                print(f"graph: {s.get('symbols_new', 0)} symbols, "
+                      f"{s.get('occurrences', 0)} occurrences, "
+                      f"{s.get('relations', 0)} relations "
+                      f"({s.get('files_failed', 0)} files failed)")
         elif outcome.status == "noop":
             print(f"snapshot #{outcome.snapshot_id} unchanged — no-op index")
         else:
@@ -325,6 +341,179 @@ def run_index(args: argparse.Namespace) -> int:
         for w in outcome.warnings:
             print(f"warning: {w}", file=sys.stderr)
     return EXIT_OK if outcome.status in ("success", "noop") else EXIT_ERROR
+
+
+def _search_context(
+    args: argparse.Namespace,
+) -> tuple[sqlite3.Connection | None, int | None, int | None, str]:
+    """Resolve (conn, repo_id, snapshot) para comandos read-only.
+
+    Erros são impressos em stderr + JSON de erro; retorna tupla com
+    ``None``s e mensagem quando indisponível — caller sai EXIT_ERROR.
+    """
+    root = resolve_root(args.root)
+    conn = _open_db()
+    search = StructuralSearch(conn)
+    root_handle = str(root)
+    repo_id = search.repo_for_root(root_handle)
+    if repo_id is None:
+        conn.close()
+        return None, None, None, f"no indexed repository at {root_handle}"
+    snap, err = search.resolve_snapshot(repo_id, args.snapshot)
+    if err or snap is None or snap.id is None:
+        conn.close()
+        return None, None, None, err or "snapshot missing id"
+    return conn, repo_id, snap.id, ""
+
+
+def _emit_error(args: argparse.Namespace, msg: str) -> int:
+    if args.json:
+        print(json.dumps({"tool": "code-atlas", "version": __version__,
+                          "error": msg, "schema_version": SCHEMA_VERSION}))
+    else:
+        print(f"error: {msg}", file=sys.stderr)
+    return EXIT_ERROR
+
+
+def _emit_page(args: argparse.Namespace, payload: dict[str, Any]) -> int:
+    """--json: objeto único parseável. Humano: linhas pré-formatadas."""
+    if args.json:
+        payload.pop("_human", None)
+        print(json.dumps(payload))
+    else:
+        for line in payload.pop("_human", []):
+            print(line)
+        if "total" in payload:
+            print(
+                f"-- total={payload['total']} "
+                f"truncated={payload.get('truncated', False)}"
+            )
+    return EXIT_OK
+
+
+def run_search(args: argparse.Namespace) -> int:
+    conn, repo_id, snap_id, err = _search_context(args)
+    if err:
+        return _emit_error(args, err)
+    assert conn is not None and repo_id is not None and snap_id is not None
+    try:
+        search = StructuralSearch(conn)
+        filters = SearchFilters(
+            language=args.language, kind=args.kind, path=args.path_filter,
+        )
+        limit = clamp_limit(args.limit)
+        page = search.search_symbols(
+            repo_id, snap_id, args.query, filters, limit, max(0, args.offset)
+        )
+        results = [dict(x) for x in page.items]
+        payload: dict[str, Any] = {
+            "tool": "code-atlas", "version": __version__,
+            "schema_version": SCHEMA_VERSION, "command": "search",
+            "query": args.query, "snapshot_id": snap_id,
+            "filters": {"language": args.language, "kind": args.kind,
+                        "path": args.path_filter},
+            "limit": limit, "offset": args.offset,
+            "total": page.total, "truncated": page.truncated,
+            "results": results,
+            "_human": [
+                f"{r['symbol_id']:>5} {r['kind']:<9} {r['language']:<10} "
+                f"{r['qualified_name']}" for r in results
+            ],
+        }
+    finally:
+        conn.close()
+    return _emit_page(args, payload)
+
+
+def run_symbol(args: argparse.Namespace) -> int:
+    conn, repo_id, snap_id, err = _search_context(args)
+    if err:
+        return _emit_error(args, err)
+    assert conn is not None and repo_id is not None and snap_id is not None
+    try:
+        search = StructuralSearch(conn)
+        detail = search.symbol_detail(repo_id, snap_id, args.ident)
+        if detail is None:
+            return _emit_error(args, f"symbol {args.ident!r} not found")
+        payload: dict[str, Any] = {
+            "tool": "code-atlas", "version": __version__,
+            "schema_version": SCHEMA_VERSION, "command": "symbol",
+            "snapshot_id": snap_id, "result": detail,
+            "_human": [
+                f"{detail['kind']} {detail['qualified_name']} "
+                f"({detail['language']})"
+            ] + [
+                f"  {o['path']}:{o['line']} [{o['parse_status']}]"
+                for o in detail["occurrences"]
+            ],
+        }
+    finally:
+        conn.close()
+    return _emit_page(args, payload)
+
+
+def run_references(args: argparse.Namespace) -> int:
+    conn, repo_id, snap_id, err = _search_context(args)
+    if err:
+        return _emit_error(args, err)
+    assert conn is not None and repo_id is not None and snap_id is not None
+    try:
+        search = StructuralSearch(conn)
+        page, rerr = search.references(
+            repo_id, snap_id, args.ident, args.relation_type,
+            clamp_limit(args.limit), max(0, args.offset),
+        )
+        if page is None:
+            return _emit_error(args, rerr)
+        results = [dict(x) for x in page.items]
+        payload: dict[str, Any] = {
+            "tool": "code-atlas", "version": __version__,
+            "schema_version": SCHEMA_VERSION, "command": "references",
+            "symbol": args.ident, "snapshot_id": snap_id,
+            "limit": clamp_limit(args.limit), "offset": args.offset,
+            "total": page.total, "truncated": page.truncated,
+            "results": results,
+            "_human": [
+                f"#{r['relation_id']} {r['type']} "
+                f"{r['from']['symbol']}@{r['from']['path']}:{r['from']['line']} "
+                f"-> {r['to']['symbol'] if r['to'] else r['to_unresolved']} "
+                f"[{r['resolution_status']}]"
+                for r in results
+            ],
+        }
+    finally:
+        conn.close()
+    return _emit_page(args, payload)
+
+
+def run_graph(args: argparse.Namespace) -> int:
+    conn, repo_id, snap_id, err = _search_context(args)
+    if err:
+        return _emit_error(args, err)
+    assert conn is not None and repo_id is not None and snap_id is not None
+    try:
+        search = StructuralSearch(conn)
+        filters = SearchFilters(
+            language=args.language, kind=args.kind,
+            path=args.path_filter, relation_type=args.relation_type,
+        )
+        dump = search.graph_dump(snap_id, filters, clamp_limit(args.limit))
+        payload: dict[str, Any] = {
+            "tool": "code-atlas", "version": __version__,
+            "schema_version": SCHEMA_VERSION, "command": "graph",
+            "snapshot_id": snap_id, "filters": {
+                "language": args.language, "kind": args.kind,
+                "path": args.path_filter, "relation_type": args.relation_type,
+            },
+            "limit": clamp_limit(args.limit),
+            **dump,
+            "_human": [
+                f"nodes={dump['counts']['nodes']} edges={dump['counts']['edges']}",
+            ],
+        }
+    finally:
+        conn.close()
+    return _emit_page(args, payload)
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -360,7 +549,52 @@ def build_parser() -> argparse.ArgumentParser:
     p_status.add_argument("--json", action="store_true", help="saída em JSON")
     p_status.set_defaults(func=run_status)
 
+    p_search = sub.add_parser(
+        "search", help="busca estrutural por símbolo (substring)"
+    )
+    p_search.add_argument("query", metavar="QUERY", help="substring do qualified_name")
+    _add_query_args(p_search, p_path=True)
+    p_search.set_defaults(func=run_search)
+
+    p_symbol = sub.add_parser("symbol", help="detalhe de um símbolo + ocorrências")
+    p_symbol.add_argument("ident", metavar="SYMBOL", help="id numérico ou qualified_name")
+    _add_query_args(p_symbol, filters=False)
+    p_symbol.set_defaults(func=run_symbol)
+
+    p_refs = sub.add_parser("references", help="relações que tocam um símbolo")
+    p_refs.add_argument("ident", metavar="SYMBOL", help="id numérico ou qualified_name")
+    p_refs.add_argument("--relation-type", metavar="TYPE", help="filtra por EdgeKind")
+    _add_query_args(p_refs, filters=False)
+    p_refs.set_defaults(func=run_references)
+
+    p_graph = sub.add_parser("graph", help="dump de nós+arestas do snapshot (JSON)")
+    p_graph.add_argument("--relation-type", metavar="TYPE", help="filtra arestas")
+    _add_query_args(p_graph, p_path=True)
+    p_graph.set_defaults(func=run_graph)
+
     return parser
+
+
+def _add_query_args(
+    p: argparse.ArgumentParser, *, filters: bool = True, p_path: bool = False
+) -> None:
+    """Args comuns dos comandos read-only de consulta."""
+    p.add_argument("--root", metavar="PATH", help="raiz do workspace (default: cwd)")
+    p.add_argument("--snapshot", metavar="ID", type=int,
+                   help="snapshot alvo (default: READY mais recente)")
+    p.add_argument("--limit", metavar="N", type=int,
+                   help=f"máx. de resultados (default {DEFAULT_LIMIT}, teto {MAX_LIMIT})")
+    p.add_argument("--offset", metavar="N", type=int, default=0,
+                   help="deslocamento de paginação")
+    if filters:
+        p.add_argument("--language", metavar="LANG", help="filtra por linguagem")
+        p.add_argument("--kind", metavar="KIND", help="filtra por NodeKind")
+        if p_path:
+            p.add_argument("--path", dest="path_filter", metavar="SUBSTR",
+                           help="substring de relative_path")
+    else:
+        p.set_defaults(language=None, kind=None, path_filter=None)
+    p.add_argument("--json", action="store_true", help="saída em JSON")
 
 
 def main(argv: Sequence[str] | None = None) -> int:

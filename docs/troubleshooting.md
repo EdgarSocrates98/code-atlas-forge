@@ -49,3 +49,33 @@ Para depurar: `CODE_ATLAS_LOG_LEVEL=DEBUG code-atlas index <path>`.
 Dois `code-atlas index` simultâneos no mesmo data_dir serializam via
 `BEGIN IMMEDIATE` + busy timeout 5s; o segundo aguarda ou falha com
 OperationalError (não corrompe). Readers (`status`) nunca bloqueiam sob WAL.
+
+## Arquivo com erro de sintaxe (Cycle 2)
+
+Não é falha: o arquivo vira ocorrência `parsed-with-errors` (ou
+`parse-failed` em erro fatal) com evidência `parse-failure:*` e símbolos
+parciais que a recuperação da gramática permitir. O snapshot publica
+READY normalmente; o job registra o path em `failures`. Verifique com
+`code-atlas status` → `counts` e `stats.files_with_errors` no JSON de
+`index`.
+
+## `search`/`symbol`/`references`/`graph` retorna exit 1
+
+Causas comuns: repositório nunca indexado (`index` primeiro), snapshot
+inexistente (`--snapshot` com id errado) ou snapshot FAILED (última
+indexação falhou — rode `status` para ver). O comando sempre consulta o
+snapshot READY mais recente por padrão.
+
+## Símbolo "não encontrado" mas o código existe
+
+Checagens: o arquivo tem extensão suportada (`.py`/`.ts`/`.tsx` etc.)?
+A ocorrência é de outra linguagem — filtre `--language`. Símbolo em
+arquivo `parsed-with-errors` pode ter sido perdido na recuperação de
+erro do parser — veja `failures` no job. `symbol` por nome exige
+qualified_name **exato** (`pkg.mod.fn`); para substring use `search`.
+
+## Regra do `is not` para nós tree-sitter (dev)
+
+Wrappers `Node` do mesmo nó C **não** compartilham identidade — compare
+por `node.id`. Bug real corrigido em lf-0013 (imports fantasma
+`pkg.util.pkg.util`).

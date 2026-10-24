@@ -1,0 +1,15 @@
+{
+  "agent": "claude",
+  "command": [
+    "claude",
+    "-p",
+    "$(cat /home/edgar/Documentos/projetos/forjas/code-atlas-forge/factory/prompts/lf-0008.implement.claude.md)"
+  ],
+  "created_at": "2026-10-24T11:37:53+00:00",
+  "id": "lf-0008",
+  "prompt_path": "/home/edgar/Documentos/projetos/forjas/code-atlas-forge/factory/prompts/lf-0008.implement.claude.md",
+  "spec_path": "/home/edgar/Documentos/projetos/forjas/code-atlas-forge/factory/specs/active/lf-0008.md",
+  "spec_sha256": "c708d0c8427f6ef20e72a0edfe91eda9044dc4dd7e2687a23f4657bd98b252fe",
+  "status": "planned",
+  "title": "Cycle 2 Phases 1+2 - Parser contracts + real Tree-sitter runtime (py/ts/tsx)"
+}

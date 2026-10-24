@@ -1,8 +1,7 @@
-# Quickstart — Cycle 1
+# Quickstart — Cycle 2
 
-Fluxo mínimo: init → doctor → index → status. Todos os comandos abaixo
-foram executados verbatim nesta máquina (evidência completa em
-`docs/cycle-1-evidence.md`).
+Fluxo mínimo: init → doctor → index → status → search. Todos os comandos
+foram executados verbatim (evidência completa em `docs/cycle-2-evidence.md`).
 
 ## 1. Instalar
 
@@ -49,18 +48,42 @@ Re-indexar sem mudanças é **no-op determinístico**:
 ```bash
 $ code-atlas status
 root:       /caminho/do/repo
-schema:     v2
+schema:     v3
 git:        main@8d1551b91e41 (dirty)
 snapshot:   #1 READY — 116 files
 ```
 
-## O que o Cycle 1 **não** faz
+## 6. Consultar o grafo (Cycle 2)
 
-`search`, `symbol`, `references`, `graph`, `impact`, `context`, `mcp`,
-`serve`, `ui` — não existem e não aparecem no `--help`. O inventário é de
-arquivos+fingerprints; ainda não há símbolos nem grafo (Cycles 2–3).
+Após `index`, o snapshot READY é consultável — saída verbatim do fixture
+`demo/` (4 arquivos → 13 símbolos, 16 arestas):
+
+```bash
+$ code-atlas search "main" --root demo --json
+{"tool": "code-atlas", "version": "0.1.0", "schema_version": "1", "command": "search", "query": "main", "snapshot_id": 1, "filters": {"language": null, "kind": null, "path": null}, "limit": 50, "offset": 0, "total": 3, "truncated": false, "results": [{"symbol_id": 5, "qualified_name": "main", "language": "python", "kind": "module"}, {"symbol_id": 11, "qualified_name": "main.main", "language": "python", "kind": "function"}, {"symbol_id": 1, "qualified_name": "main.py", "language": "", "kind": "file"}]}
+
+$ code-atlas symbol pkg.util.helper --root demo --json
+{"tool": "code-atlas", "version": "0.1.0", ..., "result": {"symbol_id": 12, "qualified_name": "pkg.util.helper", "language": "python", "kind": "function", "occurrences": [{"occurrence_id": 12, "path": "pkg/util.py", "line": 5, "col": 0, "parse_status": "parsed"}]}}
+
+$ code-atlas references pkg.util.helper --root demo --json
+{"tool": "code-atlas", ..., "results": [{"type": "CALLS", "from": {"symbol": "pkg.core.Engine.run", ...}, "to": {"symbol": "pkg.util.helper", ...}, "resolution_status": "resolved", "confidence_class": "resolved"}, {"type": "DEFINES", ...}]}
+
+$ code-atlas graph --root demo --json
+{"tool": "code-atlas", ..., "counts": {"nodes": 13, "edges": 16}, "nodes": [...], "edges": [...]}
+```
+
+Filtros disponíveis: `--language`, `--kind`, `--path`, `--snapshot`,
+`--relation-type`, `--limit`/`--offset`. Detalhes e semântica
+(sintático vs resolvido): `docs/structural-search.md`.
+
+## O que o Cycle 2 **não** faz
+
+`impact`, `context`, `mcp`, `serve`, `ui` — não existem e não aparecem no
+`--help`. Resolução semântica profunda (tipos inferidos, overloads reais)
+fica para o Cycle 3 — aqui `resolved` significa "alvo único no snapshot".
 
 ## Troubleshooting
 
 `init` falha com "config already exists" → use `--force` ou aponte
-`CODE_ATLAS_CONFIG_DIR` para outro lugar. Mais em `docs/troubleshooting.md`.
+`CODE_ATLAS_CONFIG_DIR` para outro lugar. `search` exit 1 → repo não
+indexado ou snapshot FAILED. Mais em `docs/troubleshooting.md`.

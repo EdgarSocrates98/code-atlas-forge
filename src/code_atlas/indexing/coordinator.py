@@ -1,12 +1,21 @@
-"""IndexCoordinator: scan → BUILDING → validação → READY atômico (Blueprint §6).
+"""IndexCoordinator: scan → parse → graph → BUILDING → validação → READY.
+
+Pipeline completo do Cycle 2 (Blueprint §6): Discovery → Manifest →
+Parser Registry → Símbolos → Graph Builder → Validação → READY.
 
 Regras:
 
 - Inventário idêntico (mesmo ``worktree_digest`` + mesmas versões de
-  analisadores) é **no-op**: não cria snapshot novo, registra job ``noop``.
+  analisadores **incluindo parser/grammar**) é **no-op** — mudança de
+  versão de extrator derrota o no-op por design.
+- Parsing e construção do grafo acontecem **fora** do ``BEGIN
+  IMMEDIATE`` — lock de escrita fica curto.
 - Falha dentro da transação faz rollback completo; o snapshot é marcado
   ``FAILED`` em transação separada para diagnóstico e o ``READY`` anterior
   permanece intacto.
+- Falha de parse por arquivo vira ``files_failed`` + failures no job e
+  evidence com notes — o snapshot pode ser READY com perda explícita e
+  auditável. Falha fatal (engine/grafo inválido) → snapshot FAILED.
 - Escritor único via ``BEGIN IMMEDIATE``; leitores concorrentes sob WAL.
 """
 
@@ -14,23 +23,22 @@ from __future__ import annotations
 
 import sqlite3
 from collections.abc import Callable
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 
 from code_atlas.contracts.enums import SnapshotStatus
 from code_atlas.discovery.models import ScanResult
 from code_atlas.discovery.scanner import scan as default_scan
+from code_atlas.graph.builder import GraphBuilder
+from code_atlas.graph.validation import validate_graph
+from code_atlas.indexing.persist import persist_graph
+from code_atlas.parsers.contracts import ParseResult
+from code_atlas.parsers.engine import ParseEngine
+from code_atlas.storage.db import fts5_available
 from code_atlas.storage.store import Store
 
 ANALYZER_NAME = "code-atlas"
 ANALYZER_VERSION = "0.1.0"
-
-
-def _analyzer_versions(scan: ScanResult) -> dict[str, str]:
-    return {
-        "scanner": f"{ANALYZER_NAME}-scanner/{ANALYZER_VERSION}",
-        "scan_mode": str(scan.mode),
-    }
 
 
 @dataclass(frozen=True)
@@ -45,6 +53,7 @@ class IndexOutcome:
     error: str = ""
     secrets_skipped: int = 0
     warnings: tuple[str, ...] = ()
+    stats: dict[str, int] = field(default_factory=dict)
 
 
 class IndexCoordinator:
@@ -54,10 +63,34 @@ class IndexCoordinator:
         self,
         conn: sqlite3.Connection,
         scanner: Callable[[Path], ScanResult] = default_scan,
+        engine: ParseEngine | None = None,
+        builder: GraphBuilder | None = None,
     ) -> None:
         self._conn = conn
         self._store = Store(conn)
         self._scanner = scanner
+        self._engine = engine or ParseEngine()
+        self._builder = builder or GraphBuilder()
+
+    def _analyzer_versions(self, scan: ScanResult) -> dict[str, str]:
+        """Versões que compõem a identidade do índice.
+
+        Inclui parser+grammar por linguagem registrada — manifest
+        idêntico com extrator novo **não** é no-op (lf-0011).
+        """
+        versions = {
+            "scanner": f"{ANALYZER_NAME}-scanner/{ANALYZER_VERSION}",
+            "scan_mode": str(scan.mode),
+        }
+        reg = self._engine.registry
+        for lang in reg.languages:
+            adapter = reg.for_language(lang)
+            if adapter is not None:
+                versions[f"parser:{lang}"] = (
+                    f"{adapter.adapter_id}/{adapter.parser_version}"
+                    f"+{adapter.grammar_version}"
+                )
+        return versions
 
     def index(self, root: Path, force: bool = False) -> IndexOutcome:
         """Escaneia `root` e publica snapshot READY (ou no-op) atomicamente.
@@ -67,7 +100,7 @@ class IndexCoordinator:
         """
         scan = self._scanner(Path(root))
         digest = scan.manifest_sha256()
-        versions = _analyzer_versions(scan)
+        versions = self._analyzer_versions(scan)
         store = self._store
 
         # Job registrado em transação própria para sobreviver a rollback —
@@ -84,6 +117,40 @@ class IndexCoordinator:
                 files_indexed=len(scan.files), error=error,
                 secrets_skipped=scan.secret_count,
                 warnings=tuple(str(w.kind) for w in scan.warnings),
+            )
+
+        # Fast-path noop ANTES de parsear (Blueprint §6: no-op não refaz
+        # parse). A checagem se repete dentro do lock para cobrir corrida
+        # com outro escritor.
+        current = store.latest_ready_snapshot(repo_id)
+        if (
+            not force
+            and current is not None
+            and current.worktree_digest == digest
+            and dict(current.analyzer_versions) == versions
+        ):
+            with self._conn:
+                store.finish_index_job(
+                    job_id, "noop", snapshot_id=current.id,
+                    counts={"files": 0}, failures=(),
+                )
+            return IndexOutcome(
+                snapshot_id=current.id, job_id=job_id, status="noop",
+                files_indexed=0, noop=True,
+            )
+
+        # Fase de análise FORA do lock de escrita: parse + grafo + validação.
+        results, file_status, read_failures = self._parse_files(root, scan)
+        graph = self._builder.build(Path(root).name, scan, results)
+        g_errors = validate_graph(graph)
+        if g_errors:
+            # invariante violada = bug/violação interna → FAILED, READY salvo
+            error = f"graph integrity violated: {'; '.join(g_errors[:3])}"
+            snap_id = self._mark_failed(repo_id, job_id, error)
+            return IndexOutcome(
+                snapshot_id=snap_id, job_id=job_id, status="failed",
+                files_indexed=len(scan.files), error=error,
+                secrets_skipped=scan.secret_count,
             )
 
         # Escritor único: BEGIN IMMEDIATE serializa com outros escritores.
@@ -117,18 +184,54 @@ class IndexCoordinator:
             )
             rows = [(store.upsert_source_file(repo_id, f), f) for f in scan.files]
             store.insert_inventory_rows(snapshot_id, rows)
+            file_ids = {f.path: fid for fid, f in rows}
+            pcounts = persist_graph(
+                store, repo_id, snapshot_id, file_ids, graph,
+                fts5=fts5_available(self._conn), file_status=file_status,
+            )
+            # evidência explícita para arquivos que falharam no parse —
+            # nenhuma perda silenciosa vira READY
+            sha_by_path = {f.path: f.sha256 for f in scan.files}
+            for fail in read_failures:
+                path, _, code = fail.partition(":")
+                fid = file_ids.get(path)
+                if fid is not None:
+                    store.insert_evidence(
+                        snapshot_id, fid, path, None,
+                        sha_by_path.get(path) or "", "parse-engine",
+                        ANALYZER_VERSION, notes=f"parse-failure:{code}",
+                    )
+                    pcounts["evidence"] += 1
             self._validate(snapshot_id)
             store.publish_snapshot(repo_id, snapshot_id)
+            counts = {
+                "files": len(rows),
+                "files_parsed": len(results),
+                "files_failed": sum(
+                    1 for x in read_failures
+                    if not x.endswith(":syntax-errors")
+                ),
+                "files_with_errors": sum(
+                    1 for x in read_failures
+                    if x.endswith(":syntax-errors")
+                ),
+                "secrets_skipped": scan.secret_count,
+                **pcounts,
+            }
+            failures = (
+                tuple(str(w.kind) for w in scan.warnings)
+                + tuple(read_failures)
+            )
             store.finish_index_job(
                 job_id, "success", snapshot_id=snapshot_id,
-                counts={"files": len(rows), "secrets_skipped": scan.secret_count},
-                failures=tuple(str(w.kind) for w in scan.warnings),
+                counts=counts, failures=failures,
             )
             self._conn.commit()
             return IndexOutcome(
                 snapshot_id=snapshot_id, job_id=job_id, status="success",
                 files_indexed=len(rows), secrets_skipped=scan.secret_count,
                 warnings=tuple(str(w.kind) for w in scan.warnings),
+                stats=counts,
             )
         except Exception as exc:
             self._conn.rollback()
@@ -137,6 +240,40 @@ class IndexCoordinator:
                 snapshot_id=failed_snap, job_id=job_id, status="failed",
                 files_indexed=0, error=str(exc),
             )
+
+    def _parse_files(
+        self, root: Path, scan: ScanResult
+    ) -> tuple[list[ParseResult], dict[str, str], list[str]]:
+        """Lê e parseia arquivos suportados — fora da transação de escrita.
+
+        Retorna (results, file_status, failures). ``file_status`` alimenta
+        ``symbol_occurrences.parse_status``; ``failures`` entra no job.
+        """
+        results: list[ParseResult] = []
+        file_status: dict[str, str] = {}
+        failures: list[str] = []
+        for f in scan.files:
+            if self._engine.registry.for_path(f.path) is None:
+                continue  # extensão sem parser — não conta como falha
+            try:
+                data = (Path(root) / f.path).read_bytes()
+            except OSError:
+                failures.append(f"{f.path}:read-error")
+                file_status[f.path] = "parse-failed"
+                continue
+            res = self._engine.parse(f.path, data)
+            results.append(res)
+            if not res.supported:
+                failures.append(
+                    f"{f.path}:{res.diagnostics[0].code if res.diagnostics else 'parse'}"
+                )
+                file_status[f.path] = "parse-failed"
+            elif res.has_error:
+                failures.append(f"{f.path}:syntax-errors")
+                file_status[f.path] = "parsed-with-errors"
+            else:
+                file_status[f.path] = "parsed"
+        return results, file_status, failures
 
     def _validate(self, snapshot_id: int) -> None:
         """Integrity gate antes do READY; levanta para abortar a transação."""

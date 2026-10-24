@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import hashlib
 import sqlite3
+from collections.abc import Iterator
 from dataclasses import dataclass
 
 
@@ -144,17 +145,43 @@ CREATE VIRTUAL TABLE fts_symbols USING fts5(
 );
 """
 
+_SCHEMA_V3_INDEXES = """
+CREATE INDEX IF NOT EXISTS idx_relations_snapshot ON relations (snapshot_id, type);
+CREATE INDEX IF NOT EXISTS idx_occurrences_snapshot_symbol
+    ON symbol_occurrences (snapshot_id, logical_symbol_id);
+CREATE INDEX IF NOT EXISTS idx_evidence_snapshot ON evidence (snapshot_id);
+"""
+
 
 def migrations(*, fts5: bool) -> list[Migration]:
     """Lista de migrações; a v2 (FTS5) só existe quando a build suporta."""
     m = [Migration(1, "core schema (blueprint §6)", _SCHEMA_V1)]
     if fts5:
         m.append(Migration(2, "fts_symbols virtual table", _SCHEMA_V2_FTS))
+    m.append(Migration(3, "snapshot-scoped indexes", _SCHEMA_V3_INDEXES))
     return m
 
 
 def _checksum(sql: str) -> str:
     return hashlib.sha256(sql.encode("utf-8")).hexdigest()
+
+
+def _split_statements(sql: str) -> Iterator[str]:
+    """Divide o script em statements completos via sqlite3.complete_statement.
+
+    Necessário porque ``executescript()`` faz COMMIT implícito antes de
+    rodar — sairia da transação do ``with conn:`` e deixaria DDL parcial
+    aplicada sem registro em ``schema_migrations`` (Phase 0 / P1.3).
+    """
+    buf: list[str] = []
+    for line in sql.splitlines(keepends=True):
+        buf.append(line)
+        chunk = "".join(buf)
+        if sqlite3.complete_statement(chunk):
+            stmt = chunk.strip()
+            if stmt:
+                yield stmt
+            buf.clear()
 
 
 def migrate(conn: sqlite3.Connection, *, fts5: bool | None = None) -> int:
@@ -188,7 +215,11 @@ def migrate(conn: sqlite3.Connection, *, fts5: bool | None = None) -> int:
             continue
         try:
             with conn:
-                conn.executescript(mig.sql)
+                # sqlite3 legacy só inicia transação implícita em DML —
+                # BEGIN explícito garante que DDL também seja atômica.
+                conn.execute("BEGIN")
+                for stmt in _split_statements(mig.sql):
+                    conn.execute(stmt)
                 conn.execute(
                     "INSERT INTO schema_migrations (version, name, checksum) VALUES (?, ?, ?)",
                     (mig.version, mig.name, digest),

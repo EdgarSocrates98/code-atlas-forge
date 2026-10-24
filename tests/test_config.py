@@ -47,14 +47,18 @@ def test_env_beats_xdg(monkeypatch: pytest.MonkeyPatch) -> None:
 
 
 def test_resolve_root_arg_beats_env(tmp_path: Path) -> None:
-    env = {"CODE_ATLAS_ROOT": "/env-root"}
-    resolved = config.resolve_root(str(tmp_path), env)
-    assert resolved == tmp_path.resolve()
+    env_root = tmp_path / "env-root"
+    env_root.mkdir()
+    env = {"CODE_ATLAS_ROOT": str(env_root)}
+    resolved = config.resolve_root(str(tmp_path / "arg-root"), env)
+    assert resolved == (tmp_path / "arg-root").resolve()
 
 
-def test_resolve_root_env_beats_cwd() -> None:
-    env = {"CODE_ATLAS_ROOT": "/env-root"}
-    assert config.resolve_root(None, env) == Path("/env-root")
+def test_resolve_root_env_beats_cwd(tmp_path: Path) -> None:
+    env_root = tmp_path / "env-root"
+    env_root.mkdir()
+    env = {"CODE_ATLAS_ROOT": str(env_root)}
+    assert config.resolve_root(None, env) == env_root.resolve()
 
 
 def test_resolve_root_default_cwd() -> None:

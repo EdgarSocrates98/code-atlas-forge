@@ -1,15 +1,19 @@
 # Roadmap — Cycles 2–8
 
 > Ciclo 1 (Foundation & Contracts) entregue — ver `docs/cycle-1-evidence.md`.
+> **Ciclo 2 (Structural Intelligence) entregue** — ver
+> `docs/cycle-2-evidence.md`.
 > Gates abaixo copiados fielmente do Blueprint §12 — não editar sem ADR.
 
-## Cycle 2 — Structural Intelligence
+## Cycle 2 — Structural Intelligence ✅ entregue
 
-Escopo: Tree-sitter via adapters Python/TypeScript inicialmente, grafo
-file/module/symbol, snapshots determinísticos, search estrutural básico.
+Escopo realizado: Tree-sitter real via adapters Python/TypeScript/TSX,
+grafo file/module/symbol canônico persistido com proveniência,
+snapshots determinísticos, busca estrutural (`search`/`symbol`/
+`references`/`graph`), golden corpus + eval P/R, benchmarks.
 
 **Gate:** golden fixtures com AST e grafo corretos; erros de parsing
-rastreáveis.
+rastreáveis — **PASS** (`tests/golden/`, 4 corpora com expected.json).
 
 ## Cycle 3 — Semantic & Incremental
 

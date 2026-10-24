@@ -17,7 +17,7 @@ import time
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
-from code_atlas.discovery import ScanOptions, scan  # noqa: E402
+from code_atlas.discovery import ScanOptions, scan
 
 EXTS = [".py", ".py", ".py", ".ts", ".js", ".md", ".json", ".txt", ".go", ".rs"]
 SEED = 20261024
@@ -29,7 +29,7 @@ def synth_corpus(root: Path, n_files: int, seed: int = SEED) -> None:
     for i in range(n_files):
         depth = rng.randint(0, 3)
         d = root
-        for j in range(depth):
+        for _ in range(depth):
             d = d / f"pkg{rng.randint(0, 9)}"
         d.mkdir(parents=True, exist_ok=True)
         ext = rng.choice(EXTS)

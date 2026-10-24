@@ -25,6 +25,13 @@ def test_src_layout() -> None:
         assert (pkg / sub / "__init__.py").exists(), f"missing {sub}"
 
 
-def test_no_runtime_dependencies() -> None:
+def test_runtime_dependencies_are_pinned_tree_sitter() -> None:
+    """Cycle 2: deps de runtime = apenas a pilha Tree-sitter aprovada (ADR)."""
     raw = tomllib.loads((ROOT / "pyproject.toml").read_text(encoding="utf-8"))
-    assert raw["project"].get("dependencies", []) == []
+    deps = raw["project"].get("dependencies", [])
+    allowed = {"tree-sitter", "tree-sitter-python", "tree-sitter-typescript"}
+    assert deps, "Cycle 2 exige tree-sitter real — deps não podem ser vazias"
+    for dep in deps:
+        name = dep.split("==")[0].split(">=")[0].split("[")[0]
+        assert name in allowed, f"dependência não aprovada: {dep}"
+        assert "==" in dep, f"pin exato obrigatório: {dep}"

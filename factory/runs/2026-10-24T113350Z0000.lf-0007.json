@@ -1,0 +1,15 @@
+{
+  "agent": "claude",
+  "command": [
+    "claude",
+    "-p",
+    "$(cat /home/edgar/Documentos/projetos/forjas/code-atlas-forge/factory/prompts/lf-0007.implement.claude.md)"
+  ],
+  "created_at": "2026-10-24T11:33:50+00:00",
+  "id": "lf-0007",
+  "prompt_path": "/home/edgar/Documentos/projetos/forjas/code-atlas-forge/factory/prompts/lf-0007.implement.claude.md",
+  "spec_path": "/home/edgar/Documentos/projetos/forjas/code-atlas-forge/factory/specs/active/lf-0007.md",
+  "spec_sha256": "33e562dd302d5427b774fd15577fa20f93d6196bfec303ba8bb3afe7ee7fc7d2",
+  "status": "planned",
+  "title": "Cycle 2 Phase 0 - Close Cycle 1 gaps (symlink escape, CI Windows, transactional migrations, hardening)"
+}
