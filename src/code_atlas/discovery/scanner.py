@@ -10,13 +10,12 @@ from __future__ import annotations
 
 import hashlib
 import os
-import shutil
-import subprocess
 import time
 from collections.abc import Iterator
 from dataclasses import dataclass
 from pathlib import Path
 
+from code_atlas import gitbin
 from code_atlas.discovery.gitignore import GitIgnoreStack
 from code_atlas.discovery.models import (
     GitInfo,
@@ -32,23 +31,9 @@ from code_atlas.discovery.models import (
 )
 
 
-def _git(root: Path, args: list[str], timeout: float = 30.0) -> subprocess.CompletedProcess[bytes]:
-    """Invoca `git` com argv seguro (sem shell) na raiz do scan."""
-    git_bin = shutil.which("git") or "git"
-    return subprocess.run(
-        [git_bin, "-C", str(root), *args],
-        capture_output=True,
-        timeout=timeout,
-        check=False,
-    )
-
-
 def _git_lines(root: Path, args: list[str]) -> list[str]:
     """`git` com saída separada por NUL → paths relativos POSIX."""
-    try:
-        out = _git(root, args)
-    except (OSError, subprocess.TimeoutExpired):
-        return []
+    out = gitbin.run_git(args, cwd=root)
     if out.returncode != 0:
         return []
     return [p for p in out.stdout.decode("utf-8", "replace").split("\0") if p]
@@ -61,22 +46,16 @@ def probe_git(root: Path, git_available: bool | None = None) -> GitInfo:
     simular git ausente.
     """
     if git_available is None:
-        git_available = shutil.which("git") is not None
+        git_available = gitbin.git_binary() is not None
     has_dot_git = (root / ".git").exists()
     if not git_available:
         return GitInfo(available=False, is_repo=has_dot_git)
-    try:
-        inside = _git(root, ["rev-parse", "--is-inside-work-tree"])
-    except (OSError, subprocess.TimeoutExpired):
-        return GitInfo(available=True, is_repo=has_dot_git)
+    inside = gitbin.run_git(["rev-parse", "--is-inside-work-tree"], cwd=root)
     if inside.returncode != 0 or inside.stdout.strip() != b"true":
         return GitInfo(available=True, is_repo=False)
 
     def _out(args: list[str]) -> str:
-        try:
-            res = _git(root, args)
-        except (OSError, subprocess.TimeoutExpired):
-            return ""
+        res = gitbin.run_git(args, cwd=root)
         return res.stdout.decode("utf-8", "replace").strip() if res.returncode == 0 else ""
 
     branch = _out(["symbolic-ref", "--quiet", "--short", "HEAD"])

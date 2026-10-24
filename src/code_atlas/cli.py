@@ -16,15 +16,13 @@ from __future__ import annotations
 import argparse
 import json
 import os
-import shutil
 import sqlite3
-import subprocess
 import sys
 from collections.abc import Sequence
 from dataclasses import dataclass
 from pathlib import Path
 
-from code_atlas import __version__
+from code_atlas import __version__, gitbin
 from code_atlas.config import (
     ConfigError,
     config_file,
@@ -67,16 +65,12 @@ class Check:
 
 
 def _probe_git() -> Check:
-    git = shutil.which("git")
-    if git is None:
+    if gitbin.git_binary() is None:
         return Check("git", "absent", True, "git binary not found; degraded discovery mode")
-    try:
-        out = subprocess.run(
-            [git, "--version"], capture_output=True, text=True, timeout=10, check=False
-        )
-        return Check("git", out.stdout.strip() or "unknown", True)
-    except (OSError, subprocess.TimeoutExpired) as exc:
-        return Check("git", "error", True, f"probe failed: {exc}")
+    version = gitbin.git_version()
+    if not version:
+        return Check("git", "error", True, "git --version failed")
+    return Check("git", version, True)
 
 
 def _probe_fts5() -> bool:
@@ -283,8 +277,18 @@ def run_status(args: argparse.Namespace) -> int:
 
 
 def run_index(args: argparse.Namespace) -> int:
-    """Indexa o inventário do diretório-alvo via IndexCoordinator."""
+    """Indexa o inventário do diretório-alvo via IndexCoordinator.
+
+    Path arg com segmento ``..`` é rejeitado (hardening): para indexar um
+    diretório pai, passe o caminho absoluto diretamente.
+    """
+    if args.path and ".." in Path(args.path).parts:
+        print("error: '..' traversal is not allowed in PATH", file=sys.stderr)
+        return EXIT_UNSAFE
     target = Path(args.path).expanduser().resolve() if args.path else resolve_root(args.root)
+    if target == target.parent:
+        print("error: refusing to index filesystem root", file=sys.stderr)
+        return EXIT_UNSAFE
     if not target.is_dir():
         print(f"error: {target} is not a directory", file=sys.stderr)
         return EXIT_UNSAFE

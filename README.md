@@ -14,6 +14,8 @@ indexação incremental e contexto econômico para agentes.
 
 - **Local-first:** nenhum serviço externo, Docker, conta SaaS ou API key é
   necessário para operar. Nenhum dado sai da máquina por padrão.
+- **Sem telemetria:** não existe código de telemetria no projeto — a coleta
+  não é apenas desligada por padrão, ela está ausente.
 - **O repositório indexado é não confiável:** nada do código varrido é
   executado, importado ou instalado.
 - **Evidência primeiro:** toda relação carrega origem, extrator, versão,

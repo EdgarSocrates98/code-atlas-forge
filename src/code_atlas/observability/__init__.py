@@ -1,4 +1,5 @@
-"""Logging estruturado e redaction (sem telemetria, sem egress).
+"""Logging estruturado e redaction (sem telemetria, sem egress)."""
 
-Implementado em lf-0005.
-"""
+from code_atlas.observability.logging import JsonFormatter, RedactionFilter, get_logger
+
+__all__ = ["JsonFormatter", "RedactionFilter", "get_logger"]
