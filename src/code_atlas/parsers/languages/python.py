@@ -121,6 +121,26 @@ class _PyExtractor:
             )
         self._walk_children(body, (*scope, name), in_class=True)
 
+    def _param_names(self, parameters: Node | None) -> tuple[str, ...]:
+        """Nomes de parâmetros (typed/default/splat inclusos)."""
+        if parameters is None:
+            return ()
+        names: list[str] = []
+        for p in parameters.named_children:
+            name_node = p.child_by_field_name("name")
+            if name_node is not None:
+                names.append(self.text(name_node))
+            elif p.type == "identifier":
+                names.append(self.text(p))
+            elif p.type in ("list_splat_pattern", "dictionary_splat_pattern"):
+                inner = next(
+                    (c for c in p.named_children if c.type == "identifier"),
+                    None,
+                )
+                if inner is not None:
+                    names.append(self.text(inner))
+        return tuple(names)
+
     def _handle_function(self, node: Node, scope: tuple[str, ...],
                          decorators: tuple[str, ...], in_class: bool) -> None:
         name_node = node.child_by_field_name("name")
@@ -131,15 +151,16 @@ class _PyExtractor:
         if any(c.type == "async" for c in node.children):
             mods.append("async")
         body = node.child_by_field_name("body")
+        params = node.child_by_field_name("parameters")
         kind = "method" if in_class else "function"
-        qname = self._emit(
+        self._emit(
             kind, name, name_node, node, scope,
             signature=self._signature(node, body),
+            params=self._param_names(params),
             docstring=self._docstring(body),
             decorators=decorators,
             modifiers=tuple(mods),
         )
-        del qname
         self._walk_children(body, (*scope, name), in_class=False)
 
     # -- imports / calls ----------------------------------------------

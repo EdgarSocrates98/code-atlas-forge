@@ -72,6 +72,7 @@ class ExtractedSymbol:
     name_span: SourceSpan | None = None
     scope_path: tuple[str, ...] = ()  # nomes dos escopos léxicos externos
     signature: str | None = None
+    params: tuple[str, ...] = ()  # nomes dos parâmetros, em ordem
     docstring: str | None = None
     decorators: tuple[str, ...] = ()
     bases: tuple[str, ...] = ()  # extends declarado

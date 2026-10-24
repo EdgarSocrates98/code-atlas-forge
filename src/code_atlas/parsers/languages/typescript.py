@@ -188,6 +188,24 @@ class _TsExtractor:
             )
         self._walk_children(body, (*scope, name), in_class=True)
 
+    def _param_names(self, node: Node) -> tuple[str, ...]:
+        """Nomes de parâmetros TS (required/optional/rest/destructure)."""
+        params = node.child_by_field_name("parameters")
+        if params is None:
+            params = next(
+                (c for c in node.named_children
+                 if c.type in ("formal_parameters", "parameters")),
+                None,
+            )
+        if params is None:
+            return ()
+        names: list[str] = []
+        for p in params.named_children:
+            pattern = p.child_by_field_name("pattern")
+            target = pattern if pattern is not None else p
+            names.append(self.text(target).strip())
+        return tuple(n for n in names if n)
+
     def _handle_function(self, node: Node, scope: tuple[str, ...],
                          in_class: bool, exported: bool,
                          name_override: str | None = None,
@@ -210,6 +228,7 @@ class _TsExtractor:
         self._emit(
             kind, name, nn or node, node, scope,
             signature=self._signature(node, body),
+            params=self._param_names(node),
             modifiers=tuple(dict.fromkeys(mods)),
         )
         self._walk_children(body, (*scope, name), in_class=False)
