@@ -145,12 +145,20 @@ CREATE VIRTUAL TABLE fts_symbols USING fts5(
 );
 """
 
+_SCHEMA_V3_INDEXES = """
+CREATE INDEX IF NOT EXISTS idx_relations_snapshot ON relations (snapshot_id, type);
+CREATE INDEX IF NOT EXISTS idx_occurrences_snapshot_symbol
+    ON symbol_occurrences (snapshot_id, logical_symbol_id);
+CREATE INDEX IF NOT EXISTS idx_evidence_snapshot ON evidence (snapshot_id);
+"""
+
 
 def migrations(*, fts5: bool) -> list[Migration]:
     """Lista de migrações; a v2 (FTS5) só existe quando a build suporta."""
     m = [Migration(1, "core schema (blueprint §6)", _SCHEMA_V1)]
     if fts5:
         m.append(Migration(2, "fts_symbols virtual table", _SCHEMA_V2_FTS))
+    m.append(Migration(3, "snapshot-scoped indexes", _SCHEMA_V3_INDEXES))
     return m
 
 

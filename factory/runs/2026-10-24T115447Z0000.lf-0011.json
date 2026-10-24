@@ -1,0 +1,15 @@
+{
+  "agent": "codex",
+  "command": [
+    "codex",
+    "exec",
+    "$(cat /home/edgar/Documentos/projetos/forjas/code-atlas-forge/factory/prompts/lf-0011.implement.codex.md)"
+  ],
+  "created_at": "2026-10-24T11:54:47+00:00",
+  "id": "lf-0011",
+  "prompt_path": "/home/edgar/Documentos/projetos/forjas/code-atlas-forge/factory/prompts/lf-0011.implement.codex.md",
+  "spec_path": "/home/edgar/Documentos/projetos/forjas/code-atlas-forge/factory/specs/active/lf-0011.md",
+  "spec_sha256": "cbbab3fcce3abab38f4f42b96fcd61c76c471fff105f3654c2454c687e48fa2a",
+  "status": "planned",
+  "title": "Cycle 2 Phase 5 - Storage/snapshot integration for parsed graph"
+}

@@ -68,15 +68,26 @@ def test_recovers_and_reruns_after_failed_migration(
     assert mig.migrate(conn) == before  # reexecução limpa
 
 
-def test_older_schema_db_opens_and_migrates(tmp_path: Path) -> None:
+def test_older_schema_db_opens_and_migrates(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
     conn = _fresh(tmp_path)
-    mig.migrate(conn, fts5=False)  # aplica só v1 (banco "antigo")
+    # simula um banco "antigo" do Cycle 1: só a v1 existe
+    v1_only = [m for m in mig.migrations(fts5=True) if m.version == 1]
+    monkeypatch.setattr(mig, "migrations", lambda *, fts5: v1_only)
+    mig.migrate(conn)
     assert mig.schema_version(conn) == 1
+    monkeypatch.undo()
     conn.close()
 
-    conn2 = connect(tmp_path / "ws" / "atlas.db")  # reabre e aplica v2
-    assert mig.migrate(conn2) == 2
-    assert mig.migrate(conn2) == 2  # idempotente
+    conn2 = connect(tmp_path / "ws" / "atlas.db")  # reabre e aplica v2+v3
+    assert mig.migrate(conn2) == 3
+    assert mig.migrate(conn2) == 3  # idempotente
+    names = {r[0] for r in conn2.execute(
+        "SELECT name FROM schema_migrations ORDER BY version")}
+    assert names == {"core schema (blueprint §6)",
+                     "fts_symbols virtual table",
+                     "snapshot-scoped indexes"}
 
 
 def test_split_statements_handles_comments_and_multiline() -> None:

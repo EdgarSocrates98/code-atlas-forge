@@ -309,6 +309,7 @@ def run_index(args: argparse.Namespace) -> int:
         "warnings": list(outcome.warnings),
         "noop": outcome.noop,
         "error": outcome.error,
+        "stats": outcome.stats,
     }
     if args.json:
         print(json.dumps(payload))
@@ -316,6 +317,12 @@ def run_index(args: argparse.Namespace) -> int:
         if outcome.status == "success":
             print(f"snapshot #{outcome.snapshot_id} READY — "
                   f"{outcome.files_indexed} inventory files")
+            s = outcome.stats
+            if s.get("occurrences") or s.get("relations"):
+                print(f"graph: {s.get('symbols_new', 0)} symbols, "
+                      f"{s.get('occurrences', 0)} occurrences, "
+                      f"{s.get('relations', 0)} relations "
+                      f"({s.get('files_failed', 0)} files failed)")
         elif outcome.status == "noop":
             print(f"snapshot #{outcome.snapshot_id} unchanged — no-op index")
         else:

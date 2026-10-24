@@ -162,16 +162,108 @@ class Store:
         return [str(tuple(r)) for r in rows]
 
     def cross_snapshot_relations(self, snapshot_id: int) -> list[int]:
-        """Relações cujos endpoints apontam fora do próprio snapshot."""
+        """Relações cujos endpoints apontam fora do próprio snapshot.
+
+        ``from_id`` é NOT NULL (JOIN); ``to_id`` pode ser NULL em alvos
+        unresolved/external — LEFT JOIN + checagem só quando presente.
+        """
         rows = self._conn.execute(
             """
             SELECT r.id FROM relations r
-            JOIN symbol_occurrences o ON o.id = r.from_id
-            WHERE r.snapshot_id = ? AND o.snapshot_id != ?
+            JOIN symbol_occurrences o1 ON o1.id = r.from_id
+            LEFT JOIN symbol_occurrences o2 ON o2.id = r.to_id
+            WHERE r.snapshot_id = ?
+              AND (o1.snapshot_id != ?
+                   OR (r.to_id IS NOT NULL AND o2.snapshot_id != ?))
             """,
-            (snapshot_id, snapshot_id),
+            (snapshot_id, snapshot_id, snapshot_id),
         ).fetchall()
         return [int(r["id"]) for r in rows]
+
+    # --- symbols / occurrences / relations / evidence (Cycle 2) -------
+
+    def upsert_symbol(
+        self, repository_id: int, language: str, qualified_name: str, kind: str
+    ) -> tuple[int, bool]:
+        """Dedup por (repo, language, qname, kind) — retorna (id, created)."""
+        row = self._conn.execute(
+            "SELECT id FROM symbols WHERE repository_id = ? AND language = ? "
+            "AND qualified_name = ? AND kind = ?",
+            (repository_id, language, qualified_name, kind),
+        ).fetchone()
+        if row:
+            return int(row["id"]), False
+        cur = self._conn.execute(
+            "INSERT INTO symbols (repository_id, language, qualified_name, kind) "
+            "VALUES (?, ?, ?, ?)",
+            (repository_id, language, qualified_name, kind),
+        )
+        return int(cur.lastrowid), True  # type: ignore[arg-type]
+
+    def insert_fts_symbol(
+        self, symbol_id: int, qualified_name: str, language: str, kind: str
+    ) -> None:
+        """Popula o índice FTS (só chamado quando a build suporta FTS5)."""
+        self._conn.execute(
+            "INSERT INTO fts_symbols (rowid, qualified_name, language, kind) "
+            "VALUES (?, ?, ?, ?)",
+            (symbol_id, qualified_name, language, kind),
+        )
+
+    def insert_occurrence(
+        self,
+        snapshot_id: int,
+        symbol_id: int,
+        source_file_id: int,
+        span_start: int | None,
+        span_end: int | None,
+        line: int | None,
+        col: int | None,
+        content_hash: str,
+        parse_status: str = "parsed",
+    ) -> int:
+        cur = self._conn.execute(
+            "INSERT INTO symbol_occurrences (snapshot_id, logical_symbol_id, "
+            "source_file_id, span_start, span_end, line, col, content_hash, "
+            "parse_status) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            (
+                snapshot_id, symbol_id, source_file_id, span_start, span_end,
+                line, col, content_hash, parse_status,
+            ),
+        )
+        return int(cur.lastrowid)  # type: ignore[arg-type]
+
+    def insert_evidence(
+        self,
+        snapshot_id: int,
+        source_file_id: int,
+        path: str,
+        span_json: str | None,
+        content_hash: str,
+        extractor: str,
+        extractor_version: str,
+        notes: str = "",
+    ) -> int:
+        cur = self._conn.execute(
+            "INSERT INTO evidence (snapshot_id, source_file_id, path, span, "
+            "content_hash, extractor, extractor_version, notes) "
+            "VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+            (
+                snapshot_id, source_file_id, path, span_json, content_hash,
+                extractor, extractor_version, notes,
+            ),
+        )
+        return int(cur.lastrowid)  # type: ignore[arg-type]
+
+    def insert_relations(self, rows: Iterable[tuple[object, ...]]) -> int:
+        """Batch de relações — executemany (nenhum id precisa voltar)."""
+        self._conn.executemany(
+            "INSERT INTO relations (snapshot_id, from_id, to_id, to_unresolved, "
+            "type, resolution_status, confidence_class, resolver, evidence_ids) "
+            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            list(rows),
+        )
+        return self._conn.total_changes  # para telemetria externa
 
     # --- index jobs ---------------------------------------------------
 
