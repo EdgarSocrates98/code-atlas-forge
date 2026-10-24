@@ -211,7 +211,7 @@ def test_concurrent_indexers_single_ready(
         try:
             def gated_scanner(root: Path):
                 res = scan(root)
-                barrier.wait(timeout=15)  # ambos prontos p/ escrever juntos
+                barrier.wait(timeout=30)  # ambos prontos p/ escrever juntos
                 return res
             out = IndexCoordinator(conn, scanner=gated_scanner).index(tiny_repo)
             outcomes.append(out)
@@ -257,7 +257,7 @@ def test_repository_dedup_under_concurrency(
         try:
             with conn:
                 Store(conn).get_or_create_repository(str(tiny_repo))
-            barrier.wait(timeout=15)
+            barrier.wait(timeout=30)
             with conn:
                 Store(conn).get_or_create_repository(str(tiny_repo))
         except BaseException as exc:

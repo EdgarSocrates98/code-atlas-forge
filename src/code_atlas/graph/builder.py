@@ -8,9 +8,6 @@ alvos que não resolvem com segurança mantêm o texto e o status
 
 from __future__ import annotations
 
-import posixpath
-from dataclasses import dataclass, field
-
 from code_atlas.contracts.enums import EdgeKind, NodeKind
 from code_atlas.discovery.models import ScanResult
 from code_atlas.graph import identity
@@ -25,8 +22,16 @@ from code_atlas.parsers.contracts import (
     ParseResult,
     SourceSpan,
 )
+from code_atlas.resolvers.syntactic.resolver import (
+    ModuleCtx,
+    ScopeUniverse,
+    SyntacticResolver,
+)
 
 _RESOLVER_ID = "syntactic-scope-v1"
+
+# alias histórico — o contexto vive em resolvers.syntactic (lf-0016)
+_ModuleCtx = ModuleCtx
 
 _SYMBOL_KINDS = {
     "class": NodeKind.CLASS,
@@ -35,20 +40,6 @@ _SYMBOL_KINDS = {
     "method": NodeKind.METHOD,
     "symbol": NodeKind.SYMBOL,
 }
-
-
-@dataclass
-class _ModuleCtx:
-    """Contexto de resolução de um módulo parseado."""
-
-    path: str
-    module_name: str
-    language: str
-    nid: str
-    # nome simples → nids definidos neste módulo
-    defines: dict[str, list[str]] = field(default_factory=dict)
-    # alias/nome importado → caminho do módulo alvo do import
-    import_targets: dict[str, str] = field(default_factory=dict)
 
 
 class GraphBuilder:
@@ -68,12 +59,16 @@ class GraphBuilder:
             tuple[str, SourceSpan | None, str, str], int
         ] = {}
         self._diagnostics: list[ParseDiagnostic] = []
-        self._modules: dict[str, _ModuleCtx] = {}  # module_name -> ctx
-        self._by_path: dict[str, str] = {}  # path -> module nid
-        self._nid_mod: dict[str, _ModuleCtx] = {}  # module nid -> ctx
-        self._top_packages: set[str] = set()  # dirs de 1º nível do repo
-        self._leaf: dict[str, list[str]] = {}  # nome simples -> nids (snapshot)
-        self._qname_nid: dict[str, list[str]] = {}
+        # universo de escopo montado durante a construção e compartilhado
+        # com o SyntacticResolver na fase de resolução (lf-0016)
+        self._universe = ScopeUniverse()
+        self._resolver = SyntacticResolver(self._universe)
+        self._modules = self._universe.modules  # module_name -> ctx
+        self._by_path = self._universe.by_path  # path -> module nid
+        self._nid_mod = self._universe.nid_mod  # module nid -> ctx
+        self._top_packages = self._universe.top_packages
+        self._leaf = self._universe.leaf  # nome simples -> nids (snapshot)
+        self._qname_nid = self._universe.qname_nid
 
         parsed = {r.path: r for r in results if r.supported}
         repo_nid = identity.repo_node_id(repo_name)
@@ -261,35 +256,22 @@ class GraphBuilder:
         )
 
     # -- resolução de escopo sintático ----------------------------------
+    # Delegada ao SyntacticResolver sobre o ScopeUniverse (lf-0016) —
+    # comportamento idêntico ao do Cycle 2, agora atrás do contrato
+    # SemanticResolver para composição com SCIP/LSP.
 
     def _scope_nid(self, ctx: _ModuleCtx, scope_path: tuple[str, ...]) -> str | None:
-        qname = ".".join((ctx.module_name, *scope_path))
-        nids = self._qname_nid.get(qname)
-        return nids[0] if nids else ctx.nid
+        return self._resolver.scope_nid(ctx, scope_path)
 
     def _by_qname_or_module(self, ctx: _ModuleCtx, qname: str) -> str | None:
-        nids = self._qname_nid.get(qname)
-        if nids:
-            return nids[0]
-        # adapters podem reportar from_name sem prefixo de módulo
-        nids = self._qname_nid.get(f"{ctx.module_name}.{qname}")
-        if nids:
-            return nids[0]
-        if qname in (ctx.module_name, ""):
-            return ctx.nid
-        return ctx.nid  # fallback: origem = módulo
+        return self._resolver.by_qname_or_module(ctx, qname)
 
     def _resolve_import(
         self, ctx: _ModuleCtx, target: str
     ) -> tuple[str | None, str]:
         """IMPORTS: módulo local → resolved; relativo/path falho →
         unresolved; stdlib/site-packages → external."""
-        mod, _rest = self._locate(ctx, target)
-        if mod is not None:
-            return mod.nid, "resolved"
-        if target.startswith(".") or target.rsplit(".", 1)[0] in self._top_packages:
-            return None, "unresolved"
-        return None, "external"
+        return self._resolver.resolve_import(ctx, target)
 
     def _locate(
         self, ctx: _ModuleCtx, target: str
@@ -299,42 +281,11 @@ class GraphBuilder:
         Cobre: python absoluto (`pkg.util`), python relativo (`.util`),
         TS relativo (`./util`, `../x`).
         """
-        if target.startswith(("./", "../")):
-            base, _, member = target.rpartition(".")
-            nid = self._resolve_ts_relative(ctx, base)
-            rest = [member] if member and member != "*" else []
-            if nid is None:  # último segmento talvez fosse do path, não member
-                nid = self._resolve_ts_relative(ctx, target)
-                rest = []
-            mod = self._nid_mod.get(nid) if nid else None
-            return mod, rest
-        cand = target
-        if target.startswith("."):  # python relativo
-            dots = len(target) - len(target.lstrip("."))
-            rest_txt = target.lstrip(".")
-            parts = ctx.module_name.split(".")
-            pkg_parts = parts[: max(len(parts) - dots, 0)]
-            cand = ".".join([*pkg_parts, rest_txt]) if rest_txt else ".".join(
-                pkg_parts
-            )
-        segs = cand.split(".")
-        for i in range(len(segs), 0, -1):
-            mod = self._modules.get(".".join(segs[:i]))
-            if mod is not None:
-                return mod, segs[i:]
-        return None, segs
+        return self._resolver.locate(ctx, target)
 
     def _resolve_ts_relative(self, ctx: _ModuleCtx, target: str) -> str | None:
         """TS: `./util` → path relativo ao diretório do arquivo."""
-        if not target.startswith(("./", "../")):
-            return None
-        base_dir = posixpath.dirname(ctx.path)
-        norm = posixpath.normpath(posixpath.join(base_dir, target))
-        for ext in (".ts", ".tsx", ".d.ts", ".mts", ".cts", "/index.ts", "/index.tsx"):
-            nid = self._by_path.get(norm + ext)
-            if nid:
-                return nid
-        return self._by_path.get(norm)
+        return self._resolver.resolve_ts_relative(ctx, target)
 
     def _resolve_name(
         self, ctx: _ModuleCtx, name: str
@@ -344,34 +295,12 @@ class GraphBuilder:
         Regra: `resolved` só quando há exatamente um alvo no snapshot —
         nunca por coincidência textual.
         """
-        head, _, tail = name.partition(".")
-        if head in ctx.import_targets:
-            mod, rest = self._locate(ctx, ctx.import_targets[head])
-            if mod is None:
-                return None, "external"
-            chain = [s for s in (*rest, tail) if s and s != "*"]
-            if not chain:
-                return mod.nid, "resolved"
-            hits = sorted(set(mod.defines.get(chain[0], [])))
-            if len(hits) == 1:
-                return hits[0], "resolved"
-            if hits:
-                return None, "ambiguous"
-            return None, "unresolved"
-        if tail:
-            # `obj.attr` sem tipo de obj — nunca resolve por coincidência
-            return None, "unresolved"
-        local = sorted(set(ctx.defines.get(name, [])))
-        if len(local) == 1:
-            return local[0], "resolved"
-        if len(local) > 1:
-            return None, "ambiguous"
-        return None, "unresolved"
+        return self._resolver.resolve_name(ctx, name)
 
     def _resolve_call(
         self, ctx: _ModuleCtx, callee: str
     ) -> tuple[str | None, str]:
-        return self._resolve_name(ctx, callee)
+        return self._resolver.resolve_call(ctx, callee)
 
     # -- helpers ---------------------------------------------------------
 
