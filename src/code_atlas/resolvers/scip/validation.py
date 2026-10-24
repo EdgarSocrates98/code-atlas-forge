@@ -88,6 +88,11 @@ def project_root_matches(index: ScipIndex, workspace_root: Path) -> bool:
         # strip host vazio/localhost (file:///x → /x; file://host/x)
         if not path.startswith("/"):
             path = "/" + path.split("/", 1)[-1]
+        # file:///C:/x → /C:/x — '/C:' seria diretório literal no
+        # Windows, não o drive C:; remove o separador de host.
+        if len(path) >= 3 and path[0] == "/" and path[1].isalpha() \
+                and path[2] == ":":
+            path = path[1:]
     else:
         path = uri
     try:
