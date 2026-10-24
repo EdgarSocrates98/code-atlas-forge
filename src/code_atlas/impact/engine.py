@@ -14,6 +14,7 @@ from code_atlas.impact import (
     blast_radius,
     contract_analyzer,
     diff_reader,
+    revision_binding,
     risk_classifier,
     symbol_diff,
     test_selector,
@@ -22,12 +23,14 @@ from code_atlas.impact.contracts import (
     ANALYZER_VERSION,
     IMPACT_SCHEMA_VERSION,
     EvidenceStrength,
+    ImpactCandidate,
     ImpactDiagnostic,
     ImpactRequest,
     ImpactResult,
+    SymbolChange,
     SymbolChangeKind,
 )
-from code_atlas.impact.revision_binding import BindingState, bind
+from code_atlas.impact.revision_binding import ImpactRevisionPlan
 from code_atlas.impact.snapshot_resolver import (
     ImpactSnapshotResolver,
     ResolvedImpactSnapshots,
@@ -50,23 +53,51 @@ class ImpactEngine:
     def _bind_revisions(
         self, req: ImpactRequest, root: Path,
         pair: ResolvedImpactSnapshots, diags: list[ImpactDiagnostic],
-    ) -> None:
-        """lf-0072: revisões pedidas ↔ snapshots escolhidos."""
-        if req.base_revision:
-            b, bd = bind(self._conn, root, pair.repository_id,
-                         req.base_revision, pair.base_snapshot_id,
-                         allow_dirty_check=False)
-            if bd is not None:
-                diags.append(bd)
-            if b.state is BindingState.MISMATCH:
-                diags.append(ImpactDiagnostic(
-                    "partial-analysis",
-                    "base binding divergente — resultados parciais"))
-        if req.target_revision:
-            b, bd = bind(self._conn, root, pair.repository_id,
-                         req.target_revision, pair.target_snapshot_id)
-            if bd is not None:
-                diags.append(bd)
+    ) -> ImpactRevisionPlan:
+        """lf-0077: binding vira plano — MISMATCH/UNAVAILABLE bloqueia
+        a análise semântica (Phase 1 hard invariant)."""
+        p = revision_binding.plan(
+            self._conn, root, pair.repository_id,
+            req.base_revision, req.target_revision,
+            pair.base_snapshot_id, pair.target_snapshot_id)
+        diags.extend(p.diagnostics)
+        return p
+
+    def _reconcile(
+        self, removed_impacts: tuple[ImpactCandidate, ...],
+        sym_changes: tuple[SymbolChange, ...],
+        target_sid: int,
+    ) -> tuple[ImpactCandidate, ...]:
+        """lf-0078: classifica o consumidor histórico no destino.
+
+        still_present | consumer_modified | also_removed |
+        unresolved_in_target — existência histórica separada do risco.
+        """
+        if not removed_impacts:
+            return removed_impacts
+        from dataclasses import replace
+        target_keys = {
+            f"{r['language']}:{r['kind']}:{r['qualified_name']}"
+            for r in self._conn.execute(
+                "SELECT s.language, s.kind, s.qualified_name"
+                " FROM symbol_occurrences o JOIN symbols s"
+                " ON s.id = o.logical_symbol_id"
+                " WHERE o.snapshot_id = ?", (target_sid,))}
+        removed_keys = {s.symbol_key for s in sym_changes
+                        if s.change == SymbolChangeKind.REMOVED}
+        changed_keys = {s.symbol_key for s in sym_changes}
+        out = []
+        for i in removed_impacts:
+            if i.symbol_key in removed_keys:
+                state = "also_removed"
+            elif i.symbol_key in changed_keys:
+                state = "consumer_modified"
+            elif i.symbol_key in target_keys:
+                state = "still_present"
+            else:
+                state = "unresolved_in_target"
+            out.append(replace(i, consumer_state=state))
+        return tuple(out)
 
     def analyze(self, req: ImpactRequest) -> ImpactResult:
         diags: list[ImpactDiagnostic] = []
@@ -86,7 +117,24 @@ class ImpactEngine:
         base_sid = pair.base_snapshot_id
         target_sid = pair.target_snapshot_id
 
-        self._bind_revisions(req, root, pair, diags)
+        rev_plan = self._bind_revisions(req, root, pair, diags)
+        if not rev_plan.semantic_analysis_allowed:
+            # Phase 1: ChangeSet Git-only preservado; sem SymbolDiff/
+            # Blast/TestSelector sob aparência de resultado válido.
+            return ImpactResult(
+                schema_version=IMPACT_SCHEMA_VERSION,
+                analyzer_version=ANALYZER_VERSION,
+                repository=req.repository_root,
+                base_revision=req.base_revision or pair.base_revision
+                or f"snapshot:{base_sid}",
+                target_revision=req.target_revision or pair.target_revision
+                or f"snapshot:{target_sid}",
+                base_snapshot_id=base_sid, target_snapshot_id=target_sid,
+                change_set=change_set, symbol_changes=(),
+                contract_changes=(), impacts=(), test_candidates=(),
+                risk=risk_classifier.assess((), (), (), ()),
+                unknown_coverage=("semantic-blocked",),
+                truncated=False, diagnostics=tuple(diags))
 
         # 3) Symbol diff.
         sym_changes, unknown, trunc = symbol_diff.diff_snapshots(
@@ -120,8 +168,8 @@ class ImpactEngine:
             self._conn, base_sid, origins_base, req.limits,
             reason_suffix=" (base snapshot — símbolo removido)")
         b_trunc = b_trunc or r_trunc
-        # consumidores históricos perderam a dependência: verified aresta
-        # mas o achado é sobre uma relação que deixou de existir.
+        removed_impacts = self._reconcile(
+            removed_impacts, sym_changes, target_sid)
         impacts = impacts + tuple(removed_impacts)
         if req.known_only or not req.include_possible:
             impacts = tuple(
@@ -131,7 +179,8 @@ class ImpactEngine:
 
         # 7) Testes + risco.
         tests = test_selector.select(
-            self._conn, target_sid, sym_changes, impacts)
+            self._conn, target_sid, sym_changes, impacts,
+            base_snapshot_id=base_sid)
         risk = risk_classifier.assess(
             sym_changes, contract_changes, impacts, unknown)
 

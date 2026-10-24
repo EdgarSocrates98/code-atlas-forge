@@ -56,15 +56,17 @@ def bind(
     snap_sha: str | None = None
     if snapshot_id is not None:
         row = conn.execute(
-            "SELECT commit_sha FROM snapshots WHERE id = ?",
-            (snapshot_id,)).fetchone()
+            "SELECT commit_sha, worktree_digest FROM snapshots"
+            " WHERE id = ?", (snapshot_id,)).fetchone()
         snap_sha = str(row["commit_sha"]) if row and row["commit_sha"] \
             else None
         if row is not None and snap_sha is None:
-            return RevisionBinding(
-                revision_expr, sha, snapshot_id, None,
-                BindingState.CONTENT_VERIFIED,
-                "snapshot sem commit_sha — binding por repo/root"), None
+            # lf-0077/Phase2: CONTENT_VERIFIED só com prova real —
+            # digest do snapshot vs digest do worktree ATUAL, e só
+            # quando a revisão pedida é o HEAD corrente e limpo.
+            return _content_verify(
+                root, sha, snapshot_id,
+                str(row["worktree_digest"] or ""), revision_expr)
 
     if snap_sha is not None and snap_sha != sha:
         return RevisionBinding(
@@ -107,3 +109,112 @@ def bind(
         f"nenhum snapshot indexado para {sha[:12]} — análise parcial; "
         f"indexe com: code-atlas index --root {root} "
         f"(rev {sha[:12]})")
+
+
+def _content_verify(
+    root: Path, sha: str, snapshot_id: int, snap_digest: str,
+    revision_expr: str,
+) -> tuple[RevisionBinding, ImpactDiagnostic | None]:
+    """Compara o digest gravado no snapshot com o worktree atual.
+
+    Sinais registrados no ``detail``: algoritmo (sha256 manifest),
+    digest esperado vs observado, HEAD resolvido, dirty state.
+    """
+    from code_atlas.discovery.scanner import scan
+
+    head = resolve_revision(root, "HEAD")
+    if head != sha:
+        return RevisionBinding(
+            revision_expr, sha, snapshot_id, None,
+            BindingState.PARTIAL,
+            "snapshot sem commit_sha e revisão não é o HEAD atual — "
+            "sem material para comprovar equivalência"), ImpactDiagnostic(
+            "content-unverifiable",
+            f"snapshot {snapshot_id} sem commit_sha; "
+            f"'{revision_expr}' != HEAD — binding parcial")
+    try:
+        observed = scan(root).manifest_sha256()
+    except Exception:  # scan falhou → sem prova
+        return RevisionBinding(
+            revision_expr, sha, snapshot_id, None,
+            BindingState.UNAVAILABLE,
+            "scan do worktree falhou — equivalência não comprovada"), None
+    dirty = dirty_worktree(root)
+    detail = (
+        f"alg=manifest-sha256 expected={snap_digest[:16]} "
+        f"observed={observed[:16]} dirty={dirty}")
+    if not dirty and snap_digest and snap_digest == observed:
+        return RevisionBinding(
+            revision_expr, sha, snapshot_id, None,
+            BindingState.CONTENT_VERIFIED, detail), None
+    return RevisionBinding(
+        revision_expr, sha, snapshot_id, None,
+        BindingState.PARTIAL, f"digests divergem ou dirty — {detail}"), \
+        ImpactDiagnostic(
+            "content-mismatch",
+            f"conteúdo do worktree difere do snapshot {snapshot_id} "
+            "— binding parcial")
+
+
+@dataclass(frozen=True)
+class ImpactRevisionPlan:
+    """Plano de execução — binding como invariante duro (Phase 1)."""
+
+    repository_id: int
+    base_snapshot_id: int | None
+    target_snapshot_id: int | None
+    base_binding: RevisionBinding | None
+    target_binding: RevisionBinding | None
+    semantic_analysis_allowed: bool
+    partial_analysis_allowed: bool
+    diagnostics: tuple[ImpactDiagnostic, ...]
+
+
+_HARD_BLOCK = {BindingState.MISMATCH, BindingState.UNAVAILABLE}
+
+
+def plan(
+    conn: sqlite3.Connection, root: Path, repo_id: int,
+    base_revision: str, target_revision: str,
+    base_snapshot_id: int | None, target_snapshot_id: int | None,
+) -> ImpactRevisionPlan:
+    """Liga revisões pedidas aos snapshots escolhidos e decide se a
+    análise semântica pode prosseguir (Phase 1 — hard invariant)."""
+    diags: list[ImpactDiagnostic] = []
+    base_b: RevisionBinding | None = None
+    target_b: RevisionBinding | None = None
+    blocked = False
+
+    for expr, sid, role in (
+            (base_revision, base_snapshot_id, "base"),
+            (target_revision, target_snapshot_id, "target")):
+        if not expr:
+            continue
+        b, d = bind(conn, root, repo_id, expr, sid,
+                    allow_dirty_check=(role == "target"))
+        if d is not None:
+            diags.append(d)
+        if role == "base":
+            base_b = b
+        else:
+            target_b = b
+        if b.state in _HARD_BLOCK:
+            blocked = True
+            diags.append(ImpactDiagnostic(
+                "semantic-blocked",
+                f"binding {role}={b.state} — análise semântica não "
+                f"será atribuída à revisão '{expr}'"))
+        elif b.state is BindingState.PARTIAL:
+            diags.append(ImpactDiagnostic(
+                "partial-analysis",
+                f"binding {role} parcial — resultado marcado parcial"))
+
+    return ImpactRevisionPlan(
+        repository_id=repo_id,
+        base_snapshot_id=base_snapshot_id,
+        target_snapshot_id=target_snapshot_id,
+        base_binding=base_b, target_binding=target_b,
+        semantic_analysis_allowed=not blocked,
+        partial_analysis_allowed=True,
+        diagnostics=tuple(diags))
+

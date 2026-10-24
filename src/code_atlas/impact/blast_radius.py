@@ -65,7 +65,10 @@ def blast(
     """BFS de consumidores; retorna (candidatos, truncated)."""
     conn.row_factory = sqlite3.Row
     out: list[ImpactCandidate] = []
-    visited: set[int] = set()
+    # lf-0079: visita por (nó, origem) — duas origens até o mesmo
+    # consumidor preservam caminhos alternativos; ciclo continua
+    # cortado por (nó visitado na mesma linha de origem).
+    visited: set[tuple[int, str]] = set()
     queue: deque[tuple[int, str, list[int], list[str], list[str], int]] = (
         deque())
     for key, occ in origins.items():
@@ -74,14 +77,15 @@ def blast(
 
     while queue:
         occ, origin_key, rel_ids, mids, statuses, depth = queue.popleft()
-        if occ in visited or depth > limits.max_depth:
+        vkey = (occ, origin_key)
+        if vkey in visited or depth > limits.max_depth:
             continue
-        visited.add(occ)
+        visited.add(vkey)
         rows = conn.execute(
             _IN_SQL, (snapshot_id, occ, limits.max_nodes)).fetchall()
         for r in rows:
             consumer_occ = int(r["from_id"])
-            if consumer_occ in visited:
+            if (consumer_occ, origin_key) in visited:
                 continue
             hit = _sym(conn, consumer_occ)
             if hit is None or hit.key in origins:
