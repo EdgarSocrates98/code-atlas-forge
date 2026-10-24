@@ -1,0 +1,45 @@
+{
+  "spec": "lf-0031",
+  "scenario": "incremental de 1 arquivo em corpus sintetico de 5000 arquivos",
+  "methodology": {
+    "command": ".venv/bin/python /tmp/bench_lf0031.py 3  (script: cold index -> 3x (muta 1 arquivo -> index(incremental=True) medido -> restaura))",
+    "corpus": "synth_indexable_corpus(5000) — benchmarks/bench_index.py",
+    "before": "worktree do HEAD 9351373 (pre-lf-0031), mesmo script/metodologia",
+    "after": "working tree com get_many + lookup O(1) em _resolve_relations",
+    "warmup": "cada run inclui cold index + restore nao-timed; 3 medicoes por lado",
+    "notes": "sem tracemalloc (licao Cycle 3); stage_ms via time.monotonic no coordinator"
+  },
+  "machine": "x86_64",
+  "python": "3.12",
+  "results": {
+    "before_HEAD_9351373": {
+      "index_s": [5.1273, 5.495, 5.4807],
+      "median_s": 5.4807,
+      "stage_ms_parse": "nao medido (stage_ms so existia em working tree; cache.get ~2019 round-trips no perfil)"
+    },
+    "after_get_many_only": {
+      "index_s": [5.1654, 5.2788, 5.5069],
+      "median_s": 5.2788,
+      "stage_ms_parse": [761, 772, 951],
+      "stage_ms_graph_build": [2006, 2224, 2033],
+      "stage_ms_persist_publish": [1417, 1286, 1533],
+      "note": "round-trips SQL de cache 5019->~6; wall-clock neutro — o custo real e result_from_payload (desserializacao ~1s)"
+    },
+    "after_get_many_plus_o1_ctx": {
+      "index_s": [4.0946, 4.5545, 4.5484],
+      "median_s": 4.5484,
+      "stage_ms_discovery": [532, 529, 540],
+      "stage_ms_parse": [779, 773, 978],
+      "stage_ms_graph_build": [933, 1296, 1051],
+      "stage_ms_persist_publish": [1433, 1476, 1521]
+    }
+  },
+  "claims": [
+    "graph_build 2.0-2.2s -> 0.93-1.3s (-50%): _resolve_relations fazia scan linear em _modules por arquivo (O(n^2)); trocado por _by_path/_nid_mod O(1)",
+    "incremental 1-arquivo 5k: 5.48s -> 4.55s mediana (-17%)",
+    "cache lookup: 5019 SELECTs individuais -> ~6 queries chunked (json_each); ganho de wall-clock pequeno pois desserializacao domina — reportado honestamente",
+    "persist ~1.4-1.5s e O(snapshot) — limite conhecido do modelo ADR-0020; sem duplicatas encontradas (0 dup_groups em relations/occurrences no 5k)",
+    "no-op: caminho fast-path inalterado (early return antes de parse) — preservado",
+    "integridade: foreign_key_check continua rodando em toda publicacao; transacao unica mantida; nenhum PRAGMA alterado"
+  ]
+}

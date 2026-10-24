@@ -173,6 +173,42 @@ class Store:
         )
         self.set_snapshot_status(snapshot_id, SnapshotStatus.READY)
 
+    def gc_stale_snapshots(self, repository_id: int, keep: int) -> int:
+        """Remove snapshots STALE além dos ``keep`` mais recentes.
+
+        lf-0031 — política de GC explícita: READY nunca é tocado;
+        FAILED também é preservado (trilha de auditoria de falhas).
+        Filhos caem por ``ON DELETE CASCADE`` — a integridade referencial
+        continua garantida pelo próprio schema. Chamado dentro da
+        transação de publicação (atomicidade com o READY novo).
+        Retorna quantos snapshots foram removidos.
+        """
+        if keep < 0:
+            raise ValueError("keep must be >= 0")
+        # ``LIMIT -1 OFFSET keep`` = todos os STALE exceto os ``keep``
+        # mais novos — SQL constante (auditoria AST).
+        # FKs sem cascade precisam ser desfeitas antes do delete:
+        # ``index_jobs.snapshot_id`` (o job fica — só perde o vínculo)
+        # e ``snapshots.parent_snapshot_id`` (linhagem dos mais novos).
+        _doomed = (
+            "SELECT id FROM snapshots"
+            " WHERE repository_id = ? AND status = 'STALE'"
+            " ORDER BY id DESC LIMIT -1 OFFSET ?"
+        )
+        _sql_jobs = (
+            "UPDATE index_jobs SET snapshot_id = NULL"
+            " WHERE snapshot_id IN (" + _doomed + ")"
+        )
+        _sql_parent = (
+            "UPDATE snapshots SET parent_snapshot_id = NULL"
+            " WHERE parent_snapshot_id IN (" + _doomed + ")"
+        )
+        _sql_del = "DELETE FROM snapshots WHERE id IN (" + _doomed + ")"
+        self._conn.execute(_sql_jobs, (repository_id, keep))
+        self._conn.execute(_sql_parent, (repository_id, keep))
+        cur = self._conn.execute(_sql_del, (repository_id, keep))
+        return int(cur.rowcount if cur.rowcount else 0)
+
     # --- source files + inventory ------------------------------------
 
     def upsert_source_file(self, repository_id: int, f: SourceFile) -> int:

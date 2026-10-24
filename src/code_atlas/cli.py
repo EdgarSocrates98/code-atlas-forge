@@ -67,28 +67,29 @@ def _open_db() -> sqlite3.Connection:
 
 def _resolver_factories(
     target: Path,
-) -> tuple[Sequence[Any], list[str], dict[str, str]]:
-    """Resolvers opt-in do ``config.toml [resolvers]`` (lf-0027).
+) -> tuple[Sequence[Any], list[str], dict[str, str], int]:
+    """Resolvers opt-in + ``retain_snapshots`` do ``config.toml``.
 
-    Ausência de config/tabela → zero factories (syntactic only).
-    Erros de bootstrap (scip inválido, spec malformado) são devolvidos
+    ``[resolvers]`` (lf-0027): ausência de config/tabela → zero
+    factories (syntactic only). Erros de bootstrap são devolvidos
     como strings de diagnóstico — nunca levantam.
+    ``[indexing] retain_snapshots`` (lf-0031): 0 = ilimitado.
     """
     from code_atlas.resolvers.bootstrap import resolver_factories
 
     cfg_path = config_file()
     if not cfg_path.exists():
-        return (), [], {}
+        return (), [], {}, 0
     from code_atlas.config import WorkspaceConfig
 
     try:
         cfg = WorkspaceConfig.load(cfg_path)
     except ConfigError as exc:
-        return (), [f"config load failed: {exc}"], {}
+        return (), [f"config load failed: {exc}"], {}, 0
     versions: dict[str, str] = {}
     factories, errors = resolver_factories(
         cfg.resolvers, target, versions)
-    return tuple(factories), errors, versions
+    return tuple(factories), errors, versions, cfg.retain_snapshots
 
 
 @dataclass(frozen=True)
@@ -336,11 +337,12 @@ def run_index(args: argparse.Namespace) -> int:
     try:
         # Resolvers opt-in (lf-0027): [resolvers] do config.toml —
         # erros de bootstrap viram diagnóstico no payload, não crash.
-        factories, boot_errors, res_versions = _resolver_factories(
-            target)
+        factories, boot_errors, res_versions, retain = (
+            _resolver_factories(target))
         coord = IndexCoordinator(
             conn, resolver_factories=factories,
-            resolver_versions=res_versions)
+            resolver_versions=res_versions,
+            snapshot_retention=retain)
         # lf-0022: incremental é o default — ``--full`` é o escape
         # (force desliga o caminho incremental internamente).
         outcome: IndexOutcome = coord.index(target, force=args.full, incremental=True)

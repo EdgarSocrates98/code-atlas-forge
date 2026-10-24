@@ -222,6 +222,7 @@ class _Accumulator:
     files: list[SourceFile]
     secret_count: int = 0
     count: int = 0
+    hash_ns: int = 0  # lf-0031: tempo acumulado em _hash_file
 
 
 def _classify_and_hash(
@@ -266,7 +267,9 @@ def _classify_and_hash(
             SourceFile(path=rel, language=language_for(rel), size_bytes=size, sha256=None)
         )
         return
+    _h0 = time.monotonic_ns()
     digest = _hash_file(abs_path, options.hash_chunk_size, root_real)
+    acc.hash_ns += time.monotonic_ns() - _h0
     if digest is None:
         budget.warnings.append(
             ScanWarning(WarningKind.READ_ERROR, "unreadable or vanished during scan", rel)
@@ -425,4 +428,5 @@ def scan(
         partial=partial,
         truncated=budget.truncated,
         elapsed_s=time.monotonic() - started,
+        hash_ms=acc.hash_ns // 1_000_000,
     )

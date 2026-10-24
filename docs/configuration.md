@@ -31,6 +31,10 @@
   LSP (`command`, `languages`, `enabled`). Ausente = nenhum resolver
   externo. Ver `docs/semantic-resolution.md`. Nunca sobrescrito
   sem `--force`.
+- `[indexing]` (lf-0031) — `retain_snapshots = <int>` limita quantos
+  snapshots **STALE** ficam retidos por repositório; `0`/ausente =
+  retenção ilimitada (default: histórico completo para auditoria).
+  READY e FAILED nunca são podados. Ver `docs/storage-lifecycle.md`.
 - `<data_dir>/atlas.db` — SQLite WAL com migrações versionadas
   (`schema_version` queryável via `status`).
 

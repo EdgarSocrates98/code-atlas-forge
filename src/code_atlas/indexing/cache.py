@@ -200,6 +200,7 @@ def result_from_payload(payload: str) -> ParseResult:
 
 
 _ZERO_SPAN = SourceSpan(0, 0, 0, 0, 0, 0)
+_BATCH_CHUNK = 400  # bem abaixo do limite de variáveis do SQLite (999)
 
 
 class ParseResultCache:
@@ -242,6 +243,65 @@ class ParseResultCache:
             row["payload_sha256"]
         ):
             return None  # blob corrompido → miss
+        try:
+            return result_from_payload(row["payload"])
+        except (ValueError, KeyError, TypeError, json.JSONDecodeError):
+            return None
+
+    def get_many(
+        self, keys: list[CacheKey]
+    ) -> dict[str, ParseResult]:
+        """Lookup batchado — um ``IN`` por chunk de paths em vez de um
+        SELECT por arquivo (lf-0031: 2019 round-trips → ~5 num corpus
+        2k). Mesmas garantias de ``get``: payload_sha256 verificado,
+        blob inválido/corrompido → ausência (miss honesto)."""
+        wanted: dict[str, CacheKey] = {k.path: k for k in keys}
+        out: dict[str, ParseResult] = {}
+        paths = sorted(wanted)
+        for i in range(0, len(paths), _BATCH_CHUNK):
+            chunk = paths[i:i + _BATCH_CHUNK]
+            # SQL constante (auditoria AST): a lista de paths entra como
+            # UM parâmetro JSON via json_each — sem placeholders
+            # dinâmicos e sem interpolar dados na query.
+            rows = self._conn.execute(
+                """
+                SELECT path, content_sha256, language, parser_version,
+                       grammar_version, extractor_version,
+                       resolver_version, builder_version, config_digest,
+                       payload, payload_sha256
+                  FROM parse_result_cache
+                 WHERE repository_id = ?
+                   AND path IN (SELECT value FROM json_each(?))
+                """,
+                (self._repo_id, json.dumps(chunk)),
+            ).fetchall()
+            for row in rows:
+                res = self._row_result(wanted, row)
+                if res is not None:
+                    out[row["path"]] = res
+        return out
+
+    def _row_result(
+        self, wanted: dict[str, CacheKey], row: sqlite3.Row
+    ) -> ParseResult | None:
+        """Valida a linha contra a CacheKey exata + integridade do blob."""
+        key = wanted.get(row["path"])
+        if key is None:
+            return None
+        params = self._key_params(key)
+        row_key = (
+            self._repo_id, row["path"], row["content_sha256"],
+            row["language"], row["parser_version"],
+            row["grammar_version"], row["extractor_version"],
+            row["resolver_version"], row["builder_version"],
+            row["config_digest"],
+        )
+        if row_key != params:
+            return None  # chave de validade diverge → miss
+        if hashlib.sha256(row["payload"].encode()).hexdigest() != (
+            row["payload_sha256"]
+        ):
+            return None
         try:
             return result_from_payload(row["payload"])
         except (ValueError, KeyError, TypeError, json.JSONDecodeError):

@@ -204,9 +204,10 @@ class GraphBuilder:
         self, res: ParseResult, parsed: dict[str, ParseResult]
     ) -> None:
         del parsed  # resolução usa as tabelas já montadas em _module_graph
-        ctx = next(
-            (c for c in self._modules.values() if c.path == res.path), None
-        )
+        # lf-0031: lookup O(1) — o scan linear em _modules era O(n²)
+        # (5020 arquivos x ~5000 módulos = ~1.15s no corpus 5k).
+        mid = self._by_path.get(res.path)
+        ctx = self._nid_mod.get(mid) if mid is not None else None
         if ctx is None:
             return
         for rel in res.relations:
