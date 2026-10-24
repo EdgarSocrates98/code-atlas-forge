@@ -404,3 +404,51 @@ def test_scip_enrichment_end_to_end(tmp_path: Path) -> None:
     calls = {r["to_unresolved"]: r for r in rows}
     assert calls["helper"]["resolution_status"] == "resolved"
     assert calls["helper"]["resolver"] == "scip"
+
+
+# -- lf-0030: índice SCIP novo invalida relações -------------------------------
+
+
+def test_scip_index_change_invalidates_index_identity(
+    tmp_path: Path,
+) -> None:
+    """resolver_versions entra em analyzer_versions — scip atualizado
+    muda a identidade do índice (conservador: invalida tudo)."""
+    repo = _repo(tmp_path)
+    scip_file = repo / "index.scip"
+    import sys as _sys
+    _sys.path.insert(0, str(Path(__file__).parent.parent / "resolvers"))
+    from scip_fixture import document, index_bytes
+    scip_file.write_bytes(
+        index_bytes(repo.as_uri(), [document("pkg/util.py")]))
+    versions: dict = {}
+    factories, _errors = resolver_factories(
+        {"scip": {"index_path": "index.scip"}}, repo, versions)
+    assert "resolver:scip" in versions
+
+    db = connect(tmp_path / "atlas.db")
+    migrate(db)
+    try:
+        coord = IndexCoordinator(
+            db, resolver_factories=tuple(factories),
+            resolver_versions=versions)
+        out1 = coord.index(repo)
+        assert out1.status == "success"
+        # scip regenerado (conteúdo diferente → sha diferente)
+        scip_file.write_bytes(
+            index_bytes(repo.as_uri(),
+                        [document("pkg/util.py"),
+                         document("pkg/engine.py")]))
+        versions2: dict = {}
+        factories2, _ = resolver_factories(
+            {"scip": {"index_path": "index.scip"}}, repo, versions2)
+        assert versions2["resolver:scip"] != versions["resolver:scip"]
+        coord2 = IndexCoordinator(
+            db, resolver_factories=tuple(factories2),
+            resolver_versions=versions2)
+        out2 = coord2.index(repo)
+        # identidade mudou → NÃO é noop
+        assert not out2.noop
+        assert out2.status == "success"
+    finally:
+        db.close()

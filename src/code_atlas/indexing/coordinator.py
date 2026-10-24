@@ -26,7 +26,7 @@ import dataclasses
 import hashlib
 import sqlite3
 import time
-from collections.abc import Callable, Sequence
+from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import TypeGuard
@@ -98,6 +98,7 @@ class IndexCoordinator:
         engine: ParseEngine | None = None,
         builder: GraphBuilder | None = None,
         resolver_factories: Sequence[ResolverFactory] = (),
+        resolver_versions: Mapping[str, str] | None = None,
     ) -> None:
         self._conn = conn
         self._store = Store(conn)
@@ -106,6 +107,7 @@ class IndexCoordinator:
         self._builder = builder or GraphBuilder()
         self._planner = InvalidationPlanner()
         self._resolver_factories = tuple(resolver_factories)
+        self._resolver_versions = dict(resolver_versions or {})
         self.last_plan: IndexPlan | None = None  # plano do último index
 
     def _analyzer_versions(self, scan: ScanResult) -> dict[str, str]:
@@ -133,6 +135,9 @@ class IndexCoordinator:
         # entrar/sair da config invalida relações (lf-0027).
         if self._resolver_factories:
             versions["resolver:external"] = "enabled/1"
+        # identidade dos resolvers externos (lf-0030): índice SCIP novo
+        # → sha muda → invalidação completa, conservadora e correta.
+        versions.update(self._resolver_versions)
         return versions
 
     def _enrich_semantic(

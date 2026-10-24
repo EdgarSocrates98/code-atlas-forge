@@ -39,6 +39,7 @@ ResolverFactory = Callable[[ScopeUniverse], SemanticResolver]
 def resolver_factories(
     table: Mapping[str, object] | None,
     workspace_root: Path,
+    versions_out: dict[str, str] | None = None,
 ) -> tuple[list[ResolverFactory], list[str]]:
     """Traduz a tabela ``[resolvers]`` em fábricas + erros tipados.
 
@@ -52,7 +53,8 @@ def resolver_factories(
         return factories, errors
     scip = table.get("scip")
     if isinstance(scip, Mapping):
-        _scip_factory(scip, workspace_root, factories, errors)
+        _scip_factory(scip, workspace_root, factories, errors,
+                      versions_out)
     lsp = table.get("lsp")
     if isinstance(lsp, Mapping):
         _lsp_factories(lsp, workspace_root, factories, errors)
@@ -64,6 +66,7 @@ def _scip_factory(
     root: Path,
     factories: list[ResolverFactory],
     errors: list[str],
+    versions_out: dict[str, str] | None = None,
 ) -> None:
     index_path = scip.get("index_path")
     if not index_path or not isinstance(index_path, str):
@@ -102,6 +105,10 @@ def _scip_factory(
             f"scip index {path}: degraded — "
             f"{'; '.join(prov.validation_evidence[:3])}"
         )
+    if versions_out is not None:
+        # sha256 do índice na identidade do index — índice SCIP novo
+        # invalida relações (lf-0030 phase 6).
+        versions_out["resolver:scip"] = prov.index_sha256[:16]
     factories.append(
         lambda universe: ScipResolver(index, universe, prov)
     )

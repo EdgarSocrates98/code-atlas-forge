@@ -34,6 +34,12 @@ ganham arquivo quando o ciclo correspondente as tornar reais.
 | 018 | Modelo de validade incremental | `adr-0018-incremental-validity-model.md` |
 | 019 | Cache de ParseResult (schema v4) | `adr-0019-parse-result-cache.md` |
 
+## Decididas e implementadas (Cycle 3.1)
+
+| ADR | Título | Arquivo |
+|---|---|---|
+| 020 | Modelo de grafo incremental: snapshots completos | `adr-0020-incremental-graph-model.md` |
+
 ## Propostas (ciclos futuros — não implementadas)
 
 | ADR | Título | Ciclo |
