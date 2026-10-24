@@ -39,16 +39,23 @@ class Store:
     # --- repositories -------------------------------------------------
 
     def get_or_create_repository(self, root_handle: str) -> int:
-        """Repo estável por root_handle; não duplica em rescans."""
+        """Repo estável por root_handle; não duplica em rescans.
+
+        Race-safe (lf-0015): o INSERT condicional é uma única instrução
+        atômica — dois indexadores concorrentes não criam dois repos para
+        o mesmo root_handle mesmo sem constraint UNIQUE.
+        """
+        self._conn.execute(
+            "INSERT INTO repositories (root_handle) "
+            "SELECT ? WHERE NOT EXISTS "
+            "(SELECT 1 FROM repositories WHERE root_handle = ?)",
+            (root_handle, root_handle),
+        )
         row = self._conn.execute(
             "SELECT id FROM repositories WHERE root_handle = ?", (root_handle,)
         ).fetchone()
-        if row:
-            return int(row["id"])
-        cur = self._conn.execute(
-            "INSERT INTO repositories (root_handle) VALUES (?)", (root_handle,)
-        )
-        return int(cur.lastrowid)  # type: ignore[arg-type]
+        assert row is not None  # insert condicional garante a linha
+        return int(row["id"])
 
     def repository_id_for(self, root_handle: str) -> int | None:
         """Id do repo indexado ou None (read-only — nunca cria)."""

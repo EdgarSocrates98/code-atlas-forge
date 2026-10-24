@@ -62,18 +62,20 @@ def persist_graph(
     }
     status = file_status or {}
 
-    # 1. evidências primeiro — relations referenciam ids de evidência
-    evi_row_ids: list[int] = []
-    for rec in graph.evidence:
+    # 1. evidências primeiro — relations referenciam ids de evidência.
+    # Mapa explícito índice-em-graph.evidence → row_id (lf-0015):
+    # evidências filtradas (path fora do inventário) NÃO podem deslocar
+    # os índices das demais — o modelo posicional compactado corrompia
+    # silenciosamente a associação evidence↔relation.
+    evi_row_ids: dict[int, int] = {}
+    for i, rec in enumerate(graph.evidence):
         fid = file_ids.get(rec.path)
         if fid is None:
             continue
-        evi_row_ids.append(
-            store.insert_evidence(
-                snapshot_id, fid, rec.path, _span_json(rec.span),
-                rec.content_hash, rec.extractor, rec.extractor_version,
-                rec.notes,
-            )
+        evi_row_ids[i] = store.insert_evidence(
+            snapshot_id, fid, rec.path, _span_json(rec.span),
+            rec.content_hash, rec.extractor, rec.extractor_version,
+            rec.notes,
         )
     counts["evidence"] = len(evi_row_ids)
 
@@ -116,7 +118,7 @@ def persist_graph(
             counts["edges_skipped"] += 1  # alvo estrutural não persistido
             continue
         ev_ids = json.dumps([evi_row_ids[i] for i in e.evidence_index
-                             if i < len(evi_row_ids)])
+                             if i in evi_row_ids])
         rel_rows.append(
             (
                 snapshot_id, frm, to, e.to_text or None, str(e.type),

@@ -1,0 +1,15 @@
+{
+  "agent": "codex",
+  "command": [
+    "codex",
+    "exec",
+    "$(cat /home/edgar/Documentos/projetos/forjas/code-atlas-forge/factory/prompts/lf-0015.implement.codex.md)"
+  ],
+  "created_at": "2026-10-24T12:52:48+00:00",
+  "id": "lf-0015",
+  "prompt_path": "/home/edgar/Documentos/projetos/forjas/code-atlas-forge/factory/prompts/lf-0015.implement.codex.md",
+  "spec_path": "/home/edgar/Documentos/projetos/forjas/code-atlas-forge/factory/specs/active/lf-0015.md",
+  "spec_sha256": "bab7e73033159651a19c0b00736ce8ed088d50bb0ec7d57fa29c30cd8b55046b",
+  "status": "planned",
+  "title": "Cycle 3 Phase 0 \u2014 Baseline audit + Cycle-2 hardening (integrity, evidence, concurrency)"
+}

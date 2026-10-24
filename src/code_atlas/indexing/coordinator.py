@@ -21,13 +21,16 @@ Regras:
 
 from __future__ import annotations
 
+import hashlib
 import sqlite3
+import time
 from collections.abc import Callable
 from dataclasses import dataclass, field
 from pathlib import Path
 
 from code_atlas.contracts.enums import SnapshotStatus
 from code_atlas.discovery.models import ScanResult
+from code_atlas.discovery.scanner import read_file_verified
 from code_atlas.discovery.scanner import scan as default_scan
 from code_atlas.graph.builder import GraphBuilder
 from code_atlas.graph.validation import validate_graph
@@ -46,7 +49,7 @@ class IndexOutcome:
     """Resultado de uma tentativa de indexação."""
 
     snapshot_id: int | None
-    job_id: int
+    job_id: int | None  # None quando nem o job pôde ser registrado
     status: str  # success | failed | noop
     files_indexed: int
     noop: bool = False
@@ -104,10 +107,19 @@ class IndexCoordinator:
         store = self._store
 
         # Job registrado em transação própria para sobreviver a rollback —
-        # falhas precisam ficar inspecionáveis.
-        with self._conn:
-            repo_id = store.get_or_create_repository(str(Path(root).resolve()))
-            job_id = store.insert_index_job(repo_id, digest)
+        # falhas precisam ficar inspecionáveis. Sob lock de escrita preso,
+        # até esta escrita mínima falha → outcome failed honesto (lf-0015).
+        try:
+            with self._conn:
+                repo_id = store.get_or_create_repository(
+                    str(Path(root).resolve()))
+                job_id = store.insert_index_job(repo_id, digest)
+        except sqlite3.OperationalError as exc:
+            return IndexOutcome(
+                snapshot_id=None, job_id=None, status="failed",
+                files_indexed=len(scan.files), error=str(exc),
+                secrets_skipped=scan.secret_count,
+            )
 
         if scan.partial or scan.truncated:
             error = "scan incomplete (partial or truncated; not publishing READY)"
@@ -154,7 +166,17 @@ class IndexCoordinator:
             )
 
         # Escritor único: BEGIN IMMEDIATE serializa com outros escritores.
-        self._conn.execute("BEGIN IMMEDIATE")
+        # busy_timeout do connect é 5s — persistências grandes podem
+        # segurar o lock mais que isso; retry limitado dá ao perdedor uma
+        # chance honesta antes de virar FAILED (lf-0015).
+        begin_err = self._acquire_write_lock()
+        if begin_err is not None:
+            snap_id = self._mark_failed(repo_id, job_id, str(begin_err))
+            return IndexOutcome(
+                snapshot_id=snap_id, job_id=job_id, status="failed",
+                files_indexed=len(scan.files), error=str(begin_err),
+                secrets_skipped=scan.secret_count,
+            )
         try:
             current = store.latest_ready_snapshot(repo_id)
 
@@ -241,6 +263,21 @@ class IndexCoordinator:
                 files_indexed=0, error=str(exc),
             )
 
+    _BEGIN_ATTEMPTS = 4
+    _BEGIN_BACKOFF_S = 0.05
+
+    def _acquire_write_lock(self) -> sqlite3.OperationalError | None:
+        """BEGIN IMMEDIATE com backoff; retorna o erro final ou None."""
+        last: sqlite3.OperationalError | None = None
+        for attempt in range(self._BEGIN_ATTEMPTS):
+            try:
+                self._conn.execute("BEGIN IMMEDIATE")
+                return None
+            except sqlite3.OperationalError as exc:
+                last = exc
+                time.sleep(self._BEGIN_BACKOFF_S * (attempt + 1))
+        return last
+
     def _parse_files(
         self, root: Path, scan: ScanResult
     ) -> tuple[list[ParseResult], dict[str, str], list[str]]:
@@ -248,17 +285,30 @@ class IndexCoordinator:
 
         Retorna (results, file_status, failures). ``file_status`` alimenta
         ``symbol_occurrences.parse_status``; ``failures`` entra no job.
+
+        Integridade scan→parse (lf-0015): os bytes parseados precisam ser
+        exatamente os bytes hasheados pelo manifest — leitura verificada
+        (``read_file_verified``) + comparação de sha256. Divergência vira
+        falha de arquivo auditável, nunca READY com identidade errada.
         """
+        root_real = Path(root).resolve()
         results: list[ParseResult] = []
         file_status: dict[str, str] = {}
         failures: list[str] = []
         for f in scan.files:
             if self._engine.registry.for_path(f.path) is None:
                 continue  # extensão sem parser — não conta como falha
-            try:
-                data = (Path(root) / f.path).read_bytes()
-            except OSError:
+            if f.sha256 is None:
+                failures.append(f"{f.path}:hash-unavailable")
+                file_status[f.path] = "parse-failed"
+                continue
+            data = read_file_verified(Path(root) / f.path, root_real)
+            if data is None:
                 failures.append(f"{f.path}:read-error")
+                file_status[f.path] = "parse-failed"
+                continue
+            if hashlib.sha256(data).hexdigest() != f.sha256:
+                failures.append(f"{f.path}:content-mismatch")
                 file_status[f.path] = "parse-failed"
                 continue
             res = self._engine.parse(f.path, data)
