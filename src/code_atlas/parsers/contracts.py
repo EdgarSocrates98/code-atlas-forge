@@ -85,9 +85,10 @@ class ExtractedReference:
     """Menção sintática a um nome — alvo textual preservado."""
 
     name: str  # texto do alvo (ex.: "foo", "pkg.mod", "obj.method")
-    context: str  # call|import|extends|implements|decorator|type-ref
+    context: str  # call|import|import-member|extends|implements|decorator|type-ref|jsx
     span: SourceSpan
     scope_path: tuple[str, ...] = ()
+    target: str = ""  # import-member: "modulo.membro" do símbolo importado
 
 
 @dataclass(frozen=True)
@@ -168,6 +169,10 @@ class GraphNode:
     path: str = ""  # rel path (file/module/package nodes)
     span: SourceSpan | None = None
     content_hash: str = ""
+    signature: str | None = None
+    params: tuple[str, ...] = ()
+    docstring: str | None = None
+    modifiers: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True)

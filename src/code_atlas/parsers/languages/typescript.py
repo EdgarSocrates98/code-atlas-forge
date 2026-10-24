@@ -279,13 +279,15 @@ class _TsExtractor:
             ExtractedRelation("IMPORTS", self.module, module_path, rt.span_of(node))
         )
         for imported, alias in names:
+            binding = alias or imported
+            member = imported if imported != "*" else "*"
             self.refs.append(
                 ExtractedReference(
-                    name=imported, context="import-name",
+                    name=binding, context="import-member",
                     span=rt.span_of(node), scope_path=scope,
+                    target=f"{module_path}.{member}",
                 )
             )
-            del alias  # alias já preservado no texto do specifier
 
     def _import_names(self, node: Node) -> list[tuple[str, str | None]]:
         out: list[tuple[str, str | None]] = []

@@ -169,7 +169,9 @@ class _PyExtractor:
         if node.type == "import_statement":
             for c in node.named_children:
                 target, alias = self._import_pair(c)
-                self._emit_import(self.module, target, alias, c, scope)
+                # `import a.b` liga o nome 'a'; `import a.b as c` liga 'c'
+                binding = alias or target.split(".")[0]
+                self._emit_import(self.module, target, binding, target, c, scope)
         else:  # import_from_statement
             mod = node.child_by_field_name("module_name")
             base = self.text(mod) if mod is not None else ""
@@ -177,7 +179,8 @@ class _PyExtractor:
                 if c.type in ("dotted_name", "aliased_import") and c is not mod:
                     target, alias = self._import_pair(c)
                     full = f"{base}.{target}" if base else target
-                    self._emit_import(self.module, full, alias, c, scope)
+                    binding = alias or target.split(".")[-1]
+                    self._emit_import(self.module, full, binding, full, c, scope)
 
     def _import_pair(self, node: Node) -> tuple[str, str | None]:
         if node.type == "aliased_import":
@@ -189,12 +192,19 @@ class _PyExtractor:
             )
         return self.text(node), None
 
-    def _emit_import(self, src_qname: str, target: str, alias: str | None,
-                     node: Node, scope: tuple[str, ...]) -> None:
+    def _emit_import(self, src_qname: str, target: str, binding: str,
+                     member_target: str, node: Node, scope: tuple[str, ...]) -> None:
         self.refs.append(
             ExtractedReference(
                 name=target, context="import",
                 span=rt.span_of(node), scope_path=scope,
+            )
+        )
+        # binding local → alvo completo: alimenta a resolução do grafo
+        self.refs.append(
+            ExtractedReference(
+                name=binding, context="import-member",
+                span=rt.span_of(node), scope_path=scope, target=member_target,
             )
         )
         self.relations.append(
