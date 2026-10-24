@@ -61,11 +61,21 @@ code-atlas references pkg.util.helper    # incoming, com status/confiança
 code-atlas definitions pkg.util.helper   # defs + declarações do símbolo
 code-atlas dependencies pkg.app.main --depth 2   # BFS outgoing, cycle-safe
 code-atlas graph --json                  # dump de nós+arestas do snapshot
+
+# retrieval híbrido + contexto (Cycle 4)
+code-atlas search "q" --strategy lexical|structural|graph|hybrid --limit 10 --json
+code-atlas context --task "create_order" --level focus --budget 4000 --format markdown
+code-atlas context-expand --symbol pkg.orders.validate_total --snapshot 1 --delivered sym:pkg.orders
+code-atlas mcp                            # servidor MCP stdio (JSON-RPC ndjson)
+code-atlas mcp doctor --json              # executável, DB, schema, sqlite_vec
+code-atlas mcp manifest --host claude-code   # emite config (nunca escreve)
 ```
 
 Filtros: `--language`, `--kind`, `--path`, `--snapshot`,
 `--relation-type`, `--limit`/`--offset`. Saída JSON estável com
-`schema_version`. Detalhes: `docs/structural-search.md`.
+`schema_version`. Detalhes: `docs/structural-search.md`, `docs/hybrid-search.md`,
+`docs/graph-retrieval.md`, `docs/context-engineering.md`,
+`docs/mcp-server.md`.
 
 Configuração: `--root` > variáveis `CODE_ATLAS_*` > `XDG_CONFIG_HOME` /
 `%APPDATA%`. Nada é escrito dentro do repositório indexado.
@@ -77,7 +87,9 @@ matriz completa com versões de gramática pinned em
 `docs/parser-adapters.md`. Arquivos de outras linguagens entram no
 inventário como nós `file`, sem extração.
 
-## Limitações (Cycle 3.1)
+## Limitações
+
+Cycle 3.1:
 
 Implementado hoje: parsing sintático real, símbolos/referências/
 relações com proveniência por aresta, resolução syntactic (imports +

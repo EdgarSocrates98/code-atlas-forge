@@ -17,7 +17,11 @@ from collections.abc import Mapping
 
 from code_atlas.contracts.enums import NodeKind
 from code_atlas.parsers.contracts import GraphBuildResult, SourceSpan
+from code_atlas.search.tokenizer import index_terms
 from code_atlas.storage.store import Store
+
+# Docstring truncada no índice FTS — não copiamos o repo integral.
+_DOCSTRING_FTS_MAX = 4000
 
 # Kinds que ganham símbolo+ocorrência persistida.
 _PERSISTED_KINDS = frozenset(
@@ -63,7 +67,8 @@ def _persist_evidence(
         rows.append(
             (snapshot_id, fid, rec.path, _span_json(rec.span),
              rec.content_hash, rec.extractor, rec.extractor_version,
-             rec.notes)
+             rec.notes, rec.resolver_id, rec.resolver_version,
+             rec.evidence_tier, rec.index_hash, rec.validation_status)
         )
         order.append(i)
     for idx, rid in zip(order, store.insert_evidence_batch(rows), strict=True):
@@ -137,6 +142,30 @@ def persist_graph(
     ):
         node_occ[nid] = rid
     counts["occurrences"] = len(node_occ)
+
+    # 2b. FTS por-ocorrência (lf-0036) — snapshot-scoped; rowid = id da
+    # ocorrência. ``terms`` recebe identificadores pré-tokenizados;
+    # docstring truncada (não copiamos o repo integral).
+    if fts5 and node_occ:
+        node_by_id = {n.node_id: n for n in persisted}
+        fts_rows = [
+            (
+                occ_id,
+                snapshot_id,
+                (n := node_by_id[nid]).name
+                or n.qualified_name.rsplit(".", 1)[-1],
+                index_terms(
+                    n.name, n.qualified_name, n.path
+                ),
+                n.signature or "",
+                (n.docstring or "")[:_DOCSTRING_FTS_MAX],
+                n.path,
+                n.language,
+                str(n.kind),
+            )
+            for nid, occ_id in node_occ.items()
+        ]
+        store.insert_fts_occurrences_batch(fts_rows)
 
     # 3. relações — somente endpoints dentro do snapshot
     rel_rows: list[tuple[object, ...]] = []

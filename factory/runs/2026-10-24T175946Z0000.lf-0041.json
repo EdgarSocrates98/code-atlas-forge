@@ -1,0 +1,15 @@
+{
+  "agent": "codex",
+  "command": [
+    "codex",
+    "exec",
+    "$(cat /home/edgar/Documentos/projetos/forjas/code-atlas-forge/factory/prompts/lf-0041.implement.codex.md)"
+  ],
+  "created_at": "2026-10-24T17:59:46+00:00",
+  "id": "lf-0041",
+  "prompt_path": "/home/edgar/Documentos/projetos/forjas/code-atlas-forge/factory/prompts/lf-0041.implement.codex.md",
+  "spec_path": "/home/edgar/Documentos/projetos/forjas/code-atlas-forge/factory/specs/active/lf-0041.md",
+  "spec_sha256": "2e76806fd69fc472f02dce0f26b58c21c3c9c7892b2e3bc7ea0532b07787d26e",
+  "status": "planned",
+  "title": "Cycle 4 Phase 8 \u2014 context expansion + progressive disclosure"
+}

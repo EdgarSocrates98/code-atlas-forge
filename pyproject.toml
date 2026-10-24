@@ -38,6 +38,11 @@ dev = [
     "mypy>=1.11.0",
     "build>=1.2",
 ]
+vector = [
+    # KNN nativo opcional (ADR-0022); sem ele o backend é bruteforce
+    # stdlib — instalação mínima nunca baixa sqlite-vec.
+    "sqlite-vec>=0.1.6",
+]
 
 [tool.setuptools.packages.find]
 where = ["src"]

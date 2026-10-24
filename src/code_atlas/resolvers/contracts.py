@@ -54,6 +54,7 @@ class ResolverProvenance:
     resolver_version: str     # versão do resolvedor (semver interno)
     evidence_tier: int        # EvidenceTier — 1=semantic-index…4=heuristic
     detail: str = ""          # indexer/server de origem, grammar, etc.
+    index_hash: str = ""      # sha256 do índice externo (lf-0035), se houver
 
 
 @dataclass(frozen=True)

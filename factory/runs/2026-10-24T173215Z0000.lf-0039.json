@@ -1,0 +1,15 @@
+{
+  "agent": "codex",
+  "command": [
+    "codex",
+    "exec",
+    "$(cat /home/edgar/Documentos/projetos/forjas/code-atlas-forge/factory/prompts/lf-0039.implement.codex.md)"
+  ],
+  "created_at": "2026-10-24T17:32:15+00:00",
+  "id": "lf-0039",
+  "prompt_path": "/home/edgar/Documentos/projetos/forjas/code-atlas-forge/factory/prompts/lf-0039.implement.codex.md",
+  "spec_path": "/home/edgar/Documentos/projetos/forjas/code-atlas-forge/factory/specs/active/lf-0039.md",
+  "spec_sha256": "d3ad78f27fb039ebb1984d34222964a6ad1860d5101000d0837bdcd4d050adda",
+  "status": "planned",
+  "title": "Cycle 4 Phase 4 \u2014 optional vector search (sqlite-vec)"
+}

@@ -155,6 +155,13 @@ class EvidenceRecord:
     extractor: str  # adapter_id
     extractor_version: str  # "parserX.Y+grammarZ.W"
     notes: str = ""
+    # Proveniência de resolvedor (lf-0035) — opcionais; "" quando a
+    # evidência veio do parser e não de um resolvedor semântico.
+    resolver_id: str = ""
+    resolver_version: str = ""
+    evidence_tier: int = 0  # EvidenceTier (0 = não-resolver)
+    index_hash: str = ""    # sha do índice externo (ex.: SCIP), se houver
+    validation_status: str = ""  # ex.: "confirmed", "conflict"
 
 
 @dataclass(frozen=True)

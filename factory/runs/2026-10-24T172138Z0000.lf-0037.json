@@ -1,0 +1,15 @@
+{
+  "agent": "codex",
+  "command": [
+    "codex",
+    "exec",
+    "$(cat /home/edgar/Documentos/projetos/forjas/code-atlas-forge/factory/prompts/lf-0037.implement.codex.md)"
+  ],
+  "created_at": "2026-10-24T17:21:38+00:00",
+  "id": "lf-0037",
+  "prompt_path": "/home/edgar/Documentos/projetos/forjas/code-atlas-forge/factory/prompts/lf-0037.implement.codex.md",
+  "spec_path": "/home/edgar/Documentos/projetos/forjas/code-atlas-forge/factory/specs/active/lf-0037.md",
+  "spec_sha256": "9d22a8952ac7ef42344c2d05007490050079e39777e82b6262992eaf8fbf7a14",
+  "status": "planned",
+  "title": "Cycle 4 Phase 3 \u2014 graph-aware retrieval"
+}

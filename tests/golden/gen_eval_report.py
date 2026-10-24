@@ -22,6 +22,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "resolvers"))
 
 from eval_harness import CORPUS_DIR, evaluate, evaluate_incremental
+from retrieval_eval import retrieval_block
 from scip_fixture import document, index_bytes, tool_info
 
 from code_atlas.indexing import IndexCoordinator
@@ -144,6 +145,11 @@ def _isolation_metrics(tmp: Path) -> dict:
         conn.close()
 
 
+def _cycle4(tmp: Path) -> dict:
+    (tmp / "retr").mkdir(exist_ok=True)
+    return retrieval_block(tmp / "retr", runs=3)
+
+
 def main() -> None:
     tmp = Path(tempfile.mkdtemp(prefix="eval-report-"))
     for sub in ("stale", "inc", "cache", "iso"):
@@ -167,6 +173,7 @@ def main() -> None:
                 "no ambiente — degradado declarado)"
             ],
         },
+        "cycle4": _cycle4(tmp),
     }
     report["cycle31"]["graph_equivalence"]["incremental_equals_cold"] = (
         report["cycle31"]["invalidation_correctness"]["incremental_matches_full"]

@@ -1,0 +1,15 @@
+{
+  "agent": "codex",
+  "command": [
+    "codex",
+    "exec",
+    "$(cat /home/edgar/Documentos/projetos/forjas/code-atlas-forge/factory/prompts/lf-0040.implement.codex.md)"
+  ],
+  "created_at": "2026-10-24T17:39:54+00:00",
+  "id": "lf-0040",
+  "prompt_path": "/home/edgar/Documentos/projetos/forjas/code-atlas-forge/factory/prompts/lf-0040.implement.codex.md",
+  "spec_path": "/home/edgar/Documentos/projetos/forjas/code-atlas-forge/factory/specs/active/lf-0040.md",
+  "spec_sha256": "8e1846669998d947a23a9390bca231906cd9a79a5351e8fe82bec74729087845",
+  "status": "planned",
+  "title": "Cycle 4 Phases 6+7 \u2014 context pack engine + token budget"
+}

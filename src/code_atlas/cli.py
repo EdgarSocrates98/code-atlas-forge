@@ -19,7 +19,7 @@ import os
 import sqlite3
 import sys
 from collections.abc import Sequence
-from dataclasses import dataclass
+from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Any
 
@@ -663,6 +663,11 @@ def run_search(args: argparse.Namespace) -> int:
     assert (
         conn is not None and repo_id is not None and snap_id is not None
     )
+    strategy = getattr(args, "strategy", "structural") or "structural"
+    if strategy != "structural":
+        if repo_info is None:
+            return _emit_error(args, "repository info unavailable")
+        return _run_search_engine(args, conn, snap_id, repo_info, strategy)
     try:
         search = StructuralSearch(conn)
         filters = SearchFilters(
@@ -692,6 +697,184 @@ def run_search(args: argparse.Namespace) -> int:
     finally:
         conn.close()
     return _emit_page(args, payload)
+
+
+def _run_search_engine(
+    args: argparse.Namespace,
+    conn: sqlite3.Connection,
+    snap_id: int,
+    repo_info: dict[str, Any],
+    strategy: str,
+) -> int:
+    """Estratégias do SearchEngine (lexical|graph|hybrid) com envelope v2."""
+    from code_atlas.search import SearchEngine, SearchRequest
+    from code_atlas.search.contracts import encode_cursor, query_fingerprint
+
+    offset = max(0, args.offset)
+    cursor = None
+    if offset:
+        fp = query_fingerprint(args.query, {
+            "language": args.language, "kind": args.kind,
+            "path": args.path_filter})
+        cursor = encode_cursor(offset, fp)
+    try:
+        res = SearchEngine(conn).search(
+            SearchRequest(
+                query=args.query,
+                strategy=strategy,
+                language=args.language,
+                kind=args.kind,
+                path=args.path_filter,
+                repository_root=str(resolve_root(args.root)),
+                snapshot_id=snap_id,
+                limit=clamp_limit(args.limit),
+                cursor=cursor,
+            )
+        )
+    finally:
+        conn.close()
+    items = [asdict(h) for h in res.items]
+    payload: dict[str, Any] = res.to_dict()
+    payload["tool"] = "code-atlas"
+    payload["version"] = __version__
+    payload["command"] = "search"
+    payload["repository"] = repo_info
+    payload["_human"] = [
+        f"{h['qualified_name']:<40} {h['path']} "
+        f"[{','.join(h['matched_fields']) or 'structural'} "
+        f"score={h['score']:.4f}]" for h in items
+    ]
+    return _emit_page(args, payload)
+
+
+def run_context(args: argparse.Namespace) -> int:
+    """`code-atlas context TASK` — pack de contexto sob budget (lf-0040)."""
+    conn, _repo_id, snap_id, _info, err = _search_context(args)
+    if err:
+        return _emit_error(args, err)
+    assert conn is not None and snap_id is not None
+    from code_atlas.context import (
+        ContextEngine,
+        ContextRequest,
+        render_json,
+        render_markdown,
+    )
+
+    try:
+        pack = ContextEngine(conn).build(ContextRequest(
+            task=args.task,
+            repository_root=str(resolve_root(args.root)),
+            snapshot_id=snap_id,
+            level=args.level,
+            budget_tokens=args.budget,
+            max_symbols=clamp_limit(args.limit),
+        ))
+    finally:
+        conn.close()
+    if args.format == "markdown":
+        print(render_markdown(pack))
+        return EXIT_OK
+    if args.json or args.format == "json":
+        print(render_json(pack))
+        return EXIT_OK
+    # humano: linhas resumidas
+    m = pack.manifest
+    print(f"# pack snapshot={m.snapshot_id} level={m.level} "
+          f"selected={m.selected} omitted={m.omitted} "
+          f"truncated={str(m.truncated).lower()}")
+    for i in pack.items:
+        print(f"  [{i.priority}] {i.kind:<10} {i.title} "
+              f"(~{i.est_tokens} tok)")
+    if pack.diagnostics.codes:
+        print(f"diagnostics: {', '.join(pack.diagnostics.codes)}")
+    return EXIT_OK
+
+
+def run_context_expand(args: argparse.Namespace) -> int:
+    """`code-atlas context-expand --symbol X` — expansão autocontida."""
+    conn, _repo_id, snap_id, _info, err = _search_context(args)
+    if err:
+        return _emit_error(args, err)
+    assert conn is not None and snap_id is not None
+    from code_atlas.context import ContextExpander, expansion_to_json
+
+    delivered = frozenset(
+        s for s in (args.delivered or "").split(",") if s)
+    try:
+        res = ContextExpander(conn).expand(
+            snap_id, args.symbol, delivered=delivered,
+            budget_tokens=args.budget)
+    finally:
+        conn.close()
+    if res.error:
+        return _emit_error(args, res.error)
+    if args.json:
+        print(expansion_to_json(res))
+    else:
+        for i in res.added:
+            print(f"  + {i.symbol_key} (~{i.est_tokens} tok) {i.path}")
+        for r in res.remaining_refs:
+            print(f"  … {r.ref_id} ({r.reason})")
+    return EXIT_OK
+
+
+_MCP_MANIFESTS: dict[str, dict[str, Any]] = {
+    "claude-code": {"mcpServers": {"code-atlas": {
+        "command": "code-atlas", "args": ["mcp"]}}},
+    "codex-cli": {"mcp_servers": {"code-atlas": {
+        "command": "code-atlas", "args": ["mcp"]}}},
+    "generic": {"mcpServers": {"code-atlas": {
+        "command": "code-atlas", "args": ["mcp"]}}},
+}
+
+
+def run_mcp(args: argparse.Namespace) -> int:
+    """`code-atlas mcp [doctor|manifest] ` — servidor stdio + host UX.
+
+    `doctor` diagnostica instalação/capabilities; `manifest` EMITE o
+    manifest do host (nunca edita config global — só instrui).
+    """
+    from code_atlas.mcp import main_stdio
+
+    cmd = getattr(args, "cmd", "serve") or "serve"
+    if cmd == "manifest":
+        host = getattr(args, "host", "generic") or "generic"
+        manifest = _MCP_MANIFESTS.get(host, _MCP_MANIFESTS["generic"])
+        print(json.dumps(manifest, indent=2))
+        print("# cole o JSON acima no config do host — Atlas nunca "
+              "escreve nele", file=sys.stderr)
+        return EXIT_OK
+    if cmd == "doctor":
+        return _mcp_doctor(args)
+    return main_stdio()
+
+
+def _mcp_doctor(args: argparse.Namespace) -> int:
+    """Diagnóstico de instalação: executável, DB, capabilities, ndjson."""
+    import shutil
+
+    from code_atlas.search.vector import sqlite_vec_available
+    from code_atlas.storage import schema_version
+
+    exe = shutil.which("code-atlas") or "<não no PATH — use python -m>"
+    checks: dict[str, Any] = {
+        "executable": exe,
+        "python": sys.version.split()[0],
+        "db_path": str(db_path()),
+        "db_exists": db_path().exists(),
+        "sqlite_vec": str(sqlite_vec_available()),
+    }
+    if checks["db_exists"]:
+        conn = _open_db()
+        checks["schema_version"] = schema_version(conn)
+        conn.close()
+    if args.json:
+        print(json.dumps({"tool": "code-atlas",
+                          "command": "mcp doctor", **checks}))
+    else:
+        for k, v in checks.items():
+            print(f"{k:<16} {v}")
+    return EXIT_OK
 
 
 def run_symbol(args: argparse.Namespace) -> int:
@@ -995,8 +1178,44 @@ def build_parser() -> argparse.ArgumentParser:
         "search", help="busca estrutural por símbolo (substring)"
     )
     p_search.add_argument("query", metavar="QUERY", help="substring do qualified_name")
+    p_search.add_argument(
+        "--strategy", metavar="NAME", default="structural",
+        help="structural|lexical|graph|hybrid (default structural)")
     _add_query_args(p_search, p_path=True)
     p_search.set_defaults(func=run_search)
+
+    p_ctx = sub.add_parser(
+        "context", help="context pack sob budget de tokens (lf-0040)")
+    p_ctx.add_argument("task", metavar="TASK", help="descrição da tarefa")
+    p_ctx.add_argument("--level", choices=("orientation", "focus", "deep"),
+                       default="focus", help="nível de detalhe")
+    p_ctx.add_argument("--budget", metavar="TOKENS", type=int, default=4000,
+                       help="orçamento estimado (default 4000)")
+    p_ctx.add_argument("--format", choices=("json", "markdown", "human"),
+                       default="human", help="renderer de saída")
+    _add_query_args(p_ctx, filters=False)
+    p_ctx.set_defaults(func=run_context)
+
+    p_exp = sub.add_parser(
+        "context-expand",
+        help="expande símbolo no MESMO snapshot do pack (lf-0041)")
+    p_exp.add_argument("--symbol", metavar="SYMBOL", required=True,
+                       help="qualified_name (ou sufixo) a expandir")
+    p_exp.add_argument("--delivered", metavar="IDS", default="",
+                       help="item_ids já entregues (csv) — dedup")
+    p_exp.add_argument("--budget", metavar="TOKENS", type=int,
+                       default=4000)
+    _add_query_args(p_exp, filters=False)
+    p_exp.set_defaults(func=run_context_expand)
+
+    p_mcp = sub.add_parser(
+        "mcp", help="servidor MCP stdio — JSON-RPC ndjson (lf-0042)")
+    p_mcp.add_argument("cmd", nargs="?", default="serve",
+                       choices=("serve", "doctor", "manifest"))
+    p_mcp.add_argument("--host", default="generic",
+                       choices=("claude-code", "codex-cli", "generic"))
+    p_mcp.add_argument("--json", action="store_true")
+    p_mcp.set_defaults(func=run_mcp)
 
     p_symbol = sub.add_parser("symbol", help="detalhe de um símbolo + ocorrências")
     p_symbol.add_argument("ident", metavar="SYMBOL", help="id numérico ou qualified_name")

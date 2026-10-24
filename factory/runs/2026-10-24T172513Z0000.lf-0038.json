@@ -1,0 +1,15 @@
+{
+  "agent": "codex",
+  "command": [
+    "codex",
+    "exec",
+    "$(cat /home/edgar/Documentos/projetos/forjas/code-atlas-forge/factory/prompts/lf-0038.implement.codex.md)"
+  ],
+  "created_at": "2026-10-24T17:25:13+00:00",
+  "id": "lf-0038",
+  "prompt_path": "/home/edgar/Documentos/projetos/forjas/code-atlas-forge/factory/prompts/lf-0038.implement.codex.md",
+  "spec_path": "/home/edgar/Documentos/projetos/forjas/code-atlas-forge/factory/specs/active/lf-0038.md",
+  "spec_sha256": "b9a9e8a0a4b513a1d3afa4115b5b1c3cf17c2604925279b185e471be6540f294",
+  "status": "planned",
+  "title": "Cycle 4 Phase 5 \u2014 hybrid search + rank fusion (RRF)"
+}

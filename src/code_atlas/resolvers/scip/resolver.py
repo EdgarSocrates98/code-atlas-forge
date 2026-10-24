@@ -98,6 +98,7 @@ class ScipResolver:
             resolver_version=RESOLVER_VERSION,
             evidence_tier=int(EvidenceTier.SEMANTIC_INDEX),
             detail=detail,
+            index_hash=self._prov_info.index_sha256,
         )
 
     def _conf(self, intended: str) -> str:
