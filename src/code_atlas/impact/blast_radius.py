@@ -59,6 +59,8 @@ def blast(
     conn: sqlite3.Connection, snapshot_id: int,
     origins: dict[str, int],  # symbol_key → occurrence_id alterado
     limits: ImpactLimits,
+    *,
+    reason_suffix: str = "",
 ) -> tuple[tuple[ImpactCandidate, ...], bool]:
     """BFS de consumidores; retorna (candidatos, truncated)."""
     conn.row_factory = sqlite3.Row
@@ -101,7 +103,8 @@ def blast(
                 intermediate_keys=tuple(new_mid),
                 resolution_statuses=tuple(new_st),
                 fully_verified=verified,
-                reason=f"{r['type']} via relation {r['id']}")
+                reason=(f"{r['type']} via relation {r['id']}"
+                        + reason_suffix))
             out.append(ImpactCandidate(
                 symbol_key=hit.key, qualified_name=hit.qname,
                 language=hit.language, kind=hit.kind, impact=kind,

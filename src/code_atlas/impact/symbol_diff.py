@@ -61,6 +61,38 @@ def _symbols(conn: sqlite3.Connection, snapshot_id: int) -> dict[str, _Sym]:
     return out
 
 
+def _pair_by_hash(
+    removed: dict[str, _Sym], added: dict[str, _Sym],
+) -> tuple[dict[str, list[_Sym]], dict[str, list[_Sym]],
+           dict[str, _Sym], set[str]]:
+    """Agrupa por content_hash e extrai pares 1:1 (lf-0073).
+
+    Retorna (by_hash_removed, by_hash_added, rename_pairs, ambiguous);
+    os pares 1:1 são retirados de `removed`/`added` in-place.
+    O primeiro elemento só serve para documentar o agrupamento.
+    """
+    by_hash_removed: dict[str, list[_Sym]] = {}
+    for s in removed.values():
+        if s.content_hash:
+            by_hash_removed.setdefault(s.content_hash, []).append(s)
+    by_hash_added: dict[str, list[_Sym]] = {}
+    for s in added.values():
+        if s.content_hash:
+            by_hash_added.setdefault(s.content_hash, []).append(s)
+    ambiguous: set[str] = set()
+    rename_pairs: dict[str, _Sym] = {}
+    for h, olds in by_hash_removed.items():
+        news = by_hash_added.get(h, [])
+        if len(olds) == 1 and len(news) == 1:
+            old, new = olds[0], news[0]
+            rename_pairs[new.key] = old
+            removed.pop(old.key)
+            added.pop(new.key)
+        elif news:
+            ambiguous.add(h)
+    return by_hash_removed, by_hash_added, rename_pairs, ambiguous
+
+
 def _signature(conn: sqlite3.Connection, occ_id: int) -> str | None:
     row = conn.execute(_SIG_SQL, (occ_id,)).fetchone()
     return str(row["signature"]) if row and row["signature"] else None
@@ -84,15 +116,43 @@ def diff_snapshots(
     added = {k: v for k, v in target.items() if k not in base}
 
     # rename/move com evidência: mesmo content_hash em qname diferente.
-    by_hash_removed: dict[str, _Sym] = {
-        s.content_hash: s for s in removed.values() if s.content_hash}
-    rename_pairs: dict[str, _Sym] = {}
-    for k, s in list(added.items()):
-        if s.content_hash and s.content_hash in by_hash_removed:
-            old = by_hash_removed[s.content_hash]
-            rename_pairs[k] = old
-            removed.pop(old.key)
-            added.pop(k)
+    # lf-0073: hash só prova 1:1 — N candidatos em qualquer lado torna
+    # a correspondência AMBÍGUA (add/remove separados + detail), nunca
+    # um rename "verified".
+    by_hash_added, rename_pairs, ambiguous = _pair_by_hash(
+        removed, added)[1:]
+
+    for k, s in sorted(removed.items()):
+        if s.content_hash in ambiguous:
+            cand = by_hash_added.get(s.content_hash or "", [])
+            cands = ", ".join(c.qname for c in cand)
+            changes.append(SymbolChange(
+                symbol_key=k, qualified_name=s.qname,
+                language=s.language, kind=s.kind,
+                change=SymbolChangeKind.REMOVED,
+                strength=EvidenceStrength.POSSIBLE,
+                old_signature=_signature(conn, s.occ_id),
+                old_path=s.path, old_occurrence_id=s.occ_id,
+                detail=(f"ambíguo: {len(cand)} candidato(s) com mesmo "
+                        f"hash ({cands}) — correspondência não provada")))
+            continue
+        changes.append(SymbolChange(
+            symbol_key=k, qualified_name=s.qname, language=s.language,
+            kind=s.kind, change=SymbolChangeKind.REMOVED,
+            strength=EvidenceStrength.VERIFIED,
+            old_signature=_signature(conn, s.occ_id),
+            old_path=s.path, old_occurrence_id=s.occ_id))
+    for k, s in sorted(added.items()):
+        amb = s.content_hash in ambiguous
+        changes.append(SymbolChange(
+            symbol_key=k, qualified_name=s.qname, language=s.language,
+            kind=s.kind, change=SymbolChangeKind.ADDED,
+            strength=(EvidenceStrength.POSSIBLE if amb
+                      else EvidenceStrength.VERIFIED),
+            new_signature=_signature(conn, s.occ_id),
+            new_path=s.path, new_occurrence_id=s.occ_id,
+            detail=("ambíguo: mesmo hash de símbolo removido"
+                    if amb else "")))
 
     for new_key, old in sorted(rename_pairs.items()):
         new = target[new_key]
@@ -108,21 +168,6 @@ def diff_snapshots(
             old_occurrence_id=old.occ_id,
             new_occurrence_id=new.occ_id,
             detail="match por content_hash"))
-
-    for k, s in sorted(removed.items()):
-        changes.append(SymbolChange(
-            symbol_key=k, qualified_name=s.qname, language=s.language,
-            kind=s.kind, change=SymbolChangeKind.REMOVED,
-            strength=EvidenceStrength.VERIFIED,
-            old_signature=_signature(conn, s.occ_id),
-            old_path=s.path, old_occurrence_id=s.occ_id))
-    for k, s in sorted(added.items()):
-        changes.append(SymbolChange(
-            symbol_key=k, qualified_name=s.qname, language=s.language,
-            kind=s.kind, change=SymbolChangeKind.ADDED,
-            strength=EvidenceStrength.VERIFIED,
-            new_signature=_signature(conn, s.occ_id),
-            new_path=s.path, new_occurrence_id=s.occ_id))
 
     for k in sorted(set(base) & set(target)):
         old, new = base[k], target[k]

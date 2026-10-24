@@ -21,9 +21,16 @@ from code_atlas.impact import (
 from code_atlas.impact.contracts import (
     ANALYZER_VERSION,
     IMPACT_SCHEMA_VERSION,
+    EvidenceStrength,
     ImpactDiagnostic,
     ImpactRequest,
     ImpactResult,
+    SymbolChangeKind,
+)
+from code_atlas.impact.revision_binding import BindingState, bind
+from code_atlas.impact.snapshot_resolver import (
+    ImpactSnapshotResolver,
+    ResolvedImpactSnapshots,
 )
 
 
@@ -32,61 +39,34 @@ class ImpactEngine:
         self._conn = conn
         conn.row_factory = sqlite3.Row
 
-    def _snapshots(self, repo_id: int) -> list[int]:
-        """Snapshots READY **deste repositório** (lf-0071/P1: antes era
-        global — outro repo podia ser escolhido como base/alvo)."""
-        rows = self._conn.execute(
-            "SELECT id FROM snapshots"
-            " WHERE status = 'READY' AND repository_id = ?"
-            " ORDER BY id", (repo_id,)).fetchall()
-        return [int(r["id"]) for r in rows]
-
-    def _repo_id(self, root: Path) -> int | None:
-        from code_atlas.search.structural import StructuralSearch
-        return StructuralSearch(self._conn).repo_for_root(str(root))
-
     def _resolve_snapshots(
         self, req: ImpactRequest, root: Path,
         diags: list[ImpactDiagnostic],
-    ) -> tuple[int, int] | None:
-        repo_id = self._repo_id(root)
-        if repo_id is None:
-            diags.append(ImpactDiagnostic(
-                "repo-not-indexed",
-                f"repositório não indexado: {root}"))
-            return None
-        base_sid = req.base_snapshot_id
-        target_sid = req.target_snapshot_id
-        if target_sid is None:
-            ready = self._snapshots(repo_id)
-            target_sid = ready[-1] if ready else None
-        if base_sid is None and target_sid is not None:
-            row = self._conn.execute(
-                "SELECT id FROM snapshots WHERE id < ?"
-                " AND repository_id = ?"
-                " ORDER BY id DESC LIMIT 1",
-                (target_sid, repo_id)).fetchone()
-            base_sid = int(row["id"]) if row else target_sid
-        for sid in (base_sid, target_sid):
-            if sid is None:
-                continue
-            own = self._conn.execute(
-                "SELECT repository_id FROM snapshots WHERE id = ?",
-                (sid,)).fetchone()
-            if own is None:
+    ) -> ResolvedImpactSnapshots | None:
+        resolved, d = ImpactSnapshotResolver(self._conn).resolve(req, root)
+        diags.extend(d)
+        return resolved
+
+    def _bind_revisions(
+        self, req: ImpactRequest, root: Path,
+        pair: ResolvedImpactSnapshots, diags: list[ImpactDiagnostic],
+    ) -> None:
+        """lf-0072: revisões pedidas ↔ snapshots escolhidos."""
+        if req.base_revision:
+            b, bd = bind(self._conn, root, pair.repository_id,
+                         req.base_revision, pair.base_snapshot_id,
+                         allow_dirty_check=False)
+            if bd is not None:
+                diags.append(bd)
+            if b.state is BindingState.MISMATCH:
                 diags.append(ImpactDiagnostic(
-                    "snapshot-missing", f"snapshot {sid} ausente"))
-            elif int(own["repository_id"]) != repo_id:
-                diags.append(ImpactDiagnostic(
-                    "cross-repo-snapshot",
-                    f"snapshot {sid} pertence a outro repositório"))
-                return None
-        if base_sid is None or target_sid is None:
-            diags.append(ImpactDiagnostic(
-                "snapshot-unavailable",
-                "nenhum snapshot READY — indexe antes de analisar"))
-            return None
-        return base_sid, target_sid
+                    "partial-analysis",
+                    "base binding divergente — resultados parciais"))
+        if req.target_revision:
+            b, bd = bind(self._conn, root, pair.repository_id,
+                         req.target_revision, pair.target_snapshot_id)
+            if bd is not None:
+                diags.append(bd)
 
     def analyze(self, req: ImpactRequest) -> ImpactResult:
         diags: list[ImpactDiagnostic] = []
@@ -103,7 +83,10 @@ class ImpactEngine:
         pair = self._resolve_snapshots(req, root, diags)
         if pair is None:
             return self._empty(req, diags)
-        base_sid, target_sid = pair
+        base_sid = pair.base_snapshot_id
+        target_sid = pair.target_snapshot_id
+
+        self._bind_revisions(req, root, pair, diags)
 
         # 3) Symbol diff.
         sym_changes, unknown, trunc = symbol_diff.diff_snapshots(
@@ -119,17 +102,31 @@ class ImpactEngine:
         # 5) Contracts.
         contract_changes = contract_analyzer.analyze(sym_changes)
 
-        # 6) Blast radius no snapshot alvo.
-        origins: dict[str, int] = {}
+        # 6) Blast radius: origens vivas no alvo; REMOVIDAS na base
+        # (lf-0074 — a ocorrência atual não existe mais).
+        origins_target: dict[str, int] = {}
+        origins_base: dict[str, int] = {}
         for s in sym_changes:
-            occ = s.new_occurrence_id or s.old_occurrence_id
-            if occ is not None:
-                origins[s.symbol_key] = occ
+            if s.change == SymbolChangeKind.REMOVED:
+                if s.old_occurrence_id is not None:
+                    origins_base[s.symbol_key] = s.old_occurrence_id
+            else:
+                occ = s.new_occurrence_id or s.old_occurrence_id
+                if occ is not None:
+                    origins_target[s.symbol_key] = occ
         impacts, b_trunc = blast_radius.blast(
-            self._conn, target_sid, origins, req.limits)
+            self._conn, target_sid, origins_target, req.limits)
+        removed_impacts, r_trunc = blast_radius.blast(
+            self._conn, base_sid, origins_base, req.limits,
+            reason_suffix=" (base snapshot — símbolo removido)")
+        b_trunc = b_trunc or r_trunc
+        # consumidores históricos perderam a dependência: verified aresta
+        # mas o achado é sobre uma relação que deixou de existir.
+        impacts = impacts + tuple(removed_impacts)
         if req.known_only or not req.include_possible:
             impacts = tuple(
-                i for i in impacts if i.strength.value == "verified")
+                i for i in impacts
+                if i.strength == EvidenceStrength.VERIFIED)
         trunc = trunc or b_trunc
 
         # 7) Testes + risco.
@@ -142,9 +139,10 @@ class ImpactEngine:
             schema_version=IMPACT_SCHEMA_VERSION,
             analyzer_version=ANALYZER_VERSION,
             repository=req.repository_root,
-            base_revision=req.base_revision or f"snapshot:{base_sid}",
-            target_revision=req.target_revision
-            or f"snapshot:{target_sid}",
+            base_revision=(req.base_revision or pair.base_revision
+                           or f"snapshot:{base_sid}"),
+            target_revision=(req.target_revision or pair.target_revision
+                             or f"snapshot:{target_sid}"),
             base_snapshot_id=base_sid, target_snapshot_id=target_sid,
             change_set=change_set,
             symbol_changes=sym_changes,
