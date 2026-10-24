@@ -60,10 +60,15 @@ class FakeLspServer:
     server_version: str = "0.0.1"
     definition_locations: list = field(default_factory=list)
     reference_locations: list = field(default_factory=list)
+    # lf-0029: push de publishDiagnostics na 1ª resposta (notificação
+    # real LSP — o cliente deve capturar sem correlacionar como reply).
+    push_diagnostics_uri: str = ""
+    push_diagnostics: list = field(default_factory=list)
 
     def serve(self, reader, writer) -> None:
         """Loop de requests — chamado numa thread."""
         n = 0
+        self._pushed = False
         try:
             while True:
                 msg = read_message(reader)
@@ -76,6 +81,16 @@ class FakeLspServer:
                     return  # morre: fecha streams no finally
                 if self.hang:
                     continue  # nunca responde → timeout no cliente
+                if (self.push_diagnostics_uri
+                        and not self._pushed):
+                    self._pushed = True
+                    writer.write(_frame({
+                        "jsonrpc": "2.0",
+                        "method": "textDocument/publishDiagnostics",
+                        "params": {
+                            "uri": self.push_diagnostics_uri,
+                            "diagnostics": self.push_diagnostics,
+                        }}))
                 resp = self._dispatch(msg["method"], msg["id"])
                 writer.write(_frame(resp))
                 writer.flush()
