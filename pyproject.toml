@@ -37,6 +37,9 @@ dev = [
     "ruff>=0.6.0",
     "mypy>=1.11.0",
     "build>=1.2",
+    # SDK oficial MCP — cliente real nos testes E2E (lf-0054);
+    # ausente → testes skipped como NOT RUN, nunca fake.
+    "mcp>=2.3.0",
 ]
 vector = [
     # KNN nativo opcional (ADR-0022); sem ele o backend é bruteforce
