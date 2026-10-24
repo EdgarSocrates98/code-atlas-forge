@@ -21,10 +21,12 @@ Regras:
 
 from __future__ import annotations
 
+import contextlib
+import dataclasses
 import hashlib
 import sqlite3
 import time
-from collections.abc import Callable
+from collections.abc import Callable, Sequence
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import TypeGuard
@@ -47,8 +49,17 @@ from code_atlas.indexing.dependency_planner import (
 )
 from code_atlas.indexing.persist import persist_graph
 from code_atlas.indexing.reuse import cache_key_for, config_digest
-from code_atlas.parsers.contracts import ParseResult
+from code_atlas.parsers.contracts import (
+    GraphBuildResult,
+    ParseDiagnostic,
+    ParseResult,
+)
 from code_atlas.parsers.engine import ParseEngine
+from code_atlas.resolvers.bootstrap import ResolverFactory
+from code_atlas.resolvers.contracts import SemanticResolver
+from code_atlas.resolvers.coordinator import ResolverCoordinator
+from code_atlas.resolvers.enrichment import SemanticEnricher
+from code_atlas.resolvers.registry import ResolverRegistry
 from code_atlas.resolvers.syntactic.resolver import (
     RESOLVER_ID as _SYN_RESOLVER_ID,
 )
@@ -86,6 +97,7 @@ class IndexCoordinator:
         scanner: Callable[[Path], ScanResult] = default_scan,
         engine: ParseEngine | None = None,
         builder: GraphBuilder | None = None,
+        resolver_factories: Sequence[ResolverFactory] = (),
     ) -> None:
         self._conn = conn
         self._store = Store(conn)
@@ -93,6 +105,7 @@ class IndexCoordinator:
         self._engine = engine or ParseEngine()
         self._builder = builder or GraphBuilder()
         self._planner = InvalidationPlanner()
+        self._resolver_factories = tuple(resolver_factories)
         self.last_plan: IndexPlan | None = None  # plano do último index
 
     def _analyzer_versions(self, scan: ScanResult) -> dict[str, str]:
@@ -116,7 +129,59 @@ class IndexCoordinator:
         # O SyntacticResolver é fixo no builder — sua versão define a
         # extração de relações e deve invalidar o índice (lf-0023).
         versions[f"resolver:{_SYN_RESOLVER_ID}"] = _SYN_RESOLVER_VERSION
+        # Resolvers opt-in ativos mudam o resultado da resolução —
+        # entrar/sair da config invalida relações (lf-0027).
+        if self._resolver_factories:
+            versions["resolver:external"] = "enabled/1"
         return versions
+
+    def _enrich_semantic(
+        self, graph: GraphBuildResult
+    ) -> tuple[GraphBuildResult, dict[str, int]]:
+        """Etapa de enriquecimento semântico (lf-0027): resolvers opt-in
+        (factories injetadas) re-resolvem arestas não-resolvidas via
+        ``ResolverCoordinator`` por tier de evidência. Falha de resolver
+        vira diagnóstico no grafo — o índice nunca para por resolver."""
+        if not self._resolver_factories:
+            return graph, {
+                "semantic_attempted": 0,
+                "semantic_enriched": 0,
+                "semantic_diagnostics": 0,
+            }
+        registry = ResolverRegistry()
+        resolvers: list[SemanticResolver] = []
+        diags: list[ParseDiagnostic] = []
+        for factory in self._resolver_factories:
+            try:
+                resolvers.append(factory(self._builder.universe))
+            except Exception as exc:
+                diags.append(
+                    ParseDiagnostic(
+                        code="semantic:bootstrap:resolver-error",
+                        severity="warning",
+                        message=f"resolver factory failed: {exc}",
+                    )
+                )
+        for r in resolvers:
+            registry.register(r)
+        try:
+            enriched, stats = SemanticEnricher(
+                ResolverCoordinator(registry)
+            ).enrich(graph)
+        finally:
+            # LSP e outros resolvers com lifecycle fecham ao fim do
+            # enriquecimento — nenhum processo sobrevive ao index().
+            for r in resolvers:
+                closer = getattr(r, "close", None)
+                if callable(closer):
+                    with contextlib.suppress(Exception):
+                        closer()
+        if diags:
+            enriched = dataclasses.replace(
+                enriched,
+                diagnostics=tuple(diags) + enriched.diagnostics,
+            )
+        return enriched, stats
 
     def index(
         self, root: Path, force: bool = False, incremental: bool = False
@@ -208,6 +273,7 @@ class IndexCoordinator:
             )
         )
         graph = self._builder.build(Path(root).name, scan, results)
+        graph, sem_stats = self._enrich_semantic(graph)
         g_errors = validate_graph(graph)
         if g_errors:
             # invariante violada = bug/violação interna → FAILED, READY salvo
@@ -283,6 +349,7 @@ class IndexCoordinator:
                     if x.endswith(":syntax-errors")
                 ),
                 "secrets_skipped": scan.secret_count,
+                **sem_stats,
                 **pcounts,
             }
             failures = (

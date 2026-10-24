@@ -188,6 +188,7 @@ class GraphEdge:
     resolver: str = ""  # id do resolver/extrator
     evidence_index: tuple[int, ...] = ()  # índices em GraphBuildResult.evidence
     span: SourceSpan | None = None
+    source_path: str = ""  # arquivo de origem da aresta (lf-0027)
 
 
 @dataclass(frozen=True)

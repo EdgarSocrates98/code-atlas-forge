@@ -1,0 +1,15 @@
+{
+  "agent": "codex",
+  "command": [
+    "codex",
+    "exec",
+    "$(cat /home/edgar/Documentos/projetos/forjas/code-atlas-forge/factory/prompts/lf-0027.implement.codex.md)"
+  ],
+  "created_at": "2026-10-24T15:41:11+00:00",
+  "id": "lf-0027",
+  "prompt_path": "/home/edgar/Documentos/projetos/forjas/code-atlas-forge/factory/prompts/lf-0027.implement.codex.md",
+  "spec_path": "/home/edgar/Documentos/projetos/forjas/code-atlas-forge/factory/specs/active/lf-0027.md",
+  "spec_sha256": "8249afd7bb97abe6c2fb43c2aa4b29dd49e193cff5aa3090c511cd8fab4872b0",
+  "status": "planned",
+  "title": "Cycle 3.1 Phases 1+4 \u2014 semantic resolver integration + graph enrichment"
+}

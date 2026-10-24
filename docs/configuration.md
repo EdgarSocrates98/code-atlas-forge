@@ -25,7 +25,11 @@
 
 ## Arquivos
 
-- `config.toml` — `schema_version`, `[workspace].root`. Nunca sobrescrito
+- `config.toml` — `schema_version`, `[workspace].root`, e a tabela
+  opt-in `[resolvers]` (lf-0027): `[resolvers.scip].index_path` para
+  índice SCIP externo e `[resolvers.lsp.servers.<nome>]` para servers
+  LSP (`command`, `languages`, `enabled`). Ausente = nenhum resolver
+  externo. Ver `docs/semantic-resolution.md`. Nunca sobrescrito
   sem `--force`.
 - `<data_dir>/atlas.db` — SQLite WAL com migrações versionadas
   (`schema_version` queryável via `status`).

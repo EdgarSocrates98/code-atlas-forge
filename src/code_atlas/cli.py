@@ -65,6 +65,30 @@ def _open_db() -> sqlite3.Connection:
     return conn
 
 
+def _resolver_factories(
+    target: Path,
+) -> tuple[Sequence[Any], list[str]]:
+    """Resolvers opt-in do ``config.toml [resolvers]`` (lf-0027).
+
+    Ausência de config/tabela → zero factories (syntactic only).
+    Erros de bootstrap (scip inválido, spec malformado) são devolvidos
+    como strings de diagnóstico — nunca levantam.
+    """
+    from code_atlas.resolvers.bootstrap import resolver_factories
+
+    cfg_path = config_file()
+    if not cfg_path.exists():
+        return (), []
+    from code_atlas.config import WorkspaceConfig
+
+    try:
+        cfg = WorkspaceConfig.load(cfg_path)
+    except ConfigError as exc:
+        return (), [f"config load failed: {exc}"]
+    factories, errors = resolver_factories(cfg.resolvers, target)
+    return tuple(factories), errors
+
+
 @dataclass(frozen=True)
 class Check:
     """Uma verificação do ``doctor``."""
@@ -308,7 +332,10 @@ def run_index(args: argparse.Namespace) -> int:
         return EXIT_UNSAFE
     conn = _open_db()
     try:
-        coord = IndexCoordinator(conn)
+        # Resolvers opt-in (lf-0027): [resolvers] do config.toml —
+        # erros de bootstrap viram diagnóstico no payload, não crash.
+        factories, boot_errors = _resolver_factories(target)
+        coord = IndexCoordinator(conn, resolver_factories=factories)
         # lf-0022: incremental é o default — ``--full`` é o escape
         # (force desliga o caminho incremental internamente).
         outcome: IndexOutcome = coord.index(target, force=args.full, incremental=True)
@@ -332,7 +359,7 @@ def run_index(args: argparse.Namespace) -> int:
         "error": outcome.error,
         "stats": outcome.stats,
         "plan": plan_counts,
-        "diagnostics": [],
+        "diagnostics": boot_errors,
     }
     if args.json:
         print(json.dumps(payload))

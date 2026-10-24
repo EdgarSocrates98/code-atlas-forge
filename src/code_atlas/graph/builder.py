@@ -235,18 +235,18 @@ class GraphBuilder:
             to_nid, status = self._resolve_import(ctx, rel.to_name)
             conf = "resolved" if status == "resolved" else "syntactic"
             self._edge(EdgeKind.IMPORTS, frm, to_nid, rel.to_name,
-                       status, conf, res.parser, evi, rel.span)
+                       status, conf, res.parser, evi, rel.span, res.path)
         elif rel.type in ("EXTENDS", "IMPLEMENTS"):
             to_nid, status = self._resolve_name(ctx, rel.to_name)
             conf = "resolved" if status == "resolved" else "syntactic"
             kind = EdgeKind.EXTENDS if rel.type == "EXTENDS" else EdgeKind.IMPLEMENTS
             self._edge(kind, frm, to_nid, rel.to_name, status, conf,
-                       res.parser, evi, rel.span)
+                       res.parser, evi, rel.span, res.path)
         elif rel.type == "CALLS":
             to_nid, status = self._resolve_call(ctx, rel.to_name)
             conf = "resolved" if status == "resolved" else "syntactic"
             self._edge(EdgeKind.CALLS, frm, to_nid, rel.to_name, status,
-                       conf, res.parser, evi, rel.span)
+                       conf, res.parser, evi, rel.span, res.path)
 
     def _reference_edge(
         self, res: ParseResult, ctx: _ModuleCtx,
@@ -258,7 +258,8 @@ class GraphBuilder:
         to_nid, status = self._resolve_name(ctx, name)
         self._edge(
             EdgeKind.REFERENCES, frm, to_nid, name,
-            status, "syntactic", res.parser, self._evidence_ref(res, span), span,
+            status, "syntactic", res.parser, self._evidence_ref(res, span),
+            span, res.path,
         )
 
     # -- resolução de escopo sintático ----------------------------------
@@ -335,6 +336,7 @@ class GraphBuilder:
         resolver: str,
         evidence: tuple[int, ...],
         span: SourceSpan | None,
+        source_path: str = "",
     ) -> None:
         key = (type_, from_id, to_id, to_text or "",
                -1 if span is None else span.start_byte)
@@ -352,5 +354,6 @@ class GraphBuilder:
                 resolver=resolver,
                 evidence_index=evidence,
                 span=span,
+                source_path=source_path,
             )
         )

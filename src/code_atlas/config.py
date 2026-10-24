@@ -83,6 +83,9 @@ class WorkspaceConfig:
 
     root: Path
     schema_version: int = CONFIG_SCHEMA_VERSION
+    # Tabela [resolvers] crua — parsing tipado em resolvers/bootstrap
+    # (lf-0027); ausente = sem resolvers opt-in.
+    resolvers: Mapping[str, object] | None = None
 
     def to_toml(self) -> str:
         return (
@@ -104,7 +107,14 @@ class WorkspaceConfig:
             root = Path(raw["workspace"]["root"])
         except (KeyError, TypeError) as exc:
             raise ConfigError(f"config {path} missing [workspace].root") from exc
-        return WorkspaceConfig(root=root, schema_version=int(raw.get("schema_version", 0)))
+        res = raw.get("resolvers")
+        if res is not None and not isinstance(res, dict):
+            raise ConfigError(f"config {path}: [resolvers] must be a table")
+        return WorkspaceConfig(
+            root=root,
+            schema_version=int(raw.get("schema_version", 0)),
+            resolvers=res,
+        )
 
 
 class ConfigError(Exception):
