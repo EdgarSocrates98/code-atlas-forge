@@ -790,6 +790,34 @@ def run_context(args: argparse.Namespace) -> int:
     return EXIT_OK
 
 
+def run_context_expand(args: argparse.Namespace) -> int:
+    """`code-atlas context-expand --symbol X` — expansão autocontida."""
+    conn, _repo_id, snap_id, _info, err = _search_context(args)
+    if err:
+        return _emit_error(args, err)
+    assert conn is not None and snap_id is not None
+    from code_atlas.context import ContextExpander, expansion_to_json
+
+    delivered = frozenset(
+        s for s in (args.delivered or "").split(",") if s)
+    try:
+        res = ContextExpander(conn).expand(
+            snap_id, args.symbol, delivered=delivered,
+            budget_tokens=args.budget)
+    finally:
+        conn.close()
+    if res.error:
+        return _emit_error(args, res.error)
+    if args.json:
+        print(expansion_to_json(res))
+    else:
+        for i in res.added:
+            print(f"  + {i.symbol_key} (~{i.est_tokens} tok) {i.path}")
+        for r in res.remaining_refs:
+            print(f"  … {r.ref_id} ({r.reason})")
+    return EXIT_OK
+
+
 def run_symbol(args: argparse.Namespace) -> int:
     conn, repo_id, snap_id, repo_info, err = _search_context(args)
     if err:
@@ -1108,6 +1136,18 @@ def build_parser() -> argparse.ArgumentParser:
                        default="human", help="renderer de saída")
     _add_query_args(p_ctx, filters=False)
     p_ctx.set_defaults(func=run_context)
+
+    p_exp = sub.add_parser(
+        "context-expand",
+        help="expande símbolo no MESMO snapshot do pack (lf-0041)")
+    p_exp.add_argument("--symbol", metavar="SYMBOL", required=True,
+                       help="qualified_name (ou sufixo) a expandir")
+    p_exp.add_argument("--delivered", metavar="IDS", default="",
+                       help="item_ids já entregues (csv) — dedup")
+    p_exp.add_argument("--budget", metavar="TOKENS", type=int,
+                       default=4000)
+    _add_query_args(p_exp, filters=False)
+    p_exp.set_defaults(func=run_context_expand)
 
     p_symbol = sub.add_parser("symbol", help="detalhe de um símbolo + ocorrências")
     p_symbol.add_argument("ident", metavar="SYMBOL", help="id numérico ou qualified_name")

@@ -12,6 +12,11 @@ from code_atlas.context.contracts import (
     PackManifest,
 )
 from code_atlas.context.engine import ContextEngine
+from code_atlas.context.expand import (
+    ContextExpander,
+    ExpansionResult,
+    expansion_to_json,
+)
 from code_atlas.context.renderers import (
     RENDERER_VERSION_JSON,
     RENDERER_VERSION_MD,
@@ -26,15 +31,18 @@ __all__ = [
     "RENDERER_VERSION_MD",
     "Budget",
     "ContextEngine",
+    "ContextExpander",
     "ContextItem",
     "ContextPack",
     "ContextRequest",
     "ExpansionRef",
+    "ExpansionResult",
     "HeuristicTokenizer",
     "PackDiagnostics",
     "PackEvidence",
     "PackManifest",
     "TokenCounter",
+    "expansion_to_json",
     "render_json",
     "render_markdown",
 ]
