@@ -24,7 +24,9 @@ def test_help_lists_only_real_commands(capsys: pytest.CaptureFixture[str]) -> No
     out = capsys.readouterr().out
     assert "doctor" in out
     assert "init" in out
-    for fake in ("search", "impact", "mcp", "serve", "ui"):
+    for real in ("search", "symbol", "references", "graph"):
+        assert real in out
+    for fake in ("impact", "mcp", "serve", "ui"):
         assert fake not in out
 
 

@@ -50,6 +50,13 @@ class Store:
         )
         return int(cur.lastrowid)  # type: ignore[arg-type]
 
+    def repository_id_for(self, root_handle: str) -> int | None:
+        """Id do repo indexado ou None (read-only — nunca cria)."""
+        row = self._conn.execute(
+            "SELECT id FROM repositories WHERE root_handle = ?", (root_handle,)
+        ).fetchone()
+        return int(row["id"]) if row else None
+
     def repository_by_id(self, repo_id: int) -> Repository | None:
         row = self._conn.execute(
             "SELECT * FROM repositories WHERE id = ?", (repo_id,)

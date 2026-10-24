@@ -1,0 +1,15 @@
+{
+  "agent": "codex",
+  "command": [
+    "codex",
+    "exec",
+    "$(cat /home/edgar/Documentos/projetos/forjas/code-atlas-forge/factory/prompts/lf-0012.implement.codex.md)"
+  ],
+  "created_at": "2026-10-24T11:59:44+00:00",
+  "id": "lf-0012",
+  "prompt_path": "/home/edgar/Documentos/projetos/forjas/code-atlas-forge/factory/prompts/lf-0012.implement.codex.md",
+  "spec_path": "/home/edgar/Documentos/projetos/forjas/code-atlas-forge/factory/specs/active/lf-0012.md",
+  "spec_sha256": "273e02ceca5ff42d361581b2f2785ea1133fa80372dd0fb3c6ea802ee0dcb4d6",
+  "status": "planned",
+  "title": "Cycle 2 Phase 6 - Structural search + CLI (search/symbol/references/graph)"
+}
