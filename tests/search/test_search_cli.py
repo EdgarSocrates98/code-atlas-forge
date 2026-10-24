@@ -48,7 +48,7 @@ def test_search_finds_real_symbols(
     rc = cli.main(["search", "helper", "--root", str(indexed), "--json"])
     out = _j(capsys)
     assert rc == 0
-    assert out["schema_version"] == "1"
+    assert out["schema_version"] == "2"  # lf-0022: envelope v2
     assert out["snapshot_id"] >= 1
     names = [r["qualified_name"] for r in out["results"]]
     assert "pkg.util.helper" in names

@@ -1,0 +1,15 @@
+{
+  "agent": "codex",
+  "command": [
+    "codex",
+    "exec",
+    "$(cat /home/edgar/Documentos/projetos/forjas/code-atlas-forge/factory/prompts/lf-0022.implement.codex.md)"
+  ],
+  "created_at": "2026-10-24T14:13:55+00:00",
+  "id": "lf-0022",
+  "prompt_path": "/home/edgar/Documentos/projetos/forjas/code-atlas-forge/factory/prompts/lf-0022.implement.codex.md",
+  "spec_path": "/home/edgar/Documentos/projetos/forjas/code-atlas-forge/factory/specs/active/lf-0022.md",
+  "spec_sha256": "1f70b43d32fd75fa1a88e333290de7284b38deec41e0d6848af7e8988c8480a3",
+  "status": "planned",
+  "title": "Cycle 3 Phase 7 \u2014 semantic CLI & query interfaces (incremental flags + refs/defs/deps + index-plan)"
+}

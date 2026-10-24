@@ -43,6 +43,7 @@ from code_atlas.indexing.dependency_planner import (
     IndexPlan,
     InvalidationPlanner,
     PlanAction,
+    PlannedFile,
 )
 from code_atlas.indexing.persist import persist_graph
 from code_atlas.indexing.reuse import cache_key_for, config_digest
@@ -317,6 +318,40 @@ class IndexCoordinator:
         for key in hits.values():
             cache.mark_used(key, snapshot_id)
         return cache.gc(repo_id)
+
+    def plan_dry_run(
+        self, root: Path
+    ) -> tuple[IndexPlan | None, dict[str, str]]:
+        """``index-plan`` (lf-0022): scan + diff + plano, **zero writes**.
+
+        Retorna ``(plan, diagnostics)``. ``plan=None`` quando não há
+        READY anterior — o caller renderiza o plano full implícito
+        (todos os arquivos ``reparse``). Nunca cria repo/snapshot/job.
+        """
+        scan = self._scanner(Path(root))
+        versions = self._analyzer_versions(scan)
+        store = self._store
+        ikey = identity_key(scan.git, Path(root))
+        repo_id = store.repository_id_for(ikey)
+        if repo_id is None:
+            # compat: repo indexado por path antes do v5
+            repo_id = store.repository_id_for(str(Path(root).resolve())
+            )
+        if repo_id is not None:
+            plan, _, _ = self._plan_incremental(scan, repo_id, versions)
+            if plan is not None:
+                return plan, {}
+        # Sem READY anterior (ou repo jamais indexado): o plano real
+        # seria full — sintetiza tudo como reparse, marcado incremental.
+        full = IndexPlan(
+            files=tuple(
+                PlannedFile(f.path, PlanAction.REPARSE,
+                            "no prior READY snapshot — full build")
+                for f in scan.files
+            ),
+            incremental=False,
+        )
+        return full, {"note": "no prior READY — dry-run rendered as full build"}
 
     def _plan_incremental(
         self, scan: ScanResult, repo_id: int, versions: dict[str, str]
