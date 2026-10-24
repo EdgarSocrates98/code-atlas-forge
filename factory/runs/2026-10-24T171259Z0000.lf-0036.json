@@ -1,0 +1,15 @@
+{
+  "agent": "codex",
+  "command": [
+    "codex",
+    "exec",
+    "$(cat /home/edgar/Documentos/projetos/forjas/code-atlas-forge/factory/prompts/lf-0036.implement.codex.md)"
+  ],
+  "created_at": "2026-10-24T17:12:59+00:00",
+  "id": "lf-0036",
+  "prompt_path": "/home/edgar/Documentos/projetos/forjas/code-atlas-forge/factory/prompts/lf-0036.implement.codex.md",
+  "spec_path": "/home/edgar/Documentos/projetos/forjas/code-atlas-forge/factory/specs/active/lf-0036.md",
+  "spec_sha256": "580742af250e25e359bc5dcabebc6eb84cd975ec6974bfdcebf8199dfeef9f7a",
+  "status": "planned",
+  "title": "Cycle 4 Phases 1+2 \u2014 search contracts + SQLite FTS5 lexical search"
+}

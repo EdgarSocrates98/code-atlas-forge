@@ -204,10 +204,31 @@ class Store:
             " WHERE parent_snapshot_id IN (" + _doomed + ")"
         )
         _sql_del = "DELETE FROM snapshots WHERE id IN (" + _doomed + ")"
+        _sql_doomed_ids = (
+            "SELECT id FROM snapshots"
+            " WHERE repository_id = ? AND status = 'STALE'"
+            " ORDER BY id DESC LIMIT -1 OFFSET ?"
+        )
+        doomed_ids = [
+            int(r["id"]) for r in self._conn.execute(
+                _sql_doomed_ids, (repository_id, keep)
+            )
+        ]
         self._conn.execute(_sql_jobs, (repository_id, keep))
         self._conn.execute(_sql_parent, (repository_id, keep))
+        if doomed_ids and self._has_table("fts_occurrences"):
+            # filhos caem por CASCADE, mas FTS não é FK — delete manual
+            self._delete_fts_occurrences(doomed_ids)
         cur = self._conn.execute(_sql_del, (repository_id, keep))
         return int(cur.rowcount if cur.rowcount else 0)
+
+    def _has_table(self, name: str) -> bool:
+        row = self._conn.execute(
+            "SELECT 1 FROM sqlite_master WHERE type IN ('table','shadow')"
+            " AND name = ?",
+            (name,),
+        ).fetchone()
+        return row is not None
 
     # --- source files + inventory ------------------------------------
 
@@ -454,6 +475,30 @@ class Store:
             "INSERT INTO fts_symbols (rowid, qualified_name, language, kind) "
             "VALUES (?, ?, ?, ?)",
             list(rows),
+        )
+
+    def insert_fts_occurrences_batch(
+        self, rows: Iterable[tuple[object, ...]]
+    ) -> None:
+        """lf-0036 — FTS por-ocorrência (snapshot-scoped): rowid = id da
+        ocorrência; campos já vêm tokenizados do persist."""
+        self._conn.executemany(
+            "INSERT INTO fts_occurrences (rowid, snapshot_id, name, terms,"
+            " signature, docstring, path, language, kind)"
+            " VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            list(rows),
+        )
+
+    def _delete_fts_occurrences(self, snapshot_ids: Iterable[int]) -> None:
+        ids = list(snapshot_ids)
+        if not ids:
+            return
+        # DELETE em FTS regular: placeholder único via json_each (SQL
+        # constante — auditoria AST proíbe IN dinâmico).
+        self._conn.execute(
+            "DELETE FROM fts_occurrences WHERE snapshot_id IN"
+            " (SELECT value FROM json_each(?))",
+            (json.dumps(ids),),
         )
 
     def _insert_returning(

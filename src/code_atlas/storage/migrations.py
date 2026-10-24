@@ -193,6 +193,19 @@ ALTER TABLE evidence ADD COLUMN index_hash TEXT NOT NULL DEFAULT '';
 ALTER TABLE evidence ADD COLUMN validation_status TEXT NOT NULL DEFAULT '';
 """
 
+_SCHEMA_V7_FTS_OCC = """
+CREATE VIRTUAL TABLE fts_occurrences USING fts5(
+    snapshot_id UNINDEXED,
+    name,
+    terms,
+    signature,
+    docstring,
+    path,
+    language UNINDEXED,
+    kind UNINDEXED
+);
+"""
+
 
 def migrations(*, fts5: bool) -> list[Migration]:
     """Lista de migrações; a v2 (FTS5) só existe quando a build suporta."""
@@ -203,6 +216,11 @@ def migrations(*, fts5: bool) -> list[Migration]:
     m.append(Migration(4, "parse result cache (lf-0020)", _SCHEMA_V4_CACHE))
     m.append(Migration(5, "logical repo identity + dirty flag (lf-0021)", _SCHEMA_V5_IDENTITY))
     m.append(Migration(6, "evidence resolver provenance (lf-0035)", _SCHEMA_V6_EVIDENCE))
+    if fts5:
+        m.append(Migration(
+            7, "fts_occurrences snapshot-scoped lexical index (lf-0036)",
+            _SCHEMA_V7_FTS_OCC,
+        ))
     return m
 
 
