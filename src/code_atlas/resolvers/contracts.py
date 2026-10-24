@@ -29,6 +29,22 @@ REQUEST_KINDS = frozenset(
     {"call", "import", "type-ref", "reference", "definition"}
 )
 
+# kind do request → tipo de relação das capabilities (Registry filtra
+# resolvers por este vocabulário de grafo).
+KIND_TO_RELATION: dict[str, str] = {
+    "call": "CALLS",
+    "import": "IMPORTS",
+    "type-ref": "REFERENCES",
+    "reference": "REFERENCES",
+    "definition": "REFERENCES",
+}
+
+
+def relation_for_kind(kind: str) -> str:
+    """Mapeia kind de request → relation type; desconhecido → o próprio
+    kind em maiúsculas (resolvers podem declarar tipos extras)."""
+    return KIND_TO_RELATION.get(kind, kind.upper())
+
 
 @dataclass(frozen=True)
 class ResolverProvenance:

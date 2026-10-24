@@ -16,6 +16,7 @@ from code_atlas.resolvers.contracts import (
     ResolutionRequest,
     ResolutionResult,
     SemanticResolver,
+    relation_for_kind,
 )
 from code_atlas.resolvers.registry import ResolverRegistry
 
@@ -30,7 +31,8 @@ class ResolverCoordinator:
         self, request: ResolutionRequest
     ) -> list[SemanticResolver]:
         """Resolvers que cobrem o pedido, em ordem de evidência."""
-        return self._registry.capable(request.language, request.kind)
+        rel = relation_for_kind(request.kind)
+        return self._registry.capable(request.language, rel)
 
     def resolve(self, request: ResolutionRequest) -> ResolutionResult:
         """Resolve seguindo a cadeia de evidência; nunca levanta."""

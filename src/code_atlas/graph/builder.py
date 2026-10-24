@@ -45,6 +45,12 @@ _SYMBOL_KINDS = {
 class GraphBuilder:
     """Constrói GraphBuildResult a partir de resultados de parsing."""
 
+    @property
+    def universe(self) -> ScopeUniverse:
+        """Universo de escopo da última ``build()`` — compartilhado com
+        resolvers externos (SCIP/LSP) para correlação (lf-0017)."""
+        return self._universe
+
     def build(
         self,
         repo_name: str,
