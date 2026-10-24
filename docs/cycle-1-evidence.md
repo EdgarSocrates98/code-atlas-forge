@@ -66,7 +66,9 @@ python3 -c "yaml.safe_load" .github/workflows/*.yml       → yaml ok
 - Execução do CI em GitHub Actions: **NOT RUN** (workflow sintaticamente
   validado com yaml.safe_load; não há push/PR neste ambiente).
 - Windows local: **NOT RUN** (máquina é Linux; cobertura prevista em CI).
-- pip-audit: **NOT RUN localmente** (roda em CI; zero deps → vacuoso hoje).
+- pip-audit: **RUN** localmente — `pip freeze | grep -v code-atlas-forge |
+  pip-audit -r - --strict` → "No known vulnerabilities found" (o pacote
+  local é excluído por não estar no PyPI; job de CI ajustado igualmente).
 - Cycle 1 tem **nenhum P0/P1 aberto**; P2s listados nos reviews de cada spec
   (`factory/reviews/`).
 

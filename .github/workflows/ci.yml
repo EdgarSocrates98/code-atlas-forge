@@ -59,7 +59,9 @@ jobs:
           python-version: "3.12"
       - name: Install package + pip-audit
         run: |
-          python -m pip install .
+          python -m pip install .[dev]
           python -m pip install "pip-audit>=2.7"
-      - name: Audit
-        run: pip-audit --strict
+      - name: Audit dependencies
+        run: |
+          pip freeze | grep -v "code-atlas-forge" > reqs.txt
+          pip-audit -r reqs.txt --strict
