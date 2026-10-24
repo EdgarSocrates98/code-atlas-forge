@@ -40,3 +40,4 @@ Thumbs.db
 
 # Benchmark corpora generated at runtime
 benchmarks/.corpus/
+graphify-out/
