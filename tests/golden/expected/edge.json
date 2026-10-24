@@ -1,0 +1,222 @@
+{
+  "corpus": "edge",
+  "file_parse_status": {
+    "broken.py": "parsed-with-errors"
+  },
+  "relations": [
+    {
+      "confidence": "resolved",
+      "from": "a/mod.py",
+      "status": "resolved",
+      "to": "a.mod",
+      "to_text": null,
+      "type": "CONTAINS"
+    },
+    {
+      "confidence": "resolved",
+      "from": "b/mod.py",
+      "status": "resolved",
+      "to": "b.mod",
+      "to_text": null,
+      "type": "CONTAINS"
+    },
+    {
+      "confidence": "resolved",
+      "from": "broken.py",
+      "status": "resolved",
+      "to": "broken",
+      "to_text": null,
+      "type": "CONTAINS"
+    },
+    {
+      "confidence": "resolved",
+      "from": "deep/nested/leaf.py",
+      "status": "resolved",
+      "to": "deep.nested.leaf",
+      "to_text": null,
+      "type": "CONTAINS"
+    },
+    {
+      "confidence": "resolved",
+      "from": "empty.py",
+      "status": "resolved",
+      "to": "empty",
+      "to_text": null,
+      "type": "CONTAINS"
+    },
+    {
+      "confidence": "resolved",
+      "from": "unicode_names.py",
+      "status": "resolved",
+      "to": "unicode_names",
+      "to_text": null,
+      "type": "CONTAINS"
+    },
+    {
+      "confidence": "syntactic",
+      "from": "a.mod",
+      "status": "resolved",
+      "to": "a.mod.helper",
+      "to_text": null,
+      "type": "DEFINES"
+    },
+    {
+      "confidence": "syntactic",
+      "from": "b.mod",
+      "status": "resolved",
+      "to": "b.mod.helper",
+      "to_text": null,
+      "type": "DEFINES"
+    },
+    {
+      "confidence": "syntactic",
+      "from": "broken",
+      "status": "resolved",
+      "to": "broken.x",
+      "to_text": null,
+      "type": "DEFINES"
+    },
+    {
+      "confidence": "syntactic",
+      "from": "deep.nested.leaf",
+      "status": "resolved",
+      "to": "deep.nested.leaf.deep_fn",
+      "to_text": null,
+      "type": "DEFINES"
+    },
+    {
+      "confidence": "syntactic",
+      "from": "unicode_names",
+      "status": "resolved",
+      "to": "unicode_names.cafe",
+      "to_text": null,
+      "type": "DEFINES"
+    },
+    {
+      "confidence": "syntactic",
+      "from": "unicode_names",
+      "status": "resolved",
+      "to": "unicode_names.naive",
+      "to_text": null,
+      "type": "DEFINES"
+    }
+  ],
+  "relations_mode": "all",
+  "symbols": [
+    {
+      "kind": "module",
+      "language": "python",
+      "path": "a/mod.py",
+      "qname": "a.mod"
+    },
+    {
+      "kind": "function",
+      "language": "python",
+      "path": "a/mod.py",
+      "qname": "a.mod.helper"
+    },
+    {
+      "kind": "file",
+      "language": "",
+      "path": "a/mod.py",
+      "qname": "a/mod.py"
+    },
+    {
+      "kind": "module",
+      "language": "python",
+      "path": "b/mod.py",
+      "qname": "b.mod"
+    },
+    {
+      "kind": "function",
+      "language": "python",
+      "path": "b/mod.py",
+      "qname": "b.mod.helper"
+    },
+    {
+      "kind": "file",
+      "language": "",
+      "path": "b/mod.py",
+      "qname": "b/mod.py"
+    },
+    {
+      "kind": "module",
+      "language": "python",
+      "path": "broken.py",
+      "qname": "broken"
+    },
+    {
+      "kind": "file",
+      "language": "",
+      "path": "broken.py",
+      "qname": "broken.py"
+    },
+    {
+      "kind": "function",
+      "language": "python",
+      "path": "broken.py",
+      "qname": "broken.x"
+    },
+    {
+      "kind": "module",
+      "language": "python",
+      "path": "deep/nested/leaf.py",
+      "qname": "deep.nested.leaf"
+    },
+    {
+      "kind": "function",
+      "language": "python",
+      "path": "deep/nested/leaf.py",
+      "qname": "deep.nested.leaf.deep_fn"
+    },
+    {
+      "kind": "file",
+      "language": "",
+      "path": "deep/nested/leaf.py",
+      "qname": "deep/nested/leaf.py"
+    },
+    {
+      "kind": "module",
+      "language": "python",
+      "path": "empty.py",
+      "qname": "empty"
+    },
+    {
+      "kind": "file",
+      "language": "",
+      "path": "empty.py",
+      "qname": "empty.py"
+    },
+    {
+      "kind": "file",
+      "language": "",
+      "path": "notes.txt",
+      "qname": "notes.txt"
+    },
+    {
+      "kind": "module",
+      "language": "python",
+      "path": "unicode_names.py",
+      "qname": "unicode_names"
+    },
+    {
+      "kind": "function",
+      "language": "python",
+      "path": "unicode_names.py",
+      "qname": "unicode_names.cafe"
+    },
+    {
+      "kind": "function",
+      "language": "python",
+      "path": "unicode_names.py",
+      "qname": "unicode_names.naive"
+    },
+    {
+      "kind": "file",
+      "language": "",
+      "path": "unicode_names.py",
+      "qname": "unicode_names.py"
+    }
+  ],
+  "symbols_mode": "all"
+}

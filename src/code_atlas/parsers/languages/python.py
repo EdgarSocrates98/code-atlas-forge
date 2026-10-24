@@ -176,7 +176,10 @@ class _PyExtractor:
             mod = node.child_by_field_name("module_name")
             base = self.text(mod) if mod is not None else ""
             for c in node.named_children:
-                if c.type in ("dotted_name", "aliased_import") and c is not mod:
+                # `is not` NÃO funciona entre wrappers Node — comparar .id
+                if c.type in ("dotted_name", "aliased_import") and (
+                    mod is None or c.id != mod.id
+                ):
                     target, alias = self._import_pair(c)
                     full = f"{base}.{target}" if base else target
                     binding = alias or target.split(".")[-1]

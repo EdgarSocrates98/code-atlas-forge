@@ -1,0 +1,282 @@
+{
+  "corpus": "py_core",
+  "file_parse_status": {},
+  "relations": [
+    {
+      "confidence": "syntactic",
+      "from": "main.main",
+      "status": "unresolved",
+      "to": null,
+      "to_text": "Engine().run",
+      "type": "CALLS"
+    },
+    {
+      "confidence": "resolved",
+      "from": "main.main",
+      "status": "resolved",
+      "to": "pkg.core.Engine",
+      "to_text": "Engine",
+      "type": "CALLS"
+    },
+    {
+      "confidence": "resolved",
+      "from": "pkg.core.outer.inner",
+      "status": "resolved",
+      "to": "pkg.util.helper",
+      "to_text": "hlp",
+      "type": "CALLS"
+    },
+    {
+      "confidence": "resolved",
+      "from": "pkg.core.Engine.make",
+      "status": "resolved",
+      "to": "pkg.core.Engine",
+      "to_text": "Engine",
+      "type": "CALLS"
+    },
+    {
+      "confidence": "syntactic",
+      "from": "pkg.core.Engine.run",
+      "status": "unresolved",
+      "to": null,
+      "to_text": "missing_fn",
+      "type": "CALLS"
+    },
+    {
+      "confidence": "resolved",
+      "from": "pkg.core.Engine.run",
+      "status": "resolved",
+      "to": "pkg.util.helper",
+      "to_text": "hlp",
+      "type": "CALLS"
+    },
+    {
+      "confidence": "resolved",
+      "from": "main.py",
+      "status": "resolved",
+      "to": "main",
+      "to_text": null,
+      "type": "CONTAINS"
+    },
+    {
+      "confidence": "resolved",
+      "from": "pkg/__init__.py",
+      "status": "resolved",
+      "to": "pkg",
+      "to_text": null,
+      "type": "CONTAINS"
+    },
+    {
+      "confidence": "resolved",
+      "from": "pkg/core.py",
+      "status": "resolved",
+      "to": "pkg.core",
+      "to_text": null,
+      "type": "CONTAINS"
+    },
+    {
+      "confidence": "resolved",
+      "from": "pkg/util.py",
+      "status": "resolved",
+      "to": "pkg.util",
+      "to_text": null,
+      "type": "CONTAINS"
+    },
+    {
+      "confidence": "syntactic",
+      "from": "main",
+      "status": "resolved",
+      "to": "main.main",
+      "to_text": null,
+      "type": "DEFINES"
+    },
+    {
+      "confidence": "syntactic",
+      "from": "pkg.core",
+      "status": "resolved",
+      "to": "pkg.core.Engine",
+      "to_text": null,
+      "type": "DEFINES"
+    },
+    {
+      "confidence": "syntactic",
+      "from": "pkg.core",
+      "status": "resolved",
+      "to": "pkg.core.outer",
+      "to_text": null,
+      "type": "DEFINES"
+    },
+    {
+      "confidence": "syntactic",
+      "from": "pkg.util",
+      "status": "resolved",
+      "to": "pkg.util.Base",
+      "to_text": null,
+      "type": "DEFINES"
+    },
+    {
+      "confidence": "syntactic",
+      "from": "pkg.util",
+      "status": "resolved",
+      "to": "pkg.util.helper",
+      "to_text": null,
+      "type": "DEFINES"
+    },
+    {
+      "confidence": "syntactic",
+      "from": "pkg.core.Engine",
+      "status": "resolved",
+      "to": "pkg.core.Engine.make",
+      "to_text": null,
+      "type": "DEFINES"
+    },
+    {
+      "confidence": "syntactic",
+      "from": "pkg.core.Engine",
+      "status": "resolved",
+      "to": "pkg.core.Engine.run",
+      "to_text": null,
+      "type": "DEFINES"
+    },
+    {
+      "confidence": "syntactic",
+      "from": "pkg.core.outer",
+      "status": "resolved",
+      "to": "pkg.core.outer.inner",
+      "to_text": null,
+      "type": "DEFINES"
+    },
+    {
+      "confidence": "resolved",
+      "from": "pkg.core.Engine",
+      "status": "resolved",
+      "to": "pkg.util.Base",
+      "to_text": "Base",
+      "type": "EXTENDS"
+    },
+    {
+      "confidence": "resolved",
+      "from": "main",
+      "status": "resolved",
+      "to": "pkg.core",
+      "to_text": "pkg.core.Engine",
+      "type": "IMPORTS"
+    },
+    {
+      "confidence": "resolved",
+      "from": "pkg.core",
+      "status": "resolved",
+      "to": "pkg.util",
+      "to_text": "pkg.util.Base",
+      "type": "IMPORTS"
+    },
+    {
+      "confidence": "resolved",
+      "from": "pkg.core",
+      "status": "resolved",
+      "to": "pkg.util",
+      "to_text": "pkg.util.helper",
+      "type": "IMPORTS"
+    }
+  ],
+  "relations_mode": "all",
+  "symbols": [
+    {
+      "kind": "module",
+      "language": "python",
+      "path": "main.py",
+      "qname": "main"
+    },
+    {
+      "kind": "function",
+      "language": "python",
+      "path": "main.py",
+      "qname": "main.main"
+    },
+    {
+      "kind": "file",
+      "language": "",
+      "path": "main.py",
+      "qname": "main.py"
+    },
+    {
+      "kind": "module",
+      "language": "python",
+      "path": "pkg/__init__.py",
+      "qname": "pkg"
+    },
+    {
+      "kind": "module",
+      "language": "python",
+      "path": "pkg/core.py",
+      "qname": "pkg.core"
+    },
+    {
+      "kind": "class",
+      "language": "python",
+      "path": "pkg/core.py",
+      "qname": "pkg.core.Engine"
+    },
+    {
+      "kind": "method",
+      "language": "python",
+      "path": "pkg/core.py",
+      "qname": "pkg.core.Engine.make"
+    },
+    {
+      "kind": "method",
+      "language": "python",
+      "path": "pkg/core.py",
+      "qname": "pkg.core.Engine.run"
+    },
+    {
+      "kind": "function",
+      "language": "python",
+      "path": "pkg/core.py",
+      "qname": "pkg.core.outer"
+    },
+    {
+      "kind": "function",
+      "language": "python",
+      "path": "pkg/core.py",
+      "qname": "pkg.core.outer.inner"
+    },
+    {
+      "kind": "module",
+      "language": "python",
+      "path": "pkg/util.py",
+      "qname": "pkg.util"
+    },
+    {
+      "kind": "class",
+      "language": "python",
+      "path": "pkg/util.py",
+      "qname": "pkg.util.Base"
+    },
+    {
+      "kind": "function",
+      "language": "python",
+      "path": "pkg/util.py",
+      "qname": "pkg.util.helper"
+    },
+    {
+      "kind": "file",
+      "language": "",
+      "path": "pkg/__init__.py",
+      "qname": "pkg/__init__.py"
+    },
+    {
+      "kind": "file",
+      "language": "",
+      "path": "pkg/core.py",
+      "qname": "pkg/core.py"
+    },
+    {
+      "kind": "file",
+      "language": "",
+      "path": "pkg/util.py",
+      "qname": "pkg/util.py"
+    }
+  ],
+  "symbols_mode": "all"
+}

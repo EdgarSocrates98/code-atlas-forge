@@ -1,0 +1,85 @@
+{
+  "baseline_note": "Cycle-1 bench_scan media discovery+hash apenas; compar\u00e1vel somente em discovery_s.",
+  "machine": "x86_64",
+  "platform": "Linux-7.0.0-38-generic-x86_64-with-glibc2.39",
+  "python": "3.12.3",
+  "runs": [
+    {
+      "db_size_mb": 0.62,
+      "discovery_s": 0.0157,
+      "edges_skipped": 120,
+      "files": 100,
+      "files_parsed": 110,
+      "graph_edges": 930,
+      "graph_nodes": 531,
+      "graph_s": 0.0088,
+      "noop_reindex_s": 0.0179,
+      "noop_status": "noop",
+      "occurrences": 520,
+      "parse_s": 0.0858,
+      "peak_rss_mb": 343.6,
+      "peak_tracemalloc_mb": 1.9,
+      "persist_residual_s": 0.4591,
+      "query_latency_s": {
+        "n": 60,
+        "p50": 0.000336,
+        "p95": 0.000376
+      },
+      "relations": 810,
+      "symbols": 520,
+      "total_s": 0.5694
+    },
+    {
+      "db_size_mb": 3.54,
+      "discovery_s": 0.1266,
+      "edges_skipped": 1020,
+      "files": 1000,
+      "files_parsed": 1010,
+      "graph_edges": 9030,
+      "graph_nodes": 5031,
+      "graph_s": 0.1443,
+      "noop_reindex_s": 0.1232,
+      "noop_status": "noop",
+      "occurrences": 5020,
+      "parse_s": 0.867,
+      "peak_rss_mb": 343.6,
+      "peak_tracemalloc_mb": 16.8,
+      "persist_residual_s": 3.958,
+      "query_latency_s": {
+        "n": 60,
+        "p50": 0.002578,
+        "p95": 0.002977
+      },
+      "relations": 8010,
+      "symbols": 5020,
+      "total_s": 5.0958
+    },
+    {
+      "db_size_mb": 33.67,
+      "discovery_s": 0.6075,
+      "edges_skipped": 5020,
+      "files": 5000,
+      "files_parsed": 5010,
+      "graph_edges": 45030,
+      "graph_nodes": 25031,
+      "graph_s": 1.2438,
+      "noop_reindex_s": 0.5585,
+      "noop_status": "noop",
+      "occurrences": 25020,
+      "parse_s": 4.2936,
+      "peak_rss_mb": 343.6,
+      "peak_tracemalloc_mb": 84.0,
+      "persist_residual_s": 20.3974,
+      "query_latency_s": {
+        "n": 60,
+        "p50": 0.01253,
+        "p95": 0.0134
+      },
+      "relations": 40010,
+      "symbols": 25020,
+      "total_s": 26.5423
+    }
+  ],
+  "seed": 20261024,
+  "tool": "code-atlas bench_index"
+}

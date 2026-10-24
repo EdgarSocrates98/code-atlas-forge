@@ -1,0 +1,88 @@
+{
+  "corpus": "large",
+  "file_parse_status": {},
+  "relations": [
+    {
+      "confidence": "resolved",
+      "from": "big.K0.m0",
+      "status": "resolved",
+      "to": "big.f0",
+      "to_text": "f0",
+      "type": "CALLS"
+    },
+    {
+      "confidence": "resolved",
+      "from": "big.K19.m190",
+      "status": "resolved",
+      "to": "big.f190",
+      "to_text": "f190",
+      "type": "CALLS"
+    },
+    {
+      "confidence": "resolved",
+      "from": "big.py",
+      "status": "resolved",
+      "to": "big",
+      "to_text": "",
+      "type": "CONTAINS"
+    }
+  ],
+  "relations_by_type": {
+    "CALLS": 20,
+    "CONTAINS": 1,
+    "DEFINES": 240
+  },
+  "relations_mode": "subset",
+  "symbols": [
+    {
+      "kind": "module",
+      "language": "python",
+      "path": "big.py",
+      "qname": "big"
+    },
+    {
+      "kind": "file",
+      "language": "",
+      "path": "big.py",
+      "qname": "big.py"
+    },
+    {
+      "kind": "class",
+      "language": "python",
+      "path": "big.py",
+      "qname": "big.K0"
+    },
+    {
+      "kind": "class",
+      "language": "python",
+      "path": "big.py",
+      "qname": "big.K19"
+    },
+    {
+      "kind": "method",
+      "language": "python",
+      "path": "big.py",
+      "qname": "big.K19.m190"
+    },
+    {
+      "kind": "function",
+      "language": "python",
+      "path": "big.py",
+      "qname": "big.f0"
+    },
+    {
+      "kind": "function",
+      "language": "python",
+      "path": "big.py",
+      "qname": "big.f199"
+    }
+  ],
+  "symbols_by_kind": {
+    "class": 20,
+    "file": 1,
+    "function": 200,
+    "method": 20,
+    "module": 1
+  },
+  "symbols_mode": "subset"
+}

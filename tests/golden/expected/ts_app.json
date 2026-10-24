@@ -1,0 +1,194 @@
+{
+  "corpus": "ts_app",
+  "file_parse_status": {},
+  "relations": [
+    {
+      "confidence": "resolved",
+      "from": "src.api.boot",
+      "status": "resolved",
+      "to": "src.api.Api",
+      "to_text": "Api",
+      "type": "CALLS"
+    },
+    {
+      "confidence": "resolved",
+      "from": "src/api.ts",
+      "status": "resolved",
+      "to": "src.api",
+      "to_text": null,
+      "type": "CONTAINS"
+    },
+    {
+      "confidence": "resolved",
+      "from": "src/types.ts",
+      "status": "resolved",
+      "to": "src.types",
+      "to_text": null,
+      "type": "CONTAINS"
+    },
+    {
+      "confidence": "resolved",
+      "from": "src/ui.tsx",
+      "status": "resolved",
+      "to": "src.ui",
+      "to_text": null,
+      "type": "CONTAINS"
+    },
+    {
+      "confidence": "syntactic",
+      "from": "src.ui",
+      "status": "resolved",
+      "to": "src.ui.Widget",
+      "to_text": null,
+      "type": "DEFINES"
+    },
+    {
+      "confidence": "syntactic",
+      "from": "src.api",
+      "status": "resolved",
+      "to": "src.api.Api",
+      "to_text": null,
+      "type": "DEFINES"
+    },
+    {
+      "confidence": "syntactic",
+      "from": "src.api",
+      "status": "resolved",
+      "to": "src.api.boot",
+      "to_text": null,
+      "type": "DEFINES"
+    },
+    {
+      "confidence": "syntactic",
+      "from": "src.types",
+      "status": "resolved",
+      "to": "src.types.Svc",
+      "to_text": null,
+      "type": "DEFINES"
+    },
+    {
+      "confidence": "syntactic",
+      "from": "src.api.Api",
+      "status": "resolved",
+      "to": "src.api.Api.ping",
+      "to_text": null,
+      "type": "DEFINES"
+    },
+    {
+      "confidence": "syntactic",
+      "from": "src.types.Svc",
+      "status": "resolved",
+      "to": "src.types.Svc.ping",
+      "to_text": null,
+      "type": "DEFINES"
+    },
+    {
+      "confidence": "resolved",
+      "from": "src.api.Api",
+      "status": "resolved",
+      "to": "src.types.Svc",
+      "to_text": "Svc",
+      "type": "IMPLEMENTS"
+    },
+    {
+      "confidence": "resolved",
+      "from": "src.ui",
+      "status": "resolved",
+      "to": "src.api",
+      "to_text": "./api",
+      "type": "IMPORTS"
+    },
+    {
+      "confidence": "resolved",
+      "from": "src.api",
+      "status": "resolved",
+      "to": "src.types",
+      "to_text": "./types",
+      "type": "IMPORTS"
+    },
+    {
+      "confidence": "syntactic",
+      "from": "src.ui.Widget",
+      "status": "resolved",
+      "to": "src.api.Api",
+      "to_text": "Api",
+      "type": "REFERENCES"
+    }
+  ],
+  "relations_mode": "all",
+  "symbols": [
+    {
+      "kind": "module",
+      "language": "typescript",
+      "path": "src/api.ts",
+      "qname": "src.api"
+    },
+    {
+      "kind": "class",
+      "language": "typescript",
+      "path": "src/api.ts",
+      "qname": "src.api.Api"
+    },
+    {
+      "kind": "method",
+      "language": "typescript",
+      "path": "src/api.ts",
+      "qname": "src.api.Api.ping"
+    },
+    {
+      "kind": "function",
+      "language": "typescript",
+      "path": "src/api.ts",
+      "qname": "src.api.boot"
+    },
+    {
+      "kind": "module",
+      "language": "typescript",
+      "path": "src/types.ts",
+      "qname": "src.types"
+    },
+    {
+      "kind": "interface",
+      "language": "typescript",
+      "path": "src/types.ts",
+      "qname": "src.types.Svc"
+    },
+    {
+      "kind": "method",
+      "language": "typescript",
+      "path": "src/types.ts",
+      "qname": "src.types.Svc.ping"
+    },
+    {
+      "kind": "module",
+      "language": "tsx",
+      "path": "src/ui.tsx",
+      "qname": "src.ui"
+    },
+    {
+      "kind": "function",
+      "language": "tsx",
+      "path": "src/ui.tsx",
+      "qname": "src.ui.Widget"
+    },
+    {
+      "kind": "file",
+      "language": "",
+      "path": "src/api.ts",
+      "qname": "src/api.ts"
+    },
+    {
+      "kind": "file",
+      "language": "",
+      "path": "src/types.ts",
+      "qname": "src/types.ts"
+    },
+    {
+      "kind": "file",
+      "language": "",
+      "path": "src/ui.tsx",
+      "qname": "src/ui.tsx"
+    }
+  ],
+  "symbols_mode": "all"
+}

@@ -1,0 +1,15 @@
+{
+  "agent": "codex",
+  "command": [
+    "codex",
+    "exec",
+    "$(cat /home/edgar/Documentos/projetos/forjas/code-atlas-forge/factory/prompts/lf-0013.implement.codex.md)"
+  ],
+  "created_at": "2026-10-24T12:04:38+00:00",
+  "id": "lf-0013",
+  "prompt_path": "/home/edgar/Documentos/projetos/forjas/code-atlas-forge/factory/prompts/lf-0013.implement.codex.md",
+  "spec_path": "/home/edgar/Documentos/projetos/forjas/code-atlas-forge/factory/specs/active/lf-0013.md",
+  "spec_sha256": "b50f81d2467658246fb2bac0d8e3b1a177a9ff61a1d0fd630abad0de39b2cd3e",
+  "status": "planned",
+  "title": "Cycle 2 Phases 7+8 - Golden fixtures, evaluation metrics, benchmarks"
+}
