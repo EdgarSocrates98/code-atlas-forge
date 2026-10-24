@@ -222,11 +222,22 @@ class SearchEngine:
         diags.extend(d for d in g_diags if d.code != "seed-not-found")
         rankings["graph"] = list(g_hits)
         if self._vec:
-            v_hits, _vt, v_diags = self._vector_hits(
-                lex_req, snapshot_id, 0)
-            diags.extend(
-                d for d in v_diags if d.code != "vector-empty")
-            rankings["vector"] = list(v_hits)
+            # lf-0086: superfícies read-only (API Explorer) abrem o banco
+            # com query_only — o canal vetorial materializa embeddings e
+            # cachearia a query, o que falharia com OperationalError.
+            # Degradação declarada, nunca silenciosa.
+            ro = self._conn.execute("PRAGMA query_only").fetchone()
+            if ro is not None and bool(ro[0]):
+                diags.append(SearchDiagnostic(
+                    code="vector-unavailable-readonly", severity="info",
+                    message="canal vetorial desativado em conexão "
+                            "read-only (embeddings exigem escrita)"))
+            else:
+                v_hits, _vt, v_diags = self._vector_hits(
+                    lex_req, snapshot_id, 0)
+                diags.extend(
+                    d for d in v_diags if d.code != "vector-empty")
+                rankings["vector"] = list(v_hits)
         from code_atlas.search.intent import classify
 
         fused = fuse(

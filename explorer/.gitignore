@@ -1,0 +1,21 @@
+# Dependencies
+/node_modules
+
+# Build output
+/dist
+/out-tsc
+/.angular/cache
+
+# Tests
+/coverage
+
+# Logs
+npm-debug.log
+yarn-error.log
+
+# IDE
+.vscode/
+.idea/
+
+# Env
+.env

@@ -1,0 +1,188 @@
+/*
+ * Code Atlas Explorer — Design Tokens
+ * Local-first, offline-first. No external fonts/CDNs are referenced here.
+ * Theme selection is driven by [data-theme="dark" | "light"] on <html>,
+ * falling back to prefers-color-scheme when no explicit choice exists
+ * (see core/state/theme.service.ts).
+ */
+
+:root {
+  /* ---- Typography ---- */
+  --atlas-font-family-base: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  --atlas-font-family-mono: ui-monospace, "Cascadia Code", "Source Code Pro", Menlo, Consolas, monospace;
+
+  --atlas-font-size-xs: 0.75rem;
+  --atlas-font-size-sm: 0.875rem;
+  --atlas-font-size-md: 1rem;
+  --atlas-font-size-lg: 1.25rem;
+  --atlas-font-size-xl: 1.5rem;
+  --atlas-font-size-2xl: 2rem;
+
+  --atlas-font-weight-regular: 400;
+  --atlas-font-weight-medium: 500;
+  --atlas-font-weight-bold: 700;
+
+  --atlas-line-height-tight: 1.25;
+  --atlas-line-height-normal: 1.5;
+
+  /* ---- Spacing scale (4px base) ---- */
+  --atlas-space-1: 0.25rem;
+  --atlas-space-2: 0.5rem;
+  --atlas-space-3: 0.75rem;
+  --atlas-space-4: 1rem;
+  --atlas-space-5: 1.5rem;
+  --atlas-space-6: 2rem;
+  --atlas-space-7: 3rem;
+  --atlas-space-8: 4rem;
+
+  /* ---- Radius ---- */
+  --atlas-radius-sm: 4px;
+  --atlas-radius-md: 8px;
+  --atlas-radius-lg: 12px;
+  --atlas-radius-full: 999px;
+
+  /* ---- Shadows ---- */
+  --atlas-shadow-sm: 0 1px 2px rgb(0 0 0 / 0.08);
+  --atlas-shadow-md: 0 4px 12px rgb(0 0 0 / 0.12);
+  --atlas-shadow-lg: 0 12px 32px rgb(0 0 0 / 0.18);
+
+  /* ---- Motion ---- */
+  --atlas-motion-fast: 100ms;
+  --atlas-motion-base: 180ms;
+  --atlas-motion-slow: 280ms;
+  --atlas-motion-easing: cubic-bezier(0.2, 0, 0, 1);
+
+  /* ---- Z-index scale ---- */
+  --atlas-z-base: 0;
+  --atlas-z-sticky: 10;
+  --atlas-z-toolbar: 20;
+  --atlas-z-overlay: 30;
+  --atlas-z-modal: 40;
+  --atlas-z-toast: 50;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --atlas-motion-fast: 0ms;
+    --atlas-motion-base: 0ms;
+    --atlas-motion-slow: 0ms;
+  }
+}
+
+/*
+ * Evidence-state palette.
+ * These colors back a semantic *system* that always pairs color with a
+ * shape/icon/text label in components (see shared/components/evidence-badge).
+ * Never rely on color alone (WCAG 2.2 SC 1.4.1).
+ *
+ * States: verified, supported, possible, unresolved, external.
+ */
+:root,
+html[data-theme='light'] {
+  color-scheme: light;
+
+  --atlas-color-bg: #ffffff;
+  --atlas-color-bg-subtle: #f4f5f7;
+  --atlas-color-bg-raised: #ffffff;
+  --atlas-color-border: #d7dae0;
+  --atlas-color-border-strong: #aeb4bf;
+
+  --atlas-color-text: #1a1d23;
+  --atlas-color-text-muted: #545b68;
+  --atlas-color-text-inverse: #ffffff;
+
+  --atlas-color-accent: #2855d6;
+  --atlas-color-accent-text: #ffffff;
+  --atlas-color-focus-ring: #1b4bd6;
+
+  --atlas-color-danger: #b3261e;
+  --atlas-color-danger-bg: #fcebea;
+  --atlas-color-warning: #8a5a00;
+  --atlas-color-warning-bg: #fdf1dc;
+  --atlas-color-success: #1e6b45;
+  --atlas-color-success-bg: #e6f4ec;
+
+  /* Evidence states: distinct hue AND distinct marker icon/shape token */
+  --atlas-evidence-verified: #1e6b45;
+  --atlas-evidence-verified-bg: #e6f4ec;
+  --atlas-evidence-verified-marker: '✓';
+
+  --atlas-evidence-supported: #2855d6;
+  --atlas-evidence-supported-bg: #e8edfc;
+  --atlas-evidence-supported-marker: '▲';
+
+  --atlas-evidence-possible: #8a5a00;
+  --atlas-evidence-possible-bg: #fdf1dc;
+  --atlas-evidence-possible-marker: '◆';
+
+  --atlas-evidence-unresolved: #b3261e;
+  --atlas-evidence-unresolved-bg: #fcebea;
+  --atlas-evidence-unresolved-marker: '✕';
+
+  --atlas-evidence-external: #5a3ea8;
+  --atlas-evidence-external-bg: #efe9fb;
+  --atlas-evidence-external-marker: '◇';
+}
+
+html[data-theme='dark'] {
+  color-scheme: dark;
+
+  --atlas-color-bg: #14161a;
+  --atlas-color-bg-subtle: #1b1e24;
+  --atlas-color-bg-raised: #20232a;
+  --atlas-color-border: #343842;
+  --atlas-color-border-strong: #4a4f5b;
+
+  --atlas-color-text: #eceef2;
+  --atlas-color-text-muted: #a7acb8;
+  --atlas-color-text-inverse: #14161a;
+
+  --atlas-color-accent: #7fa0ff;
+  --atlas-color-accent-text: #0a1230;
+  --atlas-color-focus-ring: #9db6ff;
+
+  --atlas-color-danger: #ff8a80;
+  --atlas-color-danger-bg: #3a1c1a;
+  --atlas-color-warning: #f0c36d;
+  --atlas-color-warning-bg: #3a2e12;
+  --atlas-color-success: #7fd9ab;
+  --atlas-color-success-bg: #12301f;
+
+  --atlas-evidence-verified: #7fd9ab;
+  --atlas-evidence-verified-bg: #12301f;
+  --atlas-evidence-verified-marker: '✓';
+
+  --atlas-evidence-supported: #7fa0ff;
+  --atlas-evidence-supported-bg: #1a2240;
+  --atlas-evidence-supported-marker: '▲';
+
+  --atlas-evidence-possible: #f0c36d;
+  --atlas-evidence-possible-bg: #3a2e12;
+  --atlas-evidence-possible-marker: '◆';
+
+  --atlas-evidence-unresolved: #ff8a80;
+  --atlas-evidence-unresolved-bg: #3a1c1a;
+  --atlas-evidence-unresolved-marker: '✕';
+
+  --atlas-evidence-external: #c3a7f5;
+  --atlas-evidence-external-bg: #2a2140;
+  --atlas-evidence-external-marker: '◇';
+}
+
+/* Default to OS preference when no explicit [data-theme] has been applied yet. */
+@media (prefers-color-scheme: dark) {
+  html:not([data-theme]) {
+    color-scheme: dark;
+    --atlas-color-bg: #14161a;
+    --atlas-color-bg-subtle: #1b1e24;
+    --atlas-color-bg-raised: #20232a;
+    --atlas-color-border: #343842;
+    --atlas-color-border-strong: #4a4f5b;
+    --atlas-color-text: #eceef2;
+    --atlas-color-text-muted: #a7acb8;
+    --atlas-color-text-inverse: #14161a;
+    --atlas-color-accent: #7fa0ff;
+    --atlas-color-accent-text: #0a1230;
+    --atlas-color-focus-ring: #9db6ff;
+  }
+}

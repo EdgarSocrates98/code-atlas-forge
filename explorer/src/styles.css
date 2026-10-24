@@ -1,0 +1,46 @@
+/* Global base styles. Token values come from design-system/tokens.css. */
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  height: 100%;
+  margin: 0;
+  background: var(--atlas-color-bg);
+  color: var(--atlas-color-text);
+  font-family: var(--atlas-font-family-base);
+  font-size: var(--atlas-font-size-md);
+  line-height: var(--atlas-line-height-normal);
+}
+
+body {
+  transition: background-color var(--atlas-motion-base) var(--atlas-motion-easing),
+    color var(--atlas-motion-base) var(--atlas-motion-easing);
+}
+
+a {
+  color: var(--atlas-color-accent);
+}
+
+/* Accessible, always-visible focus styles (never rely on browser default alone). */
+:focus-visible {
+  outline: 2px solid var(--atlas-color-focus-ring);
+  outline-offset: 2px;
+  border-radius: var(--atlas-radius-sm);
+}
+
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}

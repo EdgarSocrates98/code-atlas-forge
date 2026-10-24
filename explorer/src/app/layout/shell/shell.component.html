@@ -1,0 +1,39 @@
+<a class="shell__skip-link" href="#shell-main">Pular para o conteúdo principal</a>
+
+<div class="shell">
+  <header class="shell__toolbar" role="banner">
+    <span class="shell__brand">Code Atlas Explorer</span>
+
+    <div class="shell__repo-selector" aria-label="Repositório atual">
+      @if (repositories.selected(); as repo) {
+        <span>{{ repo.root_handle }}</span>
+      } @else {
+        <span class="shell__repo-selector--empty">Nenhum repositório selecionado</span>
+      }
+    </div>
+
+    <button
+      type="button"
+      class="shell__theme-toggle"
+      (click)="toggleTheme()"
+      [attr.aria-pressed]="theme.resolvedTheme() === 'dark'"
+      aria-label="Alternar tema claro/escuro"
+    >
+      {{ theme.resolvedTheme() === 'dark' ? '☀️ Claro' : '🌙 Escuro' }}
+    </button>
+  </header>
+
+  <nav class="shell__sidebar" aria-label="Navegação principal">
+    <ul>
+      @for (item of navItems; track item.path) {
+        <li>
+          <a [routerLink]="item.path" routerLinkActive="is-active">{{ item.label }}</a>
+        </li>
+      }
+    </ul>
+  </nav>
+
+  <main id="shell-main" class="shell__main" tabindex="-1">
+    <router-outlet />
+  </main>
+</div>

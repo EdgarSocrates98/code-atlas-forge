@@ -1,0 +1,98 @@
+.shell__skip-link {
+  position: absolute;
+  left: -9999px;
+  top: 0;
+  z-index: var(--atlas-z-toast);
+  background: var(--atlas-color-accent);
+  color: var(--atlas-color-accent-text);
+  padding: var(--atlas-space-2) var(--atlas-space-3);
+  border-radius: var(--atlas-radius-sm);
+}
+
+.shell__skip-link:focus {
+  left: var(--atlas-space-2);
+  top: var(--atlas-space-2);
+}
+
+.shell {
+  display: grid;
+  grid-template-columns: 220px 1fr;
+  grid-template-rows: auto 1fr;
+  grid-template-areas:
+    'toolbar toolbar'
+    'sidebar main';
+  min-height: 100vh;
+}
+
+.shell__toolbar {
+  grid-area: toolbar;
+  display: flex;
+  align-items: center;
+  gap: var(--atlas-space-4);
+  padding: var(--atlas-space-3) var(--atlas-space-4);
+  border-bottom: 1px solid var(--atlas-color-border);
+  background: var(--atlas-color-bg-raised);
+  position: sticky;
+  top: 0;
+  z-index: var(--atlas-z-toolbar);
+}
+
+.shell__brand {
+  font-weight: var(--atlas-font-weight-bold);
+}
+
+.shell__repo-selector {
+  flex: 1;
+  color: var(--atlas-color-text-muted);
+}
+
+.shell__repo-selector--empty {
+  font-style: italic;
+}
+
+.shell__theme-toggle {
+  background: var(--atlas-color-bg-subtle);
+  border: 1px solid var(--atlas-color-border);
+  border-radius: var(--atlas-radius-full);
+  padding: var(--atlas-space-1) var(--atlas-space-3);
+  cursor: pointer;
+  color: var(--atlas-color-text);
+}
+
+.shell__sidebar {
+  grid-area: sidebar;
+  border-right: 1px solid var(--atlas-color-border);
+  background: var(--atlas-color-bg-subtle);
+  padding: var(--atlas-space-3) 0;
+}
+
+.shell__sidebar ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.shell__sidebar a {
+  display: block;
+  padding: var(--atlas-space-2) var(--atlas-space-4);
+  text-decoration: none;
+  color: var(--atlas-color-text);
+  border-left: 3px solid transparent;
+}
+
+.shell__sidebar a:hover {
+  background: var(--atlas-color-bg-raised);
+}
+
+.shell__sidebar a.is-active {
+  border-left-color: var(--atlas-color-accent);
+  font-weight: var(--atlas-font-weight-medium);
+  background: var(--atlas-color-bg-raised);
+}
+
+.shell__main {
+  grid-area: main;
+  outline: none;
+}
