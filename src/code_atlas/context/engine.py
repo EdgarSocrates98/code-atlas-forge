@@ -119,7 +119,7 @@ class ContextEngine:
             est = self._counter.count(render_json(pack))
             if est <= budget.limit or not sel:
                 if enforced:
-                    diags = list(diags) + ["payload-budget-enforced"]
+                    diags = [*diags, "payload-budget-enforced"]
                     pack = self._pack(req, sid, budget, sel, omit,
                                       essentials_cost, insufficient,
                                       diags, snap_status)
@@ -127,7 +127,7 @@ class ContextEngine:
                 if est > budget.limit:
                     pack = self._pack(req, sid, budget, sel, omit,
                                       essentials_cost, True,
-                                      diags + ["payload-over-budget"],
+                                      [*diags, "payload-over-budget"],
                                       snap_status)
                     est = self._counter.count(render_json(pack))
                 # grava a estimativa final no manifest
