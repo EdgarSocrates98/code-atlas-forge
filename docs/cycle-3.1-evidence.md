@@ -3,8 +3,10 @@
 - Branch: `cycle-3.1-semantic-hardening`
 - SHA inicial (merge-base com main): `c74fc89` — primeiro commit do
   ciclo `e995b27` (lf-0026 baseline audit)
-- SHA final da main: **registrado após merge** — ver rodapé.
-- PR: ver rodapé.
+- SHA final da main: `a9def8d` (squash merge do PR #5)
+- PR: `https://github.com/EdgarSocrates98/code-atlas-forge/pull/5`
+  (**MERGED**, confirmado via `gh pr view`: `state=MERGED`,
+  `mergeCommit=a9def8d`)
 - Specs: `factory/specs/archive/lf-0026` … `lf-0034` (cada uma com
   review em `factory/reviews/`).
 
@@ -120,8 +122,8 @@ claim honesto, não inflado). Detalhes:
 | 10 | invalidation | `test_incremental` + `test_git_intelligence` (transitivo, rename, branch) — verde |
 | 11 | benchmarks | `bench_index --sizes 100` → total 0.2245s, p50 query 0.74ms, rss 32.6MB |
 | 12 | wheel | `pip wheel` + install em venv limpo → CLI funcional (`--help` lista 12 comandos) |
-| 13 | Linux CI | ver rodapé (run id) |
-| 14 | Windows CI | ver rodapé (run id) |
+| 13 | Linux CI | run `40112990356`: ubuntu py3.12/3.13 PASS |
+| 14 | Windows CI | run `40112990356`: windows py3.12/3.13 PASS |
 | 15 | licenças | projeto Apache-2.0; deps `tree-sitter*` MIT; `pip-audit --strict` → 0 vulns |
 | 16 | segurança | `docs/security-review-cycle31.md` — matriz 18 prioridades, 0 P0/P1 |
 | 17 | regressões C1–C3 | suíte completa verde (375 testes cobrem todos os ciclos) |
@@ -178,4 +180,12 @@ context packs/MCP — afeta só reindex de corpora grandes.
 
 ---
 
-_Rodapé preenchido após merge: PR, run ids de CI, SHA final da main._
+## Registro final (pós-merge)
+
+- PR #5 **MERGED** — squash `a9def8d` em main (verificado
+  autoritativamente via `gh pr view`, não inferido).
+- CI run `40112990356`: **5/5 checks verdes** — test (ubuntu,
+  py3.12/3.13), test (windows, py3.12/3.13), dependency security
+  (pip-audit). Nenhum check pendente/falho no momento do merge.
+- SHA final da main: `a9def8d`.
+- Branch `cycle-3.1-semantic-hardening` deletada no merge.
