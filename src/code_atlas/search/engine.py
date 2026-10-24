@@ -19,6 +19,7 @@ from code_atlas.search.contracts import (
     encode_cursor,
     query_fingerprint,
 )
+from code_atlas.search.graph import GraphRetrieval
 from code_atlas.search.lexical import LexicalSearch
 from code_atlas.search.structural import StructuralSearch
 
@@ -30,16 +31,18 @@ class SearchEngine:
         self._conn = conn
         self._structural = StructuralSearch(conn)
         self._lexical = LexicalSearch(conn)
+        self._graph = GraphRetrieval(conn)
 
     def capabilities(self) -> SearchCapability:
         fts5 = self._conn.execute(
             "SELECT 1 FROM sqlite_master WHERE name='fts_occurrences'"
         ).fetchone() is not None
         return SearchCapability(
-            strategies=("lexical", "structural") if fts5 else ("structural",),
+            strategies=(("lexical", "structural", "graph") if fts5
+                        else ("structural", "graph")),
             fts5=fts5,
             vector=False,
-            detail="graph/hybrid/vector: planned (lf-0037..lf-0039)",
+            detail="hybrid/vector: planned (lf-0038..lf-0039)",
         )
 
     def search(self, req: SearchRequest) -> SearchResult:
@@ -71,6 +74,18 @@ class SearchEngine:
                 return self._empty(req, diags, snapshot_id=sid)
             offset = decoded
 
+        if req.strategy == "graph":
+            hits, _total, g_diags = self._graph_hits(req, sid)
+            diags.extend(g_diags)
+            return SearchResult(
+                schema_version=SEARCH_SCHEMA_VERSION,
+                repository=req.repository_root,
+                snapshot_id=sid, query=req.query, strategy=req.strategy,
+                ranking_version="graph-structural-v1", items=hits,
+                limit=req.limit,
+                truncated=len(hits) >= max(1, req.limit or 20),
+                diagnostics=tuple(diags),
+            )
         if req.strategy == "structural":
             hits, total = self._structural_hits(req, repo_id, sid, offset)
             ranking = "structural-sql-v1"
@@ -132,6 +147,48 @@ class SearchEngine:
             for it in items
         )
         return hits, int(page.total)
+
+    def _graph_hits(
+        self, req: SearchRequest, snapshot_id: int
+    ) -> tuple[tuple[SearchHit, ...], int, tuple[SearchDiagnostic, ...]]:
+        """Seeds por nome → travessia BFS limitada → SearchHit com
+        explicação (caminho de relações) por hit."""
+        from code_atlas.search.graph import TraversalLimits
+
+        seeds = self._graph.seed_occurrences(snapshot_id, req.query)
+        if not seeds:
+            return (), 0, (SearchDiagnostic(
+                code="seed-not-found", severity="warning",
+                message=f"nenhuma ocorrência casa '{req.query}' no "
+                        f"snapshot"),)
+        lim = TraversalLimits(
+            depth=3, max_nodes=500, max_edges=2000, max_ms=500,
+            max_results=max(1, min(req.limit or 20, 200)),
+        )
+        hits, stats = self._graph.traverse(
+            snapshot_id, seeds, direction="both", limits=lim)
+        diags: list[SearchDiagnostic] = []
+        if stats.truncated_by:
+            diags.append(SearchDiagnostic(
+                code="traversal-truncated", severity="info",
+                message=f"travessia truncada por limite: "
+                        f"{stats.truncated_by}"))
+        out = tuple(
+            SearchHit(
+                occurrence_id=h.occurrence_id,
+                qualified_name=h.qualified_name, kind=h.kind,
+                language=h.language, path=h.path, span=None,
+                score=h.score, strategy="graph",
+                matched_fields=("graph",),
+                evidence=tuple(
+                    f"{s.relation}:{s.from_id}->{s.to_id}"
+                    f"({s.resolution_status})"
+                    for s in h.steps
+                ),
+            )
+            for h in hits
+        )
+        return out, len(out), tuple(diags)
 
     def _empty(
         self,

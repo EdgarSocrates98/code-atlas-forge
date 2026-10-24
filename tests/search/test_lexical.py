@@ -117,7 +117,8 @@ def test_unknown_strategy_is_typed_error(env: tuple[sqlite3.Connection, str]) ->
     res = _search(env, "x", strategy="hybrid")
     assert any(d.code == "strategy-unavailable" for d in res.diagnostics)
     caps = SearchEngine(env[0]).capabilities()
-    assert "graph" not in caps.strategies
+    assert "graph" in caps.strategies
+    assert "hybrid" not in caps.strategies
 
 
 def test_structural_strategy_passthrough(env: tuple[sqlite3.Connection, str]) -> None:
