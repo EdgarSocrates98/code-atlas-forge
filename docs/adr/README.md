@@ -15,13 +15,19 @@ ganham arquivo quando o ciclo correspondente as tornar reais.
 | 013 | Config XDG/AppData + segredos | `adr-0013-config-secrets.md` |
 | 014 | Segurança de conteúdo, sem execução | `adr-0014-content-security.md` |
 
+## Decididas e implementadas (Cycle 2)
+
+| ADR | Título | Arquivo |
+|---|---|---|
+| 003 | Tree-sitter adapters | implementada como contrato `ParserAdapter` + adaptadores py/ts/tsx (docs/parser-adapters.md) |
+| 005 | Grafo tipado versionado | implementada como grafo canônico persistido (docs/graph-schema.md) |
+| 015 | Tree-sitter como dep de runtime pinned (emenda ADR-001) | `adr-0015-tree-sitter-runtime-deps.md` |
+
 ## Propostas (ciclos futuros — não implementadas)
 
 | ADR | Título | Ciclo |
 |---|---|---|
-| 003 | Tree-sitter adapters | 2 |
 | 004 | SCIP/LSP opcionais com fallbacks marcados | 3 |
-| 005 | Grafo tipado versionado | 2–3 |
 | 008 | Context packs com budget e redaction | 4 |
 | 009 | REST + MCP com contratos versionados | 4 |
 | 010 | Explorer Angular + Sigma.js | 6 |
