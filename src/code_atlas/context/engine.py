@@ -35,6 +35,7 @@ from code_atlas.search.structural import SearchFilters, StructuralSearch
 
 # Reservas do envelope (fração do limite) — metadados+evidências+diags.
 _RESERVE_META = 0.05
+_MAX_BUDGET = 1_000_000  # clamp — budget absurdo não infla reservas
 _RESERVE_EVID = 0.10
 _RESERVE_DIAG = 0.05
 
@@ -78,7 +79,7 @@ class ContextEngine:
 
     # -------------------------------------------------------- internals
     def _budget(self, req: ContextRequest) -> Budget:
-        limit = max(64, req.budget_tokens)
+        limit = max(64, min(req.budget_tokens, _MAX_BUDGET))
         meta = int(limit * _RESERVE_META)
         evid = int(limit * _RESERVE_EVID)
         diag = int(limit * _RESERVE_DIAG)
