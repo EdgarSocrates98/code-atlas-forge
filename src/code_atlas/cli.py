@@ -818,6 +818,13 @@ def run_context_expand(args: argparse.Namespace) -> int:
     return EXIT_OK
 
 
+def run_mcp(_args: argparse.Namespace) -> int:
+    """`code-atlas mcp` — servidor MCP stdio (JSON-RPC ndjson)."""
+    from code_atlas.mcp import main_stdio
+
+    return main_stdio()
+
+
 def run_symbol(args: argparse.Namespace) -> int:
     conn, repo_id, snap_id, repo_info, err = _search_context(args)
     if err:
@@ -1148,6 +1155,10 @@ def build_parser() -> argparse.ArgumentParser:
                        default=4000)
     _add_query_args(p_exp, filters=False)
     p_exp.set_defaults(func=run_context_expand)
+
+    p_mcp = sub.add_parser(
+        "mcp", help="servidor MCP stdio — JSON-RPC ndjson (lf-0042)")
+    p_mcp.set_defaults(func=run_mcp)
 
     p_symbol = sub.add_parser("symbol", help="detalhe de um símbolo + ocorrências")
     p_symbol.add_argument("ident", metavar="SYMBOL", help="id numérico ou qualified_name")
