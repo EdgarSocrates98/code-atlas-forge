@@ -1,8 +1,9 @@
-# Database Schema — Code Atlas (schema_version 3)
+# Database Schema — Code Atlas (schema_version 4)
 
 Fonte de verdade: `src/code_atlas/storage/migrations.py` (v1 core,
-v2 FTS, v3 índices snapshot-scoped). Este documento espelha o que as
-migrações criam — qualquer drift aqui é bug.
+v2 FTS, v3 índices snapshot-scoped, v4 cache de ParseResult).
+Este documento espelha o que as migrações criam — qualquer drift aqui
+é bug.
 
 ## schema_migrations
 
@@ -91,6 +92,35 @@ v1: `idx_snapshots_repo_status(repository_id,status)`,
 v3 (snapshot-scoped, Cycle 2): `idx_relations_snapshot(snapshot_id)`,
 `idx_occurrences_snapshot_symbol(snapshot_id,logical_symbol_id)`,
 `idx_evidence_snapshot(snapshot_id)`.
+
+v4 (lf-0020): `idx_cache_repo_path(repository_id, path)` +
+constraint `UNIQUE(repository_id, path, content_sha256, language,
+parser_version, grammar_version, extractor_version, resolver_version,
+builder_version, config_digest)`.
+
+## parse_result_cache (v4)
+
+Cache versionado de `ParseResult` por arquivo (lf-0020) — **não
+pertence a snapshots** (isolamento: cada snapshot materializa linhas
+próprias; o cache só acelera a re-obtenção do artefato de parse).
+
+| coluna | tipo | nota |
+|---|---|---|
+| id | INTEGER PK | |
+| repository_id | FK→repositories | |
+| path | TEXT | rel POSIX |
+| content_sha256 | TEXT | identidade de conteúdo |
+| language / parser_version / grammar_version / extractor_version / resolver_version / builder_version / config_digest | TEXT | **chave de validade completa** — qualquer campo novo invalida |
+| payload | TEXT | ParseResult serializado em JSON (sem pickle) |
+| payload_sha256 | TEXT | integridade na leitura — diverge → miss |
+| last_used_snapshot_id | INTEGER NULL | GC: retenção nos últimos N READY |
+| hit_count | INTEGER | telemetria |
+| created_at | TEXT | utc |
+
+GC (dentro da transação de publicação): remove entradas cujo
+`last_used_snapshot_id` é anterior ao N-ésimo READY mais recente
+(`KEEP_SNAPSHOTS=5`) e limita a `MAX_ENTRIES=50_000` por repo (eviction
+LRU por `last_used_snapshot_id`).
 
 ## Pragmas
 

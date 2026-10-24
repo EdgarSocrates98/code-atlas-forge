@@ -75,17 +75,12 @@ def persist_graph(
     *,
     fts5: bool,
     file_status: Mapping[str, str] | None = None,
-    external_occ: Mapping[str, int] | None = None,
 ) -> dict[str, int]:
     """Grava evidências, símbolos, ocorrências e relações — na transação
     corrente do caller (atomicidade é de quem chama).
 
     ``file_status`` mapeia path → parse_status da ocorrência
     (``parsed`` | ``parsed-with-errors`` | ``parse-failed``).
-
-    ``external_occ`` (lf-0019): node_id → occ_id de ocorrências já
-    copiadas de arquivos reutilizados — permite que arestas de arquivos
-    reparseados amarrem alvos em módulos que não entraram no grafo.
     """
     counts = {
         "evidence": 0, "symbols_new": 0, "occurrences": 0,
@@ -132,8 +127,6 @@ def persist_graph(
             counts["edges_skipped"] += 1
             continue
         to = node_occ.get(e.to_id) if e.to_id is not None else None
-        if to is None and e.to_id is not None and external_occ:
-            to = external_occ.get(e.to_id)
         if e.to_id is not None and to is None:
             counts["edges_skipped"] += 1  # alvo estrutural não persistido
             continue

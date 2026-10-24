@@ -107,6 +107,12 @@ def _open_verified(path: Path, root_real: Path) -> int | None:
         with contextlib.suppress(OSError):
             os.close(fd)
         return None
+    # O_NONBLOCK só serve para a janela open→fstat (não travar em FIFO);
+    # em arquivo regular ele torna a leitura racy — EAGAIN aparece sob
+    # pressão de scheduler e vira sha256=None intermitente. Limpa antes
+    # de devolver (no-op onde set_blocking não existe).
+    with contextlib.suppress(OSError, AttributeError):
+        os.set_blocking(fd, True)
     return fd
 
 
@@ -121,12 +127,14 @@ def read_file_verified(path: Path, root_real: Path) -> bytes | None:
         return None
     try:
         with os.fdopen(fd, "rb") as fh:
+            fd = -1  # posse transferida para fh — finally não fecha
             return fh.read()
     except OSError:
         return None
     finally:
-        with contextlib.suppress(OSError):
-            os.close(fd)
+        if fd >= 0:
+            with contextlib.suppress(OSError):
+                os.close(fd)
 
 
 def _hash_file(path: Path, chunk_size: int, root_real: Path) -> str | None:
@@ -144,15 +152,16 @@ def _hash_file(path: Path, chunk_size: int, root_real: Path) -> str | None:
     try:
         digest = hashlib.sha256()
         with os.fdopen(fd, "rb") as fh:
+            fd = -1  # posse transferida para fh — finally não fecha
             while chunk := fh.read(chunk_size):
                 digest.update(chunk)
         return digest.hexdigest()
     except OSError:
         return None
     finally:
-        # fdopen assume a posse do fd quando tem sucesso; EBADF é esperado.
-        with contextlib.suppress(OSError):
-            os.close(fd)
+        if fd >= 0:
+            with contextlib.suppress(OSError):
+                os.close(fd)
 
 
 def _rel_posix(root: Path, path: Path) -> str:

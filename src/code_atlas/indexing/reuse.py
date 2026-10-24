@@ -1,235 +1,85 @@
-"""Reuso de dados do snapshot anterior no índice incremental (lf-0019).
+"""Reuse path do lf-0020: resultados reutilizados via cache versionado.
 
-Duas responsabilidades:
+Contrato (grill): reuso nunca por path — a ``CacheKey`` cobre
+``content_sha256`` + idioma + versões de parser/grammar/extractor/
+resolver/builder + ``config_digest``. O payload é ``ParseResult``
+serializado — artefato sintático puro (símbolos, spans, relações
+**não resolvidas**).
 
-1. ``reconstruct_universe`` — reconstrói ``ModuleCtx``s de arquivos
-   ``reuse`` a partir das linhas persistidas (``snapshot_file_symbols``),
-   para que o ``GraphBuilder`` resolva relações de arquivos reparseados
-   contra módulos não-reparseados. ``import_targets`` do arquivo
-   reutilizado não é necessário: ele só serve para resolver as refs do
-   próprio arquivo, que não são reavaliadas.
+Política conservadora: só arquivos ``REUSE`` (conjunto de
+dependências inalterado no plano) são servidos do cache; arquivos
+``REVALIDATE_RELATIONS`` são re-parseados — "reevaluate" = re-extração
++ re-resolução. Relações nunca são copiadas prontas: o graph builder
+re-resolve ``to_name`` de cada aresta sobre o universo do snapshot
+novo.
 
-2. ``copy_*`` — copy-forward transacional de ``symbol_occurrences``,
-   ``evidence`` e ``relations`` das fontes ``reuse`` para o snapshot
-   novo, preservando spans/status/hash originais (a tabela de
-   ocorrências é lossy: 4 campos de span, então copiar a linha é a
-   única forma de manter fidelidade).
+Materialização: resultados reutilizados entram no ``build`` junto com
+os parseados — ``persist_graph`` grava linhas **novas** amarradas ao
+``snapshot_id`` novo (isolamento lógico entre snapshots).
 
-Cache real de ``ParseResult``/build transacional refinado é lf-0020 —
-aqui o mínimo correto: copiar linhas e remapear FKs.
+Cache miss (primeira indexação incremental, GC, corrupção): o arquivo
+é lido e parseado de verdade — fallback correto, nunca inventa dados.
 """
 
 from __future__ import annotations
 
+import hashlib
 import json
-import sqlite3
-from collections.abc import Mapping
+from typing import TYPE_CHECKING
 
-from code_atlas.graph import identity
-from code_atlas.resolvers.syntactic.resolver import ModuleCtx, ScopeUniverse
-from code_atlas.storage.store import Store
+from code_atlas.indexing.cache import CacheKey
 
-# kinds de símbolo que NÃO se copiam: ``file`` ganha ocorrência fresca a
-# cada build (persist_graph emite nós de arquivo para todo o manifesto).
-_SKIP_COPY_KINDS = frozenset({"file"})
+if TYPE_CHECKING:
+    from code_atlas.discovery.models import SourceFile
+    from code_atlas.parsers.contracts import ParserAdapter
+    from code_atlas.parsers.engine import ParseEngine
 
 
-def reconstruct_universe(
-    store: Store,
-    snapshot_id: int,
-    paths: set[str],
-) -> ScopeUniverse:
-    """Reconstrói ctxs de módulo dos paths ``reuse`` a partir do banco.
+def config_digest(engine: ParseEngine) -> str:
+    """Digest da configuração efetiva que influencia o output do parse.
 
-    ``snapshot_file_symbols`` traz (path, kind, qname, language, fid);
-    nids são determinísticos (``identity.*``), então o universo
-    reconstruído é idêntico ao que o parse original produziu — exceto
-    ``import_targets``, desnecessário para resolução alheia.
+    Cobre os limites do engine e a identidade completa dos adaptadores
+    (id, parser/grammar versions, extensões) — qualquer mudança de
+    configuração efetiva muda a chave e invalida o cache.
     """
-    universe = ScopeUniverse()
-    rows = store.snapshot_file_symbols(snapshot_id)
-    by_file: dict[str, list[tuple[str, str, str]]] = {}
-    for path, kind, qname, lang, _fid in rows:
-        if path in paths:
-            by_file.setdefault(path, []).append((kind, qname, lang))
-
-    for path in sorted(by_file):
-        entries = by_file[path]
-        mod_qname = ""
-        lang = ""
-        for kind, qname, lg in entries:
-            if kind == "module":
-                mod_qname, lang = qname, lg
-                break
-        if not mod_qname:
-            continue  # sem módulo persistido → caller re-parseia
-        mid = identity.module_node_id(lang, path)
-        ctx = ModuleCtx(path=path, module_name=mod_qname, language=lang,
-                        nid=mid)
-        universe.modules[mod_qname] = ctx
-        universe.by_path[path] = mid
-        universe.nid_mod[mid] = ctx
-        universe.leaf.setdefault(mod_qname.split(".")[-1], []).append(mid)
-        universe.qname_nid.setdefault(mod_qname, []).append(mid)
-        for kind, qname, lg in entries:
-            if kind == "module":
-                continue
-            nid = identity.symbol_node_id(lg, kind, qname)
-            leaf_name = qname.rsplit(".", 1)[-1]
-            ctx.defines.setdefault(leaf_name, []).append(nid)
-            universe.leaf.setdefault(leaf_name, []).append(nid)
-            universe.qname_nid.setdefault(qname, []).append(nid)
-    return universe
+    adapters = []
+    for lang in sorted(engine.registry.languages):
+        ad = engine.registry.for_language(lang)
+        if ad is not None:
+            adapters.append([
+                ad.adapter_id, ad.parser_version, ad.grammar_version,
+                list(ad.extensions),
+            ])
+    doc = {
+        "adapters": adapters,
+        "limits": [
+            engine.limits.max_file_size,
+            engine.limits.timeout_us,
+            engine.limits.max_diagnostics,
+        ],
+    }
+    blob = json.dumps(doc, sort_keys=True, separators=(",", ":"))
+    return hashlib.sha256(blob.encode()).hexdigest()
 
 
-def copy_occurrences_and_evidence(
-    store: Store,
-    prior_snapshot_id: int,
-    snapshot_id: int,
-    reused_file_ids: set[int],
-) -> tuple[dict[str, int], dict[int, int], dict[int, int]]:
-    """Copia ocorrências (exceto kind ``file``) e evidências dos arquivos
-    reutilizados para o snapshot novo.
+def cache_key_for(
+    f: SourceFile,
+    adapter: ParserAdapter,
+    cfg_digest: str,
+) -> CacheKey | None:
+    """Chave de validade do arquivo; ``None`` se sha indisponível.
 
-    Retorna ``(occ_by_nid, occ_map, evi_map)``:
-    - ``occ_by_nid``: node_id determinístico → occ_id novo — usado por
-      ``persist_graph`` para amarrar arestas de arquivos parseados a
-      módulos reutilizados;
-    - ``occ_map``/``evi_map``: id antigo → id novo (remap de relations).
+    ``extractor_version`` = ``adapter_id`` (identifica o extrator que
+    gerou o resultado); parser/grammar versions vêm do adaptador.
     """
-    conn: sqlite3.Connection = store.conn
-    occ_map: dict[int, int] = {}
-    occ_by_nid: dict[str, int] = {}
-    evi_map: dict[int, int] = {}
-
-    occ_rows = conn.execute(
-        """
-        SELECT o.id, o.logical_symbol_id, o.source_file_id, o.span_start,
-               o.span_end, o.line, o.col, o.content_hash, o.parse_status,
-               s.kind, s.qualified_name, s.language, sf.relative_path
-          FROM symbol_occurrences o
-          JOIN symbols s ON s.id = o.logical_symbol_id
-          JOIN source_files sf ON sf.id = o.source_file_id
-         WHERE o.snapshot_id = ?
-        """,
-        (prior_snapshot_id,),
-    ).fetchall()
-    for r in occ_rows:
-        if r["source_file_id"] not in reused_file_ids:
-            continue
-        if r["kind"] in _SKIP_COPY_KINDS:
-            continue
-        new_id = store.insert_occurrence(
-            snapshot_id, r["logical_symbol_id"], r["source_file_id"],
-            r["span_start"], r["span_end"], r["line"], r["col"],
-            r["content_hash"], parse_status=r["parse_status"],
-        )
-        occ_map[int(r["id"])] = new_id
-        if r["kind"] == "module":
-            nid = identity.module_node_id(r["language"], r["relative_path"])
-        else:
-            nid = identity.symbol_node_id(
-                r["language"], r["kind"], r["qualified_name"]
-            )
-        occ_by_nid[nid] = new_id
-
-    evi_rows = conn.execute(
-        "SELECT id, source_file_id, path, span, content_hash, extractor,"
-        " extractor_version, notes FROM evidence WHERE snapshot_id = ?",
-        (prior_snapshot_id,),
-    ).fetchall()
-    for r in evi_rows:
-        if r["source_file_id"] not in reused_file_ids:
-            continue
-        new_id = store.insert_evidence(
-            snapshot_id, r["source_file_id"], r["path"], r["span"],
-            r["content_hash"], r["extractor"], r["extractor_version"],
-            r["notes"],
-        )
-        evi_map[int(r["id"])] = new_id
-
-    return occ_by_nid, occ_map, evi_map
-
-
-def copy_relations(
-    store: Store,
-    prior_snapshot_id: int,
-    snapshot_id: int,
-    reused_file_ids: set[int],
-    occ_map: Mapping[int, int],
-    evi_map: Mapping[int, int],
-) -> dict[str, int]:
-    """Copia relações originadas em arquivos reutilizados.
-
-    ``from_id`` remapeia via ``occ_map``; ``to_id`` remapeia para a
-    ocorrência do **mesmo símbolo lógico no mesmo arquivo** no snapshot
-    novo (o alvo pode estar num arquivo reparseado — símbolo idêntico
-    porque conteúdo idêntico — ou noutro reutilizado). Alvo ausente no
-    snapshot novo → aresta descartada e contada (o planner deveria ter
-    revalidado a origem; o contador torna o desvio observável).
-    """
-    conn: sqlite3.Connection = store.conn
-    rows = conn.execute(
-        """
-        SELECT r.id, r.from_id, r.to_id, r.to_unresolved, r.type,
-               r.resolution_status, r.confidence_class, r.resolver,
-               r.evidence_ids, o_from.source_file_id AS from_fid,
-               o_from.logical_symbol_id AS from_sym,
-               o_to.logical_symbol_id AS to_sym, o_to.source_file_id AS to_fid
-          FROM relations r
-          JOIN symbol_occurrences o_from ON o_from.id = r.from_id
-          LEFT JOIN symbol_occurrences o_to ON o_to.id = r.to_id
-         WHERE r.snapshot_id = ?
-         ORDER BY r.id
-        """,
-        (prior_snapshot_id,),
-    ).fetchall()
-
-    def _new_occ(old_id: int, sym: int, fid: int) -> int | None:
-        """Remapeia endpoint: via occ_map (copiados) ou lookup por
-        (símbolo lógico, arquivo) — cobre nós ``file`` que ganharam
-        ocorrência fresca e alvos em arquivos reparseados."""
-        cached = occ_map.get(old_id)
-        if cached is not None:
-            return cached
-        found = conn.execute(
-            "SELECT id FROM symbol_occurrences WHERE snapshot_id = ?"
-            " AND logical_symbol_id = ? AND source_file_id = ?",
-            (snapshot_id, sym, fid),
-        ).fetchone()
-        return int(found["id"]) if found else None
-
-    copied = dropped = 0
-    rel_rows: list[tuple[object, ...]] = []
-    for r in rows:
-        if r["from_fid"] not in reused_file_ids:
-            continue
-        new_from = _new_occ(int(r["from_id"]), int(r["from_sym"]),
-                            int(r["from_fid"]))
-        if new_from is None:
-            dropped += 1
-            continue
-        new_to: int | None = None
-        if r["to_id"] is not None:
-            new_to = _new_occ(int(r["to_id"]), int(r["to_sym"]),
-                              int(r["to_fid"]))
-            if new_to is None:
-                dropped += 1
-                continue
-        ev_ids = json.dumps(
-            [
-                evi_map[i]
-                for i in json.loads(r["evidence_ids"])
-                if i in evi_map
-            ]
-        )
-        rel_rows.append(
-            (
-                snapshot_id, new_from, new_to, r["to_unresolved"],
-                r["type"], r["resolution_status"], r["confidence_class"],
-                r["resolver"], ev_ids,
-            )
-        )
-        copied += 1
-    store.insert_relations(rel_rows)
-    return {"relations_copied": copied, "relations_dropped": dropped}
+    if f.sha256 is None:
+        return None
+    return CacheKey(
+        path=f.path,
+        content_sha256=f.sha256,
+        language=adapter.language,
+        parser_version=adapter.parser_version,
+        grammar_version=adapter.grammar_version,
+        extractor_version=adapter.adapter_id,
+        config_digest=cfg_digest,
+    )

@@ -56,8 +56,6 @@ class GraphBuilder:
         repo_name: str,
         scan: ScanResult,
         results: list[ParseResult],
-        *,
-        preserved_universe: ScopeUniverse | None = None,
     ) -> GraphBuildResult:
         self._nodes: dict[str, GraphNode] = {}
         self._edges: list[GraphEdge] = []
@@ -77,13 +75,6 @@ class GraphBuilder:
         self._top_packages = self._universe.top_packages
         self._leaf = self._universe.leaf  # nome simples -> nids (snapshot)
         self._qname_nid = self._universe.qname_nid
-
-        # lf-0019: ctxs de arquivos reutilizados (reconstruídos do
-        # snapshot anterior) entram nas tabelas para que relações de
-        # arquivos reparseados resolvam contra eles — sem nós/arestas
-        # novos para eles (esses vêm do copy-forward no storage).
-        if preserved_universe is not None:
-            self._merge_preserved(preserved_universe)
 
         parsed = {r.path: r for r in results if r.supported}
         repo_nid = identity.repo_node_id(repo_name)
@@ -123,16 +114,6 @@ class GraphBuilder:
             diagnostics=tuple(self._diagnostics),
             stats=stats,
         )
-
-    def _merge_preserved(self, pu: ScopeUniverse) -> None:
-        self._modules.update(pu.modules)
-        self._by_path.update(pu.by_path)
-        self._nid_mod.update(pu.nid_mod)
-        self._top_packages.update(pu.top_packages)
-        for k, v in pu.leaf.items():
-            self._leaf.setdefault(k, []).extend(v)
-        for k, v in pu.qname_nid.items():
-            self._qname_nid.setdefault(k, []).extend(v)
 
     # -- nós estruturais ------------------------------------------------
 

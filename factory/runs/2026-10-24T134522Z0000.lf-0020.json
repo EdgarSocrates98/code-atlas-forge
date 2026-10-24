@@ -1,0 +1,15 @@
+{
+  "agent": "codex",
+  "command": [
+    "codex",
+    "exec",
+    "$(cat /home/edgar/Documentos/projetos/forjas/code-atlas-forge/factory/prompts/lf-0020.implement.codex.md)"
+  ],
+  "created_at": "2026-10-24T13:45:22+00:00",
+  "id": "lf-0020",
+  "prompt_path": "/home/edgar/Documentos/projetos/forjas/code-atlas-forge/factory/prompts/lf-0020.implement.codex.md",
+  "spec_path": "/home/edgar/Documentos/projetos/forjas/code-atlas-forge/factory/specs/active/lf-0020.md",
+  "spec_sha256": "dcfb57406f2c56350bed5e38449cfcc2025a6aa98765256675ca6fa42b4bcecc",
+  "status": "planned",
+  "title": "Cycle 3 Phase 5 \u2014 snapshot reuse & transactional builds (versioned result cache)"
+}
