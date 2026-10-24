@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import hashlib
 import sqlite3
+from collections.abc import Iterator
 from dataclasses import dataclass
 
 
@@ -157,6 +158,24 @@ def _checksum(sql: str) -> str:
     return hashlib.sha256(sql.encode("utf-8")).hexdigest()
 
 
+def _split_statements(sql: str) -> Iterator[str]:
+    """Divide o script em statements completos via sqlite3.complete_statement.
+
+    Necessário porque ``executescript()`` faz COMMIT implícito antes de
+    rodar — sairia da transação do ``with conn:`` e deixaria DDL parcial
+    aplicada sem registro em ``schema_migrations`` (Phase 0 / P1.3).
+    """
+    buf: list[str] = []
+    for line in sql.splitlines(keepends=True):
+        buf.append(line)
+        chunk = "".join(buf)
+        if sqlite3.complete_statement(chunk):
+            stmt = chunk.strip()
+            if stmt:
+                yield stmt
+            buf.clear()
+
+
 def migrate(conn: sqlite3.Connection, *, fts5: bool | None = None) -> int:
     """Aplica migrações pendentes; retorna o schema_version resultante."""
     if fts5 is None:
@@ -188,7 +207,11 @@ def migrate(conn: sqlite3.Connection, *, fts5: bool | None = None) -> int:
             continue
         try:
             with conn:
-                conn.executescript(mig.sql)
+                # sqlite3 legacy só inicia transação implícita em DML —
+                # BEGIN explícito garante que DDL também seja atômica.
+                conn.execute("BEGIN")
+                for stmt in _split_statements(mig.sql):
+                    conn.execute(stmt)
                 conn.execute(
                     "INSERT INTO schema_migrations (version, name, checksum) VALUES (?, ?, ?)",
                     (mig.version, mig.name, digest),
