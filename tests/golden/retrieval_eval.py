@@ -21,13 +21,14 @@ from typing import Any
 
 from code_atlas.context.contracts import ContextRequest
 from code_atlas.context.engine import ContextEngine
+from code_atlas.eval.metrics import MetricRecord, aggregate, evaluate_query
 from code_atlas.indexing import IndexCoordinator
 from code_atlas.search.contracts import SearchRequest
 from code_atlas.search.engine import SearchEngine
 from code_atlas.storage import connect, migrate
 
 HERE = Path(__file__).parent
-JUDGMENTS = HERE / "retrieval_judgments.json"
+JUDGMENTS = HERE / "retrieval_judgments_v2.json"
 
 EVAL_REPO: dict[str, str] = {
     "pkg/__init__.py": "",
@@ -53,6 +54,11 @@ EVAL_REPO: dict[str, str] = {
         "    svc = OrderService()\n"
         "    total = svc.create_order(items, gw)\n"
         "    charge_card(gw, total)\n    return total\n"
+    ),
+    "web/cart.ts": (
+        "export interface CartItem { sku: string }\n\n"
+        "export function renderCart(items: CartItem[]) {\n"
+        "    return items.length;\n}\n"
     ),
     "tests/test_orders.py": (
         "from pkg.orders import OrderService\n\n\n"
@@ -95,15 +101,12 @@ def retrieval_block(tmp: Path, *, runs: int = 3) -> dict[str, Any]:
         k = 10
         out: dict[str, Any] = {"runs": runs, "k": k, "strategies": {}}
         for strat in strategies:
-            agg: dict[str, list[float]] = {
-                m: [] for m in (
-                    "precision", "recall", "mrr", "ndcg",
-                    "evidence_validity", "latency_ms",
-                )
-            }
+            records: list[MetricRecord] = []
+            ev_vals: list[float] = []
+            lat_vals: list[float] = []
             fp = 0
             for task in tasks:
-                rel = set(task["relevant"])
+                rel = {q: g for q, g in task["relevant"].items()}
                 lat: list[float] = []
                 last = None
                 for _ in range(runs):
@@ -114,30 +117,41 @@ def retrieval_block(tmp: Path, *, runs: int = 3) -> dict[str, Any]:
                     ))
                     lat.append((time.monotonic() - t0) * 1000.0)
                 ranked = _qnames(last)
-                tp = len([q for q in ranked if q in rel])
-                fp += len(ranked) - tp
-                agg["precision"].append(tp / len(ranked) if ranked else 0.0)
-                agg["recall"].append(tp / len(rel) if rel else 0.0)
-                rr = next(
-                    (1.0 / (i + 1) for i, q in enumerate(ranked)
-                     if q in rel), 0.0,
-                )
-                agg["mrr"].append(rr)
-                agg["ndcg"].append(_ndcg(ranked, rel, k))
+                records.append(evaluate_query(
+                    task["id"], ranked, rel, k))
+                fp += len([q for q in ranked if rel.get(q, 0) == 0])
                 ev = [h for h in last.items if h.evidence]
-                agg["evidence_validity"].append(
-                    len(ev) / len(last.items) if last.items else 1.0
-                )
-                agg["latency_ms"].append(statistics.median(lat))
-            out["strategies"][strat] = {
-                m: round(statistics.median(v), 4)
-                for m, v in agg.items()
-            }
-            out["strategies"][strat]["latency_range_ms"] = [
-                round(min(agg["latency_ms"]), 2),
-                round(max(agg["latency_ms"]), 2),
-            ]
-            out["strategies"][strat]["false_positive_hits"] = fp
+                ev_vals.append(
+                    len(ev) / len(last.items) if last.items else 1.0)
+                lat_vals.append(statistics.median(lat))
+            rep = aggregate(records)
+            by_cat: dict[str, list[MetricRecord]] = {}
+            by_lang: dict[str, list[MetricRecord]] = {}
+            for rec, task in zip(records, tasks, strict=True):
+                by_cat.setdefault(task["category"], []).append(rec)
+                by_lang.setdefault(task["language"], []).append(rec)
+            sm: dict[str, Any] = rep.macro | rep.micro  # chaves planas
+            sm["evidence_validity"] = round(
+                statistics.median(ev_vals), 4)
+            sm["latency_ms"] = round(statistics.median(lat_vals), 3)
+            sm["latency_range_ms"] = [
+                round(min(lat_vals), 2), round(max(lat_vals), 2)]
+            sm["false_positive_hits"] = fp
+            sm["macro"] = rep.macro
+            sm["micro"] = rep.micro
+            sm["median"] = rep.median
+            sm["no_relevant"] = rep.no_relevant
+            sm["per_category"] = {
+                c: aggregate(rs).macro for c, rs in by_cat.items()}
+            sm["per_language"] = {
+                lang: aggregate(rs).macro for lang, rs in by_lang.items()}
+            # aliases retro-compatíveis (macro)
+            sm["precision"] = round(rep.macro["precision_at_k"], 4)
+            sm["recall"] = round(
+                rep.macro.get("recall_at_k", 0.0), 4)
+            sm["mrr"] = round(rep.macro["mrr"], 4)
+            sm["ndcg"] = round(rep.macro["ndcg_at_k"], 4)
+            out["strategies"][strat] = sm
         out["context"] = _context_block(conn, root, tasks)
         out["not_run"] = [
             "tarefas agenticas ponta-a-ponta (sem provider de IA no "
