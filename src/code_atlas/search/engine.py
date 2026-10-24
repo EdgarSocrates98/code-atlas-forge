@@ -39,13 +39,15 @@ class SearchEngine:
     """Ponto único de entrada de busca sobre a conexão."""
 
     def __init__(
-        self, conn: sqlite3.Connection, *, enable_vector: bool = True
+        self, conn: sqlite3.Connection, *, enable_vector: bool = True,
+        enable_rerank: bool = True,
     ) -> None:
         self._conn = conn
         self._structural = StructuralSearch(conn)
         self._lexical = LexicalSearch(conn)
         self._graph = GraphRetrieval(conn)
         self._vec = enable_vector
+        self._rerank = enable_rerank
 
     def capabilities(self) -> SearchCapability:
         fts5 = self._conn.execute(
@@ -181,6 +183,10 @@ class SearchEngine:
                 span=it.get("span"),
                 score=0.0,
                 strategy="structural",
+                matched_fields=("qualified_name",),
+                evidence=(
+                    (f"occ:{int(it.get('occurrence_id', 0) or 0)}",)
+                    if int(it.get("occurrence_id", 0) or 0) else ()),
             )
             for it in items
         )
@@ -211,7 +217,13 @@ class SearchEngine:
             diags.extend(
                 d for d in v_diags if d.code != "vector-empty")
             rankings["vector"] = list(v_hits)
-        fused = fuse(rankings)
+        from code_atlas.search.intent import classify
+
+        fused = fuse(
+            rankings,
+            intent=classify(req.query) if self._rerank else None,
+            query=req.query if self._rerank else "",
+        )
         return tuple(to_search_hit(c) for c in fused), tuple(diags)
 
     def _vector_hits(
@@ -350,12 +362,27 @@ class SearchEngine:
     def _graph_hits(
         self, req: SearchRequest, snapshot_id: int
     ) -> tuple[tuple[SearchHit, ...], int, tuple[SearchDiagnostic, ...]]:
-        """Seeds por nome → travessia BFS limitada → SearchHit com
-        explicação (caminho de relações) por hit."""
-        from code_atlas.search.graph import TraversalLimits
+        """Multi-seed → BFS limitado com direção por intent (lf-0049).
 
-        seeds = self._graph.seed_occurrences(snapshot_id, req.query)
-        if not seeds:
+        Seeds: qualified_name exato + top lexical + top structural —
+        dedup por occurrence_id. Seeds entram como hits rotulados
+        ``graph-seed`` (casaram com a query por nome — honesto).
+        Direção vem de ``classify(query)`` — nunca inventa aresta."""
+        from code_atlas.search.graph import TraversalLimits
+        from code_atlas.search.intent import classify
+
+        intent = classify(req.query)
+        seed_ids = set(self._graph.seed_occurrences(
+            snapshot_id, req.query))
+        seed_hits: list[SearchHit] = []
+        for strat in ("lexical", "structural"):
+            sub = self.search(dataclasses.replace(
+                req, strategy=strat, limit=3))
+            for h in sub.items:
+                if h.occurrence_id not in seed_ids:
+                    seed_ids.add(h.occurrence_id)
+                    seed_hits.append(h)
+        if not seed_ids:
             return (), 0, (SearchDiagnostic(
                 code="seed-not-found", severity="warning",
                 message=f"nenhuma ocorrência casa '{req.query}' no "
@@ -365,14 +392,32 @@ class SearchEngine:
             max_results=max(1, min(req.limit or 20, 200)),
         )
         hits, stats = self._graph.traverse(
-            snapshot_id, seeds, direction="both", limits=lim)
-        diags: list[SearchDiagnostic] = []
+            snapshot_id, list(seed_ids), direction=intent.direction,
+            limits=lim)
+        diags: list[SearchDiagnostic] = [
+            SearchDiagnostic(
+                code="graph-intent", severity="info",
+                message=f"intent={intent.task_type} "
+                        f"direction={intent.direction} "
+                        f"seeds={len(seed_ids)}"),
+        ]
         if stats.truncated_by:
             diags.append(SearchDiagnostic(
                 code="traversal-truncated", severity="info",
                 message=f"travessia truncada por limite: "
                         f"{stats.truncated_by}"))
-        out = tuple(
+        seed_out = [
+            SearchHit(
+                occurrence_id=h.occurrence_id,
+                qualified_name=h.qualified_name, kind=h.kind,
+                language=h.language, path=h.path, span=h.span,
+                score=h.score, strategy="graph",
+                matched_fields=("graph-seed", *h.matched_fields),
+                evidence=h.evidence,
+            )
+            for h in seed_hits
+        ]
+        out = tuple(seed_out) + tuple(
             SearchHit(
                 occurrence_id=h.occurrence_id,
                 qualified_name=h.qualified_name, kind=h.kind,
@@ -380,6 +425,7 @@ class SearchEngine:
                 score=h.score, strategy="graph",
                 matched_fields=("graph",),
                 evidence=tuple(
+                    f"dir={intent.direction}:"
                     f"{s.relation}:{s.from_id}->{s.to_id}"
                     f"({s.resolution_status})"
                     for s in h.steps

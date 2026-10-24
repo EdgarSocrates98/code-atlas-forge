@@ -20,9 +20,14 @@ def block():
 
 def test_judgments_verifiable() -> None:
     j = json.loads(JUDGMENTS.read_text())
+    assert j["version"] == 2
     assert len(j["tasks"]) == 8
+    empty = 0
     for t in j["tasks"]:
-        assert t["relevant"] and t["required_context"], t["id"]
+        assert t["category"] and t["language"] and t["intent"], t["id"]
+        if not t["relevant"]:
+            empty += 1  # guarda no-relevant — excluída da agregação
+    assert empty == 1
 
 
 def test_metrics_in_range(block) -> None:

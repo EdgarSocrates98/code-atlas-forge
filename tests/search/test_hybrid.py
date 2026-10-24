@@ -57,20 +57,22 @@ def test_rrf_math_and_determinism() -> None:
     fused = fuse({"lexical": a, "graph": b})
     s1 = 1 / (RRF_K + 1) + 1 / (RRF_K + 2)
     s3 = 1 / (RRF_K + 3)
-    by = {c.symbol_key: c for c in fused}
+    by = {c.qualified_name: c for c in fused}
     assert abs(by["s1"].rrf_score - s1) < 1e-9
     assert abs(by["s2"].rrf_score - s1) < 1e-9
     assert abs(by["s3"].rrf_score - s3) < 1e-9
     # determinístico: mesma entrada → mesma ordem
     assert [c.symbol_key for c in fuse({"a": a, "b": b})] == [
         c.symbol_key for c in fuse({"a": a, "b": b})]
+    assert all(c.symbol_key == f"python:function:{c.qualified_name}"
+               for c in fused)  # chave canônica composta (lf-0050)
 
 
 def test_dedup_preserves_each_strategy_evidence() -> None:
     a = [_hit(1, strategy="lexical"), _hit(9, strategy="lexical")]
     b = [_hit(1, strategy="graph")]
     fused = fuse({"lexical": a, "graph": b})
-    c1 = next(c for c in fused if c.symbol_key == "s1")
+    c1 = next(c for c in fused if c.qualified_name == "s1")
     assert set(c1.ranks) == {"lexical", "graph"}
     assert len(c1.hits) == 2
     h = to_search_hit(c1)
@@ -87,7 +89,7 @@ def test_hybrid_end_to_end(env) -> None:
         query="helper", strategy="hybrid", repository_root=root,
         limit=10,
     ))
-    assert res.ranking_version == "rrf-k60-v1"
+    assert res.ranking_version == "rrf-k60-v2"
     names = [h.qualified_name for h in res.items]
     assert "pkg.util.helper" in names
     # matched_fields lista estratégias participantes por hit
@@ -122,3 +124,37 @@ def test_hybrid_vs_baselines_union_coverage(env) -> None:
         query="helper", strategy="hybrid", repository_root=root,
         limit=20)).items}
     assert lex <= hy and st <= hy  # união dos baselines preservada
+
+
+def test_canonical_key_separates_same_name_diff_lang() -> None:
+    """lf-0050 — mesma qname, linguagens diferentes NÃO fundem."""
+    py = _hit(1, name="app.main")
+    ts = SearchHit(
+        occurrence_id=2, qualified_name="app.main", kind="function",
+        language="typescript", path="p.ts", span=None, score=1.0,
+        strategy="lexical")
+    fused = fuse({"lexical": [py, ts]})
+    assert len(fused) == 2  # não funde identidades diferentes
+    assert {c.qualified_name for c in fused} == {"app.main"}
+
+
+def test_rerank_exact_qname_boosts() -> None:
+    """lf-0050 — boost documentado de exact-qname dispara e explica."""
+    weak = _hit(1, name="pkg.util.helper")
+    strong = _hit(2, name="other.target")
+    # 'target' em segundo rank de cada estratégia, helper no topo só de uma
+    fused = fuse(
+        {"lexical": [weak, strong], "graph": [weak, strong]},
+        query="target")
+    top = fused[0]
+    assert top.qualified_name == "other.target"  # boost venceu rank puro
+    assert any("exact-qname" in r for r in top.rerank_reasons)
+    h = to_search_hit(top)
+    assert any(e.startswith("rerank=") for e in h.evidence)
+
+
+def test_rerank_off_is_pure_rrf() -> None:
+    fused = fuse({"lexical": [_hit(1, name="a.t")], "graph": [_hit(2)]})
+    # sem intent/query: sem boosts task-aware — só demote de evidência
+    assert not any("exact-qname" in r or "direction=" in r
+                   for r in fused[0].rerank_reasons)

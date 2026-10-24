@@ -149,6 +149,7 @@ class LexicalSearch:
                 score=round(-float(r["score"]), 6),  # bm25 menor = melhor
                 strategy="lexical",
                 matched_fields=_matched_fields(req.query, r),
+                evidence=(f"occ:{int(r['occ_id'])}",),
             )
             for r in rows
         )

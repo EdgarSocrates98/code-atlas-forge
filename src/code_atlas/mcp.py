@@ -22,6 +22,7 @@ SERVER_NAME = "code-atlas-forge"
 _ERR_METHOD = -32601
 _ERR_PARAMS = -32602
 _ERR_PARSE = -32700
+_ERR_INTERNAL = -32603
 
 _TOOLS: dict[str, dict[str, Any]] = {
     "atlas_search": {
@@ -209,7 +210,9 @@ class AtlasMcpServer:
         from code_atlas.config import resolve_root
         from code_atlas.search.structural import StructuralSearch
 
-        root = str(resolve_root(params.get("root") or "."))
+        # lf-0054: `or "."` sombreava CODE_ATLAS_ROOT — env deve ser
+        # consultada antes do cwd (resolve_root já faz essa cadeia).
+        root = str(resolve_root(params.get("root")))
         conn = _open_db()
         conn.row_factory = sqlite3.Row
         st = StructuralSearch(conn)
@@ -244,6 +247,11 @@ class AtlasMcpServer:
             return self._err(rid, _ERR_PARAMS, str(exc))
         except (ValueError, TypeError) as exc:
             return self._err(rid, _ERR_PARAMS, f"parâmetros: {exc}")
+        except sqlite3.Error as exc:
+            # lf-0054: erro de storage NUNCA pode derrubar o stdio server
+            return self._err(rid, _ERR_INTERNAL, f"storage: {exc}")
+        except Exception as exc:
+            return self._err(rid, _ERR_INTERNAL, f"interno: {exc}")
         return self._ok(rid, {
             "content": [{"type": "text",
                          "text": json.dumps(data, default=str)}],
@@ -352,12 +360,48 @@ class AtlasMcpServer:
                 "snapshot_id": ctx.snapshot_id}
 
     def _evidence(self, ctx: _Ctx, name: str) -> dict[str, Any]:
+        # lf-0054: colunas reais da tabela evidence (path/span/hash +
+        # proveniência v6) — e.kind/e.detail nunca existiram e o erro
+        # não-tratado derrubava o processo do servidor.
+        # lf-0051: evidência escopada ao símbolo pedido (arquivos com
+        # ocorrências dele), nunca o snapshot inteiro sob o nome.
         rows = ctx.conn.execute(
-            "SELECT e.kind, e.detail, e.resolver_id, e.evidence_tier,"
+            "SELECT e.id, e.path, e.span, e.content_hash, e.extractor,"
+            " e.notes, e.resolver_id, e.evidence_tier,"
             " e.validation_status FROM evidence e"
-            " WHERE e.snapshot_id = ? ORDER BY e.id LIMIT 200",
-            (ctx.snapshot_id,)).fetchall()
+            " WHERE e.snapshot_id = ? AND e.source_file_id IN ("
+            "  SELECT DISTINCT o.source_file_id FROM symbol_occurrences o"
+            "  JOIN symbols s ON s.id = o.logical_symbol_id"
+            "  WHERE o.snapshot_id = ? AND s.qualified_name = ?)"
+            " ORDER BY e.id LIMIT 200",
+            (ctx.snapshot_id, ctx.snapshot_id, name)).fetchall()
+        # refs canônicas grounded por occurrence do símbolo (lf-0051)
+        from code_atlas.search.refs import EvidenceGrounder
+
+        grounder = EvidenceGrounder(ctx.conn)
+        occ_ids = [
+            int(r["id"]) for r in ctx.conn.execute(
+                "SELECT o.id FROM symbol_occurrences o JOIN symbols s"
+                " ON s.id = o.logical_symbol_id"
+                " WHERE o.snapshot_id = ? AND s.qualified_name = ?"
+                " LIMIT 25",
+                (ctx.snapshot_id, name)).fetchall()
+        ]
+        refs: list[dict[str, Any]] = []
+        for oid in occ_ids:
+            occ = grounder.occurrence_ref(ctx.repo_id, ctx.snapshot_id,
+                                          oid)
+            if occ is not None:
+                refs.append({"kind": "syntactic-occurrence",
+                             "repository_id": occ.repository_id,
+                             "snapshot_id": occ.snapshot_id,
+                             "occurrence_id": occ.occurrence_id,
+                             "qualified_name": occ.qualified_name,
+                             "path": occ.source_path,
+                             "span": [occ.span_start, occ.span_end],
+                             "content_hash": occ.content_hash})
         return {"evidence": [dict(r) for r in rows],
+                "refs": refs,
                 "snapshot_id": ctx.snapshot_id, "for": name}
 
     # ---------------------------------------------------- resources

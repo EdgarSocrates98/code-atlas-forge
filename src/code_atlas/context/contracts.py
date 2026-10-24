@@ -12,7 +12,7 @@ import dataclasses
 from dataclasses import dataclass
 from typing import Literal
 
-PACK_SCHEMA_VERSION = 1
+PACK_SCHEMA_VERSION = 2
 
 Level = Literal["orientation", "focus", "deep"]
 
@@ -110,6 +110,7 @@ class PackManifest:
     truncated: bool
     freshness: str                  # id do snapshot + estado
     ranking_explanation: str
+    tokens_payload: int = 0         # estimativa do payload serializado
 
 
 @dataclass(frozen=True)

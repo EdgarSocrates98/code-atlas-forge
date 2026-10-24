@@ -89,21 +89,24 @@ inventário como nós `file`, sem extração.
 
 ## Limitações
 
-Cycle 3.1:
+Cycle 4.1:
 
 Implementado hoje: parsing sintático real, símbolos/referências/
-relações com proveniência por aresta, resolução syntactic (imports +
-escopo local) **integrada** a resolvers opt-in SCIP/LSP via
-`SemanticEnricher` (SCIP passa por validação de revisão; LSP por
-config do operador), indexação incremental com cache versionado de
-ParseResult, snapshots atômicos, instrumentação por estágio
-(`stage_ms_*`), busca estrutural SQL + comandos semânticos
-(envelope v2) + `semantic-status`.
+relações com proveniência por aresta, resolução syntactic **integrada**
+a resolvers opt-in SCIP/LSP, indexação incremental com cache
+versionado, snapshots atômicos, busca estrutural SQL, **FTS5
+snapshot-scoped**, **retrieval híbrido (RRF k=60 + rerank task-aware
+opt-in)**, graph retrieval multi-seed com direção por intent,
+**context packs** com budget do payload serializado e expansão
+progressiva, **servidor MCP stdio** (8 tools, read-only, homologado
+com o SDK oficial `mcp`), grounding de evidências canônicas
+(`search/refs.py`) e avaliação v2 com métricas validadas.
 
 **Não implementado** (por design): type-checking real (resolver
 sintático não infere receiver — `d.speak()` fica `unresolved`),
-análise de impacto, FTS na busca, context packs, MCP, UI, embeddings,
-structural sharing de grafo entre snapshots (rejeitado, ADR-0020).
+análise de impacto, UI, embeddings semânticos reais (provider naïve
+documentado, ADR-0022), structural sharing de grafo entre snapshots
+(rejeitado, ADR-0020).
 Estados `unresolved`/`ambiguous`/`external` são preservados como
 fatos — nunca preenchidos por heurística. Detalhes:
 `docs/semantic-resolution.md`, `docs/cycle-3.1-evidence.md`,

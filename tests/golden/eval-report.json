@@ -618,31 +618,53 @@
       }
      },
      "missing_critical": [],
-     "task": "locate-create-order"
+     "task": "exact-lookup-1"
     },
     {
      "levels": {
       "4000": {
        "budget_compliant": true,
-       "evidence_density": 0.5,
-       "items": 6,
+       "evidence_density": 0.0,
+       "items": 0,
        "redundant_ids": 0,
        "required_coverage": 0.0,
-       "tokens_estimated": 68
+       "tokens_estimated": 0
       },
       "800": {
        "budget_compliant": true,
-       "evidence_density": 0.5,
-       "items": 6,
+       "evidence_density": 0.0,
+       "items": 0,
        "redundant_ids": 0,
        "required_coverage": 0.0,
-       "tokens_estimated": 68
+       "tokens_estimated": 0
       }
      },
      "missing_critical": [
-      "pkg.api.checkout"
+      "pkg.orders.validate_total"
      ],
-     "task": "find-consumers"
+     "task": "nl-search-1"
+    },
+    {
+     "levels": {
+      "4000": {
+       "budget_compliant": true,
+       "evidence_density": 0.4286,
+       "items": 7,
+       "redundant_ids": 0,
+       "required_coverage": 1.0,
+       "tokens_estimated": 50
+      },
+      "800": {
+       "budget_compliant": true,
+       "evidence_density": 0.4286,
+       "items": 7,
+       "redundant_ids": 0,
+       "required_coverage": 1.0,
+       "tokens_estimated": 50
+      }
+     },
+     "missing_critical": [],
+     "task": "dep-discovery-1"
     },
     {
      "levels": {
@@ -666,29 +688,7 @@
      "missing_critical": [
       "pkg.orders.OrderService.create_order"
      ],
-     "task": "understand-deps"
-    },
-    {
-     "levels": {
-      "4000": {
-       "budget_compliant": true,
-       "evidence_density": 0.4286,
-       "items": 7,
-       "redundant_ids": 0,
-       "required_coverage": 1.0,
-       "tokens_estimated": 50
-      },
-      "800": {
-       "budget_compliant": true,
-       "evidence_density": 0.4286,
-       "items": 7,
-       "redundant_ids": 0,
-       "required_coverage": 1.0,
-       "tokens_estimated": 50
-      }
-     },
-     "missing_critical": [],
-     "task": "related-symbols"
+     "task": "arch-inv-1"
     },
     {
      "levels": {
@@ -710,7 +710,7 @@
       }
      },
      "missing_critical": [],
-     "task": "prepare-change"
+     "task": "change-prep-1"
     },
     {
      "levels": {
@@ -732,51 +732,51 @@
       }
      },
      "missing_critical": [],
-     "task": "investigate-failure"
+     "task": "debug-inv-1"
     },
     {
      "levels": {
       "4000": {
        "budget_compliant": true,
-       "evidence_density": 0.5625,
-       "items": 16,
+       "evidence_density": 0.5,
+       "items": 4,
        "redundant_ids": 0,
        "required_coverage": 1.0,
-       "tokens_estimated": 166
+       "tokens_estimated": 29
       },
       "800": {
        "budget_compliant": true,
-       "evidence_density": 0.5625,
-       "items": 16,
+       "evidence_density": 0.5,
+       "items": 4,
        "redundant_ids": 0,
        "required_coverage": 1.0,
-       "tokens_estimated": 166
+       "tokens_estimated": 29
       }
      },
      "missing_critical": [],
-     "task": "explain-flow"
+     "task": "exact-lookup-ts"
     },
     {
      "levels": {
       "4000": {
        "budget_compliant": true,
-       "evidence_density": 0.6667,
-       "items": 6,
+       "evidence_density": 0.0,
+       "items": 0,
        "redundant_ids": 0,
-       "required_coverage": 1.0,
-       "tokens_estimated": 59
+       "required_coverage": 0.0,
+       "tokens_estimated": 0
       },
       "800": {
        "budget_compliant": true,
-       "evidence_density": 0.6667,
-       "items": 6,
+       "evidence_density": 0.0,
+       "items": 0,
        "redundant_ids": 0,
-       "required_coverage": 1.0,
-       "tokens_estimated": 59
+       "required_coverage": 0.0,
+       "tokens_estimated": 0
       }
      },
      "missing_critical": [],
-     "task": "affected-contract"
+     "task": "no-relevant-guard"
     }
    ]
   },
@@ -788,56 +788,594 @@
   "runs": 3,
   "strategies": {
    "graph": {
+    "ap_at_k": 0.2701388888888889,
+    "diversity": 1.0,
     "evidence_validity": 1.0,
-    "false_positive_hits": 68,
-    "latency_ms": 0.3476,
+    "false_positive_hits": 53,
+    "hit_rate_at_k": 0.75,
+    "latency_ms": 0.688,
     "latency_range_ms": [
-     0.22,
-     0.38
+     0.36,
+     0.82
     ],
-    "mrr": 0.0,
-    "ndcg": 0.0,
-    "precision": 0.0,
-    "recall": 0.0
+    "macro": {
+     "ap_at_k": 0.2701388888888889,
+     "diversity": 1.0,
+     "hit_rate_at_k": 0.75,
+     "mrr": 0.4375,
+     "ndcg_at_k": 0.26964195079269937,
+     "precision_at_k": 0.1125,
+     "recall_at_k": 0.5476190476190476
+    },
+    "median": {
+     "ap_at_k": 0.20555555555555555,
+     "diversity": 1.0,
+     "hit_rate_at_k": 1.0,
+     "mrr": 0.3333333333333333,
+     "ndcg_at_k": 0.20655866428213998,
+     "precision_at_k": 0.1,
+     "recall_at_k": 0.5
+    },
+    "micro": {
+     "precision": 0.16071428571428573,
+     "recall": 0.6
+    },
+    "mrr": 0.4375,
+    "ndcg": 0.2696,
+    "ndcg_at_k": 0.26964195079269937,
+    "no_relevant": 1,
+    "per_category": {
+     "architectural": {
+      "ap_at_k": 0.25,
+      "diversity": 1.0,
+      "hit_rate_at_k": 1.0,
+      "mrr": 0.5,
+      "ndcg_at_k": 0.2924876733862392,
+      "precision_at_k": 0.2,
+      "recall_at_k": 0.6666666666666666
+     },
+     "change-preparation": {
+      "ap_at_k": 0.5,
+      "diversity": 1.0,
+      "hit_rate_at_k": 1.0,
+      "mrr": 1.0,
+      "ndcg_at_k": 0.27541155237618664,
+      "precision_at_k": 0.1,
+      "recall_at_k": 0.5
+     },
+     "debugging": {
+      "ap_at_k": 0.0,
+      "diversity": 1.0,
+      "hit_rate_at_k": 0.0,
+      "mrr": 0.0,
+      "ndcg_at_k": 0.0,
+      "precision_at_k": 0.0,
+      "recall_at_k": 0.0
+     },
+     "dependency-discovery": {
+      "ap_at_k": 0.24444444444444446,
+      "diversity": 1.0,
+      "hit_rate_at_k": 1.0,
+      "mrr": 0.3333333333333333,
+      "ndcg_at_k": 0.349884394886329,
+      "precision_at_k": 0.2,
+      "recall_at_k": 0.6666666666666666
+     },
+     "exact-lookup": {
+      "ap_at_k": 0.1111111111111111,
+      "diversity": 1.0,
+      "hit_rate_at_k": 0.6666666666666666,
+      "mrr": 0.2222222222222222,
+      "ndcg_at_k": 0.09180385079206221,
+      "precision_at_k": 0.06666666666666667,
+      "recall_at_k": 0.5
+     },
+     "natural-language": {
+      "ap_at_k": 0.8333333333333333,
+      "diversity": 1.0,
+      "hit_rate_at_k": 1.0,
+      "mrr": 1.0,
+      "ndcg_at_k": 0.9639404333166532,
+      "precision_at_k": 0.2,
+      "recall_at_k": 1.0
+     }
+    },
+    "per_language": {
+     "python": {
+      "ap_at_k": 0.2849206349206349,
+      "diversity": 1.0,
+      "hit_rate_at_k": 0.7142857142857143,
+      "mrr": 0.4523809523809524,
+      "ndcg_at_k": 0.28848997573621443,
+      "precision_at_k": 0.1142857142857143,
+      "recall_at_k": 0.5555555555555555
+     },
+     "typescript": {
+      "ap_at_k": 0.16666666666666666,
+      "diversity": 1.0,
+      "hit_rate_at_k": 1.0,
+      "mrr": 0.3333333333333333,
+      "ndcg_at_k": 0.13770577618809332,
+      "precision_at_k": 0.1,
+      "recall_at_k": 0.5
+     }
+    },
+    "precision": 0.1125,
+    "precision_at_k": 0.1125,
+    "recall": 0.5476,
+    "recall_at_k": 0.5476190476190476
    },
    "hybrid": {
+    "ap_at_k": 0.6708333333333334,
+    "diversity": 1.0,
     "evidence_validity": 1.0,
-    "false_positive_hits": 83,
-    "latency_ms": 1.5801,
+    "false_positive_hits": 62,
+    "hit_rate_at_k": 0.875,
+    "latency_ms": 2.204,
     "latency_range_ms": [
-     1.38,
-     1.67
+     1.56,
+     2.29
     ],
-    "mrr": 1.0,
-    "ndcg": 1.0,
-    "precision": 0.0909,
-    "recall": 1.0
+    "macro": {
+     "ap_at_k": 0.6708333333333334,
+     "diversity": 1.0,
+     "hit_rate_at_k": 0.875,
+     "mrr": 0.8125,
+     "ndcg_at_k": 0.7608929995324949,
+     "precision_at_k": 0.1875,
+     "recall_at_k": 1.0
+    },
+    "median": {
+     "ap_at_k": 0.7250000000000001,
+     "diversity": 1.0,
+     "hit_rate_at_k": 1.0,
+     "mrr": 1.0,
+     "ndcg_at_k": 0.8981067518700246,
+     "precision_at_k": 0.2,
+     "recall_at_k": 1.0
+    },
+    "micro": {
+     "precision": 0.25862068965517243,
+     "recall": 1.0
+    },
+    "mrr": 0.8125,
+    "ndcg": 0.7609,
+    "ndcg_at_k": 0.7608929995324949,
+    "no_relevant": 1,
+    "per_category": {
+     "architectural": {
+      "ap_at_k": 0.6666666666666666,
+      "diversity": 1.0,
+      "hit_rate_at_k": 1.0,
+      "mrr": 1.0,
+      "ndcg_at_k": 0.8164772947958057,
+      "precision_at_k": 0.3,
+      "recall_at_k": 1.0
+     },
+     "change-preparation": {
+      "ap_at_k": 1.0,
+      "diversity": 1.0,
+      "hit_rate_at_k": 1.0,
+      "mrr": 1.0,
+      "ndcg_at_k": 1.0,
+      "precision_at_k": 0.2,
+      "recall_at_k": 1.0
+     },
+     "debugging": {
+      "ap_at_k": 1.0,
+      "diversity": 1.0,
+      "hit_rate_at_k": 1.0,
+      "mrr": 1.0,
+      "ndcg_at_k": 1.0,
+      "precision_at_k": 0.1,
+      "recall_at_k": 1.0
+     },
+     "dependency-discovery": {
+      "ap_at_k": 0.7000000000000001,
+      "diversity": 1.0,
+      "hit_rate_at_k": 1.0,
+      "mrr": 1.0,
+      "ndcg_at_k": 0.8513655471804633,
+      "precision_at_k": 0.3,
+      "recall_at_k": 1.0
+     },
+     "exact-lookup": {
+      "ap_at_k": 0.5,
+      "diversity": 1.0,
+      "hit_rate_at_k": 0.6666666666666666,
+      "mrr": 0.6666666666666666,
+      "ndcg_at_k": 0.6298986377063907,
+      "precision_at_k": 0.13333333333333333,
+      "recall_at_k": 1.0
+     },
+     "natural-language": {
+      "ap_at_k": 0.5,
+      "diversity": 1.0,
+      "hit_rate_at_k": 1.0,
+      "mrr": 0.5,
+      "ndcg_at_k": 0.5296052411645183,
+      "precision_at_k": 0.2,
+      "recall_at_k": 1.0
+     }
+    },
+    "per_language": {
+     "python": {
+      "ap_at_k": 0.6595238095238096,
+      "diversity": 1.0,
+      "hit_rate_at_k": 0.8571428571428571,
+      "mrr": 0.7857142857142857,
+      "ndcg_at_k": 0.7346137199571963,
+      "precision_at_k": 0.18571428571428572,
+      "recall_at_k": 1.0
+     },
+     "typescript": {
+      "ap_at_k": 0.75,
+      "diversity": 1.0,
+      "hit_rate_at_k": 1.0,
+      "mrr": 1.0,
+      "ndcg_at_k": 0.944847956559586,
+      "precision_at_k": 0.2,
+      "recall_at_k": 1.0
+     }
+    },
+    "precision": 0.1875,
+    "precision_at_k": 0.1875,
+    "recall": 1.0,
+    "recall_at_k": 1.0
+   },
+   "hybrid_v1": {
+    "ap_at_k": 0.6708333333333334,
+    "diversity": 1.0,
+    "evidence_validity": 1.0,
+    "false_positive_hits": 62,
+    "hit_rate_at_k": 0.875,
+    "latency_ms": 2.083,
+    "latency_range_ms": [
+     1.48,
+     2.22
+    ],
+    "macro": {
+     "ap_at_k": 0.6708333333333334,
+     "diversity": 1.0,
+     "hit_rate_at_k": 0.875,
+     "mrr": 0.8125,
+     "ndcg_at_k": 0.7608929995324949,
+     "precision_at_k": 0.1875,
+     "recall_at_k": 1.0
+    },
+    "median": {
+     "ap_at_k": 0.7250000000000001,
+     "diversity": 1.0,
+     "hit_rate_at_k": 1.0,
+     "mrr": 1.0,
+     "ndcg_at_k": 0.8981067518700246,
+     "precision_at_k": 0.2,
+     "recall_at_k": 1.0
+    },
+    "micro": {
+     "precision": 0.25862068965517243,
+     "recall": 1.0
+    },
+    "mrr": 0.8125,
+    "ndcg": 0.7609,
+    "ndcg_at_k": 0.7608929995324949,
+    "no_relevant": 1,
+    "per_category": {
+     "architectural": {
+      "ap_at_k": 0.6666666666666666,
+      "diversity": 1.0,
+      "hit_rate_at_k": 1.0,
+      "mrr": 1.0,
+      "ndcg_at_k": 0.8164772947958057,
+      "precision_at_k": 0.3,
+      "recall_at_k": 1.0
+     },
+     "change-preparation": {
+      "ap_at_k": 1.0,
+      "diversity": 1.0,
+      "hit_rate_at_k": 1.0,
+      "mrr": 1.0,
+      "ndcg_at_k": 1.0,
+      "precision_at_k": 0.2,
+      "recall_at_k": 1.0
+     },
+     "debugging": {
+      "ap_at_k": 1.0,
+      "diversity": 1.0,
+      "hit_rate_at_k": 1.0,
+      "mrr": 1.0,
+      "ndcg_at_k": 1.0,
+      "precision_at_k": 0.1,
+      "recall_at_k": 1.0
+     },
+     "dependency-discovery": {
+      "ap_at_k": 0.7000000000000001,
+      "diversity": 1.0,
+      "hit_rate_at_k": 1.0,
+      "mrr": 1.0,
+      "ndcg_at_k": 0.8513655471804633,
+      "precision_at_k": 0.3,
+      "recall_at_k": 1.0
+     },
+     "exact-lookup": {
+      "ap_at_k": 0.5,
+      "diversity": 1.0,
+      "hit_rate_at_k": 0.6666666666666666,
+      "mrr": 0.6666666666666666,
+      "ndcg_at_k": 0.6298986377063907,
+      "precision_at_k": 0.13333333333333333,
+      "recall_at_k": 1.0
+     },
+     "natural-language": {
+      "ap_at_k": 0.5,
+      "diversity": 1.0,
+      "hit_rate_at_k": 1.0,
+      "mrr": 0.5,
+      "ndcg_at_k": 0.5296052411645183,
+      "precision_at_k": 0.2,
+      "recall_at_k": 1.0
+     }
+    },
+    "per_language": {
+     "python": {
+      "ap_at_k": 0.6595238095238096,
+      "diversity": 1.0,
+      "hit_rate_at_k": 0.8571428571428571,
+      "mrr": 0.7857142857142857,
+      "ndcg_at_k": 0.7346137199571963,
+      "precision_at_k": 0.18571428571428572,
+      "recall_at_k": 1.0
+     },
+     "typescript": {
+      "ap_at_k": 0.75,
+      "diversity": 1.0,
+      "hit_rate_at_k": 1.0,
+      "mrr": 1.0,
+      "ndcg_at_k": 0.944847956559586,
+      "precision_at_k": 0.2,
+      "recall_at_k": 1.0
+     }
+    },
+    "precision": 0.1875,
+    "precision_at_k": 0.1875,
+    "recall": 1.0,
+    "recall_at_k": 1.0
    },
    "lexical": {
-    "evidence_validity": 0.0,
-    "false_positive_hits": 14,
-    "latency_ms": 0.1643,
+    "ap_at_k": 0.6458333333333334,
+    "diversity": 1.0,
+    "evidence_validity": 1.0,
+    "false_positive_hits": 8,
+    "hit_rate_at_k": 0.875,
+    "latency_ms": 0.153,
     "latency_range_ms": [
-     0.11,
+     0.08,
      0.21
     ],
-    "mrr": 1.0,
-    "ndcg": 1.0,
-    "precision": 0.4167,
-    "recall": 1.0
+    "macro": {
+     "ap_at_k": 0.6458333333333334,
+     "diversity": 1.0,
+     "hit_rate_at_k": 0.875,
+     "mrr": 0.875,
+     "ndcg_at_k": 0.7557618364598001,
+     "precision_at_k": 0.15000000000000002,
+     "recall_at_k": 0.8571428571428571
+    },
+    "median": {
+     "ap_at_k": 0.75,
+     "diversity": 1.0,
+     "hit_rate_at_k": 1.0,
+     "mrr": 1.0,
+     "ndcg_at_k": 0.944847956559586,
+     "precision_at_k": 0.2,
+     "recall_at_k": 1.0
+    },
+    "micro": {
+     "precision": 0.6,
+     "recall": 0.8
+    },
+    "mrr": 0.875,
+    "ndcg": 0.7558,
+    "ndcg_at_k": 0.7557618364598001,
+    "no_relevant": 1,
+    "per_category": {
+     "architectural": {
+      "ap_at_k": 0.3333333333333333,
+      "diversity": 1.0,
+      "hit_rate_at_k": 1.0,
+      "mrr": 1.0,
+      "ndcg_at_k": 0.5562983930884396,
+      "precision_at_k": 0.1,
+      "recall_at_k": 0.3333333333333333
+     },
+     "change-preparation": {
+      "ap_at_k": 1.0,
+      "diversity": 1.0,
+      "hit_rate_at_k": 1.0,
+      "mrr": 1.0,
+      "ndcg_at_k": 1.0,
+      "precision_at_k": 0.2,
+      "recall_at_k": 1.0
+     },
+     "debugging": {
+      "ap_at_k": 1.0,
+      "diversity": 1.0,
+      "hit_rate_at_k": 1.0,
+      "mrr": 1.0,
+      "ndcg_at_k": 1.0,
+      "precision_at_k": 0.1,
+      "recall_at_k": 1.0
+     },
+     "dependency-discovery": {
+      "ap_at_k": 0.5,
+      "diversity": 1.0,
+      "hit_rate_at_k": 1.0,
+      "mrr": 1.0,
+      "ndcg_at_k": 0.6361599521541359,
+      "precision_at_k": 0.2,
+      "recall_at_k": 0.6666666666666666
+     },
+     "exact-lookup": {
+      "ap_at_k": 0.5,
+      "diversity": 1.0,
+      "hit_rate_at_k": 0.6666666666666666,
+      "mrr": 0.6666666666666666,
+      "ndcg_at_k": 0.6298986377063907,
+      "precision_at_k": 0.13333333333333333,
+      "recall_at_k": 1.0
+     },
+     "natural-language": {
+      "ap_at_k": 0.8333333333333333,
+      "diversity": 1.0,
+      "hit_rate_at_k": 1.0,
+      "mrr": 1.0,
+      "ndcg_at_k": 0.9639404333166532,
+      "precision_at_k": 0.2,
+      "recall_at_k": 1.0
+     }
+    },
+    "per_language": {
+     "python": {
+      "ap_at_k": 0.630952380952381,
+      "diversity": 1.0,
+      "hit_rate_at_k": 0.8571428571428571,
+      "mrr": 0.8571428571428571,
+      "ndcg_at_k": 0.7287495335884021,
+      "precision_at_k": 0.14285714285714285,
+      "recall_at_k": 0.8333333333333334
+     },
+     "typescript": {
+      "ap_at_k": 0.75,
+      "diversity": 1.0,
+      "hit_rate_at_k": 1.0,
+      "mrr": 1.0,
+      "ndcg_at_k": 0.944847956559586,
+      "precision_at_k": 0.2,
+      "recall_at_k": 1.0
+     }
+    },
+    "precision": 0.15,
+    "precision_at_k": 0.15000000000000002,
+    "recall": 0.8571,
+    "recall_at_k": 0.8571428571428571
    },
    "structural": {
-    "evidence_validity": 0.0,
-    "false_positive_hits": 4,
-    "latency_ms": 0.1508,
+    "ap_at_k": 0.3958333333333333,
+    "diversity": 1.0,
+    "evidence_validity": 1.0,
+    "false_positive_hits": 0,
+    "hit_rate_at_k": 0.75,
+    "latency_ms": 0.186,
     "latency_range_ms": [
-     0.15,
-     0.19
+     0.17,
+     0.2
     ],
-    "mrr": 1.0,
-    "ndcg": 1.0,
-    "precision": 1.0,
-    "recall": 1.0
+    "macro": {
+     "ap_at_k": 0.3958333333333333,
+     "diversity": 1.0,
+     "hit_rate_at_k": 0.75,
+     "mrr": 0.75,
+     "ndcg_at_k": 0.5739125946953199,
+     "precision_at_k": 0.07500000000000001,
+     "recall_at_k": 0.4523809523809524
+    },
+    "median": {
+     "ap_at_k": 0.41666666666666663,
+     "diversity": 1.0,
+     "hit_rate_at_k": 1.0,
+     "mrr": 1.0,
+     "ndcg_at_k": 0.6912665251084997,
+     "precision_at_k": 0.1,
+     "recall_at_k": 0.5
+    },
+    "micro": {
+     "precision": 1.0,
+     "recall": 0.4
+    },
+    "mrr": 0.75,
+    "ndcg": 0.5739,
+    "ndcg_at_k": 0.5739125946953199,
+    "no_relevant": 1,
+    "per_category": {
+     "architectural": {
+      "ap_at_k": 0.3333333333333333,
+      "diversity": 1.0,
+      "hit_rate_at_k": 1.0,
+      "mrr": 1.0,
+      "ndcg_at_k": 0.5562983930884396,
+      "precision_at_k": 0.1,
+      "recall_at_k": 0.3333333333333333
+     },
+     "change-preparation": {
+      "ap_at_k": 0.5,
+      "diversity": 1.0,
+      "hit_rate_at_k": 1.0,
+      "mrr": 1.0,
+      "ndcg_at_k": 0.8262346571285599,
+      "precision_at_k": 0.1,
+      "recall_at_k": 0.5
+     },
+     "debugging": {
+      "ap_at_k": 1.0,
+      "diversity": 1.0,
+      "hit_rate_at_k": 1.0,
+      "mrr": 1.0,
+      "ndcg_at_k": 1.0,
+      "precision_at_k": 0.1,
+      "recall_at_k": 1.0
+     },
+     "dependency-discovery": {
+      "ap_at_k": 0.3333333333333333,
+      "diversity": 1.0,
+      "hit_rate_at_k": 1.0,
+      "mrr": 1.0,
+      "ndcg_at_k": 0.5562983930884396,
+      "precision_at_k": 0.1,
+      "recall_at_k": 0.3333333333333333
+     },
+     "exact-lookup": {
+      "ap_at_k": 0.3333333333333333,
+      "diversity": 1.0,
+      "hit_rate_at_k": 0.6666666666666666,
+      "mrr": 0.6666666666666666,
+      "ndcg_at_k": 0.5508231047523733,
+      "precision_at_k": 0.06666666666666667,
+      "recall_at_k": 0.5
+     },
+     "natural-language": {
+      "ap_at_k": 0.0,
+      "diversity": 1.0,
+      "hit_rate_at_k": 0.0,
+      "mrr": 0.0,
+      "ndcg_at_k": 0.0,
+      "precision_at_k": 0.0,
+      "recall_at_k": 0.0
+     }
+    },
+    "per_language": {
+     "python": {
+      "ap_at_k": 0.38095238095238093,
+      "diversity": 1.0,
+      "hit_rate_at_k": 0.7142857142857143,
+      "mrr": 0.7142857142857143,
+      "ndcg_at_k": 0.5378665857762855,
+      "precision_at_k": 0.07142857142857142,
+      "recall_at_k": 0.4444444444444444
+     },
+     "typescript": {
+      "ap_at_k": 0.5,
+      "diversity": 1.0,
+      "hit_rate_at_k": 1.0,
+      "mrr": 1.0,
+      "ndcg_at_k": 0.8262346571285599,
+      "precision_at_k": 0.1,
+      "recall_at_k": 0.5
+     }
+    },
+    "precision": 0.075,
+    "precision_at_k": 0.07500000000000001,
+    "recall": 0.4524,
+    "recall_at_k": 0.4523809523809524
    }
   },
   "token_economy_rule": "economia de tokens NUNCA declarada como 'pack < repo'; exige contabilidade de chamadas/falhas/expansoes (agente real = not_run)"

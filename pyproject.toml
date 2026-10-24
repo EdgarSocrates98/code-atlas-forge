@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "code-atlas-forge"
 dynamic = ["version"]
-description = "Plataforma local-first de inteligência estrutural de código — Cycle 1: foundation & contracts"
+description = "Plataforma local-first de inteligência estrutural de código — Cycle 4.1: retrieval, context packs, MCP e evidência canônica"
 readme = "README.md"
 requires-python = ">=3.12"
 license = "Apache-2.0"
@@ -37,6 +37,9 @@ dev = [
     "ruff>=0.6.0",
     "mypy>=1.11.0",
     "build>=1.2",
+    # SDK oficial MCP — cliente real nos testes E2E (lf-0054);
+    # ausente → testes skipped como NOT RUN, nunca fake.
+    "mcp>=2.3.0",
 ]
 vector = [
     # KNN nativo opcional (ADR-0022); sem ele o backend é bruteforce
@@ -71,4 +74,6 @@ warn_unreachable = true
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+# corpus vendored é dado de eval (lf-0055), nunca suíte de testes
+norecursedirs = ["tests/corpus"]
 addopts = "-ra"

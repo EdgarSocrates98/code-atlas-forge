@@ -57,7 +57,7 @@ def _pack(env, task="helper", level="focus", budget=4000):
 
 def test_pack_envelope_and_estimates_declared(env) -> None:
     p = _pack(env)
-    assert p.manifest.schema_version == 1
+    assert p.manifest.schema_version == 2
     assert p.manifest.tokens_estimated is True
     assert p.manifest.estimator.startswith("heuristic-chars")
     assert p.manifest.snapshot_id > 0

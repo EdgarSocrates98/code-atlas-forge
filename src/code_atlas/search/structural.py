@@ -126,18 +126,35 @@ class StructuralSearch:
         )
         count_sql = "SELECT COUNT(DISTINCT s.id) AS c " + join
         total_row = self._conn.execute(count_sql, params).fetchone()
+        # lf-0051: occurrence representativa + path por subquery escalar
+        # (MIN id no snapshot) — grounding hit→ocorrência sem duplicar
+        # linhas por arquivo. Params das subqueries precedem os do WHERE.
         list_sql = (
-            "SELECT DISTINCT s.id, s.language, s.qualified_name, s.kind "
+            "SELECT DISTINCT s.id, s.language, s.qualified_name, s.kind,"
+            " (SELECT MIN(o2.id) FROM symbol_occurrences o2"
+            "  WHERE o2.logical_symbol_id = s.id"
+            "  AND o2.snapshot_id = ?) AS occurrence_id,"
+            " (SELECT f2.relative_path FROM symbol_occurrences o3"
+            "  JOIN source_files f2 ON f2.id = o3.source_file_id"
+            "  WHERE o3.logical_symbol_id = s.id"
+            "  AND o3.snapshot_id = ? ORDER BY o3.id LIMIT 1) AS path "
             + join
             + " ORDER BY s.qualified_name, s.id LIMIT ? OFFSET ?"
         )
-        rows = self._conn.execute(list_sql, [*params, limit, offset]).fetchall()
+        rows = self._conn.execute(
+            list_sql,
+            [snapshot_id, snapshot_id, *params, limit, offset],
+        ).fetchall()
         items = tuple(
             {
                 "symbol_id": int(r["id"]),
                 "qualified_name": r["qualified_name"],
                 "language": r["language"],
                 "kind": r["kind"],
+                "occurrence_id": (
+                    int(r["occurrence_id"])
+                    if r["occurrence_id"] is not None else 0),
+                "path": r["path"] or "",
             }
             for r in rows
         )
