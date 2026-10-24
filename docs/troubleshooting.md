@@ -79,3 +79,25 @@ qualified_name **exato** (`pkg.mod.fn`); para substring use `search`.
 Wrappers `Node` do mesmo nó C **não** compartilham identidade — compare
 por `node.id`. Bug real corrigido em lf-0013 (imports fantasma
 `pkg.util.pkg.util`).
+
+## Relação `ambiguous`/`unresolved` que "deveria resolver" (Cycle 3)
+
+`ambiguous` = múltiplos candidatos plausíveis (ex.: nome definido
+localmente e também importado) — honesto, nunca chutado.
+`unresolved` cobre `from m import *` members, barrel reexports TS
+(`export {X}`), overloads e alvos fora do snapshot (`external`).
+Resolvers opt-in (SCIP/LSP) podem subir a cobertura — ver
+`docs/semantic-resolution.md`.
+
+## Resolver SCIP rejeita o índice
+
+`project_root` do `.scip` deve bater com o workspace — binding de
+revisão é obrigatório. Oversize → `max_bytes` configurável. Conteúdo
+malformado aparece em `LoadOutcome.errors`, não como exceção.
+
+## LSP não resolve nada
+
+Adapters são opt-in e `enabled: false` por default — configure
+`[resolvers.lsp.servers.<name>]` com o binário do server **instalado
+por você** (o Atlas nunca baixa/instala). Erros aparecem como
+`SpawnError`/`LspError` tipados; timeouts são finitos por design.

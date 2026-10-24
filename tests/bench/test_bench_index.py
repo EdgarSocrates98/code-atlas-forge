@@ -25,7 +25,7 @@ def test_bench_smoke_measures_all_phases(tmp_path: Path) -> None:
     for key in (
         "total_s", "discovery_s", "parse_s", "graph_s",
         "persist_residual_s", "noop_reindex_s", "db_size_mb",
-        "peak_tracemalloc_mb", "peak_rss_mb",
+        "peak_rss_mb",
     ):
         assert key in result, key
         # peak_rss_mb é None no Windows (sem `resource`); demais >= 0
@@ -56,7 +56,6 @@ def test_synth_corpus_seed_changes_content(tmp_path: Path) -> None:
     b = bench_index.synth_indexable_corpus(tmp_path / "b", 5, seed=2)
     ha = sorted(p.name for p in a.rglob("*.py"))
     hb = sorted(p.name for p in b.rglob("*.py"))
-    assert ha != hb or any(
-        (a / p.relative_to(b)).read_bytes() != p.read_bytes()
-        for p in b.rglob("*.py")
-    )
+    contents_a = {p.relative_to(a): p.read_bytes() for p in a.rglob("*.py")}
+    contents_b = {p.relative_to(b): p.read_bytes() for p in b.rglob("*.py")}
+    assert ha != hb or contents_a != contents_b

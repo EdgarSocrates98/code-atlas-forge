@@ -1,5 +1,8 @@
 # Arquitetura — Cycle 2 (as-built)
 
+> Cycle 3 entregue: resolvers + incremental + semantic CLI em
+> `docs/cycle-3-architecture.md`. Este arquivo espelha o núcleo C2.
+
 Blueprint §3 define contextos delimitados em monorepo Python hexagonal.
 Visão do Cycle 2 em `docs/cycle-2-architecture.md`; este arquivo espelha
 o estado real consolidado.

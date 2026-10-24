@@ -53,6 +53,10 @@ class CorpusReport:
     unexpected_relations: list[dict] = field(default_factory=list)
     count_mismatches: dict[str, Any] = field(default_factory=dict)
     file_status_mismatches: dict[str, Any] = field(default_factory=dict)
+    # lf-0024: buckets aditivos — nunca misturam classes de evidência
+    resolver_metrics: dict[str, Any] = field(default_factory=dict)
+    status_rates: dict[str, Any] = field(default_factory=dict)
+    false_positive: dict[str, Any] = field(default_factory=dict)
 
 
 def _sym_key(s: dict[str, Any]) -> tuple:
@@ -123,7 +127,7 @@ def _prf(expected: set, actual: set) -> PRF:
 def evaluate(corpus: Path, db_path: Path) -> CorpusReport:
     """Indexa um corpus e avalia contra expected.json."""
     expected = json.loads((CORPUS_DIR.parent / "expected" / f"{corpus.name}.json").read_text())
-    syms, rels, fstatus, _sid = snapshot_sets(db_path, corpus)
+    syms, rels, fstatus, sid = snapshot_sets(db_path, corpus)
 
     rep = CorpusReport(name=corpus.name, file_parse_status=fstatus)
 
@@ -165,6 +169,12 @@ def evaluate(corpus: Path, db_path: Path) -> CorpusReport:
         for p, s in exp_fs.items()
         if fstatus.get(p) != s
     }
+    rep.resolver_metrics = _resolver_metrics(db_path, sid, exp_rels)
+    rep.status_rates = _status_rates(rels)
+    # fp só tem denominador honesto quando o manifesto declara o
+    # universo completo (modo "all"); em subset seria ruído.
+    if expected.get("relations_mode") == "all":
+        rep.false_positive = _false_positive(exp_rels, rels)
     return rep
 
 
@@ -217,3 +227,170 @@ def _count_mismatches(expected: dict[str, Any], syms: set,
             mismatches["relations_by_type"] = {
                 "expected": exp_rt, "actual": actual}
     return mismatches
+
+
+# --- lf-0024: métricas por resolver / status / falsos-positivos -------
+
+
+def _resolver_metrics(
+    db_path: Path, snapshot_id: int, exp_rels: set
+) -> dict[str, Any]:
+    """P/R por ``relations.resolver`` — classe de evidência nunca
+    agregada com outras (grill gate lf-0024)."""
+    conn = connect(db_path, read_only=True)
+    try:
+        rows = conn.execute(
+            "SELECT r.resolver rv, r.type t, sf.qualified_name fq, "
+            "st.qualified_name tq, r.to_unresolved tu, "
+            "r.resolution_status rs, r.confidence_class cc "
+            "FROM relations r "
+            "JOIN symbol_occurrences o1 ON o1.id=r.from_id "
+            "JOIN symbols sf ON sf.id=o1.logical_symbol_id "
+            "LEFT JOIN symbol_occurrences o2 ON o2.id=r.to_id "
+            "LEFT JOIN symbols st ON st.id=o2.logical_symbol_id "
+            "WHERE r.snapshot_id=?",
+            (snapshot_id,),
+        ).fetchall()
+    finally:
+        conn.close()
+    by_resolver: dict[str, set] = {}
+    for r in rows:
+        to = r["tq"] if r["tq"] is not None else f"unresolved:{r['tu']}"
+        by_resolver.setdefault(r["rv"], set()).add(
+            (r["t"], r["fq"], to, r["rs"], r["cc"])
+        )
+    return {
+        rv: {
+            **vars(m := _prf(exp_rels, rels)),
+            "precision": m.precision,
+            "recall": m.recall,
+        }
+        for rv, rels in sorted(by_resolver.items())
+    }
+
+
+def _status_rates(rels: set) -> dict[str, Any]:
+    """Rates de desfecho sobre as relações reais — denominador explícito."""
+    total = len(rels)
+    out: dict[str, Any] = {"total": total}
+    for status in ("resolved", "ambiguous", "unresolved", "external"):
+        n = sum(1 for r in rels if r[3] == status)
+        out[status] = {"n": n, "rate": (n / total) if total else 0.0}
+    return out
+
+
+def _false_positive(exp_rels: set, rels: set) -> dict[str, Any]:
+    """Falsos-positivos = arestas 'resolved' ausentes do ground truth.
+
+    Só conta arestas com ``resolution_status == 'resolved'`` — um
+    'unresolved'/'ambiguous' inesperado não é link falso, é label
+    honesto.
+    """
+    resolved_actual = {r for r in rels if r[3] == "resolved"}
+    fp = resolved_actual - exp_rels
+    return {
+        "n": len(fp),
+        "rate": (len(fp) / len(resolved_actual)) if resolved_actual else 0.0,
+        "edges": [_rel_row(k) for k in sorted(fp)],
+    }
+
+
+# --- lf-0024: invalidation + reuse correctness ------------------------
+
+
+def evaluate_incremental(
+    corpus: Path, db_path: Path, mutate: Any, restore: Any
+) -> dict[str, Any]:
+    """Par incremental x full sobre uma mutação do corpus.
+
+    ``mutate()``/``restore()`` são callables que alteram/revertem
+    arquivos do corpus. Retorna: plano do run incremental, igualdade
+    canônica incremental x full, e igualdade de ids lógicos para
+    arquivos inalterados (reuse correctness).
+    """
+    conn = connect(db_path)
+    migrate(conn)
+    try:
+        coord = IndexCoordinator(conn)
+        base = coord.index(corpus)
+        assert base.status == "success" and base.snapshot_id is not None
+        base_syms = _symbol_ids(conn, base.snapshot_id)
+
+        mutate()
+        try:
+            inc = coord.index(corpus, incremental=True)
+            plan_actions = {
+                f.path: str(f.action) for f in (coord.last_plan.files if coord.last_plan else ())
+            }
+            full = coord.index(corpus, force=True)
+            canon_equal = (
+                _canonical(conn, inc.snapshot_id)  # type: ignore[arg-type]
+                == _canonical(conn, full.snapshot_id)  # type: ignore[arg-type]
+            )
+        finally:
+            restore()
+
+        # reuse correctness: símbolos de arquivos que o plano marcou
+        # ``reuse`` mantêm o mesmo logical_symbol_id do snapshot base
+        reused = {p for p, a in plan_actions.items() if a == "reuse"}
+        inc_syms = _symbol_ids(conn, inc.snapshot_id)  # type: ignore[arg-type]
+        reused_id_stable = all(
+            base_syms.get(p) == inc_syms.get(p) for p in reused
+        )
+        return {
+            "plan_actions": plan_actions,
+            "incremental_matches_full": canon_equal,
+            "reused_files": sorted(reused),
+            "reuse_symbol_ids_stable": reused_id_stable,
+        }
+    finally:
+        conn.close()
+
+
+def _symbol_ids(conn, snapshot_id: int) -> dict[str, frozenset]:
+    """path → frozenset de logical_symbol_ids (occurrences do snapshot)."""
+    rows = conn.execute(
+        "SELECT f.relative_path p, o.logical_symbol_id sid "
+        "FROM symbol_occurrences o "
+        "JOIN source_files f ON f.id=o.source_file_id "
+        "WHERE o.snapshot_id=?",
+        (snapshot_id,),
+    ).fetchall()
+    out: dict[str, set] = {}
+    for r in rows:
+        out.setdefault(r["p"], set()).add(r["sid"])
+    return {p: frozenset(v) for p, v in out.items()}
+
+
+def _canonical(conn, snapshot_id: int) -> dict[str, set]:
+    """Espelho do helper canônico de test_incremental."""
+    occs = conn.execute(
+        "SELECT s.kind, s.qualified_name, s.language, sf.relative_path, "
+        "o.parse_status, o.content_hash FROM symbol_occurrences o "
+        "JOIN symbols s ON s.id = o.logical_symbol_id "
+        "JOIN source_files sf ON sf.id = o.source_file_id "
+        "WHERE o.snapshot_id=?",
+        (snapshot_id,),
+    ).fetchall()
+    nodes = {
+        (r[0], r[1], r[2], r[3], r[4], r[5]) for r in occs
+    }
+    rels = conn.execute(
+        "SELECT r.type, r.resolution_status, r.confidence_class, "
+        "sff.relative_path fp, sf.qualified_name fq, "
+        "sft.relative_path tp, st.qualified_name tq, r.to_unresolved "
+        "FROM relations r "
+        "JOIN symbol_occurrences of_ ON of_.id=r.from_id "
+        "JOIN source_files sff ON sff.id=of_.source_file_id "
+        "JOIN symbols sf ON sf.id=of_.logical_symbol_id "
+        "LEFT JOIN symbol_occurrences ot ON ot.id=r.to_id "
+        "LEFT JOIN source_files sft ON sft.id=ot.source_file_id "
+        "LEFT JOIN symbols st ON st.id=ot.logical_symbol_id "
+        "WHERE r.snapshot_id=?",
+        (snapshot_id,),
+    ).fetchall()
+    edges = {
+        (r[0], r[3], r[4], r[5], r[6], r[7] or "", r[1], r[2])
+        for r in rels
+    }
+    return {"nodes": nodes, "edges": edges}

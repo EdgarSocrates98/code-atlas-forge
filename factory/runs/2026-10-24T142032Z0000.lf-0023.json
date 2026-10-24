@@ -1,0 +1,15 @@
+{
+  "agent": "codex",
+  "command": [
+    "codex",
+    "exec",
+    "$(cat /home/edgar/Documentos/projetos/forjas/code-atlas-forge/factory/prompts/lf-0023.implement.codex.md)"
+  ],
+  "created_at": "2026-10-24T14:20:32+00:00",
+  "id": "lf-0023",
+  "prompt_path": "/home/edgar/Documentos/projetos/forjas/code-atlas-forge/factory/prompts/lf-0023.implement.codex.md",
+  "spec_path": "/home/edgar/Documentos/projetos/forjas/code-atlas-forge/factory/specs/active/lf-0023.md",
+  "spec_sha256": "7ea6d99c5370d7124d5c14e0f0f6940528aa1ac50f1a0a31026a032846ddefee",
+  "status": "planned",
+  "title": "Cycle 3 Phase 8 \u2014 performance engineering (profile + fix persist/coordination bottleneck)"
+}

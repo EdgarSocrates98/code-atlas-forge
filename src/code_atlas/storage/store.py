@@ -22,6 +22,7 @@ def _snapshot_from_row(row: sqlite3.Row) -> Snapshot:
         repository_id=int(row["repository_id"]),
         git_ref=str(row["git_ref"]),
         commit_sha=row["commit_sha"],
+        dirty=bool(row["dirty"]),
         worktree_digest=str(row["worktree_digest"]),
         analyzer_versions=json.loads(row["analyzer_versions"]),
         parent_snapshot_id=row["parent_snapshot_id"],
@@ -36,24 +37,59 @@ class Store:
     def __init__(self, conn: sqlite3.Connection) -> None:
         self._conn = conn
 
+    @property
+    def conn(self) -> sqlite3.Connection:
+        """Conexão subjacente — para queries compostas (lf-0019 reuse)."""
+        return self._conn
+
     # --- repositories -------------------------------------------------
 
-    def get_or_create_repository(self, root_handle: str) -> int:
-        """Repo estável por root_handle; não duplica em rescans."""
-        row = self._conn.execute(
-            "SELECT id FROM repositories WHERE root_handle = ?", (root_handle,)
-        ).fetchone()
-        if row:
-            return int(row["id"])
-        cur = self._conn.execute(
-            "INSERT INTO repositories (root_handle) VALUES (?)", (root_handle,)
-        )
-        return int(cur.lastrowid)  # type: ignore[arg-type]
+    def get_or_create_repository(
+        self, identity_key: str, root_handle: str = ""
+    ) -> int:
+        """Repo estável por **identidade lógica** (lf-0021), não por path.
 
-    def repository_id_for(self, root_handle: str) -> int | None:
-        """Id do repo indexado ou None (read-only — nunca cria)."""
+        ``identity_key`` vem de ``discovery.identity`` (git remote →
+        commit raiz → path). ``root_handle`` é só diagnóstico —
+        atualizado a cada index para refletir a localização atual
+        (realocação mantém identidade).
+
+        Race-safe (lf-0015 + v5): UNIQUE em ``identity_key`` +
+        ``INSERT OR IGNORE`` — dois indexadores concorrentes convergem
+        para a mesma linha.
+        """
         row = self._conn.execute(
-            "SELECT id FROM repositories WHERE root_handle = ?", (root_handle,)
+            "SELECT id, root_handle FROM repositories WHERE identity_key = ?",
+            (identity_key,),
+        ).fetchone()
+        if row is not None:
+            if root_handle and row["root_handle"] != root_handle:
+                self._conn.execute(
+                    "UPDATE repositories SET root_handle = ? WHERE id = ?",
+                    (root_handle, int(row["id"])),
+                )
+            return int(row["id"])
+        self._conn.execute(
+            "INSERT OR IGNORE INTO repositories (root_handle, identity_key) "
+            "VALUES (?, ?)",
+            (root_handle, identity_key),
+        )
+        row2 = self._conn.execute(
+            "SELECT id FROM repositories WHERE identity_key = ?", (identity_key,)
+        ).fetchone()
+        assert row2 is not None  # UNIQUE + INSERT OR IGNORE garante a linha
+        return int(row2["id"])
+
+    def repository_id_for(self, key_or_handle: str) -> int | None:
+        """Id do repo por ``identity_key`` **ou** ``root_handle``.
+
+        Compat de lookup: busca por identity primeiro (repos novos) e
+        cai para root_handle (repos pré-v5/sem git indexados por path).
+        """
+        row = self._conn.execute(
+            "SELECT id FROM repositories WHERE identity_key = ?"
+            " OR root_handle = ? ORDER BY id LIMIT 1",
+            (key_or_handle, key_or_handle),
         ).fetchone()
         return int(row["id"]) if row else None
 
@@ -95,16 +131,24 @@ class Store:
         parent_snapshot_id: int | None,
         git_ref: str = "",
         commit_sha: str | None = None,
+        dirty: bool = False,
     ) -> int:
-        """Cria snapshot em estado BUILDING."""
+        """Cria snapshot em estado BUILDING.
+
+        ``dirty`` (lf-0021): worktree com alterações não commitadas —
+        snapshot é **vinculado ao estado atual**, nunca ao ``commit_sha``
+        limpo (queries veem ``commit_sha`` do HEAD mas ``dirty=1`` marca
+        que o conteúdo indexado diverge dele).
+        """
         cur = self._conn.execute(
-            "INSERT INTO snapshots (repository_id, git_ref, commit_sha, "
+            "INSERT INTO snapshots (repository_id, git_ref, commit_sha, dirty, "
             "worktree_digest, analyzer_versions, parent_snapshot_id, status) "
-            "VALUES (?, ?, ?, ?, ?, ?, 'BUILDING')",
+            "VALUES (?, ?, ?, ?, ?, ?, ?, 'BUILDING')",
             (
                 repository_id,
                 git_ref,
                 commit_sha,
+                int(dirty),
                 worktree_digest,
                 json.dumps(analyzer_versions, sort_keys=True),
                 parent_snapshot_id,
@@ -146,6 +190,44 @@ class Store:
         )
         return int(cur.lastrowid)  # type: ignore[arg-type]
 
+    def ensure_source_files(
+        self, repository_id: int, files: Iterable[SourceFile]
+    ) -> dict[str, int]:
+        """Dedup de ``source_files`` em duas fases — path → id.
+
+        Mesmo padrão de ``ensure_symbols`` (lf-0023): um SELECT inicial,
+        executemany ``INSERT OR IGNORE`` dos ausentes, SELECT final.
+        Paridade com o upsert antigo: metadados da linha existente
+        NÃO são atualizados (o inventário por snapshot carrega o
+        sha256/size frescos em ``file_inventory``).
+        """
+        flist = list(files)
+        existing = self._conn.execute(
+            "SELECT id, relative_path FROM source_files"
+            " WHERE repository_id = ?",
+            (repository_id,),
+        ).fetchall()
+        ids = {r["relative_path"]: int(r["id"]) for r in existing}
+        missing = [f for f in flist if f.path not in ids]
+        if missing:
+            self._conn.executemany(
+                "INSERT OR IGNORE INTO source_files (repository_id,"
+                " relative_path, language, sha256, size_bytes, ignored)"
+                " VALUES (?, ?, ?, ?, ?, ?)",
+                [
+                    (repository_id, f.path, f.language, f.sha256,
+                     f.size_bytes, int(f.ignored))
+                    for f in missing
+                ],
+            )
+            refetch = self._conn.execute(
+                "SELECT id, relative_path FROM source_files"
+                " WHERE repository_id = ?",
+                (repository_id,),
+            ).fetchall()
+            ids = {r["relative_path"]: int(r["id"]) for r in refetch}
+        return ids
+
     def insert_inventory_rows(
         self, snapshot_id: int, rows: Iterable[tuple[int, SourceFile]]
     ) -> None:
@@ -162,6 +244,97 @@ class Store:
             (snapshot_id,),
         ).fetchone()
         return int(row["c"])
+
+    def snapshot_inventory(self, snapshot_id: int) -> list[dict[str, object]]:
+        """Inventário do snapshot: path, language, sha256, source_file_id,
+        e pior parse_status observado nas ocorrências do arquivo."""
+        rows = self._conn.execute(
+            """
+            SELECT sf.id AS source_file_id, sf.relative_path, sf.language,
+                   fi.sha256,
+                   COALESCE(
+                     (SELECT MAX(CASE so.parse_status
+                                   WHEN 'parse-failed' THEN 2
+                                   WHEN 'parsed-with-errors' THEN 1
+                                   ELSE 0 END)
+                        FROM symbol_occurrences so
+                       WHERE so.snapshot_id = fi.snapshot_id
+                         AND so.source_file_id = fi.source_file_id),
+                     -1) AS status_rank
+              FROM file_inventory fi
+              JOIN source_files sf ON sf.id = fi.source_file_id
+             WHERE fi.snapshot_id = ?
+             ORDER BY sf.relative_path
+            """,
+            (snapshot_id,),
+        ).fetchall()
+        rank = {0: "parsed", 1: "parsed-with-errors", 2: "parse-failed"}
+        return [
+            {
+                "path": r["relative_path"],
+                "language": r["language"],
+                "sha256": r["sha256"],
+                "source_file_id": r["source_file_id"],
+                "parse_status": rank.get(int(r["status_rank"]), "unparsed"),
+            }
+            for r in rows
+        ]
+
+    def module_import_edges(
+        self, snapshot_id: int
+    ) -> list[tuple[str, str | None, str, str]]:
+        """Arestas IMPORTS do snapshot mapeadas para paths.
+
+        Retorna ``(importer_path, imported_path|None, to_unresolved,
+        resolution_status)`` — insumo do planner de invalidação (lf-0019).
+        """
+        rows = self._conn.execute(
+            """
+            SELECT sf_from.relative_path AS importer,
+                   sf_to.relative_path   AS imported,
+                   r.to_unresolved       AS to_text,
+                   r.resolution_status   AS status
+              FROM relations r
+              JOIN symbol_occurrences o_from ON o_from.id = r.from_id
+              JOIN source_files sf_from ON sf_from.id = o_from.source_file_id
+              LEFT JOIN symbol_occurrences o_to ON o_to.id = r.to_id
+              LEFT JOIN source_files sf_to ON sf_to.id = o_to.source_file_id
+             WHERE r.snapshot_id = ? AND r.type = 'IMPORTS'
+             ORDER BY sf_from.relative_path
+            """,
+            (snapshot_id,),
+        ).fetchall()
+        return [
+            (r["importer"], r["imported"], r["to_text"] or "", r["status"])
+            for r in rows
+        ]
+
+    def snapshot_file_symbols(
+        self, snapshot_id: int
+    ) -> list[tuple[str, str, str, str, int]]:
+        """Símbolos com ocorrência no snapshot, por arquivo.
+
+        Retorna ``(path, kind, qualified_name, language, source_file_id)``
+        — usado para reconstruir contextos de módulo reutilizados no
+        índice incremental (lf-0019).
+        """
+        rows = self._conn.execute(
+            """
+            SELECT DISTINCT sf.relative_path AS path, s.kind, s.qualified_name,
+                   s.language, so.source_file_id
+              FROM symbol_occurrences so
+              JOIN symbols s ON s.id = so.logical_symbol_id
+              JOIN source_files sf ON sf.id = so.source_file_id
+             WHERE so.snapshot_id = ?
+             ORDER BY sf.relative_path, s.qualified_name
+            """,
+            (snapshot_id,),
+        ).fetchall()
+        return [
+            (r["path"], r["kind"], r["qualified_name"], r["language"],
+             r["source_file_id"])
+            for r in rows
+        ]
 
     def foreign_key_violations(self) -> list[str]:
         """Lista violações FK pendentes (integrity gate antes do READY)."""
@@ -188,57 +361,106 @@ class Store:
         return [int(r["id"]) for r in rows]
 
     # --- symbols / occurrences / relations / evidence (Cycle 2) -------
+    # --- persistência em lote (lf-0023, medido: ~145k execute/5k arquivos) --
 
-    def upsert_symbol(
-        self, repository_id: int, language: str, qualified_name: str, kind: str
-    ) -> tuple[int, bool]:
-        """Dedup por (repo, language, qname, kind) — retorna (id, created)."""
-        row = self._conn.execute(
-            "SELECT id FROM symbols WHERE repository_id = ? AND language = ? "
-            "AND qualified_name = ? AND kind = ?",
-            (repository_id, language, qualified_name, kind),
-        ).fetchone()
-        if row:
-            return int(row["id"]), False
-        cur = self._conn.execute(
-            "INSERT INTO symbols (repository_id, language, qualified_name, kind) "
-            "VALUES (?, ?, ?, ?)",
-            (repository_id, language, qualified_name, kind),
-        )
-        return int(cur.lastrowid), True  # type: ignore[arg-type]
+    _BATCH = 400  # linhas por INSERT multi-row (abaixo do limite de vars)
 
-    def insert_fts_symbol(
-        self, symbol_id: int, qualified_name: str, language: str, kind: str
+    def ensure_symbols(
+        self, repository_id: int, keys: list[tuple[str, str, str]]
+    ) -> tuple[dict[tuple[str, str, str], int], set[tuple[str, str, str]]]:
+        """Dedup de símbolos em duas fases — 145k+ round-trips → ~90.
+
+        Fase 1: SELECT dos existentes numa query. Fase 2: executemany
+        ``INSERT OR IGNORE`` só dos ausentes, seguido de SELECT final
+        dos ids (``RETURNING`` não devolve ids de linhas ignoradas).
+        ``keys``: ``(language, qualified_name, kind)`` dedupados pelo
+        caller.
+
+        Retorna ``(id_map, created)`` — ``created`` é o conjunto exato
+        de chaves que passaram a existir nesta chamada (correto mesmo
+        sob escritor concorrente: derivado do diff dos SELECTs).
+        """
+        uniq = sorted(set(keys))
+        existing = self._conn.execute(
+            "SELECT id, language, qualified_name, kind FROM symbols"
+            " WHERE repository_id = ?",
+            (repository_id,),
+        ).fetchall()
+        ids = {
+            (r["language"], r["qualified_name"], r["kind"]): int(r["id"])
+            for r in existing
+        }
+        pre = set(ids)
+        missing = [k for k in uniq if k not in ids]
+        if missing:
+            self._conn.executemany(
+                "INSERT OR IGNORE INTO symbols "
+                "(repository_id, language, qualified_name, kind) "
+                "VALUES (?, ?, ?, ?)",
+                [(repository_id, *k) for k in missing],
+            )
+            refetch = self._conn.execute(
+                "SELECT id, language, qualified_name, kind FROM symbols"
+                " WHERE repository_id = ?",
+                (repository_id,),
+            ).fetchall()
+            ids = {
+                (r["language"], r["qualified_name"], r["kind"]): int(r["id"])
+                for r in refetch
+            }
+        return ids, set(ids) - pre
+
+    def insert_symbols_batch(
+        self, rows: Iterable[tuple[int, str, str, str]]
     ) -> None:
-        """Popula o índice FTS (só chamado quando a build suporta FTS5)."""
-        self._conn.execute(
+        """FTS: inserts em lote — chamado só para símbolos novos."""
+        self._conn.executemany(
             "INSERT INTO fts_symbols (rowid, qualified_name, language, kind) "
             "VALUES (?, ?, ?, ?)",
-            (symbol_id, qualified_name, language, kind),
+            list(rows),
         )
 
-    def insert_occurrence(
-        self,
-        snapshot_id: int,
-        symbol_id: int,
-        source_file_id: int,
-        span_start: int | None,
-        span_end: int | None,
-        line: int | None,
-        col: int | None,
-        content_hash: str,
-        parse_status: str = "parsed",
-    ) -> int:
-        cur = self._conn.execute(
-            "INSERT INTO symbol_occurrences (snapshot_id, logical_symbol_id, "
-            "source_file_id, span_start, span_end, line, col, content_hash, "
-            "parse_status) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
-            (
-                snapshot_id, symbol_id, source_file_id, span_start, span_end,
-                line, col, content_hash, parse_status,
-            ),
+    def _insert_returning(
+        self, sql_prefix: str, rows: list[tuple[object, ...]], ncols: int
+    ) -> list[int]:
+        """Multi-row ``INSERT ... RETURNING id`` em chunks.
+
+        SQLite devolve ids na ordem das VALUES — o mapa com as linhas
+        de entrada é posicional e estável dentro da transação.
+        """
+        out: list[int] = []
+        ph = ",".join("?" for _ in range(ncols))
+        for i in range(0, len(rows), self._BATCH):
+            chunk = rows[i : i + self._BATCH]
+            stmt = sql_prefix + ",".join(
+                "(" + ph + ")" for _ in chunk
+            ) + " RETURNING id"
+            cur = self._conn.execute(
+                stmt, [v for row in chunk for v in row]
+            )
+            out.extend(int(r["id"]) for r in cur.fetchall())
+        return out
+
+    def insert_occurrences_batch(
+        self, rows: list[tuple[object, ...]]
+    ) -> list[int]:
+        """Batch de ocorrências — retorna ids na ordem das linhas."""
+        return self._insert_returning(
+            "INSERT INTO symbol_occurrences (snapshot_id, logical_symbol_id,"
+            " source_file_id, span_start, span_end, line, col, content_hash,"
+            " parse_status) VALUES ",
+            rows, 9,
         )
-        return int(cur.lastrowid)  # type: ignore[arg-type]
+
+    def insert_evidence_batch(
+        self, rows: list[tuple[object, ...]]
+    ) -> list[int]:
+        """Batch de evidências — retorna ids na ordem das linhas."""
+        return self._insert_returning(
+            "INSERT INTO evidence (snapshot_id, source_file_id, path, span,"
+            " content_hash, extractor, extractor_version, notes) VALUES ",
+            rows, 8,
+        )
 
     def insert_evidence(
         self,

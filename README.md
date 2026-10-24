@@ -47,13 +47,16 @@ Detalhes em `docs/install.md`.
 ```bash
 code-atlas init --root /caminho/do/repo   # configura o workspace (XDG/APPDATA)
 code-atlas doctor                        # verifica ambiente e config
-code-atlas index /caminho/do/repo        # scan → parse → grafo → snapshot READY
+code-atlas index /caminho/do/repo        # incremental é o default; --full força rebuild
+code-atlas index-plan /caminho/do/repo   # dry-run do IndexPlan, sem tocar no DB
 code-atlas status --json                 # estado do índice, git, migrações
 
-# consultas estruturais sobre o snapshot READY
+# consultas sobre o snapshot READY (envelope v2)
 code-atlas search "Engine" --json        # substring em qualified_name
 code-atlas symbol pkg.core.Engine        # detalhe + ocorrências
-code-atlas references pkg.util.helper    # relações tocando o símbolo
+code-atlas references pkg.util.helper    # incoming, com status/confiança
+code-atlas definitions pkg.util.helper   # defs + declarações do símbolo
+code-atlas dependencies pkg.app.main --depth 2   # BFS outgoing, cycle-safe
 code-atlas graph --json                  # dump de nós+arestas do snapshot
 ```
 
@@ -71,16 +74,19 @@ matriz completa com versões de gramática pinned em
 `docs/parser-adapters.md`. Arquivos de outras linguagens entram no
 inventário como nós `file`, sem extração.
 
-## Limitações do Cycle 2
+## Limitações (Cycle 3)
 
 Implementado hoje: parsing sintático real, símbolos/referências/
-relações com proveniência, resolução de escopo sintático (imports +
-definidos locais), snapshots atômicos, busca estrutural SQL.
+relações com proveniência por aresta, resolução syntactic (imports +
+escopo local), resolvers opt-in SCIP/LSP rotulados, indexação
+incremental com cache versionado de ParseResult, snapshots atômicos,
+busca estrutural SQL + comandos semânticos (envelope v2).
 
-**Não implementado** (por design): resolução semântica profunda,
-inferência de tipos, análise de impacto, FTS na busca, context packs,
-MCP, UI. Estados `unresolved`/`ambiguous`/`external` são preservados
-como fatos — nunca preenchidos por heurística.
+**Não implementado** (por design): type-checking real, análise de
+impacto, FTS na busca, context packs, MCP, UI, embeddings. Estados
+`unresolved`/`ambiguous`/`external` são preservados como fatos — nunca
+preenchidos por heurística. Detalhes: `docs/semantic-resolution.md`,
+`docs/cycle-3-evidence.md`.
 
 ## Estrutura do repositório
 

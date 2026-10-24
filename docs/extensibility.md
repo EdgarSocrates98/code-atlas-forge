@@ -10,7 +10,7 @@ sem o domínio importá-los (regra hexagonal).
 |---|---|---|
 | `RepositoryScanner` | `scan(root, options) -> ScanResult` | **implementado** — `discovery.scan` |
 | `ParserAdapter` | `language`, `extensions`, `parse(request) -> ParseResult` | **implementado** — `parsers/languages/{python,typescript,tsx}.py` (Tree-sitter pinned, ADR-015) |
-| `SymbolResolver` | `resolve(occurrence) -> ResolutionStatus` | **parcial** — resolução sintática no `GraphBuilder`; semântica no Cycle 3 |
+| `SymbolResolver` | `resolve(occurrence) -> ResolutionStatus` | **implementado** — `resolvers/` (syntactic → scip → lsp, ADR-016) |
 | `GraphStore` | `latest_ready_snapshot`, `snapshot_by_id` | **parcial** — `storage.Store` |
 | `SearchPort` | `search(query, limit)` | **implementado** — `search.structural.StructuralSearch` (SQL, não FTS) |
 | `IndexCoordinator` | `index(root) -> Snapshot` | **implementado** — `indexing.IndexCoordinator` |

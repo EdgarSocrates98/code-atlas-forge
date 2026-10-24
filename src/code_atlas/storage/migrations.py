@@ -152,6 +152,39 @@ CREATE INDEX IF NOT EXISTS idx_occurrences_snapshot_symbol
 CREATE INDEX IF NOT EXISTS idx_evidence_snapshot ON evidence (snapshot_id);
 """
 
+_SCHEMA_V4_CACHE = """
+CREATE TABLE parse_result_cache (
+    id INTEGER PRIMARY KEY,
+    repository_id INTEGER NOT NULL REFERENCES repositories(id),
+    path TEXT NOT NULL,
+    content_sha256 TEXT NOT NULL,
+    language TEXT NOT NULL,
+    parser_version TEXT NOT NULL,
+    grammar_version TEXT NOT NULL,
+    extractor_version TEXT NOT NULL,
+    resolver_version TEXT NOT NULL,
+    builder_version TEXT NOT NULL,
+    config_digest TEXT NOT NULL,
+    payload TEXT NOT NULL,
+    payload_sha256 TEXT NOT NULL,
+    last_used_snapshot_id INTEGER,
+    hit_count INTEGER NOT NULL DEFAULT 0,
+    created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+    UNIQUE (repository_id, path, content_sha256, language,
+            parser_version, grammar_version, extractor_version,
+            resolver_version, builder_version, config_digest)
+);
+CREATE INDEX idx_cache_repo_path ON parse_result_cache (repository_id, path);
+"""
+
+_SCHEMA_V5_IDENTITY = """
+ALTER TABLE repositories ADD COLUMN identity_key TEXT NOT NULL DEFAULT '';
+UPDATE repositories SET identity_key = 'path:' || root_handle
+ WHERE identity_key = '';
+CREATE UNIQUE INDEX uq_repositories_identity ON repositories (identity_key);
+ALTER TABLE snapshots ADD COLUMN dirty INTEGER NOT NULL DEFAULT 0;
+"""
+
 
 def migrations(*, fts5: bool) -> list[Migration]:
     """Lista de migrações; a v2 (FTS5) só existe quando a build suporta."""
@@ -159,6 +192,8 @@ def migrations(*, fts5: bool) -> list[Migration]:
     if fts5:
         m.append(Migration(2, "fts_symbols virtual table", _SCHEMA_V2_FTS))
     m.append(Migration(3, "snapshot-scoped indexes", _SCHEMA_V3_INDEXES))
+    m.append(Migration(4, "parse result cache (lf-0020)", _SCHEMA_V4_CACHE))
+    m.append(Migration(5, "logical repo identity + dirty flag (lf-0021)", _SCHEMA_V5_IDENTITY))
     return m
 
 

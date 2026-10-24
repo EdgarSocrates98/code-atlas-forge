@@ -15,7 +15,11 @@ snapshots determinísticos, busca estrutural (`search`/`symbol`/
 **Gate:** golden fixtures com AST e grafo corretos; erros de parsing
 rastreáveis — **PASS** (`tests/golden/`, 4 corpora com expected.json).
 
-## Cycle 3 — Semantic & Incremental
+## Cycle 3 — Semantic & Incremental ✅ entregue
+> Ver `docs/cycle-3-evidence.md`, `docs/cycle-3-architecture.md`,
+> `docs/cycle-3-benchmarks.md`, `docs/semantic-resolution.md`,
+> `docs/scip-integration.md`, `docs/lsp-adapters.md`,
+> `docs/cache-and-invalidation.md`, `docs/snapshot-consistency.md`.
 
 Escopo: SCIP/LSP opcional, invalidação dependency-aware, builds
 transacionais, snapshots prontos, rename/delete/branch.

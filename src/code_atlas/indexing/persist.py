@@ -40,6 +40,37 @@ def _span_json(span: SourceSpan | None) -> str | None:
     )
 
 
+def _persist_evidence(
+    store: Store,
+    snapshot_id: int,
+    file_ids: Mapping[str, int],
+    graph: GraphBuildResult,
+) -> dict[int, int]:
+    """Evidências → rows; retorna mapa índice-em-graph.evidence → row_id.
+
+    Mapa explícito (lf-0015): evidências filtradas (path fora do
+    inventário) NÃO podem deslocar os índices das demais — o modelo
+    posicional compactado corrompia silenciosamente a associação
+    evidence↔relation.
+    """
+    evi_row_ids: dict[int, int] = {}
+    rows: list[tuple[object, ...]] = []
+    order: list[int] = []  # índice em graph.evidence alinhado a `rows`
+    for i, rec in enumerate(graph.evidence):
+        fid = file_ids.get(rec.path)
+        if fid is None:
+            continue
+        rows.append(
+            (snapshot_id, fid, rec.path, _span_json(rec.span),
+             rec.content_hash, rec.extractor, rec.extractor_version,
+             rec.notes)
+        )
+        order.append(i)
+    for idx, rid in zip(order, store.insert_evidence_batch(rows), strict=True):
+        evi_row_ids[idx] = rid
+    return evi_row_ids
+
+
 def persist_graph(
     store: Store,
     repo_id: int,
@@ -62,47 +93,50 @@ def persist_graph(
     }
     status = file_status or {}
 
-    # 1. evidências primeiro — relations referenciam ids de evidência
-    evi_row_ids: list[int] = []
-    for rec in graph.evidence:
-        fid = file_ids.get(rec.path)
-        if fid is None:
-            continue
-        evi_row_ids.append(
-            store.insert_evidence(
-                snapshot_id, fid, rec.path, _span_json(rec.span),
-                rec.content_hash, rec.extractor, rec.extractor_version,
-                rec.notes,
-            )
-        )
+    # 1. evidências primeiro — relations referenciam ids de evidência.
+    evi_row_ids = _persist_evidence(store, snapshot_id, file_ids, graph)
     counts["evidence"] = len(evi_row_ids)
 
-    # 2. nós → símbolo + ocorrência (id do nó → id da ocorrência)
+    # 2. nós → símbolo + ocorrência (id do nó → id da ocorrência).
+    # lf-0023: dedup em duas fases + multi-row INSERT…RETURNING — o
+    # per-row upsert/insert era o custo dominante (~145k round-trips
+    # num corpus de 5k arquivos).
+    persisted = [
+        n for n in graph.nodes
+        if n.kind in _PERSISTED_KINDS and n.path in file_ids
+    ]
+    sym_ids, created = store.ensure_symbols(
+        repo_id,
+        [(n.language, n.qualified_name, str(n.kind)) for n in persisted],
+    )
+    counts["symbols_new"] = len(created)
+    if fts5 and created:
+        store.insert_symbols_batch(
+            (sym_ids[k], k[1], k[0], k[2]) for k in sorted(created)
+        )
     node_occ: dict[str, int] = {}
-    for n in graph.nodes:
-        if n.kind not in _PERSISTED_KINDS or n.path not in file_ids:
-            continue
-        symbol_id, created = store.upsert_symbol(
-            repo_id, n.language, n.qualified_name, str(n.kind)
-        )
-        if created:
-            counts["symbols_new"] += 1
-            if fts5:
-                store.insert_fts_symbol(
-                    symbol_id, n.qualified_name, n.language, str(n.kind)
-                )
+    occ_rows: list[tuple[object, ...]] = []
+    occ_nodes: list[str] = []  # node_id alinhado a occ_rows
+    for n in persisted:
         span = n.span
-        occ_id = store.insert_occurrence(
-            snapshot_id, symbol_id, file_ids[n.path],
-            span.start_byte if span else None,
-            span.end_byte if span else None,
-            span.start_line if span else None,
-            span.start_col if span else None,
-            n.content_hash,
-            parse_status=status.get(n.path, "parsed"),
+        occ_rows.append(
+            (
+                snapshot_id, sym_ids[(n.language, n.qualified_name, str(n.kind))],
+                file_ids[n.path],
+                span.start_byte if span else None,
+                span.end_byte if span else None,
+                span.start_line if span else None,
+                span.start_col if span else None,
+                n.content_hash,
+                status.get(n.path, "parsed"),
+            )
         )
-        node_occ[n.node_id] = occ_id
-        counts["occurrences"] += 1
+        occ_nodes.append(n.node_id)
+    for nid, rid in zip(
+        occ_nodes, store.insert_occurrences_batch(occ_rows), strict=True
+    ):
+        node_occ[nid] = rid
+    counts["occurrences"] = len(node_occ)
 
     # 3. relações — somente endpoints dentro do snapshot
     rel_rows: list[tuple[object, ...]] = []
@@ -116,7 +150,7 @@ def persist_graph(
             counts["edges_skipped"] += 1  # alvo estrutural não persistido
             continue
         ev_ids = json.dumps([evi_row_ids[i] for i in e.evidence_index
-                             if i < len(evi_row_ids)])
+                             if i in evi_row_ids])
         rel_rows.append(
             (
                 snapshot_id, frm, to, e.to_text or None, str(e.type),

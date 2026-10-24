@@ -1,0 +1,575 @@
+{
+  "corpus": "py_advanced",
+  "file_parse_status": {
+    "main.py": "parsed",
+    "pkg/__init__.py": "parsed",
+    "pkg/core.py": "parsed",
+    "pkg/cycle_a.py": "parsed",
+    "pkg/cycle_b.py": "parsed",
+    "pkg/dup_a.py": "parsed",
+    "pkg/dup_b.py": "parsed",
+    "pkg/rel.py": "parsed",
+    "pkg/shadowed.py": "parsed",
+    "pkg/star_target.py": "parsed",
+    "pkg/star_user.py": "parsed",
+    "pkg/util.py": "parsed"
+  },
+  "relations": [
+    {
+      "confidence": "resolved",
+      "from": "main.main",
+      "status": "resolved",
+      "to": "pkg.core.Engine",
+      "type": "CALLS"
+    },
+    {
+      "confidence": "resolved",
+      "from": "main.main",
+      "status": "resolved",
+      "to": "pkg.dup_a.process",
+      "type": "CALLS"
+    },
+    {
+      "confidence": "syntactic",
+      "from": "main.main",
+      "status": "unresolved",
+      "to": null,
+      "to_text": "Engine().run",
+      "type": "CALLS"
+    },
+    {
+      "confidence": "resolved",
+      "from": "pkg.core.Engine.run",
+      "status": "resolved",
+      "to": "pkg.dup_a.process",
+      "type": "CALLS"
+    },
+    {
+      "confidence": "resolved",
+      "from": "pkg.cycle_a.alpha",
+      "status": "resolved",
+      "to": "pkg.cycle_b.beta",
+      "type": "CALLS"
+    },
+    {
+      "confidence": "resolved",
+      "from": "pkg.rel.use",
+      "status": "resolved",
+      "to": "pkg.util.helper",
+      "type": "CALLS"
+    },
+    {
+      "confidence": "syntactic",
+      "from": "pkg.shadowed.use",
+      "status": "ambiguous",
+      "to": null,
+      "to_text": "helper",
+      "type": "CALLS"
+    },
+    {
+      "confidence": "syntactic",
+      "from": "pkg.star_user.use_star",
+      "status": "unresolved",
+      "to": null,
+      "to_text": "star_fn",
+      "type": "CALLS"
+    },
+    {
+      "confidence": "resolved",
+      "from": "main.py",
+      "status": "resolved",
+      "to": "main",
+      "type": "CONTAINS"
+    },
+    {
+      "confidence": "resolved",
+      "from": "pkg/__init__.py",
+      "status": "resolved",
+      "to": "pkg",
+      "type": "CONTAINS"
+    },
+    {
+      "confidence": "resolved",
+      "from": "pkg/core.py",
+      "status": "resolved",
+      "to": "pkg.core",
+      "type": "CONTAINS"
+    },
+    {
+      "confidence": "resolved",
+      "from": "pkg/cycle_a.py",
+      "status": "resolved",
+      "to": "pkg.cycle_a",
+      "type": "CONTAINS"
+    },
+    {
+      "confidence": "resolved",
+      "from": "pkg/cycle_b.py",
+      "status": "resolved",
+      "to": "pkg.cycle_b",
+      "type": "CONTAINS"
+    },
+    {
+      "confidence": "resolved",
+      "from": "pkg/dup_a.py",
+      "status": "resolved",
+      "to": "pkg.dup_a",
+      "type": "CONTAINS"
+    },
+    {
+      "confidence": "resolved",
+      "from": "pkg/dup_b.py",
+      "status": "resolved",
+      "to": "pkg.dup_b",
+      "type": "CONTAINS"
+    },
+    {
+      "confidence": "resolved",
+      "from": "pkg/rel.py",
+      "status": "resolved",
+      "to": "pkg.rel",
+      "type": "CONTAINS"
+    },
+    {
+      "confidence": "resolved",
+      "from": "pkg/shadowed.py",
+      "status": "resolved",
+      "to": "pkg.shadowed",
+      "type": "CONTAINS"
+    },
+    {
+      "confidence": "resolved",
+      "from": "pkg/star_target.py",
+      "status": "resolved",
+      "to": "pkg.star_target",
+      "type": "CONTAINS"
+    },
+    {
+      "confidence": "resolved",
+      "from": "pkg/star_user.py",
+      "status": "resolved",
+      "to": "pkg.star_user",
+      "type": "CONTAINS"
+    },
+    {
+      "confidence": "resolved",
+      "from": "pkg/util.py",
+      "status": "resolved",
+      "to": "pkg.util",
+      "type": "CONTAINS"
+    },
+    {
+      "confidence": "syntactic",
+      "from": "main",
+      "status": "resolved",
+      "to": "main.main",
+      "type": "DEFINES"
+    },
+    {
+      "confidence": "syntactic",
+      "from": "pkg.core",
+      "status": "resolved",
+      "to": "pkg.core.Engine",
+      "type": "DEFINES"
+    },
+    {
+      "confidence": "syntactic",
+      "from": "pkg.core",
+      "status": "resolved",
+      "to": "pkg.core.process",
+      "type": "DEFINES"
+    },
+    {
+      "confidence": "syntactic",
+      "from": "pkg.core.Engine",
+      "status": "resolved",
+      "to": "pkg.core.Engine.run",
+      "type": "DEFINES"
+    },
+    {
+      "confidence": "syntactic",
+      "from": "pkg.cycle_a",
+      "status": "resolved",
+      "to": "pkg.cycle_a.alpha",
+      "type": "DEFINES"
+    },
+    {
+      "confidence": "syntactic",
+      "from": "pkg.cycle_b",
+      "status": "resolved",
+      "to": "pkg.cycle_b.beta",
+      "type": "DEFINES"
+    },
+    {
+      "confidence": "syntactic",
+      "from": "pkg.dup_a",
+      "status": "resolved",
+      "to": "pkg.dup_a.process",
+      "type": "DEFINES"
+    },
+    {
+      "confidence": "syntactic",
+      "from": "pkg.dup_b",
+      "status": "resolved",
+      "to": "pkg.dup_b.process",
+      "type": "DEFINES"
+    },
+    {
+      "confidence": "syntactic",
+      "from": "pkg.rel",
+      "status": "resolved",
+      "to": "pkg.rel.use",
+      "type": "DEFINES"
+    },
+    {
+      "confidence": "syntactic",
+      "from": "pkg.shadowed",
+      "status": "resolved",
+      "to": "pkg.shadowed.helper",
+      "type": "DEFINES"
+    },
+    {
+      "confidence": "syntactic",
+      "from": "pkg.shadowed",
+      "status": "resolved",
+      "to": "pkg.shadowed.use",
+      "type": "DEFINES"
+    },
+    {
+      "confidence": "syntactic",
+      "from": "pkg.star_target",
+      "status": "resolved",
+      "to": "pkg.star_target.star_fn",
+      "type": "DEFINES"
+    },
+    {
+      "confidence": "syntactic",
+      "from": "pkg.star_user",
+      "status": "resolved",
+      "to": "pkg.star_user.use_star",
+      "type": "DEFINES"
+    },
+    {
+      "confidence": "syntactic",
+      "from": "pkg.util",
+      "status": "resolved",
+      "to": "pkg.util.helper",
+      "type": "DEFINES"
+    },
+    {
+      "confidence": "syntactic",
+      "from": "pkg.util",
+      "status": "resolved",
+      "to": "pkg.util.run",
+      "type": "DEFINES"
+    },
+    {
+      "confidence": "resolved",
+      "from": "main",
+      "status": "resolved",
+      "to": "pkg.core",
+      "type": "IMPORTS"
+    },
+    {
+      "confidence": "resolved",
+      "from": "main",
+      "status": "resolved",
+      "to": "pkg.dup_a",
+      "type": "IMPORTS"
+    },
+    {
+      "confidence": "resolved",
+      "from": "pkg",
+      "status": "resolved",
+      "to": "pkg.core",
+      "type": "IMPORTS"
+    },
+    {
+      "confidence": "resolved",
+      "from": "pkg",
+      "status": "resolved",
+      "to": "pkg.util",
+      "type": "IMPORTS"
+    },
+    {
+      "confidence": "resolved",
+      "from": "pkg.core",
+      "status": "resolved",
+      "to": "pkg.dup_a",
+      "type": "IMPORTS"
+    },
+    {
+      "confidence": "resolved",
+      "from": "pkg.cycle_a",
+      "status": "resolved",
+      "to": "pkg.cycle_b",
+      "type": "IMPORTS"
+    },
+    {
+      "confidence": "resolved",
+      "from": "pkg.cycle_b",
+      "status": "resolved",
+      "to": "pkg.cycle_a",
+      "type": "IMPORTS"
+    },
+    {
+      "confidence": "resolved",
+      "from": "pkg.rel",
+      "status": "resolved",
+      "to": "pkg.util",
+      "type": "IMPORTS"
+    },
+    {
+      "confidence": "resolved",
+      "from": "pkg.shadowed",
+      "status": "resolved",
+      "to": "pkg.util",
+      "type": "IMPORTS"
+    },
+    {
+      "confidence": "resolved",
+      "from": "pkg.star_user",
+      "status": "resolved",
+      "to": "pkg.star_target",
+      "type": "IMPORTS"
+    }
+  ],
+  "relations_mode": "all",
+  "symbols": [
+    {
+      "kind": "module",
+      "language": "python",
+      "path": "main.py",
+      "qname": "main"
+    },
+    {
+      "kind": "function",
+      "language": "python",
+      "path": "main.py",
+      "qname": "main.main"
+    },
+    {
+      "kind": "file",
+      "language": "",
+      "path": "main.py",
+      "qname": "main.py"
+    },
+    {
+      "kind": "module",
+      "language": "python",
+      "path": "pkg/__init__.py",
+      "qname": "pkg"
+    },
+    {
+      "kind": "module",
+      "language": "python",
+      "path": "pkg/core.py",
+      "qname": "pkg.core"
+    },
+    {
+      "kind": "class",
+      "language": "python",
+      "path": "pkg/core.py",
+      "qname": "pkg.core.Engine"
+    },
+    {
+      "kind": "method",
+      "language": "python",
+      "path": "pkg/core.py",
+      "qname": "pkg.core.Engine.run"
+    },
+    {
+      "kind": "function",
+      "language": "python",
+      "path": "pkg/core.py",
+      "qname": "pkg.core.process"
+    },
+    {
+      "kind": "module",
+      "language": "python",
+      "path": "pkg/cycle_a.py",
+      "qname": "pkg.cycle_a"
+    },
+    {
+      "kind": "function",
+      "language": "python",
+      "path": "pkg/cycle_a.py",
+      "qname": "pkg.cycle_a.alpha"
+    },
+    {
+      "kind": "module",
+      "language": "python",
+      "path": "pkg/cycle_b.py",
+      "qname": "pkg.cycle_b"
+    },
+    {
+      "kind": "function",
+      "language": "python",
+      "path": "pkg/cycle_b.py",
+      "qname": "pkg.cycle_b.beta"
+    },
+    {
+      "kind": "module",
+      "language": "python",
+      "path": "pkg/dup_a.py",
+      "qname": "pkg.dup_a"
+    },
+    {
+      "kind": "function",
+      "language": "python",
+      "path": "pkg/dup_a.py",
+      "qname": "pkg.dup_a.process"
+    },
+    {
+      "kind": "module",
+      "language": "python",
+      "path": "pkg/dup_b.py",
+      "qname": "pkg.dup_b"
+    },
+    {
+      "kind": "function",
+      "language": "python",
+      "path": "pkg/dup_b.py",
+      "qname": "pkg.dup_b.process"
+    },
+    {
+      "kind": "module",
+      "language": "python",
+      "path": "pkg/rel.py",
+      "qname": "pkg.rel"
+    },
+    {
+      "kind": "function",
+      "language": "python",
+      "path": "pkg/rel.py",
+      "qname": "pkg.rel.use"
+    },
+    {
+      "kind": "module",
+      "language": "python",
+      "path": "pkg/shadowed.py",
+      "qname": "pkg.shadowed"
+    },
+    {
+      "kind": "function",
+      "language": "python",
+      "path": "pkg/shadowed.py",
+      "qname": "pkg.shadowed.helper"
+    },
+    {
+      "kind": "function",
+      "language": "python",
+      "path": "pkg/shadowed.py",
+      "qname": "pkg.shadowed.use"
+    },
+    {
+      "kind": "module",
+      "language": "python",
+      "path": "pkg/star_target.py",
+      "qname": "pkg.star_target"
+    },
+    {
+      "kind": "function",
+      "language": "python",
+      "path": "pkg/star_target.py",
+      "qname": "pkg.star_target.star_fn"
+    },
+    {
+      "kind": "module",
+      "language": "python",
+      "path": "pkg/star_user.py",
+      "qname": "pkg.star_user"
+    },
+    {
+      "kind": "function",
+      "language": "python",
+      "path": "pkg/star_user.py",
+      "qname": "pkg.star_user.use_star"
+    },
+    {
+      "kind": "module",
+      "language": "python",
+      "path": "pkg/util.py",
+      "qname": "pkg.util"
+    },
+    {
+      "kind": "function",
+      "language": "python",
+      "path": "pkg/util.py",
+      "qname": "pkg.util.helper"
+    },
+    {
+      "kind": "function",
+      "language": "python",
+      "path": "pkg/util.py",
+      "qname": "pkg.util.run"
+    },
+    {
+      "kind": "file",
+      "language": "",
+      "path": "pkg/__init__.py",
+      "qname": "pkg/__init__.py"
+    },
+    {
+      "kind": "file",
+      "language": "",
+      "path": "pkg/core.py",
+      "qname": "pkg/core.py"
+    },
+    {
+      "kind": "file",
+      "language": "",
+      "path": "pkg/cycle_a.py",
+      "qname": "pkg/cycle_a.py"
+    },
+    {
+      "kind": "file",
+      "language": "",
+      "path": "pkg/cycle_b.py",
+      "qname": "pkg/cycle_b.py"
+    },
+    {
+      "kind": "file",
+      "language": "",
+      "path": "pkg/dup_a.py",
+      "qname": "pkg/dup_a.py"
+    },
+    {
+      "kind": "file",
+      "language": "",
+      "path": "pkg/dup_b.py",
+      "qname": "pkg/dup_b.py"
+    },
+    {
+      "kind": "file",
+      "language": "",
+      "path": "pkg/rel.py",
+      "qname": "pkg/rel.py"
+    },
+    {
+      "kind": "file",
+      "language": "",
+      "path": "pkg/shadowed.py",
+      "qname": "pkg/shadowed.py"
+    },
+    {
+      "kind": "file",
+      "language": "",
+      "path": "pkg/star_target.py",
+      "qname": "pkg/star_target.py"
+    },
+    {
+      "kind": "file",
+      "language": "",
+      "path": "pkg/star_user.py",
+      "qname": "pkg/star_user.py"
+    },
+    {
+      "kind": "file",
+      "language": "",
+      "path": "pkg/util.py",
+      "qname": "pkg/util.py"
+    }
+  ],
+  "symbols_mode": "all"
+}

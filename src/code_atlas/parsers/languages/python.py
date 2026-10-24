@@ -181,9 +181,20 @@ class _PyExtractor:
                     mod is None or c.id != mod.id
                 ):
                     target, alias = self._import_pair(c)
-                    full = f"{base}.{target}" if base else target
+                    # base relativo termina em "." — sem separador extra
+                    # (`from . import u` → `.u`, não `..u`)
+                    full = (
+                        f"{base}{target}" if base.endswith(".")
+                        else f"{base}.{target}" if base else target
+                    )
                     binding = alias or target.split(".")[-1]
                     self._emit_import(self.module, full, binding, full, c, scope)
+                elif c.type == "wildcard_import":
+                    # `from base import *` — aresta de dependência real
+                    # no módulo, sem binding de membro (lf-0024).
+                    self._emit_import(
+                        self.module, base or "*", "*", base or "*", c, scope
+                    )
 
     def _import_pair(self, node: Node) -> tuple[str, str | None]:
         if node.type == "aliased_import":

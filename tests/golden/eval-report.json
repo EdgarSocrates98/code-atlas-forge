@@ -1,0 +1,476 @@
+{
+  "corpora": [
+    {
+      "false_positive": {
+        "n": 0,
+        "rate": 0.0
+      },
+      "false_positive_edges": [],
+      "missing_relations": 0,
+      "missing_symbols": 0,
+      "name": "edge",
+      "relations": {
+        "all": {
+          "fn": 0,
+          "fp": 0,
+          "precision": 1.0,
+          "recall": 1.0,
+          "tp": 12
+        },
+        "mode": "all",
+        "resolved": {
+          "fn": 0,
+          "fp": 0,
+          "precision": 1.0,
+          "recall": 1.0,
+          "tp": 6
+        },
+        "syntactic": {
+          "fn": 0,
+          "fp": 0,
+          "precision": 1.0,
+          "recall": 1.0,
+          "tp": 6
+        }
+      },
+      "resolver_metrics": {
+        "syntactic-scope-v1": {
+          "fn": 6,
+          "fp": 0,
+          "precision": 1.0,
+          "recall": 0.5,
+          "tp": 6
+        },
+        "tree-sitter-python": {
+          "fn": 6,
+          "fp": 0,
+          "precision": 1.0,
+          "recall": 0.5,
+          "tp": 6
+        }
+      },
+      "status_rates": {
+        "ambiguous": {
+          "n": 0,
+          "rate": 0.0
+        },
+        "external": {
+          "n": 0,
+          "rate": 0.0
+        },
+        "resolved": {
+          "n": 12,
+          "rate": 1.0
+        },
+        "total": 12,
+        "unresolved": {
+          "n": 0,
+          "rate": 0.0
+        }
+      },
+      "symbols": {
+        "fn": 0,
+        "fp": 0,
+        "precision": 1.0,
+        "recall": 1.0,
+        "tp": 19
+      },
+      "unexpected_relations": 0,
+      "unexpected_symbols": 0
+    },
+    {
+      "false_positive": {},
+      "false_positive_edges": [],
+      "missing_relations": 0,
+      "missing_symbols": 0,
+      "name": "large",
+      "relations": {
+        "all": {
+          "fn": 0,
+          "fp": 258,
+          "precision": 0.011494252873563218,
+          "recall": 1.0,
+          "tp": 3
+        },
+        "mode": "subset",
+        "resolved": {
+          "fn": 0,
+          "fp": 18,
+          "precision": 0.14285714285714285,
+          "recall": 1.0,
+          "tp": 3
+        },
+        "syntactic": {
+          "fn": 0,
+          "fp": 240,
+          "precision": 0.0,
+          "recall": 1.0,
+          "tp": 0
+        }
+      },
+      "resolver_metrics": {
+        "syntactic-scope-v1": {
+          "fn": 2,
+          "fp": 0,
+          "precision": 1.0,
+          "recall": 0.3333333333333333,
+          "tp": 1
+        },
+        "tree-sitter-python": {
+          "fn": 1,
+          "fp": 258,
+          "precision": 0.007692307692307693,
+          "recall": 0.6666666666666666,
+          "tp": 2
+        }
+      },
+      "status_rates": {
+        "ambiguous": {
+          "n": 0,
+          "rate": 0.0
+        },
+        "external": {
+          "n": 0,
+          "rate": 0.0
+        },
+        "resolved": {
+          "n": 261,
+          "rate": 1.0
+        },
+        "total": 261,
+        "unresolved": {
+          "n": 0,
+          "rate": 0.0
+        }
+      },
+      "symbols": {
+        "mode": "subset",
+        "recall": 1.0
+      },
+      "unexpected_relations": 0,
+      "unexpected_symbols": 0
+    },
+    {
+      "false_positive": {
+        "n": 0,
+        "rate": 0.0
+      },
+      "false_positive_edges": [],
+      "missing_relations": 0,
+      "missing_symbols": 0,
+      "name": "py_advanced",
+      "relations": {
+        "all": {
+          "fn": 0,
+          "fp": 0,
+          "precision": 1.0,
+          "recall": 1.0,
+          "tp": 45
+        },
+        "mode": "all",
+        "resolved": {
+          "fn": 0,
+          "fp": 0,
+          "precision": 1.0,
+          "recall": 1.0,
+          "tp": 27
+        },
+        "syntactic": {
+          "fn": 0,
+          "fp": 0,
+          "precision": 1.0,
+          "recall": 1.0,
+          "tp": 18
+        }
+      },
+      "resolver_metrics": {
+        "syntactic-scope-v1": {
+          "fn": 33,
+          "fp": 0,
+          "precision": 1.0,
+          "recall": 0.26666666666666666,
+          "tp": 12
+        },
+        "tree-sitter-python": {
+          "fn": 12,
+          "fp": 0,
+          "precision": 1.0,
+          "recall": 0.7333333333333333,
+          "tp": 33
+        }
+      },
+      "status_rates": {
+        "ambiguous": {
+          "n": 1,
+          "rate": 0.022222222222222223
+        },
+        "external": {
+          "n": 0,
+          "rate": 0.0
+        },
+        "resolved": {
+          "n": 42,
+          "rate": 0.9333333333333333
+        },
+        "total": 45,
+        "unresolved": {
+          "n": 2,
+          "rate": 0.044444444444444446
+        }
+      },
+      "symbols": {
+        "fn": 0,
+        "fp": 0,
+        "precision": 1.0,
+        "recall": 1.0,
+        "tp": 39
+      },
+      "unexpected_relations": 0,
+      "unexpected_symbols": 0
+    },
+    {
+      "false_positive": {
+        "n": 0,
+        "rate": 0.0
+      },
+      "false_positive_edges": [],
+      "missing_relations": 0,
+      "missing_symbols": 0,
+      "name": "py_core",
+      "relations": {
+        "all": {
+          "fn": 0,
+          "fp": 0,
+          "precision": 1.0,
+          "recall": 1.0,
+          "tp": 21
+        },
+        "mode": "all",
+        "resolved": {
+          "fn": 0,
+          "fp": 0,
+          "precision": 1.0,
+          "recall": 1.0,
+          "tp": 11
+        },
+        "syntactic": {
+          "fn": 0,
+          "fp": 0,
+          "precision": 1.0,
+          "recall": 1.0,
+          "tp": 10
+        }
+      },
+      "resolver_metrics": {
+        "syntactic-scope-v1": {
+          "fn": 17,
+          "fp": 0,
+          "precision": 1.0,
+          "recall": 0.19047619047619047,
+          "tp": 4
+        },
+        "tree-sitter-python": {
+          "fn": 4,
+          "fp": 0,
+          "precision": 1.0,
+          "recall": 0.8095238095238095,
+          "tp": 17
+        }
+      },
+      "status_rates": {
+        "ambiguous": {
+          "n": 0,
+          "rate": 0.0
+        },
+        "external": {
+          "n": 0,
+          "rate": 0.0
+        },
+        "resolved": {
+          "n": 19,
+          "rate": 0.9047619047619048
+        },
+        "total": 21,
+        "unresolved": {
+          "n": 2,
+          "rate": 0.09523809523809523
+        }
+      },
+      "symbols": {
+        "fn": 0,
+        "fp": 0,
+        "precision": 1.0,
+        "recall": 1.0,
+        "tp": 16
+      },
+      "unexpected_relations": 0,
+      "unexpected_symbols": 0
+    },
+    {
+      "false_positive": {
+        "n": 0,
+        "rate": 0.0
+      },
+      "false_positive_edges": [],
+      "missing_relations": 0,
+      "missing_symbols": 0,
+      "name": "ts_advanced",
+      "relations": {
+        "all": {
+          "fn": 0,
+          "fp": 0,
+          "precision": 1.0,
+          "recall": 1.0,
+          "tp": 26
+        },
+        "mode": "all",
+        "resolved": {
+          "fn": 0,
+          "fp": 0,
+          "precision": 1.0,
+          "recall": 1.0,
+          "tp": 13
+        },
+        "syntactic": {
+          "fn": 0,
+          "fp": 0,
+          "precision": 1.0,
+          "recall": 1.0,
+          "tp": 13
+        }
+      },
+      "resolver_metrics": {
+        "syntactic-scope-v1": {
+          "fn": 19,
+          "fp": 0,
+          "precision": 1.0,
+          "recall": 0.2692307692307692,
+          "tp": 7
+        },
+        "tree-sitter-typescript": {
+          "fn": 7,
+          "fp": 0,
+          "precision": 1.0,
+          "recall": 0.7307692307692307,
+          "tp": 19
+        }
+      },
+      "status_rates": {
+        "ambiguous": {
+          "n": 0,
+          "rate": 0.0
+        },
+        "external": {
+          "n": 0,
+          "rate": 0.0
+        },
+        "resolved": {
+          "n": 22,
+          "rate": 0.8461538461538461
+        },
+        "total": 26,
+        "unresolved": {
+          "n": 4,
+          "rate": 0.15384615384615385
+        }
+      },
+      "symbols": {
+        "fn": 0,
+        "fp": 0,
+        "precision": 1.0,
+        "recall": 1.0,
+        "tp": 23
+      },
+      "unexpected_relations": 0,
+      "unexpected_symbols": 0
+    },
+    {
+      "false_positive": {
+        "n": 0,
+        "rate": 0.0
+      },
+      "false_positive_edges": [],
+      "missing_relations": 0,
+      "missing_symbols": 0,
+      "name": "ts_app",
+      "relations": {
+        "all": {
+          "fn": 0,
+          "fp": 0,
+          "precision": 1.0,
+          "recall": 1.0,
+          "tp": 14
+        },
+        "mode": "all",
+        "resolved": {
+          "fn": 0,
+          "fp": 0,
+          "precision": 1.0,
+          "recall": 1.0,
+          "tp": 7
+        },
+        "syntactic": {
+          "fn": 0,
+          "fp": 0,
+          "precision": 1.0,
+          "recall": 1.0,
+          "tp": 7
+        }
+      },
+      "resolver_metrics": {
+        "syntactic-scope-v1": {
+          "fn": 11,
+          "fp": 0,
+          "precision": 1.0,
+          "recall": 0.21428571428571427,
+          "tp": 3
+        },
+        "tree-sitter-tsx": {
+          "fn": 11,
+          "fp": 0,
+          "precision": 1.0,
+          "recall": 0.21428571428571427,
+          "tp": 3
+        },
+        "tree-sitter-typescript": {
+          "fn": 6,
+          "fp": 0,
+          "precision": 1.0,
+          "recall": 0.5714285714285714,
+          "tp": 8
+        }
+      },
+      "status_rates": {
+        "ambiguous": {
+          "n": 0,
+          "rate": 0.0
+        },
+        "external": {
+          "n": 0,
+          "rate": 0.0
+        },
+        "resolved": {
+          "n": 14,
+          "rate": 1.0
+        },
+        "total": 14,
+        "unresolved": {
+          "n": 0,
+          "rate": 0.0
+        }
+      },
+      "symbols": {
+        "fn": 0,
+        "fp": 0,
+        "precision": 1.0,
+        "recall": 1.0,
+        "tp": 12
+      },
+      "unexpected_relations": 0,
+      "unexpected_symbols": 0
+    }
+  ],
+  "platform": "Linux-7.0.0-38-generic-x86_64-with-glibc2.39",
+  "python": "3.12.3",
+  "tool": "code-atlas eval-harness"
+}

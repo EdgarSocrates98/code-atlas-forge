@@ -66,6 +66,13 @@ def probe_git(root: Path, git_available: bool | None = None) -> GitInfo:
     git_dir = _out(["rev-parse", "--git-dir"])
     common = _out(["rev-parse", "--git-common-dir"])
     is_worktree = bool(git_dir and common and git_dir != common) or not (root / ".git").is_dir()
+    # lf-0021: identidade lógica — remote URL preferida; commit raiz como
+    # fallback (repo sem remote). ``rev-list --max-parents=0`` pode ter
+    # múltiplas raízes em históricos merged — ordenado para estabilidade.
+    remote_url = _out(["config", "--get", "remote.origin.url"])
+    roots = sorted(
+        x for x in _out(["rev-list", "--max-parents=0", "HEAD"]).splitlines() if x
+    )
     return GitInfo(
         available=True,
         is_repo=True,
@@ -73,6 +80,8 @@ def probe_git(root: Path, git_available: bool | None = None) -> GitInfo:
         head_sha=head,
         dirty=dirty,
         is_worktree=is_worktree,
+        remote_url=remote_url,
+        root_commit=roots[0] if roots else "",
     )
 
 
@@ -84,14 +93,13 @@ def _file_open_flags() -> int:
     return flags
 
 
-def _hash_file(path: Path, chunk_size: int, root_real: Path) -> str | None:
-    """SHA-256 por streaming; None em erro de leitura ou escape.
+def _open_verified(path: Path, root_real: Path) -> int | None:
+    """Abre `path` de forma defensiva; fd ou None em escape/erro.
 
-    Mitigação TOCTOU proporcional (Phase 0 / P1.1): resolve o caminho,
-    reconfere contenção na raiz e abre o alvo via ``os.open`` com
-    ``O_NOFOLLOW`` — se o último componente virar symlink entre resolve e
-    open, a abertura falha em vez de seguir o link. ``O_NONBLOCK`` evita
-    bloqueio em FIFOs; ``fstat`` garante arquivo regular.
+    Resolve o caminho, reconfere contenção na raiz e abre via ``os.open``
+    com ``O_NOFOLLOW`` — se o último componente virar symlink entre
+    resolve e open, a abertura falha em vez de seguir o link.
+    ``O_NONBLOCK`` evita bloqueio em FIFOs; ``fstat`` garante regular.
     """
     try:
         resolved = path.resolve(strict=True)
@@ -102,18 +110,67 @@ def _hash_file(path: Path, chunk_size: int, root_real: Path) -> str | None:
         return None
     try:
         if not stat.S_ISREG(os.fstat(fd).st_mode):
+            os.close(fd)
             return None
+    except OSError:
+        with contextlib.suppress(OSError):
+            os.close(fd)
+        return None
+    # O_NONBLOCK só serve para a janela open→fstat (não travar em FIFO);
+    # em arquivo regular ele torna a leitura racy — EAGAIN aparece sob
+    # pressão de scheduler e vira sha256=None intermitente. Limpa antes
+    # de devolver (no-op onde set_blocking não existe).
+    with contextlib.suppress(OSError, AttributeError):
+        os.set_blocking(fd, True)
+    return fd
+
+
+def read_file_verified(path: Path, root_real: Path) -> bytes | None:
+    """Lê bytes com a mesma disciplina de ``_hash_file`` (lf-0015).
+
+    Usado pelo coordinator para garantir que o conteúdo parseado veio do
+    mesmo caminho verificado — nunca de symlink fora da raiz.
+    """
+    fd = _open_verified(path, root_real)
+    if fd is None:
+        return None
+    try:
+        with os.fdopen(fd, "rb") as fh:
+            fd = -1  # posse transferida para fh — finally não fecha
+            return fh.read()
+    except OSError:
+        return None
+    finally:
+        if fd >= 0:
+            with contextlib.suppress(OSError):
+                os.close(fd)
+
+
+def _hash_file(path: Path, chunk_size: int, root_real: Path) -> str | None:
+    """SHA-256 por streaming; None em erro de leitura ou escape.
+
+    Mitigação TOCTOU proporcional (Phase 0 / P1.1): resolve o caminho,
+    reconfere contenção na raiz e abre o alvo via ``os.open`` com
+    ``O_NOFOLLOW`` — se o último componente virar symlink entre resolve e
+    open, a abertura falha em vez de seguir o link. ``O_NONBLOCK`` evita
+    bloqueio em FIFOs; ``fstat`` garante arquivo regular.
+    """
+    fd = _open_verified(path, root_real)
+    if fd is None:
+        return None
+    try:
         digest = hashlib.sha256()
         with os.fdopen(fd, "rb") as fh:
+            fd = -1  # posse transferida para fh — finally não fecha
             while chunk := fh.read(chunk_size):
                 digest.update(chunk)
         return digest.hexdigest()
     except OSError:
         return None
     finally:
-        # fdopen assume a posse do fd quando tem sucesso; EBADF é esperado.
-        with contextlib.suppress(OSError):
-            os.close(fd)
+        if fd >= 0:
+            with contextlib.suppress(OSError):
+                os.close(fd)
 
 
 def _rel_posix(root: Path, path: Path) -> str:

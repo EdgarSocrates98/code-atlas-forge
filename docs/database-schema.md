@@ -1,8 +1,10 @@
-# Database Schema — Code Atlas (schema_version 3)
+# Database Schema — Code Atlas (schema_version 5)
 
 Fonte de verdade: `src/code_atlas/storage/migrations.py` (v1 core,
-v2 FTS, v3 índices snapshot-scoped). Este documento espelha o que as
-migrações criam — qualquer drift aqui é bug.
+v2 FTS, v3 índices snapshot-scoped, v4 cache de ParseResult, v5
+identidade lógica + dirty).
+Este documento espelha o que as migrações criam — qualquer drift aqui
+é bug.
 
 ## schema_migrations
 
@@ -15,12 +17,19 @@ migrações criam — qualquer drift aqui é bug.
 
 ## repositories
 
-`id PK`, `origin`, `root_handle` (path resolvido — **limitação C1: mover a
-pasta cria novo repo**), `git_provider`, `default_branch`, `created_at`.
+`id PK`, `origin`, `root_handle` (path resolvido — **diagnóstico desde
+v5**, atualizado a cada index), `git_provider`, `default_branch`,
+`created_at`, **`identity_key` (v5, UNIQUE)**.
+
+`identity_key` (lf-0021): identidade lógica — `git-remote:<url>` →
+`git-root:<sha raiz>` → `path:<root>`. Realocar o diretório físico
+mantém o repo; dois checkouts do mesmo remote compartilham o repo.
+Rows pré-v5 recebem `path:<root_handle>` na migração.
 
 ## snapshots (máquina de estados BUILDING→READY | FAILED, READY→STALE)
 
 `id PK`, `repository_id FK→repositories`, `git_ref`, `commit_sha NULL`,
+**`dirty` INTEGER (v5, default 0)** — worktree diverge do `commit_sha`,
 `worktree_digest` (sha256 do manifest canônico), `analyzer_versions` (JSON),
 `parent_snapshot_id FK→snapshots NULL`, `status CHECK('BUILDING','READY','FAILED','STALE')`, `error`, `created_at`.
 
@@ -91,6 +100,38 @@ v1: `idx_snapshots_repo_status(repository_id,status)`,
 v3 (snapshot-scoped, Cycle 2): `idx_relations_snapshot(snapshot_id)`,
 `idx_occurrences_snapshot_symbol(snapshot_id,logical_symbol_id)`,
 `idx_evidence_snapshot(snapshot_id)`.
+
+v4 (lf-0020): `idx_cache_repo_path(repository_id, path)` +
+constraint `UNIQUE(repository_id, path, content_sha256, language,
+parser_version, grammar_version, extractor_version, resolver_version,
+builder_version, config_digest)`.
+
+v5 (lf-0021): `uq_repositories_identity(identity_key)` UNIQUE — chave
+da unicidade lógica e do `INSERT OR IGNORE` race-safe.
+
+## parse_result_cache (v4)
+
+Cache versionado de `ParseResult` por arquivo (lf-0020) — **não
+pertence a snapshots** (isolamento: cada snapshot materializa linhas
+próprias; o cache só acelera a re-obtenção do artefato de parse).
+
+| coluna | tipo | nota |
+|---|---|---|
+| id | INTEGER PK | |
+| repository_id | FK→repositories | |
+| path | TEXT | rel POSIX |
+| content_sha256 | TEXT | identidade de conteúdo |
+| language / parser_version / grammar_version / extractor_version / resolver_version / builder_version / config_digest | TEXT | **chave de validade completa** — qualquer campo novo invalida |
+| payload | TEXT | ParseResult serializado em JSON (sem pickle) |
+| payload_sha256 | TEXT | integridade na leitura — diverge → miss |
+| last_used_snapshot_id | INTEGER NULL | GC: retenção nos últimos N READY |
+| hit_count | INTEGER | telemetria |
+| created_at | TEXT | utc |
+
+GC (dentro da transação de publicação): remove entradas cujo
+`last_used_snapshot_id` é anterior ao N-ésimo READY mais recente
+(`KEEP_SNAPSHOTS=5`) e limita a `MAX_ENTRIES=50_000` por repo (eviction
+LRU por `last_used_snapshot_id`).
 
 ## Pragmas
 

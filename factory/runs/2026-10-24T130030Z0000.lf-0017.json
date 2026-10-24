@@ -1,0 +1,15 @@
+{
+  "agent": "codex",
+  "command": [
+    "codex",
+    "exec",
+    "$(cat /home/edgar/Documentos/projetos/forjas/code-atlas-forge/factory/prompts/lf-0017.implement.codex.md)"
+  ],
+  "created_at": "2026-10-24T13:00:30+00:00",
+  "id": "lf-0017",
+  "prompt_path": "/home/edgar/Documentos/projetos/forjas/code-atlas-forge/factory/prompts/lf-0017.implement.codex.md",
+  "spec_path": "/home/edgar/Documentos/projetos/forjas/code-atlas-forge/factory/specs/active/lf-0017.md",
+  "spec_sha256": "a0fbb35eae28b52a7e8b8726067846118a830d15ca1ade07d40092e3ecb888ea",
+  "status": "planned",
+  "title": "Cycle 3 Phase 2 \u2014 SCIP index import (stdlib protobuf decoder, opt-in)"
+}

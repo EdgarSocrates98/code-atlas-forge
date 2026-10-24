@@ -9,6 +9,7 @@ versões declaradas via ``importlib.metadata``.
 from __future__ import annotations
 
 import importlib.metadata
+import threading
 import warnings
 from collections.abc import Callable, Iterator
 from dataclasses import dataclass
@@ -31,11 +32,28 @@ class LanguageSpec:
         return _pkg_version(self.grammar_dist)
 
 
+_version_cache: dict[str, str] = {}
+_version_lock = threading.Lock()
+
+
 def _pkg_version(dist: str) -> str:
-    try:
-        return importlib.metadata.version(dist)
-    except importlib.metadata.PackageNotFoundError:
-        return "unknown"
+    """Versão do pacote — memoizada com lock (thread-safe).
+
+    ``importlib.metadata.version`` não é segura no primeiro acesso
+    concorrente (leitura de METADATA sob threads → OSError); versões
+    de pacote são estáveis por processo, então o cache é correto.
+    """
+    cached = _version_cache.get(dist)
+    if cached is None:
+        with _version_lock:
+            cached = _version_cache.get(dist)
+            if cached is None:
+                try:
+                    cached = importlib.metadata.version(dist)
+                except importlib.metadata.PackageNotFoundError:
+                    cached = "unknown"
+                _version_cache[dist] = cached
+    return cached
 
 
 def parser_version() -> str:

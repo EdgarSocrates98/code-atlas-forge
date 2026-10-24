@@ -18,9 +18,10 @@ from code_atlas.contracts.enums import SnapshotStatus
 from code_atlas.contracts.models import Snapshot
 from code_atlas.storage.store import Store
 
-SCHEMA_VERSION = "1"
+SCHEMA_VERSION = "2"
 DEFAULT_LIMIT = 50
 MAX_LIMIT = 500
+MAX_DEPTH = 8  # lf-0022: teto duro de --depth (traversal limitado)
 
 
 @dataclass(frozen=True)
@@ -53,6 +54,21 @@ class StructuralSearch:
 
     def repo_for_root(self, root_handle: str) -> int | None:
         return self._store.repository_id_for(root_handle)
+
+    def repository_info(self, repo_id: int) -> dict[str, Any] | None:
+        """{id, root_handle, identity_key} para o envelope (lf-0022)."""
+        row = self._conn.execute(
+            "SELECT id, root_handle, identity_key FROM repositories"
+            " WHERE id = ?",
+            (repo_id,),
+        ).fetchone()
+        if row is None:
+            return None
+        return {
+            "id": int(row["id"]),
+            "root_handle": row["root_handle"],
+            "identity_key": row["identity_key"],
+        }
 
     def resolve_snapshot(
         self, repo_id: int, snapshot_id: int | None
@@ -182,20 +198,24 @@ class StructuralSearch:
         limit: int,
         offset: int,
     ) -> tuple[Page | None, str]:
-        """Relações tocando o símbolo (from ou to via occurrences)."""
+        """Arestas **entrantes** do símbolo (lf-0022: ``o2`` é o símbolo).
+
+        Default: tipos REFERENCES+CALLS; ``relation_type`` filtra outro
+        tipo explicitamente. ``ambiguous`` permanece ``ambiguous`` —
+        nunca promovido a ``resolved``.
+        """
         detail = self.symbol_detail(repo_id, snapshot_id, ident)
         if detail is None:
             return None, f"symbol {ident!r} not found in repository"
         sym_id = int(detail["symbol_id"])
 
-        conds = [
-            "r.snapshot_id = ?",
-            "(o1.logical_symbol_id = ? OR o2.logical_symbol_id = ?)",
-        ]
-        params: list[object] = [snapshot_id, sym_id, sym_id]
+        conds = ["r.snapshot_id = ?", "o2.logical_symbol_id = ?"]
+        params: list[object] = [snapshot_id, sym_id]
         if relation_type:
             conds.append("r.type = ?")
             params.append(relation_type)
+        else:
+            conds.append("r.type IN ('REFERENCES','CALLS')")
         where = " AND ".join(conds)
 
         # ver nota em search_symbols: fragments constantes + binds
@@ -318,6 +338,142 @@ class StructuralSearch:
             ],
             "counts": {"nodes": len(nodes), "edges": len(edges)},
         }
+
+    def definitions(
+        self, repo_id: int, snapshot_id: int, ident: str
+    ) -> dict[str, Any] | None:
+        """Sites de definição do símbolo (path + span) — lf-0022.
+
+        Ocorrências do símbolo lógico são seus pontos de definição;
+        inclui ``parse_status`` para honestidade do site.
+        """
+        detail = self.symbol_detail(repo_id, snapshot_id, ident)
+        if detail is None:
+            return None
+        return {
+            "symbol_id": detail["symbol_id"],
+            "qualified_name": detail["qualified_name"],
+            "kind": detail["kind"],
+            "language": detail["language"],
+            "definitions": [
+                {
+                    "path": o["path"],
+                    "line": o["line"],
+                    "col": o["col"],
+                    "parse_status": o["parse_status"],
+                }
+                for o in detail["occurrences"]
+            ],
+        }
+
+    def dependencies(
+        self,
+        repo_id: int,
+        snapshot_id: int,
+        ident: str,
+        depth: int,
+        limit: int,
+        offset: int,
+    ) -> tuple[dict[str, Any] | None, str]:
+        """Arestas **saíntes** do símbolo com traversal BFS — lf-0022.
+
+        ``depth`` já chega clampado (1..MAX_DEPTH). Ciclo-safe:
+        ``visited`` de symbol_ids impede re-expansão. ``truncated`` é
+        verdadeiro quando o budget de nós (``limit`` por página acumula
+        ``MAX_LIMIT``) ou o ``offset`` corta o resultado. Arestas
+        ``ambiguous``/``unresolved`` aparecem com seu status real —
+        nunca promovidas a ``resolved``.
+        """
+        detail = self.symbol_detail(repo_id, snapshot_id, ident)
+        if detail is None:
+            return None, f"symbol {ident!r} not found in repository"
+        start_id = int(detail["symbol_id"])
+
+        node_budget = MAX_LIMIT
+        visited = {start_id}
+        frontier = {start_id}
+        edges: list[dict[str, Any]] = []
+        truncated = False
+        edge_sql = (
+            "SELECT r.id, r.type, r.resolution_status, r.confidence_class,"
+            " r.resolver, r.to_unresolved, r.evidence_ids,"
+            " sf.qualified_name AS from_qname, st.id AS to_symbol_id,"
+            " st.qualified_name AS to_qname,"
+            " ff.relative_path AS from_path, ft.relative_path AS to_path,"
+            " o1.line AS from_line, o2.line AS to_line"
+            "  FROM relations r"
+            "  JOIN symbol_occurrences o1 ON o1.id = r.from_id"
+            "  JOIN symbols sf ON sf.id = o1.logical_symbol_id"
+            "  JOIN source_files ff ON ff.id = o1.source_file_id"
+            "  LEFT JOIN symbol_occurrences o2 ON o2.id = r.to_id"
+            "  LEFT JOIN symbols st ON st.id = o2.logical_symbol_id"
+            "  LEFT JOIN source_files ft ON ft.id = o2.source_file_id"
+            " WHERE r.snapshot_id = ? AND o1.logical_symbol_id = ?"
+            "   AND r.type IN ('IMPORTS','CALLS','REFERENCES','EXTENDS',"
+            "                  'IMPLEMENTS')"
+            " ORDER BY r.id"
+        )
+        for level in range(1, depth + 1):
+            if not frontier or truncated:
+                break
+            next_frontier: set[int] = set()
+            for sym_id in sorted(frontier):
+                rows = self._conn.execute(
+                    edge_sql, (snapshot_id, sym_id)
+                ).fetchall()
+                for r in rows:
+                    if len(edges) >= node_budget:
+                        truncated = True
+                        break
+                    to_sid = r["to_symbol_id"]
+                    if to_sid is not None and int(to_sid) not in visited:
+                        visited.add(int(to_sid))
+                        next_frontier.add(int(to_sid))
+                    edges.append(
+                        {
+                            "relation_id": int(r["id"]),
+                            "depth": level,
+                            "type": r["type"],
+                            "from": {
+                                "symbol": r["from_qname"],
+                                "path": r["from_path"],
+                                "line": r["from_line"],
+                            },
+                            "to": (
+                                {
+                                    "symbol": r["to_qname"],
+                                    "symbol_id": int(to_sid),
+                                    "path": r["to_path"],
+                                    "line": r["to_line"],
+                                }
+                                if r["to_qname"] is not None
+                                else None
+                            ),
+                            "to_unresolved": r["to_unresolved"],
+                            "resolution_status": r["resolution_status"],
+                            "confidence_class": r["confidence_class"],
+                            "resolver": r["resolver"],
+                            "evidence_ids": json.loads(r["evidence_ids"]),
+                        }
+                    )
+                if truncated:
+                    break
+            frontier = next_frontier
+        total = len(edges)
+        page_items = edges[offset : offset + limit]
+        truncated = truncated or (offset + len(page_items) < total)
+        return (
+            {
+                "symbol_id": start_id,
+                "qualified_name": detail["qualified_name"],
+                "depth": depth,
+                "total": total,
+                "truncated": truncated,
+                "results": page_items,
+                "visited_symbols": len(visited),
+            },
+            "",
+        )
 
 
 def _escape_like(term: str) -> str:

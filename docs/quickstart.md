@@ -76,11 +76,43 @@ Filtros disponíveis: `--language`, `--kind`, `--path`, `--snapshot`,
 `--relation-type`, `--limit`/`--offset`. Detalhes e semântica
 (sintático vs resolvido): `docs/structural-search.md`.
 
-## O que o Cycle 2 **não** faz
+## 7. Consultas semânticas (Cycle 3, envelope v2)
+
+Todo comando de consulta devolve envelope `{tool, version,
+schema_version: "2", command, snapshot_id, repository{id, root_handle,
+identity_key}, query, results, total, truncated, diagnostics}` —
+campos aditivos, nunca quebra o v1.
+
+```bash
+$ code-atlas definitions pkg.util.helper --root demo --json
+{..., "results": [{"path": "pkg/util.py", "line": 5, "col": 0,
+"parse_status": "parsed"}]}
+
+$ code-atlas dependencies pkg.app.main --depth 2 --root demo --json
+{..., "depth": 2, "visited_symbols": 4, "results": [{"depth": 1,
+"type": "CALLS", "to": {"symbol": "pkg.mid.mid"}, ...}]}
+
+$ code-atlas index-plan . --json   # dry-run, zero writes
+{..., "plan": {"incremental": true, "counts": {"reuse": 4},
+"files": [{"path": "pkg/util.py", "action": "reuse", ...}]}}
+```
+
+- `references` é **incoming-only** (o símbolo é o alvo; default
+  REFERENCES+CALLS, `--relation-type` filtra outro tipo).
+- `dependencies`: traversal BFS limitado — `--depth N` (default 1,
+  teto `MAX_DEPTH=8`), ciclo-safe, `truncated` honesto.
+- `index`: incremental é o **default** — `--full` força rebuild
+  completo; o payload inclui `plan` (counts de reparse/reuse).
+- `index-plan`: dry-run que renderiza o `IndexPlan` sem tocar no DB.
+- `ambiguous` nunca aparece como `resolved` — status sai verbatim.
+
+## O que o Cycle 3 **não** faz
 
 `impact`, `context`, `mcp`, `serve`, `ui` — não existem e não aparecem no
-`--help`. Resolução semântica profunda (tipos inferidos, overloads reais)
-fica para o Cycle 3 — aqui `resolved` significa "alvo único no snapshot".
+`--help`. Resolução syntactic não é type-checking (sem tipos inferidos,
+overloads reais, barrel reexports) — `ambiguous`/`unresolved`/`external`
+são fatos honestos. Resolvers SCIP/LSP sobem a cobertura, opt-in — ver
+`docs/semantic-resolution.md`.
 
 ## Troubleshooting
 

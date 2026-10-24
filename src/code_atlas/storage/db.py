@@ -30,6 +30,9 @@ def connect(path: Path | str, *, read_only: bool = False) -> sqlite3.Connection:
     if not read_only:
         conn.execute("PRAGMA journal_mode = WAL")
         conn.execute("PRAGMA synchronous = NORMAL")
+        # 64MiB de page cache — barateia a manutenção de índices/FKs
+        # durante persist de snapshots grandes (lf-0023, medido ~4%).
+        conn.execute("PRAGMA cache_size = -64000")
     conn.row_factory = sqlite3.Row
     return conn
 

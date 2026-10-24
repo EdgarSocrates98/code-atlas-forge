@@ -65,6 +65,8 @@ class GitInfo:
     head_sha: str = ""
     dirty: bool = False
     is_worktree: bool = False
+    remote_url: str = ""  # remote.origin.url — identidade preferida (lf-0021)
+    root_commit: str = ""  # 1º commit (max-parents=0) — identidade fallback
 
 
 @dataclass(frozen=True)

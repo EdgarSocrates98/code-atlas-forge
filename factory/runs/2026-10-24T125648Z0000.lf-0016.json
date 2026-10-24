@@ -1,0 +1,15 @@
+{
+  "agent": "codex",
+  "command": [
+    "codex",
+    "exec",
+    "$(cat /home/edgar/Documentos/projetos/forjas/code-atlas-forge/factory/prompts/lf-0016.implement.codex.md)"
+  ],
+  "created_at": "2026-10-24T12:56:48+00:00",
+  "id": "lf-0016",
+  "prompt_path": "/home/edgar/Documentos/projetos/forjas/code-atlas-forge/factory/prompts/lf-0016.implement.codex.md",
+  "spec_path": "/home/edgar/Documentos/projetos/forjas/code-atlas-forge/factory/specs/active/lf-0016.md",
+  "spec_sha256": "61daff90f8d20c1d1d68f09fa8cdc7f4b7edf8bbf1f4b4c3cf6b9a998877a7a3",
+  "status": "planned",
+  "title": "Cycle 3 Phase 1 \u2014 resolvers/ subsystem, versioned contracts, syntactic resolver"
+}

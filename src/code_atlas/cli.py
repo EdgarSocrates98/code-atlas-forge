@@ -31,10 +31,12 @@ from code_atlas.config import (
     resolve_root,
     write_config,
 )
+from code_atlas.discovery.identity import identity_key_for_root
 from code_atlas.discovery.scanner import probe_git
 from code_atlas.indexing import IndexCoordinator, IndexOutcome
 from code_atlas.search.structural import (
     DEFAULT_LIMIT,
+    MAX_DEPTH,
     MAX_LIMIT,
     SCHEMA_VERSION,
     SearchFilters,
@@ -172,7 +174,10 @@ def run_init(args: argparse.Namespace) -> int:
         return EXIT_ERROR
     conn = _open_db()
     try:
-        repo_id = Store(conn).get_or_create_repository(str(root))
+        # lf-0021: identidade lógica via probe git — sem scan completo.
+        repo_id = Store(conn).get_or_create_repository(
+            identity_key_for_root(root), str(root)
+        )
         conn.commit()
     finally:
         conn.close()
@@ -303,12 +308,19 @@ def run_index(args: argparse.Namespace) -> int:
         return EXIT_UNSAFE
     conn = _open_db()
     try:
-        outcome: IndexOutcome = IndexCoordinator(conn).index(target, force=args.full)
+        coord = IndexCoordinator(conn)
+        # lf-0022: incremental é o default — ``--full`` é o escape
+        # (force desliga o caminho incremental internamente).
+        outcome: IndexOutcome = coord.index(target, force=args.full, incremental=True)
+        plan_counts = (
+            coord.last_plan.counts() if coord.last_plan is not None else {}
+        )
     finally:
         conn.close()
     payload = {
         "tool": "code-atlas",
         "version": __version__,
+        "schema_version": SCHEMA_VERSION,
         "root": str(target),
         "snapshot_id": outcome.snapshot_id,
         "job_id": outcome.job_id,
@@ -319,6 +331,8 @@ def run_index(args: argparse.Namespace) -> int:
         "noop": outcome.noop,
         "error": outcome.error,
         "stats": outcome.stats,
+        "plan": plan_counts,
+        "diagnostics": [],
     }
     if args.json:
         print(json.dumps(payload))
@@ -345,8 +359,14 @@ def run_index(args: argparse.Namespace) -> int:
 
 def _search_context(
     args: argparse.Namespace,
-) -> tuple[sqlite3.Connection | None, int | None, int | None, str]:
-    """Resolve (conn, repo_id, snapshot) para comandos read-only.
+) -> tuple[
+    sqlite3.Connection | None,
+    int | None,
+    int | None,
+    dict[str, Any] | None,
+    str,
+]:
+    """Resolve (conn, repo_id, snapshot, repo_info) para read-only.
 
     Erros são impressos em stderr + JSON de erro; retorna tupla com
     ``None``s e mensagem quando indisponível — caller sai EXIT_ERROR.
@@ -358,12 +378,13 @@ def _search_context(
     repo_id = search.repo_for_root(root_handle)
     if repo_id is None:
         conn.close()
-        return None, None, None, f"no indexed repository at {root_handle}"
+        return None, None, None, None, f"no indexed repository at {root_handle}"
     snap, err = search.resolve_snapshot(repo_id, args.snapshot)
     if err or snap is None or snap.id is None:
         conn.close()
-        return None, None, None, err or "snapshot missing id"
-    return conn, repo_id, snap.id, ""
+        return None, None, None, None, err or "snapshot missing id"
+    repo_info = search.repository_info(repo_id) or {"id": repo_id}
+    return conn, repo_id, snap.id, repo_info, ""
 
 
 def _emit_error(args: argparse.Namespace, msg: str) -> int:
@@ -392,10 +413,12 @@ def _emit_page(args: argparse.Namespace, payload: dict[str, Any]) -> int:
 
 
 def run_search(args: argparse.Namespace) -> int:
-    conn, repo_id, snap_id, err = _search_context(args)
+    conn, repo_id, snap_id, repo_info, err = _search_context(args)
     if err:
         return _emit_error(args, err)
-    assert conn is not None and repo_id is not None and snap_id is not None
+    assert (
+        conn is not None and repo_id is not None and snap_id is not None
+    )
     try:
         search = StructuralSearch(conn)
         filters = SearchFilters(
@@ -410,6 +433,8 @@ def run_search(args: argparse.Namespace) -> int:
             "tool": "code-atlas", "version": __version__,
             "schema_version": SCHEMA_VERSION, "command": "search",
             "query": args.query, "snapshot_id": snap_id,
+            "repository": repo_info,
+            "diagnostics": [],
             "filters": {"language": args.language, "kind": args.kind,
                         "path": args.path_filter},
             "limit": limit, "offset": args.offset,
@@ -426,10 +451,12 @@ def run_search(args: argparse.Namespace) -> int:
 
 
 def run_symbol(args: argparse.Namespace) -> int:
-    conn, repo_id, snap_id, err = _search_context(args)
+    conn, repo_id, snap_id, repo_info, err = _search_context(args)
     if err:
         return _emit_error(args, err)
-    assert conn is not None and repo_id is not None and snap_id is not None
+    assert (
+        conn is not None and repo_id is not None and snap_id is not None
+    )
     try:
         search = StructuralSearch(conn)
         detail = search.symbol_detail(repo_id, snap_id, args.ident)
@@ -439,6 +466,7 @@ def run_symbol(args: argparse.Namespace) -> int:
             "tool": "code-atlas", "version": __version__,
             "schema_version": SCHEMA_VERSION, "command": "symbol",
             "snapshot_id": snap_id, "result": detail,
+            "repository": repo_info, "diagnostics": [],
             "_human": [
                 f"{detail['kind']} {detail['qualified_name']} "
                 f"({detail['language']})"
@@ -453,10 +481,12 @@ def run_symbol(args: argparse.Namespace) -> int:
 
 
 def run_references(args: argparse.Namespace) -> int:
-    conn, repo_id, snap_id, err = _search_context(args)
+    conn, repo_id, snap_id, repo_info, err = _search_context(args)
     if err:
         return _emit_error(args, err)
-    assert conn is not None and repo_id is not None and snap_id is not None
+    assert (
+        conn is not None and repo_id is not None and snap_id is not None
+    )
     try:
         search = StructuralSearch(conn)
         page, rerr = search.references(
@@ -470,6 +500,7 @@ def run_references(args: argparse.Namespace) -> int:
             "tool": "code-atlas", "version": __version__,
             "schema_version": SCHEMA_VERSION, "command": "references",
             "symbol": args.ident, "snapshot_id": snap_id,
+            "repository": repo_info, "diagnostics": [],
             "limit": clamp_limit(args.limit), "offset": args.offset,
             "total": page.total, "truncated": page.truncated,
             "results": results,
@@ -487,10 +518,12 @@ def run_references(args: argparse.Namespace) -> int:
 
 
 def run_graph(args: argparse.Namespace) -> int:
-    conn, repo_id, snap_id, err = _search_context(args)
+    conn, repo_id, snap_id, repo_info, err = _search_context(args)
     if err:
         return _emit_error(args, err)
-    assert conn is not None and repo_id is not None and snap_id is not None
+    assert (
+        conn is not None and repo_id is not None and snap_id is not None
+    )
     try:
         search = StructuralSearch(conn)
         filters = SearchFilters(
@@ -501,7 +534,8 @@ def run_graph(args: argparse.Namespace) -> int:
         payload: dict[str, Any] = {
             "tool": "code-atlas", "version": __version__,
             "schema_version": SCHEMA_VERSION, "command": "graph",
-            "snapshot_id": snap_id, "filters": {
+            "snapshot_id": snap_id,
+            "repository": repo_info, "diagnostics": [], "filters": {
                 "language": args.language, "kind": args.kind,
                 "path": args.path_filter, "relation_type": args.relation_type,
             },
@@ -514,6 +548,136 @@ def run_graph(args: argparse.Namespace) -> int:
     finally:
         conn.close()
     return _emit_page(args, payload)
+
+
+def run_index_plan(args: argparse.Namespace) -> int:
+    """``index-plan`` (lf-0022): dry-run — plano JSON, zero writes no DB."""
+    if args.path and ".." in Path(args.path).parts:
+        print("error: '..' traversal is not allowed in PATH", file=sys.stderr)
+        return EXIT_UNSAFE
+    target = (
+        Path(args.path).expanduser().resolve()
+        if args.path
+        else resolve_root(args.root)
+    )
+    if not target.is_dir():
+        print(f"error: {target} is not a directory", file=sys.stderr)
+        return EXIT_UNSAFE
+    conn = _open_db()
+    try:
+        plan, diag = IndexCoordinator(conn).plan_dry_run(target)
+    finally:
+        conn.close()
+    assert plan is not None  # dry-run sempre materializa um plano
+    payload: dict[str, Any] = {
+        "tool": "code-atlas", "version": __version__,
+        "schema_version": SCHEMA_VERSION, "command": "index-plan",
+        "root": str(target), "diagnostics": list(diag.values()),
+        "plan": plan.to_dict(),
+    }
+    if args.json:
+        print(json.dumps(payload))
+    else:
+        counts = plan.counts()
+        print("index-plan (dry-run): " + ", ".join(
+            f"{k}={v}" for k, v in sorted(counts.items())
+        ))
+        if diag:
+            for d in diag.values():
+                print(f"note: {d}")
+        for f in plan.files:
+            print(f"  {f.action:<22} {f.path}  ({f.reason})")
+    return EXIT_OK
+
+
+def run_definitions(args: argparse.Namespace) -> int:
+    """``definitions`` (lf-0022): sites de definição do símbolo."""
+    conn, repo_id, snap_id, repo_info, err = _search_context(args)
+    if err:
+        return _emit_error(args, err)
+    assert (
+        conn is not None and repo_id is not None and snap_id is not None
+    )
+    try:
+        search = StructuralSearch(conn)
+        out = search.definitions(repo_id, snap_id, args.ident)
+        if out is None:
+            return _emit_error(args, f"symbol {args.ident!r} not found")
+        defs = out["definitions"]
+        payload: dict[str, Any] = {
+            "tool": "code-atlas", "version": __version__,
+            "schema_version": SCHEMA_VERSION, "command": "definitions",
+            "query": args.ident, "snapshot_id": snap_id,
+            "repository": repo_info, "diagnostics": [],
+            "symbol_id": out["symbol_id"],
+            "qualified_name": out["qualified_name"],
+            "total": len(defs), "truncated": False,
+            "results": defs,
+            "_human": [
+                f"{out['qualified_name']} ({out['kind']})",
+                *(
+                    f"  {d['path']}:{d['line']}:{d['col']}"
+                    f" [{d['parse_status']}]"
+                    for d in defs
+                ),
+            ],
+        }
+    finally:
+        conn.close()
+    return _emit_page(args, payload)
+
+
+def run_dependencies(args: argparse.Namespace) -> int:
+    """``dependencies`` (lf-0022): arestas saíntes, BFS limitado."""
+    conn, repo_id, snap_id, repo_info, err = _search_context(args)
+    if err:
+        return _emit_error(args, err)
+    assert (
+        conn is not None and repo_id is not None and snap_id is not None
+    )
+    depth = clamp_depth(args.depth)
+    try:
+        search = StructuralSearch(conn)
+        out, derr = search.dependencies(
+            repo_id, snap_id, args.ident, depth,
+            clamp_limit(args.limit), max(0, args.offset),
+        )
+        if out is None:
+            return _emit_error(args, derr)
+        results = out["results"]
+        payload: dict[str, Any] = {
+            "tool": "code-atlas", "version": __version__,
+            "schema_version": SCHEMA_VERSION, "command": "dependencies",
+            "query": args.ident, "snapshot_id": snap_id,
+            "repository": repo_info, "diagnostics": [],
+            "symbol_id": out["symbol_id"],
+            "qualified_name": out["qualified_name"],
+            "depth": depth, "limit": clamp_limit(args.limit),
+            "offset": max(0, args.offset),
+            "total": out["total"], "truncated": out["truncated"],
+            "visited_symbols": out["visited_symbols"],
+            "results": results,
+            "_human": [
+                f"deps of {out['qualified_name']} "
+                f"(depth={depth}, visited={out['visited_symbols']})",
+                *(
+                    f"  d{r['depth']} {r['type']} -> "
+                    f"{r['to']['symbol'] if r['to'] else r['to_unresolved']}"
+                    f" [{r['resolution_status']}]"
+                    for r in results
+                ),
+            ],
+        }
+    finally:
+        conn.close()
+    return _emit_page(args, payload)
+
+
+def clamp_depth(depth: int | None) -> int:
+    """Sane default + teto duro de traversal (lf-0022)."""
+    if depth is None:
+        return 1
+    return max(1, min(int(depth), MAX_DEPTH))
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -541,8 +705,22 @@ def build_parser() -> argparse.ArgumentParser:
     p_index.add_argument(
         "--full", action="store_true", help="força re-scan mesmo sem mudanças"
     )
+    p_index.add_argument(
+        "--incremental", action="store_true", default=True,
+        help="indexação incremental (default ativo; --full desativa)",
+    )
     p_index.add_argument("--json", action="store_true", help="saída em JSON")
     p_index.set_defaults(func=run_index)
+
+    p_plan = sub.add_parser(
+        "index-plan", help="dry-run: plano de indexação em JSON (zero writes)"
+    )
+    p_plan.add_argument("path", nargs="?", metavar="PATH",
+                        help="diretório a planejar")
+    p_plan.add_argument("--root", metavar="PATH",
+                        help="raiz alternativa (se PATH ausente)")
+    p_plan.add_argument("--json", action="store_true", help="saída em JSON")
+    p_plan.set_defaults(func=run_index_plan)
 
     p_status = sub.add_parser("status", help="estado do índice (git, snapshot, migrações)")
     p_status.add_argument("--root", metavar="PATH", help="raiz do workspace (default: cwd)")
@@ -571,6 +749,26 @@ def build_parser() -> argparse.ArgumentParser:
     p_graph.add_argument("--relation-type", metavar="TYPE", help="filtra arestas")
     _add_query_args(p_graph, p_path=True)
     p_graph.set_defaults(func=run_graph)
+
+    p_defs = sub.add_parser(
+        "definitions", help="sites de definição de um símbolo (path:span)"
+    )
+    p_defs.add_argument("ident", metavar="SYMBOL",
+                        help="id numérico ou qualified_name")
+    _add_query_args(p_defs, filters=False)
+    p_defs.set_defaults(func=run_definitions)
+
+    p_deps = sub.add_parser(
+        "dependencies", help="arestas saíntes de um símbolo (BFS limitado)"
+    )
+    p_deps.add_argument("ident", metavar="SYMBOL",
+                        help="id numérico ou qualified_name")
+    p_deps.add_argument(
+        "--depth", metavar="N", type=int, default=1,
+        help=f"profundidade de traversal (default 1, teto {MAX_DEPTH})",
+    )
+    _add_query_args(p_deps, filters=False)
+    p_deps.set_defaults(func=run_dependencies)
 
     return parser
 

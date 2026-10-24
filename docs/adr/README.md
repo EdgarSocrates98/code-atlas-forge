@@ -23,13 +23,22 @@ ganham arquivo quando o ciclo correspondente as tornar reais.
 | 005 | Grafo tipado versionado | implementada como grafo canônico persistido (docs/graph-schema.md) |
 | 015 | Tree-sitter como dep de runtime pinned (emenda ADR-001) | `adr-0015-tree-sitter-runtime-deps.md` |
 
+## Decididas e implementadas (Cycle 3)
+
+| ADR | Título | Arquivo |
+|---|---|---|
+| 004 | SCIP/LSP opcionais com fallbacks marcados | implementada como `resolvers/` (docs/semantic-resolution.md, scip-integration.md, lsp-adapters.md) |
+| 012 | Evidência em primeiro lugar | parcialmente no schema C1/C2; completa em Cycle 3 (provenance por aresta) |
+| 016 | Arquitetura de resolvers | `adr-0016-resolver-architecture.md` |
+| 017 | Decoder SCIP em stdlib | `adr-0017-scip-stdlib-decoder.md` |
+| 018 | Modelo de validade incremental | `adr-0018-incremental-validity-model.md` |
+| 019 | Cache de ParseResult (schema v4) | `adr-0019-parse-result-cache.md` |
+
 ## Propostas (ciclos futuros — não implementadas)
 
 | ADR | Título | Ciclo |
 |---|---|---|
-| 004 | SCIP/LSP opcionais com fallbacks marcados | 3 |
 | 008 | Context packs com budget e redaction | 4 |
 | 009 | REST + MCP com contratos versionados | 4 |
 | 010 | Explorer Angular + Sigma.js | 6 |
 | 011 | Federação opt-in entre Forjas | 7 |
-| 012 | Evidência em primeiro lugar | 3+ (parcial já no schema) |
