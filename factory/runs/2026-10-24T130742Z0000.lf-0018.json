@@ -1,0 +1,15 @@
+{
+  "agent": "codex",
+  "command": [
+    "codex",
+    "exec",
+    "$(cat /home/edgar/Documentos/projetos/forjas/code-atlas-forge/factory/prompts/lf-0018.implement.codex.md)"
+  ],
+  "created_at": "2026-10-24T13:07:42+00:00",
+  "id": "lf-0018",
+  "prompt_path": "/home/edgar/Documentos/projetos/forjas/code-atlas-forge/factory/prompts/lf-0018.implement.codex.md",
+  "spec_path": "/home/edgar/Documentos/projetos/forjas/code-atlas-forge/factory/specs/active/lf-0018.md",
+  "spec_sha256": "257981dafa3a06f6c6b032dfc79f253badbcc2b2597293188a65b9564e3096c1",
+  "status": "planned",
+  "title": "Cycle 3 Phase 3 \u2014 optional LSP resolver adapters (lifecycle + opt-in activation)"
+}

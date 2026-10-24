@@ -12,7 +12,7 @@ import pytest
 from code_atlas import cli
 
 SRC = Path(__file__).resolve().parents[2] / "src"
-ALLOWED_SUBPROCESS = {"gitbin.py"}
+ALLOWED_SUBPROCESS = {"gitbin.py", "spawn.py"}  # spawn.py = resolvers/lsp
 
 
 def test_subprocess_confined_to_gitbin() -> None:
