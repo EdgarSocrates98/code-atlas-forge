@@ -818,11 +818,63 @@ def run_context_expand(args: argparse.Namespace) -> int:
     return EXIT_OK
 
 
-def run_mcp(_args: argparse.Namespace) -> int:
-    """`code-atlas mcp` — servidor MCP stdio (JSON-RPC ndjson)."""
+_MCP_MANIFESTS: dict[str, dict[str, Any]] = {
+    "claude-code": {"mcpServers": {"code-atlas": {
+        "command": "code-atlas", "args": ["mcp"]}}},
+    "codex-cli": {"mcp_servers": {"code-atlas": {
+        "command": "code-atlas", "args": ["mcp"]}}},
+    "generic": {"mcpServers": {"code-atlas": {
+        "command": "code-atlas", "args": ["mcp"]}}},
+}
+
+
+def run_mcp(args: argparse.Namespace) -> int:
+    """`code-atlas mcp [doctor|manifest] ` — servidor stdio + host UX.
+
+    `doctor` diagnostica instalação/capabilities; `manifest` EMITE o
+    manifest do host (nunca edita config global — só instrui).
+    """
     from code_atlas.mcp import main_stdio
 
+    cmd = getattr(args, "cmd", "serve") or "serve"
+    if cmd == "manifest":
+        host = getattr(args, "host", "generic") or "generic"
+        manifest = _MCP_MANIFESTS.get(host, _MCP_MANIFESTS["generic"])
+        print(json.dumps(manifest, indent=2))
+        print("# cole o JSON acima no config do host — Atlas nunca "
+              "escreve nele", file=sys.stderr)
+        return EXIT_OK
+    if cmd == "doctor":
+        return _mcp_doctor(args)
     return main_stdio()
+
+
+def _mcp_doctor(args: argparse.Namespace) -> int:
+    """Diagnóstico de instalação: executável, DB, capabilities, ndjson."""
+    import shutil
+
+    from code_atlas.search.vector import sqlite_vec_available
+    from code_atlas.storage import schema_version
+
+    exe = shutil.which("code-atlas") or "<não no PATH — use python -m>"
+    checks: dict[str, Any] = {
+        "executable": exe,
+        "python": sys.version.split()[0],
+        "db_path": str(db_path()),
+        "db_exists": db_path().exists(),
+        "sqlite_vec": str(sqlite_vec_available()),
+    }
+    if checks["db_exists"]:
+        conn = _open_db()
+        checks["schema_version"] = schema_version(conn)
+        conn.close()
+    if args.json:
+        print(json.dumps({"tool": "code-atlas",
+                          "command": "mcp doctor", **checks}))
+    else:
+        for k, v in checks.items():
+            print(f"{k:<16} {v}")
+    return EXIT_OK
 
 
 def run_symbol(args: argparse.Namespace) -> int:
@@ -1158,6 +1210,11 @@ def build_parser() -> argparse.ArgumentParser:
 
     p_mcp = sub.add_parser(
         "mcp", help="servidor MCP stdio — JSON-RPC ndjson (lf-0042)")
+    p_mcp.add_argument("cmd", nargs="?", default="serve",
+                       choices=("serve", "doctor", "manifest"))
+    p_mcp.add_argument("--host", default="generic",
+                       choices=("claude-code", "codex-cli", "generic"))
+    p_mcp.add_argument("--json", action="store_true")
     p_mcp.set_defaults(func=run_mcp)
 
     p_symbol = sub.add_parser("symbol", help="detalhe de um símbolo + ocorrências")
