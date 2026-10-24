@@ -27,6 +27,9 @@ from typing import IO, Any
 MAX_MESSAGE_BYTES = 16 * 1024 * 1024  # 16 MiB por mensagem
 _POLL_S = 0.1
 _IS_WINDOWS = os.name == "nt"  # select() no Windows só aceita sockets
+# Windows: readers cujo fd não pode ser fechado com read pendente —
+# mantidos vivos até o exit do processo para não travar o close().
+_LEAKED_READERS: set[IO[bytes]] = set()
 
 
 class TransportError(RuntimeError):
@@ -222,10 +225,16 @@ class JsonRpcTransport:
 
     def close(self) -> None:
         """Acorda a thread leitora (≤100ms) e fecha os streams — sem
-        deadlock: o fd é fechado depois do poll sair."""
+        deadlock: o fd é fechado depois do poll sair. No Windows o
+        read é bloqueante e fechar um handle com I/O pendente trava —
+        o fd fica vivo até o exit do processo (daemon thread morre
+        junto; pipes de teste recebem EOF quando o peer fecha)."""
         self._closed.set()
         self._reader_thread.join(timeout=1.0)
-        with contextlib.suppress(OSError):
-            os.close(self._reader_fd)
+        if _IS_WINDOWS:
+            _LEAKED_READERS.add(self._reader)
+        else:
+            with contextlib.suppress(OSError):
+                os.close(self._reader_fd)
         with contextlib.suppress(OSError):
             self._writer.close()
