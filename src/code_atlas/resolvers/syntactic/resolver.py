@@ -212,6 +212,11 @@ class SyntacticResolver:
     ) -> tuple[str | None, str]:
         """Nome bare/dotted → nó local único, senão status defensável."""
         head, _, tail = name.partition(".")
+        if not tail and name in ctx.defines and name in ctx.import_targets:
+            # def local + binding de import competem pelo mesmo nome —
+            # sem ordem textual o desfecho honesto é ambiguous, nunca
+            # um "resolved" para o alvo plausível-mas-errado (lf-0024).
+            return None, "ambiguous"
         if head in ctx.import_targets:
             mod, rest = self.locate(ctx, ctx.import_targets[head])
             if mod is None:

@@ -115,3 +115,95 @@ def test_pathological_depth_capped(tmp_path: Path) -> None:
 
     res = scan(tmp_path, ScanOptions(max_depth=20))
     assert "leaf.txt" not in {f.path.split("/")[-1] for f in res.files}
+
+
+# --- lf-0024 Phase 10: security/portability sobre resolvers/ ----------
+
+
+def test_lsp_spawn_env_redacts_secrets(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Env leak-minimizado: variáveis de segredo NUNCA passam ao server."""
+    monkeypatch.setenv("AWS_SECRET_ACCESS_KEY", "x")
+    monkeypatch.setenv("GITHUB_TOKEN", "y")
+    monkeypatch.setenv("CODE_ATLAS_SECRET", "z")
+    monkeypatch.setenv("MY_API_KEY", "k")
+    from code_atlas.resolvers.lsp.spawn import _leak_env
+
+    env = _leak_env()
+    for k in env:
+        assert not any(
+            s in k
+            for s in ("SECRET", "TOKEN", "KEY", "PASS", "CRED", "AUTH")
+        ), k
+
+
+def test_no_auto_download_or_install_in_src() -> None:
+    """Nenhum caminho baixa/instala nada — nem LSP server, nem SCIP
+    indexer, nem dependências."""
+    banned_tokens = ("download", "pip install", "npm install",
+                     "curl ", "wget ", "install_cmd", "auto_install")
+    offenders: list[str] = []
+    for py in SRC.rglob("*.py"):
+        tree = ast.parse(py.read_text(encoding="utf-8"))
+        for node in ast.walk(tree):
+            # só literais de string em código (não docstrings de módulo)
+            if isinstance(node, ast.Constant) and isinstance(node.value, str):
+                low = node.value.lower()
+                for tok in banned_tokens:
+                    if tok in low:
+                        offenders.append(f"{py.name}:{node.lineno}:{tok}")
+    assert offenders == []
+
+
+def test_lsp_timeouts_bounded() -> None:
+    """Timeouts existem e são finitos — nenhum wait indefinido."""
+    from code_atlas.resolvers.lsp.lifecycle import INIT_TIMEOUT_S
+    from code_atlas.resolvers.lsp.spawn import LspServerSpec
+
+    assert 0 < INIT_TIMEOUT_S <= 60
+    spec = LspServerSpec(name="t", cmd=("x",), languages=frozenset())
+    assert 0 < spec.request_timeout_s <= 120
+
+
+def test_no_unix_only_apis_in_src() -> None:
+    """Paridade Windows: nada de fcntl/pwd/grp/termios/os.symlink fora
+    de testes (resource já é guardado por try/except no bench)."""
+    banned = {"fcntl", "pwd", "grp", "termios", "resource", "syslog"}
+    offenders: list[str] = []
+    for py in SRC.rglob("*.py"):
+        tree = ast.parse(py.read_text(encoding="utf-8"))
+        for node in ast.walk(tree):
+            if isinstance(node, ast.Import):
+                offenders.extend(
+                    f"{py.name}:{a.name}" for a in node.names
+                    if a.name.split(".")[0] in banned
+                )
+            elif isinstance(node, ast.ImportFrom) and node.module:
+                if node.module.split(".")[0] in banned:
+                    offenders.append(f"{py.name}:{node.module}")
+            elif (
+                isinstance(node, ast.Call)
+                and isinstance(node.func, ast.Attribute)
+                and node.func.attr == "symlink"
+            ):
+                offenders.append(f"{py.name}:{node.lineno} symlink")
+    assert offenders == []
+
+
+def test_resolvers_do_not_execute_repo_content() -> None:
+    """Resolvers leem bytes/caminhos apenas — o comando LSP vem de
+    config do usuário, nunca do repo indexado."""
+    from code_atlas.resolvers.lsp.spawn import (
+        LspServerSpec,
+        SpawnError,
+        spawn_server,
+    )
+
+    # um "comando" que pareceria vir do repo → não existe → erro tipado
+    spec = LspServerSpec(
+        name="repo-injected",
+        cmd=("./node_modules/.bin/evil",),
+        languages=frozenset({"python"}),
+        enabled=True,
+    )
+    with pytest.raises(SpawnError):
+        spawn_server(spec)

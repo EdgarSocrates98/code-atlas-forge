@@ -1,0 +1,15 @@
+{
+  "agent": "codex",
+  "command": [
+    "codex",
+    "exec",
+    "$(cat /home/edgar/Documentos/projetos/forjas/code-atlas-forge/factory/prompts/lf-0024.implement.codex.md)"
+  ],
+  "created_at": "2026-10-24T14:33:39+00:00",
+  "id": "lf-0024",
+  "prompt_path": "/home/edgar/Documentos/projetos/forjas/code-atlas-forge/factory/prompts/lf-0024.implement.codex.md",
+  "spec_path": "/home/edgar/Documentos/projetos/forjas/code-atlas-forge/factory/specs/active/lf-0024.md",
+  "spec_sha256": "d545392d59f3356bfb3028cb624d51839a1b6ce5e41a702b521afad3aee0b9f0",
+  "status": "planned",
+  "title": "Cycle 3 Phases 9+10 \u2014 semantic evaluations (golden ground truth) + security/portability"
+}

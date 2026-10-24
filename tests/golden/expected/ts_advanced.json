@@ -1,0 +1,342 @@
+{
+  "corpus": "ts_advanced",
+  "file_parse_status": {
+    "src/barrel/index.ts": "parsed",
+    "src/barrel/other.ts": "parsed",
+    "src/barrel/thing.ts": "parsed",
+    "src/iface.ts": "parsed",
+    "src/ns.ts": "parsed",
+    "src/over.ts": "parsed",
+    "src/use.ts": "parsed"
+  },
+  "relations": [
+    {
+      "confidence": "resolved",
+      "from": "src.use.useAll",
+      "status": "resolved",
+      "to": "src.iface.ShapeImpl",
+      "type": "CALLS"
+    },
+    {
+      "confidence": "resolved",
+      "from": "src.use.useAll",
+      "status": "resolved",
+      "to": "src.over.pick",
+      "type": "CALLS"
+    },
+    {
+      "confidence": "syntactic",
+      "from": "src.use.useAll",
+      "status": "unresolved",
+      "to": null,
+      "to_text": "Thing",
+      "type": "CALLS"
+    },
+    {
+      "confidence": "syntactic",
+      "from": "src.use.useAll",
+      "status": "unresolved",
+      "to": null,
+      "to_text": "otherFn",
+      "type": "CALLS"
+    },
+    {
+      "confidence": "syntactic",
+      "from": "src.use.useAll",
+      "status": "unresolved",
+      "to": null,
+      "to_text": "s.area",
+      "type": "CALLS"
+    },
+    {
+      "confidence": "syntactic",
+      "from": "src.use.useAll",
+      "status": "unresolved",
+      "to": null,
+      "to_text": "t.name",
+      "type": "CALLS"
+    },
+    {
+      "confidence": "resolved",
+      "from": "src/barrel/index.ts",
+      "status": "resolved",
+      "to": "src.barrel.index",
+      "type": "CONTAINS"
+    },
+    {
+      "confidence": "resolved",
+      "from": "src/barrel/other.ts",
+      "status": "resolved",
+      "to": "src.barrel.other",
+      "type": "CONTAINS"
+    },
+    {
+      "confidence": "resolved",
+      "from": "src/barrel/thing.ts",
+      "status": "resolved",
+      "to": "src.barrel.thing",
+      "type": "CONTAINS"
+    },
+    {
+      "confidence": "resolved",
+      "from": "src/iface.ts",
+      "status": "resolved",
+      "to": "src.iface",
+      "type": "CONTAINS"
+    },
+    {
+      "confidence": "resolved",
+      "from": "src/ns.ts",
+      "status": "resolved",
+      "to": "src.ns",
+      "type": "CONTAINS"
+    },
+    {
+      "confidence": "resolved",
+      "from": "src/over.ts",
+      "status": "resolved",
+      "to": "src.over",
+      "type": "CONTAINS"
+    },
+    {
+      "confidence": "resolved",
+      "from": "src/use.ts",
+      "status": "resolved",
+      "to": "src.use",
+      "type": "CONTAINS"
+    },
+    {
+      "confidence": "syntactic",
+      "from": "src.barrel.other",
+      "status": "resolved",
+      "to": "src.barrel.other.otherFn",
+      "type": "DEFINES"
+    },
+    {
+      "confidence": "syntactic",
+      "from": "src.barrel.thing",
+      "status": "resolved",
+      "to": "src.barrel.thing.Thing",
+      "type": "DEFINES"
+    },
+    {
+      "confidence": "syntactic",
+      "from": "src.barrel.thing.Thing",
+      "status": "resolved",
+      "to": "src.barrel.thing.Thing.name",
+      "type": "DEFINES"
+    },
+    {
+      "confidence": "syntactic",
+      "from": "src.iface",
+      "status": "resolved",
+      "to": "src.iface.Shape",
+      "type": "DEFINES"
+    },
+    {
+      "confidence": "syntactic",
+      "from": "src.iface",
+      "status": "resolved",
+      "to": "src.iface.ShapeImpl",
+      "type": "DEFINES"
+    },
+    {
+      "confidence": "syntactic",
+      "from": "src.iface.Shape",
+      "status": "resolved",
+      "to": "src.iface.Shape.area",
+      "type": "DEFINES"
+    },
+    {
+      "confidence": "syntactic",
+      "from": "src.iface.ShapeImpl",
+      "status": "resolved",
+      "to": "src.iface.ShapeImpl.area",
+      "type": "DEFINES"
+    },
+    {
+      "confidence": "syntactic",
+      "from": "src.over",
+      "status": "resolved",
+      "to": "src.over.pick",
+      "type": "DEFINES"
+    },
+    {
+      "confidence": "syntactic",
+      "from": "src.use",
+      "status": "resolved",
+      "to": "src.use.useAll",
+      "type": "DEFINES"
+    },
+    {
+      "confidence": "resolved",
+      "from": "src.iface.ShapeImpl",
+      "status": "resolved",
+      "to": "src.iface.Shape",
+      "type": "IMPLEMENTS"
+    },
+    {
+      "confidence": "resolved",
+      "from": "src.use",
+      "status": "resolved",
+      "to": "src.barrel.index",
+      "type": "IMPORTS"
+    },
+    {
+      "confidence": "resolved",
+      "from": "src.use",
+      "status": "resolved",
+      "to": "src.iface",
+      "type": "IMPORTS"
+    },
+    {
+      "confidence": "resolved",
+      "from": "src.use",
+      "status": "resolved",
+      "to": "src.over",
+      "type": "IMPORTS"
+    }
+  ],
+  "relations_mode": "all",
+  "symbols": [
+    {
+      "kind": "module",
+      "language": "typescript",
+      "path": "src/barrel/index.ts",
+      "qname": "src.barrel.index"
+    },
+    {
+      "kind": "module",
+      "language": "typescript",
+      "path": "src/barrel/other.ts",
+      "qname": "src.barrel.other"
+    },
+    {
+      "kind": "function",
+      "language": "typescript",
+      "path": "src/barrel/other.ts",
+      "qname": "src.barrel.other.otherFn"
+    },
+    {
+      "kind": "module",
+      "language": "typescript",
+      "path": "src/barrel/thing.ts",
+      "qname": "src.barrel.thing"
+    },
+    {
+      "kind": "class",
+      "language": "typescript",
+      "path": "src/barrel/thing.ts",
+      "qname": "src.barrel.thing.Thing"
+    },
+    {
+      "kind": "method",
+      "language": "typescript",
+      "path": "src/barrel/thing.ts",
+      "qname": "src.barrel.thing.Thing.name"
+    },
+    {
+      "kind": "module",
+      "language": "typescript",
+      "path": "src/iface.ts",
+      "qname": "src.iface"
+    },
+    {
+      "kind": "interface",
+      "language": "typescript",
+      "path": "src/iface.ts",
+      "qname": "src.iface.Shape"
+    },
+    {
+      "kind": "method",
+      "language": "typescript",
+      "path": "src/iface.ts",
+      "qname": "src.iface.Shape.area"
+    },
+    {
+      "kind": "class",
+      "language": "typescript",
+      "path": "src/iface.ts",
+      "qname": "src.iface.ShapeImpl"
+    },
+    {
+      "kind": "method",
+      "language": "typescript",
+      "path": "src/iface.ts",
+      "qname": "src.iface.ShapeImpl.area"
+    },
+    {
+      "kind": "module",
+      "language": "typescript",
+      "path": "src/ns.ts",
+      "qname": "src.ns"
+    },
+    {
+      "kind": "module",
+      "language": "typescript",
+      "path": "src/over.ts",
+      "qname": "src.over"
+    },
+    {
+      "kind": "function",
+      "language": "typescript",
+      "path": "src/over.ts",
+      "qname": "src.over.pick"
+    },
+    {
+      "kind": "module",
+      "language": "typescript",
+      "path": "src/use.ts",
+      "qname": "src.use"
+    },
+    {
+      "kind": "function",
+      "language": "typescript",
+      "path": "src/use.ts",
+      "qname": "src.use.useAll"
+    },
+    {
+      "kind": "file",
+      "language": "",
+      "path": "src/barrel/index.ts",
+      "qname": "src/barrel/index.ts"
+    },
+    {
+      "kind": "file",
+      "language": "",
+      "path": "src/barrel/other.ts",
+      "qname": "src/barrel/other.ts"
+    },
+    {
+      "kind": "file",
+      "language": "",
+      "path": "src/barrel/thing.ts",
+      "qname": "src/barrel/thing.ts"
+    },
+    {
+      "kind": "file",
+      "language": "",
+      "path": "src/iface.ts",
+      "qname": "src/iface.ts"
+    },
+    {
+      "kind": "file",
+      "language": "",
+      "path": "src/ns.ts",
+      "qname": "src/ns.ts"
+    },
+    {
+      "kind": "file",
+      "language": "",
+      "path": "src/over.ts",
+      "qname": "src/over.ts"
+    },
+    {
+      "kind": "file",
+      "language": "",
+      "path": "src/use.ts",
+      "qname": "src/use.ts"
+    }
+  ],
+  "symbols_mode": "all"
+}
