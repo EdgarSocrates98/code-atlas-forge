@@ -41,12 +41,14 @@ segurança com zero P0/P1.
 
 **Gate:** G1–G12 com evidência — ver `docs/cycle-3.1-evidence.md`.
 
-## Cycle 4 — Search & Agent Context
+## Cycle 4 — Search & Agent Context ✅ entregue
 
-Escopo: FTS+graph+vector opt-in, MCP stdio e context packs, budget,
-evidence.
-
-**Gate:** métricas e tokens versus baseline, nenhum símbolo fictício.
+FTS5 snapshot-scoped (ADR-0024), graph retrieval BFS limitado,
+hybrid RRF k=60 (ADR-0025), vector opt-in sqlite-vec|naïve
+(ADR-0022), context packs com budget+expansão (ADR-0026/27), MCP
+stdio stdlib read-only (ADR-0023), eval com judgments verificáveis,
+suíte adversarial 0 P0/P1. Evidência: `docs/cycle-4-evidence.md`;
+limitações honestas: `docs/cycle-4-limitations.md`.
 
 ## Cycle 5 — Impact Engine
 

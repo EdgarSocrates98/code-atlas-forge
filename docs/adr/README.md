@@ -46,6 +46,12 @@ ganham arquivo quando o ciclo correspondente as tornar reais.
 |---|---|---|
 | 021 | Política de precedência de evidência (verificação por tier superior) | `adr-0021-evidence-precedence.md` |
 | 022 | Backend vetorial: sqlite-vec opt-in + bruteforce stdlib | `adr-0022-vector-backend.md` |
+| 023 | Transporte MCP: JSON-RPC 2.0 ndjson stdio, stdlib-only | `adr-0023-mcp-transport.md` |
+| 024 | Arquitetura FTS: `fts_occurrences` regular, snapshot-scoped | `adr-0024-fts-architecture.md` |
+| 025 | Hybrid ranking: RRF k=60, dedup por símbolo | `adr-0025-hybrid-ranking.md` |
+| 026 | Context pack schema: envelope versionado + IDs estáveis | `adr-0026-context-pack-schema.md` |
+| 027 | Token budget: reservas 5/10/5% + clamp 64..1M | `adr-0027-token-budget.md` |
+| 028 | Evidência de retrieval: matched_fields+evidence por hit | `adr-0028-retrieval-evidence.md` |
 
 ## Propostas (ciclos futuros — não implementadas)
 

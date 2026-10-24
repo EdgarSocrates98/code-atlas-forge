@@ -106,3 +106,14 @@ Diagnóstico primeiro: `code-atlas semantic-status <repo> --json`
 mostra por resolver `installed` (artefato presente), `enabled`
 (produziria resolver) e `used` (arestas `resolver=*` no snapshot
 READY) — distingue "server não instalado" de "nenhuma aresta usada".
+
+## MCP
+
+- `code-atlas mcp doctor --json` — executável no PATH, DB existe,
+  schema version, sqlite_vec. Falha comum: `code-atlas` fora do PATH
+  → use `python -m code_atlas` no manifest.
+- Manifest: `code-atlas mcp manifest --host <host>` **emite** JSON —
+  cole manualmente na config do host; Atlas nunca escreve em config
+  global (política deliberada).
+- Erro `-32602` num tool call = argumento inválido (tipo/limite) —
+  o schema do tool está em `tools/list`.

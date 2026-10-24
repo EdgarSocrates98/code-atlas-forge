@@ -64,3 +64,10 @@ estável. Ver `docs/structural-search.md`.
 
 `resolvers` semânticos (SCIP/LSP), `impact`, `context` (packs),
 `api`/`mcp`, `explorer` (Angular+Sigma), `federation`.
+
+## Cycle 4
+
+Ver `docs/cycle-4-architecture.md`: search (structural/lexical/graph/
+vector/hybrid-RRF) → context packs budgeted → MCP stdio. Snapshots
+e proveniência do Cycle 3.1 são preservados — nenhum fallback
+silencioso.
