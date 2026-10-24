@@ -11,6 +11,7 @@ Nenhum item é gerado por LLM: todo corpo vem de fatos persistidos
 
 from __future__ import annotations
 
+import dataclasses
 import json
 import sqlite3
 
@@ -56,6 +57,7 @@ class ContextEngine:
         # lf-0052: hybrid retrieval é a fonte primária de candidatos
         # (construção lazy — nem todo consumidor constrói packs).
         self._search: SearchEngine | None = None
+        self._pack_cache: dict[tuple[object, ...], ContextPack] = {}
 
     @property
     def _engine(self) -> SearchEngine:  # lazy, evita import circular
@@ -77,6 +79,10 @@ class ContextEngine:
         sid = int(snap.id or 0)
 
         budget = self._budget(req)
+        ck = (sid, req.task, req.level, budget.limit, req.max_symbols)
+        cached = self._pack_cache.get(ck)
+        if cached is not None:
+            return cached
         candidates = self._candidates(req, sid, diags)
         items = self._dedup(self._estimate(candidates))
         items.sort(key=lambda i: (i.priority, i.item_id))
@@ -85,9 +91,59 @@ class ContextEngine:
             i.est_tokens for i in items if i.priority <= PRIORITY_DIRECT)
         insufficient = len(selected) < len(
             [i for i in items if i.priority <= PRIORITY_DIRECT])
-        return self._pack(
+        pack = self._enforce_payload_budget(
             req, sid, budget, selected, omitted, essentials_cost,
             insufficient, diags, str(snap.status))
+        # cache por snapshot+tarefa — pack é imutável; FIFO 32 entradas
+        if len(self._pack_cache) >= 32:
+            self._pack_cache.pop(next(iter(self._pack_cache)))
+        self._pack_cache[ck] = pack
+        return pack
+
+    def _enforce_payload_budget(
+        self, req: ContextRequest, sid: int, budget: Budget,
+        selected: list[ContextItem], omitted: list[ContextItem],
+        essentials_cost: int, insufficient: bool,
+        diags: list[str], snap_status: str,
+    ) -> ContextPack:
+        """lf-0053: o orçamento cobre o payload SERIALIZADO (envelope +
+        itens + metadados + diagnósticos), não só os corpos. Se estoura,
+        despeja itens de menor prioridade para ``omitted`` até caber."""
+        from code_atlas.context.renderers import render_json
+        sel, omit = list(selected), list(omitted)
+        enforced = False
+        while True:
+            pack = self._pack(req, sid, budget, sel, omit,
+                              essentials_cost, insufficient,
+                              diags, snap_status)
+            est = self._counter.count(render_json(pack))
+            if est <= budget.limit or not sel:
+                if enforced:
+                    diags = list(diags) + ["payload-budget-enforced"]
+                    pack = self._pack(req, sid, budget, sel, omit,
+                                      essentials_cost, insufficient,
+                                      diags, snap_status)
+                    est = self._counter.count(render_json(pack))
+                if est > budget.limit:
+                    pack = self._pack(req, sid, budget, sel, omit,
+                                      essentials_cost, True,
+                                      diags + ["payload-over-budget"],
+                                      snap_status)
+                    est = self._counter.count(render_json(pack))
+                # grava a estimativa final no manifest
+                return dataclasses.replace(
+                    pack, manifest=dataclasses.replace(
+                        pack.manifest, tokens_payload=est))
+            # despeja o item de MENOR prioridade (maior número; desempate
+            # pelo item_id mais alto) — ordenação estável reversa
+            sel.sort(key=lambda i: (i.priority, i.item_id),
+                     reverse=True)
+            omit.append(sel.pop(0))
+            sel.sort(key=lambda i: (i.priority, i.item_id))
+            if not insufficient and any(
+                    i.priority <= PRIORITY_DIRECT for i in omit):
+                insufficient = True
+            enforced = True
 
     # -------------------------------------------------------- internals
     def _budget(self, req: ContextRequest) -> Budget:
