@@ -303,7 +303,9 @@ def run_index(args: argparse.Namespace) -> int:
         return EXIT_UNSAFE
     conn = _open_db()
     try:
-        outcome: IndexOutcome = IndexCoordinator(conn).index(target, force=args.full)
+        outcome: IndexOutcome = IndexCoordinator(conn).index(
+            target, force=args.full, incremental=args.incremental
+        )
     finally:
         conn.close()
     payload = {
@@ -540,6 +542,10 @@ def build_parser() -> argparse.ArgumentParser:
     p_index.add_argument("--root", metavar="PATH", help="raiz alternativa (se PATH ausente)")
     p_index.add_argument(
         "--full", action="store_true", help="força re-scan mesmo sem mudanças"
+    )
+    p_index.add_argument(
+        "--incremental", action="store_true",
+        help="indexação incremental: só re-parseia o que mudou/foi afetado",
     )
     p_index.add_argument("--json", action="store_true", help="saída em JSON")
     p_index.set_defaults(func=run_index)

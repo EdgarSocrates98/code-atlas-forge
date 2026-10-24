@@ -40,33 +40,19 @@ def _span_json(span: SourceSpan | None) -> str | None:
     )
 
 
-def persist_graph(
+def _persist_evidence(
     store: Store,
-    repo_id: int,
     snapshot_id: int,
     file_ids: Mapping[str, int],
     graph: GraphBuildResult,
-    *,
-    fts5: bool,
-    file_status: Mapping[str, str] | None = None,
-) -> dict[str, int]:
-    """Grava evidências, símbolos, ocorrências e relações — na transação
-    corrente do caller (atomicidade é de quem chama).
+) -> dict[int, int]:
+    """Evidências → rows; retorna mapa índice-em-graph.evidence → row_id.
 
-    ``file_status`` mapeia path → parse_status da ocorrência
-    (``parsed`` | ``parsed-with-errors`` | ``parse-failed``).
+    Mapa explícito (lf-0015): evidências filtradas (path fora do
+    inventário) NÃO podem deslocar os índices das demais — o modelo
+    posicional compactado corrompia silenciosamente a associação
+    evidence↔relation.
     """
-    counts = {
-        "evidence": 0, "symbols_new": 0, "occurrences": 0,
-        "relations": 0, "edges_skipped": 0,
-    }
-    status = file_status or {}
-
-    # 1. evidências primeiro — relations referenciam ids de evidência.
-    # Mapa explícito índice-em-graph.evidence → row_id (lf-0015):
-    # evidências filtradas (path fora do inventário) NÃO podem deslocar
-    # os índices das demais — o modelo posicional compactado corrompia
-    # silenciosamente a associação evidence↔relation.
     evi_row_ids: dict[int, int] = {}
     for i, rec in enumerate(graph.evidence):
         fid = file_ids.get(rec.path)
@@ -77,6 +63,38 @@ def persist_graph(
             rec.content_hash, rec.extractor, rec.extractor_version,
             rec.notes,
         )
+    return evi_row_ids
+
+
+def persist_graph(
+    store: Store,
+    repo_id: int,
+    snapshot_id: int,
+    file_ids: Mapping[str, int],
+    graph: GraphBuildResult,
+    *,
+    fts5: bool,
+    file_status: Mapping[str, str] | None = None,
+    external_occ: Mapping[str, int] | None = None,
+) -> dict[str, int]:
+    """Grava evidências, símbolos, ocorrências e relações — na transação
+    corrente do caller (atomicidade é de quem chama).
+
+    ``file_status`` mapeia path → parse_status da ocorrência
+    (``parsed`` | ``parsed-with-errors`` | ``parse-failed``).
+
+    ``external_occ`` (lf-0019): node_id → occ_id de ocorrências já
+    copiadas de arquivos reutilizados — permite que arestas de arquivos
+    reparseados amarrem alvos em módulos que não entraram no grafo.
+    """
+    counts = {
+        "evidence": 0, "symbols_new": 0, "occurrences": 0,
+        "relations": 0, "edges_skipped": 0,
+    }
+    status = file_status or {}
+
+    # 1. evidências primeiro — relations referenciam ids de evidência.
+    evi_row_ids = _persist_evidence(store, snapshot_id, file_ids, graph)
     counts["evidence"] = len(evi_row_ids)
 
     # 2. nós → símbolo + ocorrência (id do nó → id da ocorrência)
@@ -114,6 +132,8 @@ def persist_graph(
             counts["edges_skipped"] += 1
             continue
         to = node_occ.get(e.to_id) if e.to_id is not None else None
+        if to is None and e.to_id is not None and external_occ:
+            to = external_occ.get(e.to_id)
         if e.to_id is not None and to is None:
             counts["edges_skipped"] += 1  # alvo estrutural não persistido
             continue

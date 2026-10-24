@@ -36,6 +36,11 @@ class Store:
     def __init__(self, conn: sqlite3.Connection) -> None:
         self._conn = conn
 
+    @property
+    def conn(self) -> sqlite3.Connection:
+        """Conexão subjacente — para queries compostas (lf-0019 reuse)."""
+        return self._conn
+
     # --- repositories -------------------------------------------------
 
     def get_or_create_repository(self, root_handle: str) -> int:
@@ -169,6 +174,97 @@ class Store:
             (snapshot_id,),
         ).fetchone()
         return int(row["c"])
+
+    def snapshot_inventory(self, snapshot_id: int) -> list[dict[str, object]]:
+        """Inventário do snapshot: path, language, sha256, source_file_id,
+        e pior parse_status observado nas ocorrências do arquivo."""
+        rows = self._conn.execute(
+            """
+            SELECT sf.id AS source_file_id, sf.relative_path, sf.language,
+                   fi.sha256,
+                   COALESCE(
+                     (SELECT MAX(CASE so.parse_status
+                                   WHEN 'parse-failed' THEN 2
+                                   WHEN 'parsed-with-errors' THEN 1
+                                   ELSE 0 END)
+                        FROM symbol_occurrences so
+                       WHERE so.snapshot_id = fi.snapshot_id
+                         AND so.source_file_id = fi.source_file_id),
+                     -1) AS status_rank
+              FROM file_inventory fi
+              JOIN source_files sf ON sf.id = fi.source_file_id
+             WHERE fi.snapshot_id = ?
+             ORDER BY sf.relative_path
+            """,
+            (snapshot_id,),
+        ).fetchall()
+        rank = {0: "parsed", 1: "parsed-with-errors", 2: "parse-failed"}
+        return [
+            {
+                "path": r["relative_path"],
+                "language": r["language"],
+                "sha256": r["sha256"],
+                "source_file_id": r["source_file_id"],
+                "parse_status": rank.get(int(r["status_rank"]), "unparsed"),
+            }
+            for r in rows
+        ]
+
+    def module_import_edges(
+        self, snapshot_id: int
+    ) -> list[tuple[str, str | None, str, str]]:
+        """Arestas IMPORTS do snapshot mapeadas para paths.
+
+        Retorna ``(importer_path, imported_path|None, to_unresolved,
+        resolution_status)`` — insumo do planner de invalidação (lf-0019).
+        """
+        rows = self._conn.execute(
+            """
+            SELECT sf_from.relative_path AS importer,
+                   sf_to.relative_path   AS imported,
+                   r.to_unresolved       AS to_text,
+                   r.resolution_status   AS status
+              FROM relations r
+              JOIN symbol_occurrences o_from ON o_from.id = r.from_id
+              JOIN source_files sf_from ON sf_from.id = o_from.source_file_id
+              LEFT JOIN symbol_occurrences o_to ON o_to.id = r.to_id
+              LEFT JOIN source_files sf_to ON sf_to.id = o_to.source_file_id
+             WHERE r.snapshot_id = ? AND r.type = 'IMPORTS'
+             ORDER BY sf_from.relative_path
+            """,
+            (snapshot_id,),
+        ).fetchall()
+        return [
+            (r["importer"], r["imported"], r["to_text"] or "", r["status"])
+            for r in rows
+        ]
+
+    def snapshot_file_symbols(
+        self, snapshot_id: int
+    ) -> list[tuple[str, str, str, str, int]]:
+        """Símbolos com ocorrência no snapshot, por arquivo.
+
+        Retorna ``(path, kind, qualified_name, language, source_file_id)``
+        — usado para reconstruir contextos de módulo reutilizados no
+        índice incremental (lf-0019).
+        """
+        rows = self._conn.execute(
+            """
+            SELECT DISTINCT sf.relative_path AS path, s.kind, s.qualified_name,
+                   s.language, so.source_file_id
+              FROM symbol_occurrences so
+              JOIN symbols s ON s.id = so.logical_symbol_id
+              JOIN source_files sf ON sf.id = so.source_file_id
+             WHERE so.snapshot_id = ?
+             ORDER BY sf.relative_path, s.qualified_name
+            """,
+            (snapshot_id,),
+        ).fetchall()
+        return [
+            (r["path"], r["kind"], r["qualified_name"], r["language"],
+             r["source_file_id"])
+            for r in rows
+        ]
 
     def foreign_key_violations(self) -> list[str]:
         """Lista violações FK pendentes (integrity gate antes do READY)."""

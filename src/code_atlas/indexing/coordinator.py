@@ -27,16 +27,30 @@ import time
 from collections.abc import Callable
 from dataclasses import dataclass, field
 from pathlib import Path
+from typing import TypeGuard
 
 from code_atlas.contracts.enums import SnapshotStatus
+from code_atlas.contracts.models import Snapshot
 from code_atlas.discovery.models import ScanResult
 from code_atlas.discovery.scanner import read_file_verified
 from code_atlas.discovery.scanner import scan as default_scan
 from code_atlas.graph.builder import GraphBuilder
 from code_atlas.graph.validation import validate_graph
+from code_atlas.indexing.change_detector import detect_changes
+from code_atlas.indexing.dependency_planner import (
+    IndexPlan,
+    InvalidationPlanner,
+    PlanAction,
+)
 from code_atlas.indexing.persist import persist_graph
-from code_atlas.parsers.contracts import ParseResult
+from code_atlas.indexing.reuse import (
+    copy_occurrences_and_evidence,
+    copy_relations,
+    reconstruct_universe,
+)
+from code_atlas.parsers.contracts import GraphBuildResult, ParseResult
 from code_atlas.parsers.engine import ParseEngine
+from code_atlas.resolvers.syntactic.resolver import ScopeUniverse
 from code_atlas.storage.db import fts5_available
 from code_atlas.storage.store import Store
 
@@ -74,6 +88,8 @@ class IndexCoordinator:
         self._scanner = scanner
         self._engine = engine or ParseEngine()
         self._builder = builder or GraphBuilder()
+        self._planner = InvalidationPlanner()
+        self.last_plan: IndexPlan | None = None  # plano do último index
 
     def _analyzer_versions(self, scan: ScanResult) -> dict[str, str]:
         """Versões que compõem a identidade do índice.
@@ -95,11 +111,19 @@ class IndexCoordinator:
                 )
         return versions
 
-    def index(self, root: Path, force: bool = False) -> IndexOutcome:
+    def index(
+        self, root: Path, force: bool = False, incremental: bool = False
+    ) -> IndexOutcome:
         """Escaneia `root` e publica snapshot READY (ou no-op) atomicamente.
 
         ``force=True`` ignora o atalho de no-op por digest idêntico.
         Um scan parcial/truncado nunca vira READY — é registrado como falha.
+
+        ``incremental=True`` (lf-0019) difa o manifesto contra o último
+        READY, produz um ``IndexPlan`` inspecionável e pula parse dos
+        arquivos ``reuse`` — ocorrências/relações deles são copiadas do
+        snapshot anterior com remap de FKs dentro da mesma transação
+        atômica. ``force`` desativa o caminho incremental.
         """
         scan = self._scanner(Path(root))
         digest = scan.manifest_sha256()
@@ -135,25 +159,39 @@ class IndexCoordinator:
         # parse). A checagem se repete dentro do lock para cobrir corrida
         # com outro escritor.
         current = store.latest_ready_snapshot(repo_id)
-        if (
-            not force
-            and current is not None
-            and current.worktree_digest == digest
-            and dict(current.analyzer_versions) == versions
-        ):
+        if not force and self._is_unchanged(current, digest, versions):
             with self._conn:
                 store.finish_index_job(
                     job_id, "noop", snapshot_id=current.id,
                     counts={"files": 0}, failures=(),
                 )
-            return IndexOutcome(
-                snapshot_id=current.id, job_id=job_id, status="noop",
-                files_indexed=0, noop=True,
-            )
+            return self._noop_outcome(current.id, job_id)
+
+        # Planejamento incremental ANTES de parsear (lf-0019): o plano é
+        # produzido e inspecionável antes de qualquer trabalho. O plano é
+        # amarrado ao snapshot `prior_snap` — se outro escritor publicar
+        # antes do nosso lock, o copy-forward continua correto porque as
+        # linhas copiadas vêm de `prior_snap` (não do current relido).
+        self.last_plan = None
+        plan: IndexPlan | None = None
+        prior_id: int | None = None
+        reused_paths: set[str] = set()
+        parse_only: set[str] | None = None
+        preserved = None
+        missing_ctx: set[str] = set()
+        if incremental and not force:
+            (
+                plan, prior_id, reused_paths, preserved,
+                parse_only, missing_ctx,
+            ) = self._plan_incremental(scan, repo_id, versions)
 
         # Fase de análise FORA do lock de escrita: parse + grafo + validação.
-        results, file_status, read_failures = self._parse_files(root, scan)
-        graph = self._builder.build(Path(root).name, scan, results)
+        results, file_status, read_failures = self._parse_files(
+            root, scan, only=parse_only
+        )
+        graph = self._builder.build(
+            Path(root).name, scan, results, preserved_universe=preserved
+        )
         g_errors = validate_graph(graph)
         if g_errors:
             # invariante violada = bug/violação interna → FAILED, READY salvo
@@ -180,21 +218,13 @@ class IndexCoordinator:
         try:
             current = store.latest_ready_snapshot(repo_id)
 
-            if (
-                not force
-                and current is not None
-                and current.worktree_digest == digest
-                and dict(current.analyzer_versions) == versions
-            ):
+            if not force and self._is_unchanged(current, digest, versions):
                 store.finish_index_job(
                     job_id, "noop", snapshot_id=current.id,
                     counts={"files": 0}, failures=(),
                 )
                 self._conn.commit()
-                return IndexOutcome(
-                    snapshot_id=current.id, job_id=job_id, status="noop",
-                    files_indexed=0, noop=True,
-                )
+                return self._noop_outcome(current.id, job_id)
 
             snapshot_id = store.insert_snapshot(
                 repo_id,
@@ -207,28 +237,25 @@ class IndexCoordinator:
             rows = [(store.upsert_source_file(repo_id, f), f) for f in scan.files]
             store.insert_inventory_rows(snapshot_id, rows)
             file_ids = {f.path: fid for fid, f in rows}
-            pcounts = persist_graph(
-                store, repo_id, snapshot_id, file_ids, graph,
-                fts5=fts5_available(self._conn), file_status=file_status,
+            pcounts = self._persist_with_reuse(
+                repo_id=repo_id, snapshot_id=snapshot_id,
+                file_ids=file_ids, graph=graph, file_status=file_status,
+                plan=plan, prior_id=prior_id,
+                reused_paths=reused_paths, missing_ctx=missing_ctx,
             )
             # evidência explícita para arquivos que falharam no parse —
             # nenhuma perda silenciosa vira READY
-            sha_by_path = {f.path: f.sha256 for f in scan.files}
-            for fail in read_failures:
-                path, _, code = fail.partition(":")
-                fid = file_ids.get(path)
-                if fid is not None:
-                    store.insert_evidence(
-                        snapshot_id, fid, path, None,
-                        sha_by_path.get(path) or "", "parse-engine",
-                        ANALYZER_VERSION, notes=f"parse-failure:{code}",
-                    )
-                    pcounts["evidence"] += 1
+            pcounts["evidence"] += self._record_parse_failures(
+                store, snapshot_id, scan, file_ids, read_failures
+            )
             self._validate(snapshot_id)
             store.publish_snapshot(repo_id, snapshot_id)
             counts = {
                 "files": len(rows),
                 "files_parsed": len(results),
+                "files_reused": (
+                    len(reused_paths - missing_ctx) if plan is not None else 0
+                ),
                 "files_failed": sum(
                     1 for x in read_failures
                     if not x.endswith(":syntax-errors")
@@ -263,6 +290,141 @@ class IndexCoordinator:
                 files_indexed=0, error=str(exc),
             )
 
+    def _plan_incremental(
+        self, scan: ScanResult, repo_id: int, versions: dict[str, str]
+    ) -> tuple[
+        IndexPlan | None, int | None, set[str],
+        ScopeUniverse | None, set[str] | None, set[str],
+    ]:
+        """Diff + plano de invalidação contra o último READY (lf-0019).
+
+        Retorna ``(plan, prior_snapshot_id, reused_paths,
+        preserved_universe, parse_only, missing_ctx)``; ``plan=None``
+        quando não há snapshot anterior (a chamada inteira vira full
+        index).
+        """
+        store = self._store
+        prior_snap = store.latest_ready_snapshot(repo_id)
+        if prior_snap is None or prior_snap.id is None:
+            return None, None, set(), None, None, set()
+        prior_id = prior_snap.id
+        prior_inv = store.snapshot_inventory(prior_id)
+        changeset = detect_changes(
+            scan, prior_inv, dict(prior_snap.analyzer_versions), versions,
+        )
+        prior_status = {
+            str(r["path"]): str(r["parse_status"]) for r in prior_inv
+        }
+        plan = self._planner.plan(
+            changeset,
+            store.module_import_edges(prior_id),
+            prior_status,
+        )
+        self.last_plan = plan
+        reused_paths = set(plan.paths_for(PlanAction.REUSE))
+        preserved = reconstruct_universe(store, prior_id, reused_paths)
+        # rede de segurança: arquivo "reuse" sem ctx persistido (sem
+        # símbolo de módulo) → re-parse honesto
+        covered = {ctx.path for ctx in preserved.nid_mod.values()}
+        missing_ctx = reused_paths - covered
+        parse_only = (
+            set(plan.paths_for(PlanAction.REPARSE))
+            | set(plan.paths_for(PlanAction.REVALIDATE_RELATIONS))
+            | missing_ctx
+        )
+        return plan, prior_id, reused_paths, preserved, parse_only, missing_ctx
+
+    def _persist_with_reuse(
+        self,
+        *,
+        repo_id: int,
+        snapshot_id: int,
+        file_ids: dict[str, int],
+        graph: GraphBuildResult,
+        file_status: dict[str, str],
+        plan: IndexPlan | None,
+        prior_id: int | None,
+        reused_paths: set[str],
+        missing_ctx: set[str],
+    ) -> dict[str, int]:
+        """Copy-forward + persist na mesma transação (lf-0019).
+
+        Ocorrências/evidências dos arquivos ``reuse`` são copiadas ANTES
+        do ``persist_graph`` (que usa o mapa para amarrar arestas de
+        arquivos parseados a módulos reutilizados); relations DEPOIS, já
+        com todos os endpoints existentes no snapshot novo.
+        """
+        store = self._store
+        external_occ: dict[str, int] = {}
+        occ_map: dict[int, int] = {}
+        evi_map: dict[int, int] = {}
+        reused_fids: set[int] = set()
+        if plan is not None and prior_id is not None:
+            reused_fids = {
+                file_ids[p]
+                for p in reused_paths - missing_ctx
+                if p in file_ids
+            }
+            external_occ, occ_map, evi_map = copy_occurrences_and_evidence(
+                store, prior_id, snapshot_id, reused_fids
+            )
+        pcounts = persist_graph(
+            store, repo_id, snapshot_id, file_ids, graph,
+            fts5=fts5_available(self._conn), file_status=file_status,
+            external_occ=external_occ or None,
+        )
+        if plan is not None and prior_id is not None:
+            rel_stats = copy_relations(
+                store, prior_id, snapshot_id,
+                reused_fids, occ_map, evi_map,
+            )
+            pcounts["relations"] += rel_stats["relations_copied"]
+            pcounts["edges_skipped"] += rel_stats["relations_dropped"]
+        return pcounts
+
+    @staticmethod
+    def _record_parse_failures(
+        store: Store,
+        snapshot_id: int,
+        scan: ScanResult,
+        file_ids: dict[str, int],
+        read_failures: list[str],
+    ) -> int:
+        """Evidência de parse-failure por arquivo; retorna quantas rows."""
+        sha_by_path = {f.path: f.sha256 for f in scan.files}
+        n = 0
+        for fail in read_failures:
+            path, _, code = fail.partition(":")
+            fid = file_ids.get(path)
+            if fid is not None:
+                store.insert_evidence(
+                    snapshot_id, fid, path, None,
+                    sha_by_path.get(path) or "", "parse-engine",
+                    ANALYZER_VERSION, notes=f"parse-failure:{code}",
+                )
+                n += 1
+        return n
+
+    @staticmethod
+    def _noop_outcome(snapshot_id: int | None, job_id: int) -> IndexOutcome:
+        return IndexOutcome(
+            snapshot_id=snapshot_id, job_id=job_id, status="noop",
+            files_indexed=0, noop=True,
+        )
+
+    @staticmethod
+    def _is_unchanged(
+        current: Snapshot | None,
+        digest: str,
+        versions: dict[str, str],
+    ) -> TypeGuard[Snapshot]:
+        """READY anterior com mesmo digest+versões → no-op (Blueprint §6)."""
+        return (
+            current is not None
+            and current.worktree_digest == digest
+            and dict(current.analyzer_versions) == versions
+        )
+
     _BEGIN_ATTEMPTS = 4
     _BEGIN_BACKOFF_S = 0.05
 
@@ -279,12 +441,18 @@ class IndexCoordinator:
         return last
 
     def _parse_files(
-        self, root: Path, scan: ScanResult
+        self, root: Path, scan: ScanResult,
+        only: set[str] | None = None,
     ) -> tuple[list[ParseResult], dict[str, str], list[str]]:
         """Lê e parseia arquivos suportados — fora da transação de escrita.
 
         Retorna (results, file_status, failures). ``file_status`` alimenta
         ``symbol_occurrences.parse_status``; ``failures`` entra no job.
+
+        ``only`` (lf-0019): quando presente, só paths no conjunto são
+        lidos/parseados — os demais vêm do copy-forward do snapshot
+        anterior e sequer são abertos (o sha do manifesto já prova
+        conteúdo idêntico).
 
         Integridade scan→parse (lf-0015): os bytes parseados precisam ser
         exatamente os bytes hasheados pelo manifest — leitura verificada
@@ -296,6 +464,8 @@ class IndexCoordinator:
         file_status: dict[str, str] = {}
         failures: list[str] = []
         for f in scan.files:
+            if only is not None and f.path not in only:
+                continue
             if self._engine.registry.for_path(f.path) is None:
                 continue  # extensão sem parser — não conta como falha
             if f.sha256 is None:
