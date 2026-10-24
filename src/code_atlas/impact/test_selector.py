@@ -36,6 +36,51 @@ def is_test_path(path: str) -> bool:
             or "/tests/" in p or p.startswith("tests/"))
 
 
+def _edge_candidates(
+    conn: sqlite3.Connection, snapshot_id: int,
+    symbol_changes: tuple[SymbolChange, ...],
+    out: list[TestCandidate], seen: set[str],
+    max_candidates: int,
+) -> None:
+    """Arestas resolvidas teste→alterado = evidência real de cobertura."""
+    changed_occs = {
+        oid for s in symbol_changes
+        for oid in (s.new_occurrence_id, s.old_occurrence_id) if oid}
+    if not changed_occs:
+        return
+    marks = ",".join("?" for _ in changed_occs)
+    edge_sql = (
+        "SELECT r.from_id, r.type, r.resolution_status"
+        " FROM relations r WHERE r.snapshot_id = ?"
+        f" AND r.to_id IN ({marks})"
+        " ORDER BY r.id LIMIT ?")
+    rows = conn.execute(
+        edge_sql,
+        (snapshot_id, *sorted(changed_occs), max_candidates)
+    ).fetchall()
+    file_of: dict[int, sqlite3.Row | None] = {}
+    for r in rows:
+        fid = int(r["from_id"])
+        if fid not in file_of:
+            file_of[fid] = conn.execute(
+                "SELECT f.relative_path, o.id AS occ FROM"
+                " symbol_occurrences o JOIN source_files f"
+                " ON f.id = o.source_file_id"
+                " WHERE o.id = ?", (fid,)).fetchone()
+        frow = file_of[fid]
+        path = str(frow["relative_path"]) if frow else ""
+        if frow and is_test_path(path) and path not in seen:
+            seen.add(path)
+            out.append(TestCandidate(
+                test_file=path, test_symbol=None,
+                relationship="direct",
+                reason=f"aresta {r['type']}→símbolo alterado",
+                strength=(EvidenceStrength.VERIFIED
+                          if r["resolution_status"] == "resolved"
+                          else EvidenceStrength.POSSIBLE),
+                occurrence_id=int(frow["occ"])))
+
+
 def select(
     conn: sqlite3.Connection, snapshot_id: int,
     symbol_changes: tuple[SymbolChange, ...],
@@ -46,6 +91,10 @@ def select(
     conn.row_factory = sqlite3.Row
     out: list[TestCandidate] = []
     seen: set[str] = set()
+
+    # 0) arestas resolvidas teste→símbolo-alterado (evidência real).
+    _edge_candidates(
+        conn, snapshot_id, symbol_changes, out, seen, max_candidates)
 
     # 1) impact candidates que já vivem em arquivos de teste.
     for c in impacts:

@@ -1066,9 +1066,11 @@ def run_impact(args: argparse.Namespace) -> int:
     root = resolve_root(args.root)
     conn = _open_db()
     try:
+        base = args.base or ("HEAD" if args.cmd in ("worktree", "diff")
+                             else "")
         req = ImpactRequest(
             repository_root=str(root),
-            base_revision=args.base,
+            base_revision=base,
             target_revision=(args.target if args.cmd != "worktree"
                              else ""),
             symbol=args.ident if args.cmd in ("symbol", "contract")

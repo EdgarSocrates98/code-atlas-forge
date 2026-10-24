@@ -68,6 +68,32 @@ def _parse_name_status_z(raw: bytes) -> list[FileChange]:
     return out
 
 
+def _binary_paths(root: Path, args: list[str]) -> set[str]:
+    """`--numstat -z`: linhas '-'/'-' marcam binários (name-status
+    não distingue — Phase 2 exige kind BINARY real)."""
+    res = gitbin.run_git([args[0], "--numstat", "-z", *args[1:]],
+                         cwd=root)
+    if res.returncode != 0:
+        return set()
+    fields = [f for f in res.stdout.split(b"\0") if f]
+    out: set[str] = set()
+    i = 0
+    while i < len(fields):
+        parts = fields[i].split(b"\t")
+        i += 1
+        if len(parts) < 2:
+            continue
+        adds, dels = parts[0].strip(), parts[1].strip()
+        binary = adds == b"-" and dels == b"-"
+        # rename no numstat emite dois caminhos; o novo é o último.
+        renamed = len(parts) > 2 and parts[2].strip() == b""
+        n = 2 if renamed else 1
+        if binary and i + n - 1 < len(fields):
+            out.add(fields[i + n - 1].decode("utf-8", "replace"))
+        i += n
+    return out
+
+
 def read_diff(
     root: Path, base: str, target: str | None, *,
     staged: bool = False,
@@ -96,7 +122,16 @@ def read_diff(
         return None, (ImpactDiagnostic(
             "git-error",
             res.stderr.decode("utf-8", "replace")[:200]),)
-    files = tuple(_parse_name_status_z(res.stdout))
+    binary = _binary_paths(root, args)
+    files = tuple(
+        FileChange(
+            kind=(ChangeKind.BINARY
+                  if (f.new_path or f.old_path) in binary else f.kind),
+            old_path=f.old_path, new_path=f.new_path,
+            old_hash=f.old_hash, new_hash=f.new_hash,
+            similarity=f.similarity,
+            binary=True) if (f.new_path or f.old_path) in binary else f
+        for f in _parse_name_status_z(res.stdout))
     return ChangeSet(
         base_revision=base_sha,
         target_revision=target_sha or "worktree",

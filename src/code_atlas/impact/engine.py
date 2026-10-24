@@ -90,7 +90,7 @@ class ImpactEngine:
                 origins[s.symbol_key] = occ
         impacts, b_trunc = blast_radius.blast(
             self._conn, target_sid, origins, req.limits)
-        if req.known_only:
+        if req.known_only or not req.include_possible:
             impacts = tuple(
                 i for i in impacts if i.strength.value == "verified")
         trunc = trunc or b_trunc
