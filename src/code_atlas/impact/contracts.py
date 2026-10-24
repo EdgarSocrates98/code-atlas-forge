@@ -158,6 +158,9 @@ class ImpactCandidate:
     path: ImpactPath | None
     source_path: str | None = None
     occurrence_id: int | None = None
+    # lf-0078: estado do consumidor histórico no destino
+    # ("" | still_present | also_removed | unresolved_in_target)
+    consumer_state: str = ""
 
 
 @dataclass(frozen=True)
@@ -170,6 +173,7 @@ class TestCandidate:
     reason: str
     strength: EvidenceStrength
     occurrence_id: int | None = None
+    revision: str = ""              # lf-0080: "base" | "target" | ""
 
 
 @dataclass(frozen=True)

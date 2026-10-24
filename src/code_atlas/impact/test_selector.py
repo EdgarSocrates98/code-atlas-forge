@@ -41,9 +41,12 @@ def _edge_candidates(
     symbol_changes: tuple[SymbolChange, ...],
     out: list[TestCandidate], seen: set[str],
     max_candidates: int,
+    *,
+    occs: set[int] | None = None,
+    revision: str = "target",
 ) -> None:
     """Arestas resolvidas teste→alterado = evidência real de cobertura."""
-    changed_occs = {
+    changed_occs = occs if occs is not None else {
         oid for s in symbol_changes
         for oid in (s.new_occurrence_id, s.old_occurrence_id) if oid}
     if not changed_occs:
@@ -78,7 +81,8 @@ def _edge_candidates(
                 strength=(EvidenceStrength.VERIFIED
                           if r["resolution_status"] == "resolved"
                           else EvidenceStrength.POSSIBLE),
-                occurrence_id=int(frow["occ"])))
+                occurrence_id=int(frow["occ"]),
+                revision=revision))
 
 
 def select(
@@ -86,15 +90,30 @@ def select(
     symbol_changes: tuple[SymbolChange, ...],
     impacts: tuple[ImpactCandidate, ...],
     *,
+    base_snapshot_id: int | None = None,
     max_candidates: int = 50,
 ) -> tuple[TestCandidate, ...]:
     conn.row_factory = sqlite3.Row
     out: list[TestCandidate] = []
     seen: set[str] = set()
 
-    # 0) arestas resolvidas teste→símbolo-alterado (evidência real).
+    # 0a) arestas resolvidas teste→símbolo-alterado no ALVO.
+    target_occs = {
+        oid for s in symbol_changes
+        for oid in (s.new_occurrence_id,) if oid}
     _edge_candidates(
-        conn, snapshot_id, symbol_changes, out, seen, max_candidates)
+        conn, snapshot_id, symbol_changes, out, seen, max_candidates,
+        occs=target_occs or None, revision="target")
+
+    # 0b) lf-0080: arestas HISTÓRICAS na base — testes que referenciavam
+    # símbolos removidos (ocorrência só existe na base).
+    if base_snapshot_id is not None and base_snapshot_id != snapshot_id:
+        base_occs = {
+            s.old_occurrence_id for s in symbol_changes
+            if s.old_occurrence_id is not None}
+        _edge_candidates(
+            conn, base_snapshot_id, symbol_changes, out, seen,
+            max_candidates, occs=base_occs or None, revision="base")
 
     # 1) impact candidates que já vivem em arquivos de teste.
     for c in impacts:
@@ -109,7 +128,8 @@ def select(
                     relationship=rel,
                     reason=f"grafo: {c.path.reason if c.path else ''}",
                     strength=c.strength,
-                    occurrence_id=c.occurrence_id))
+                    occurrence_id=c.occurrence_id,
+                    revision=("base" if c.consumer_state else "target")))
 
     # 2) convenção de nome: test_<mod>.py / <mod>.test.ts por arquivo
     # de origem alterado.
