@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "code-atlas-forge"
 dynamic = ["version"]
-description = "Plataforma local-first de inteligência estrutural de código — Cycle 1: foundation & contracts"
+description = "Plataforma local-first de inteligência estrutural de código — Cycle 4.1: retrieval, context packs, MCP e evidência canônica"
 readme = "README.md"
 requires-python = ">=3.12"
 license = "Apache-2.0"
