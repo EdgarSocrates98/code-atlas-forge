@@ -1,0 +1,15 @@
+{
+  "agent": "claude",
+  "command": [
+    "claude",
+    "-p",
+    "$(cat /home/edgar/Documentos/projetos/forjas/code-atlas-forge/factory/prompts/lf-0002.implement.claude.md)"
+  ],
+  "created_at": "2026-10-24T10:58:37+00:00",
+  "id": "lf-0002",
+  "prompt_path": "/home/edgar/Documentos/projetos/forjas/code-atlas-forge/factory/prompts/lf-0002.implement.claude.md",
+  "spec_path": "/home/edgar/Documentos/projetos/forjas/code-atlas-forge/factory/specs/active/lf-0002.md",
+  "spec_sha256": "e31fac4a5de6366d0d88ece30fdb2966c36896479c67d8f0115545d31ca41b03",
+  "status": "planned",
+  "title": "Cycle 1 - Git-aware discovery scanner and inventory manifest"
+}
