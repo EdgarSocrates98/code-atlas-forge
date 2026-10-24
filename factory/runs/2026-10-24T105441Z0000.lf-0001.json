@@ -1,0 +1,15 @@
+{
+  "agent": "claude",
+  "command": [
+    "claude",
+    "-p",
+    "$(cat /home/edgar/Documentos/projetos/forjas/code-atlas-forge/factory/prompts/lf-0001.implement.claude.md)"
+  ],
+  "created_at": "2026-10-24T10:54:41+00:00",
+  "id": "lf-0001",
+  "prompt_path": "/home/edgar/Documentos/projetos/forjas/code-atlas-forge/factory/prompts/lf-0001.implement.claude.md",
+  "spec_path": "/home/edgar/Documentos/projetos/forjas/code-atlas-forge/factory/specs/active/lf-0001.md",
+  "spec_sha256": "7757328a817c24aadec2b50aa234de010b2754e9e15c8b5de48cd66239b2e56f",
+  "status": "planned",
+  "title": "Cycle 1 - Project scaffold, packaging and config foundation"
+}
