@@ -33,12 +33,12 @@ def res(tmp_path):
     IndexCoordinator(conn).index(root)
     r = ImpactEngine(conn).analyze(
         ImpactRequest(repository_root=str(root)))
-    yield conn, r
+    yield conn, r, root
     conn.close()
 
 
 def test_pack_budget_respected(res) -> None:
-    _, r = res
+    _, r, _root = res
     pack = build_pack(r, 4000)
     assert pack.tokens_used <= 4000
     pack2 = build_pack(r, 60)
@@ -48,7 +48,7 @@ def test_pack_budget_respected(res) -> None:
 
 
 def test_pack_critical_omission_declared(res) -> None:
-    _, r = res
+    _, r, _root = res
     pack = build_pack(r, 10)
     if pack.omitted:
         assert any("pack-truncated" in d or "critical-omitted" in d
@@ -57,7 +57,7 @@ def test_pack_critical_omission_declared(res) -> None:
 
 def test_golden_scenarios_measured(res) -> None:
     """Ground truth do fixture: OrderService.create_order removido."""
-    _, r = res
+    _, r, _root = res
     changes = {s.qualified_name: s.change.value
                for s in r.symbol_changes}
     # precisão/recall de detecção no caso controlado
@@ -71,19 +71,19 @@ def test_golden_scenarios_measured(res) -> None:
 
 
 def test_perf_analyze_under_budget(res) -> None:
-    conn, _ = res
+    conn, _r2, root = res
     eng = ImpactEngine(conn)
     t0 = time.perf_counter()
     for _ in range(5):
-        eng.analyze(ImpactRequest(repository_root="."))
+        eng.analyze(ImpactRequest(repository_root=str(root)))
     p50 = (time.perf_counter() - t0) / 5
     assert p50 < 2.0, f"analyze p50={p50:.2f}s > 2s"
 
 
 def test_limits_enforced(res) -> None:
-    conn, _ = res
+    conn, _r2, root = res
     r = ImpactEngine(conn).analyze(ImpactRequest(
-        repository_root=".",
+        repository_root=str(root),
         limits=ImpactLimits(max_paths=1, max_changes=2)))
     assert len(r.impacts) <= 1
     assert len(r.symbol_changes) <= 2

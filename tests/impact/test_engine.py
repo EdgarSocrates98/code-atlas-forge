@@ -90,5 +90,35 @@ def test_no_snapshot_empty_result(tmp_path) -> None:
     res = ImpactEngine(conn).analyze(
         ImpactRequest(repository_root=str(tmp_path)))
     assert res.symbol_changes == ()
-    assert any(d.code == "snapshot-unavailable"
+    assert any(d.code in ("snapshot-unavailable", "repo-not-indexed")
                for d in res.diagnostics)
+
+
+def test_cross_repo_isolation(tmp_path) -> None:
+    """lf-0071: análise do repo A nunca usa snapshot do repo B."""
+    root_a = tmp_path / "a"
+    root_b = tmp_path / "b"
+    # mesmo atlas.db (parent comum) → dois repositories no mesmo banco
+    conn_a = build_eval_repo(root_a)
+    conn_b = build_eval_repo(root_b)
+    snaps = conn_a.execute(
+        "SELECT id, repository_id FROM snapshots ORDER BY id"
+    ).fetchall()
+    assert len({s[1] for s in snaps}) == 2  # A e B realmente distintos
+    (root_a / "pkg" / "orders.py").write_text(
+        "class OrderService:\n"
+        "    def cancel_order(self, o):\n        return 1\n")
+    IndexCoordinator(conn_a).index(root_a)
+    res = ImpactEngine(conn_a).analyze(
+        ImpactRequest(repository_root=str(root_a)))
+    assert res.target_snapshot_id is not None
+    snap_repo = dict()
+    for r in conn_a.execute(
+            "SELECT id, repository_id FROM snapshots"):
+        snap_repo[r[0]] = r[1]
+    repo_a = conn_a.execute(
+        "SELECT repository_id FROM snapshots WHERE id=?",
+        (res.target_snapshot_id,)).fetchone()[0]
+    for sid in (res.base_snapshot_id, res.target_snapshot_id):
+        assert snap_repo[sid] == repo_a
+    conn_b.close()

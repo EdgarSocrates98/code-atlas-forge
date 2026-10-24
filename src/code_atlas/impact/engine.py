@@ -32,11 +32,61 @@ class ImpactEngine:
         self._conn = conn
         conn.row_factory = sqlite3.Row
 
-    def _snapshots(self) -> list[int]:
+    def _snapshots(self, repo_id: int) -> list[int]:
+        """Snapshots READY **deste repositório** (lf-0071/P1: antes era
+        global — outro repo podia ser escolhido como base/alvo)."""
         rows = self._conn.execute(
-            "SELECT id FROM snapshots WHERE status = 'READY'"
-            " ORDER BY id").fetchall()
+            "SELECT id FROM snapshots"
+            " WHERE status = 'READY' AND repository_id = ?"
+            " ORDER BY id", (repo_id,)).fetchall()
         return [int(r["id"]) for r in rows]
+
+    def _repo_id(self, root: Path) -> int | None:
+        from code_atlas.search.structural import StructuralSearch
+        return StructuralSearch(self._conn).repo_for_root(str(root))
+
+    def _resolve_snapshots(
+        self, req: ImpactRequest, root: Path,
+        diags: list[ImpactDiagnostic],
+    ) -> tuple[int, int] | None:
+        repo_id = self._repo_id(root)
+        if repo_id is None:
+            diags.append(ImpactDiagnostic(
+                "repo-not-indexed",
+                f"repositório não indexado: {root}"))
+            return None
+        base_sid = req.base_snapshot_id
+        target_sid = req.target_snapshot_id
+        if target_sid is None:
+            ready = self._snapshots(repo_id)
+            target_sid = ready[-1] if ready else None
+        if base_sid is None and target_sid is not None:
+            row = self._conn.execute(
+                "SELECT id FROM snapshots WHERE id < ?"
+                " AND repository_id = ?"
+                " ORDER BY id DESC LIMIT 1",
+                (target_sid, repo_id)).fetchone()
+            base_sid = int(row["id"]) if row else target_sid
+        for sid in (base_sid, target_sid):
+            if sid is None:
+                continue
+            own = self._conn.execute(
+                "SELECT repository_id FROM snapshots WHERE id = ?",
+                (sid,)).fetchone()
+            if own is None:
+                diags.append(ImpactDiagnostic(
+                    "snapshot-missing", f"snapshot {sid} ausente"))
+            elif int(own["repository_id"]) != repo_id:
+                diags.append(ImpactDiagnostic(
+                    "cross-repo-snapshot",
+                    f"snapshot {sid} pertence a outro repositório"))
+                return None
+        if base_sid is None or target_sid is None:
+            diags.append(ImpactDiagnostic(
+                "snapshot-unavailable",
+                "nenhum snapshot READY — indexe antes de analisar"))
+            return None
+        return base_sid, target_sid
 
     def analyze(self, req: ImpactRequest) -> ImpactResult:
         diags: list[ImpactDiagnostic] = []
@@ -49,24 +99,11 @@ class ImpactEngine:
                 root, req.base_revision, req.target_revision or None)
             diags.extend(d)
 
-        # 2) Snapshots: alvo = READY mais novo; base = o snapshot
-        # imediatamente anterior (STALE vale — guarda o estado antigo).
-        base_sid = req.base_snapshot_id
-        target_sid = req.target_snapshot_id
-        if target_sid is None:
-            ready = self._snapshots()
-            target_sid = ready[-1] if ready else None
-        if base_sid is None and target_sid is not None:
-            row = self._conn.execute(
-                "SELECT id FROM snapshots WHERE id < ?"
-                " ORDER BY id DESC LIMIT 1",
-                (target_sid,)).fetchone()
-            base_sid = int(row["id"]) if row else target_sid
-        if base_sid is None or target_sid is None:
-            diags.append(ImpactDiagnostic(
-                "snapshot-unavailable",
-                "nenhum snapshot READY — indexe antes de analisar"))
+        # 2) Snapshots — SEMPRE escopados ao repositório do root.
+        pair = self._resolve_snapshots(req, root, diags)
+        if pair is None:
             return self._empty(req, diags)
+        base_sid, target_sid = pair
 
         # 3) Symbol diff.
         sym_changes, unknown, trunc = symbol_diff.diff_snapshots(
