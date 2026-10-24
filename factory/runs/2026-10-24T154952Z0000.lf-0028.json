@@ -1,0 +1,15 @@
+{
+  "agent": "codex",
+  "command": [
+    "codex",
+    "exec",
+    "$(cat /home/edgar/Documentos/projetos/forjas/code-atlas-forge/factory/prompts/lf-0028.implement.codex.md)"
+  ],
+  "created_at": "2026-10-24T15:49:52+00:00",
+  "id": "lf-0028",
+  "prompt_path": "/home/edgar/Documentos/projetos/forjas/code-atlas-forge/factory/prompts/lf-0028.implement.codex.md",
+  "spec_path": "/home/edgar/Documentos/projetos/forjas/code-atlas-forge/factory/specs/active/lf-0028.md",
+  "spec_sha256": "494f796a5321f4abb7f9d5b3224142fb5913f34a933e409f5576a85f8c9d9502",
+  "status": "planned",
+  "title": "Cycle 3.1 Phase 2 \u2014 SCIP revision safety (provenance contract)"
+}

@@ -26,6 +26,21 @@ transacionais, snapshots prontos, rename/delete/branch.
 
 **Gate:** no-op reindex sem parse; consistência sob falhas e concorrência.
 
+## Cycle 3.1 — Semantic Hardening ✅ entregue
+> Ver `docs/cycle-3.1-evidence.md`, `docs/cycle-3.1-architecture.md`,
+> `docs/cycle-3.1-benchmarks.md`, `docs/semantic-enrichment-pipeline.md`,
+> `docs/scip-revision-validation.md`, `docs/security-review-cycle31.md`,
+> `docs/semantic-accuracy-report.md`, `docs/graph-fragment-storage.md`.
+
+Sub-ciclo de homologação do Cycle 3 (fora do Blueprint original):
+resolvers externos **integrados** ao pipeline (`SemanticEnricher`),
+revisão de proveniência SCIP, hardening LSP, instrumentação de
+pipeline, modelo de grafo incremental decidido (ADR-0020), CLI
+semântico (`--scip`/`--resolver`/`semantic-status`), review de
+segurança com zero P0/P1.
+
+**Gate:** G1–G12 com evidência — ver `docs/cycle-3.1-evidence.md`.
+
 ## Cycle 4 — Search & Agent Context
 
 Escopo: FTS+graph+vector opt-in, MCP stdio e context packs, budget,

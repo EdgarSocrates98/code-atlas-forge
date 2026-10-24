@@ -106,6 +106,34 @@ $ code-atlas index-plan . --json   # dry-run, zero writes
 - `index-plan`: dry-run que renderiza o `IndexPlan` sem tocar no DB.
 - `ambiguous` nunca aparece como `resolved` — status sai verbatim.
 
+## 8. Resolvers externos + status semântico (Cycle 3.1)
+
+```bash
+$ code-atlas index . --scip ./index.scip --json   # binding ad-hoc
+$ code-atlas index . --resolver syntactic --json  # só o baseline
+$ code-atlas index . --resolver scip --json       # syntactic + scip
+$ code-atlas index . --resolver lsp:pyright --json
+$ code-atlas semantic-status . --json
+{..., "resolvers": [{"id": "syntactic-scope-v1", "installed": true,
+"enabled": true, "used": true, "edges": 7,
+"by_status": {"resolved": 7}}],
+"coverage": {"resolved": 7, "ambiguous": 0, "unresolved": 0,
+"external": 0, "total": 7},
+"semantic": {"semantic_attempted": 0, ...},
+"revision": {"commit_sha": null, "scip_index_sha": null},
+"diagnostics": []}
+```
+
+- `--scip PATH` sobrescreve `[resolvers.scip].index_path` só naquela
+  invocação (proveniência/revisão do lf-0028 aplicada igual).
+- `--resolver` restringe os resolvers ativos — repetível ou por
+  vírgula; nome desconhecido é **erro tipado**, nunca flag silenciosa.
+- `semantic-status` lê **só o snapshot READY persistido**: `installed`
+  (índice carrega / binário no PATH), `enabled` (produziria resolver),
+  `used` (aparece em `relations.resolver` — única fonte real de uso).
+- Cobertura por status vem de `GROUP BY resolver, resolution_status` —
+  sem estimativa.
+
 ## O que o Cycle 3 **não** faz
 
 `impact`, `context`, `mcp`, `serve`, `ui` — não existem e não aparecem no

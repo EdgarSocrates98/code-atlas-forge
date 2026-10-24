@@ -1,0 +1,15 @@
+{
+  "agent": "codex",
+  "command": [
+    "codex",
+    "exec",
+    "$(cat /home/edgar/Documentos/projetos/forjas/code-atlas-forge/factory/prompts/lf-0033.implement.codex.md)"
+  ],
+  "created_at": "2026-10-24T16:29:55+00:00",
+  "id": "lf-0033",
+  "prompt_path": "/home/edgar/Documentos/projetos/forjas/code-atlas-forge/factory/prompts/lf-0033.implement.codex.md",
+  "spec_path": "/home/edgar/Documentos/projetos/forjas/code-atlas-forge/factory/specs/active/lf-0033.md",
+  "spec_sha256": "2a8c9004dbf9fa54a283821a4eb66be2d6d3d9a3b2e94dbbd6f5cb8a5ca68377",
+  "status": "planned",
+  "title": "Cycle 3.1 Phases 9+10 \u2014 testing expansion + security/portability review"
+}

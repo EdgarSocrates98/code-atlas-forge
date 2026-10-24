@@ -81,6 +81,7 @@ class ScanResult:
     partial: bool = False
     truncated: bool = False
     elapsed_s: float = 0.0  # metadado de execução — fora do manifest
+    hash_ms: int = 0  # tempo em _hash_file (lf-0031) — fora do manifest
 
     def manifest_bytes(self) -> bytes:
         """Serialização canônica e determinística do inventário.

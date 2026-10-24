@@ -32,3 +32,27 @@ são parseados em descriptor+doc-path+membros; ocorrências por span
 (0-based → 1-based) correlacionam com nós do grafo via `ScopeUniverse`
 compartilhado pelo builder. O que não correlaciona → `external`,
 nunca `resolved` inventado.
+
+## Proveniência e revision safety (lf-0028)
+
+`assess_revision()` produz `IndexProvenance` inspecionável por índice:
+`index_format`, `index_sha256`, `producer{name,version}`,
+`repository_identity`, `worktree_digest` (digest dos arquivos
+indexados vistos agora), `indexed_at` (mtime do .scip — evidência
+host, marcada), `validation_status` e `validation_evidence`.
+
+Verificações: project_root ↔ workspace; arquivos indexados ausentes
+ou mais novos que o índice (stale); paths não-normalizados;
+ocorrências além do fim do arquivo atual; `position_encoding` fora
+de {0, UTF-32}; metadata sem tool version; símbolos definidos em dois
+documentos. `source_revision` fica vazio — SCIP metadata não prova
+commit; ausente nunca é preenchido artificialmente.
+
+- `current` → resolução normal.
+- `degraded` → resolver resolve, mas confidence capada em
+  `heuristic` e detail marcado `[degraded]` — relação degradada
+  nunca vira comprovada.
+- `rejected` → nenhuma resolução; `index-rejected` diagnostic
+  (error). Índice incompatível nunca contamina snapshot READY.
+- Sem assessment explícito, o resolver assume `degraded` — índice
+  não-verificado nunca é tratado como provado por default.

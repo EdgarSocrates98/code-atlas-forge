@@ -1,0 +1,15 @@
+{
+  "agent": "codex",
+  "command": [
+    "codex",
+    "exec",
+    "$(cat /home/edgar/Documentos/projetos/forjas/code-atlas-forge/factory/prompts/lf-0029.implement.codex.md)"
+  ],
+  "created_at": "2026-10-24T15:54:13+00:00",
+  "id": "lf-0029",
+  "prompt_path": "/home/edgar/Documentos/projetos/forjas/code-atlas-forge/factory/prompts/lf-0029.implement.codex.md",
+  "spec_path": "/home/edgar/Documentos/projetos/forjas/code-atlas-forge/factory/specs/active/lf-0029.md",
+  "spec_sha256": "8d709ad90a32c9fd76804e815194ed2a2432df4af794e2a5d095124627e94d1c",
+  "status": "planned",
+  "title": "Cycle 3.1 Phase 3 \u2014 LSP lifecycle & semantic enrichment real"
+}

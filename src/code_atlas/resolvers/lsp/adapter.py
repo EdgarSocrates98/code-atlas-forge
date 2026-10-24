@@ -14,6 +14,7 @@ Proveniência: ``lsp:<server-name>:<version>`` — distinta de SCIP.
 
 from __future__ import annotations
 
+import dataclasses
 from typing import Any
 
 from code_atlas.resolvers.capabilities import EvidenceTier, ResolverCapability
@@ -102,14 +103,62 @@ class LspResolver:
         }
         if method == "textDocument/references":
             params["context"] = {"includeDeclaration": False}
+        result = self._call(request, method, params)
+        if isinstance(result, ResolutionResult):
+            return result
+        result_diags = tuple(
+            ResolutionDiagnostic(
+                code="server-diagnostic",
+                severity="info",
+                message=str(d)[:200],
+                resolver_id=self.resolver_id,
+            )
+            for d in self._client.diagnostics_for(
+                self._doc_uri(request.path))
+        )
+        mapped = self._map_result(request, self._locations(result))
+        if result_diags:
+            mapped = dataclasses.replace(
+                mapped,
+                diagnostics=result_diags + mapped.diagnostics,
+            )
+        return mapped
+
+    def _call(
+        self, request: ResolutionRequest, method: str,
+        params: dict[str, Any],
+    ) -> Any:
+        """Request com recovery único embutido (lf-0029)."""
         try:
-            result = self._client.request(method, params)
-        except TimeoutError:
-            return self._with_diag(request, "request-timeout",
-                                   f"{method} timed out")
-        except (LspError, TransportError) as exc:
-            return self._with_diag(request, "server-error", str(exc))
-        return self._map_result(request, self._locations(result))
+            return self._client.request(method, params)
+        except (TimeoutError, LspError, TransportError) as exc:
+            return self._recover_retry(request, method, params, exc)
+
+    def _recover_retry(
+        self, request: ResolutionRequest, method: str,
+        params: dict[str, Any], exc: Exception,
+    ) -> Any:
+        """lf-0029: recovery pós-falha — UM restart + UM retry.
+        Retorna o resultado do retry ou um ResolutionResult de erro
+        tipado (fallback sintático segue valendo)."""
+        if not self._try_restart():
+            code = ("request-timeout" if isinstance(exc, TimeoutError)
+                    else "server-error")
+            return self._with_diag(
+                request, code, f"{exc}; restart failed")
+        try:
+            return self._client.request(method, params)
+        except (TimeoutError, LspError, TransportError) as exc2:
+            return self._with_diag(
+                request, "server-error", f"{exc}; after restart: {exc2}")
+
+    def _try_restart(self) -> bool:
+        """Uma tentativa de recovery — nunca lança."""
+        try:
+            self._client.restart()
+        except Exception:
+            return False
+        return True
 
     # -- mapeamento de resultado -------------------------------------------
 

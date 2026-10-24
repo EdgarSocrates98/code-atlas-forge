@@ -83,6 +83,13 @@ class WorkspaceConfig:
 
     root: Path
     schema_version: int = CONFIG_SCHEMA_VERSION
+    # Tabela [resolvers] crua — parsing tipado em resolvers/bootstrap
+    # (lf-0027); ausente = sem resolvers opt-in.
+    resolvers: Mapping[str, object] | None = None
+    # [indexing] retain_snapshots — máximo de snapshots STALE mantidos
+    # por repositório (lf-0031). 0/ausente = retenção ilimitada (default:
+    # histórico completo preservado para auditoria).
+    retain_snapshots: int = 0
 
     def to_toml(self) -> str:
         return (
@@ -104,7 +111,24 @@ class WorkspaceConfig:
             root = Path(raw["workspace"]["root"])
         except (KeyError, TypeError) as exc:
             raise ConfigError(f"config {path} missing [workspace].root") from exc
-        return WorkspaceConfig(root=root, schema_version=int(raw.get("schema_version", 0)))
+        res = raw.get("resolvers")
+        if res is not None and not isinstance(res, dict):
+            raise ConfigError(f"config {path}: [resolvers] must be a table")
+        idx = raw.get("indexing", {})
+        if not isinstance(idx, dict):
+            raise ConfigError(f"config {path}: [indexing] must be a table")
+        retain = idx.get("retain_snapshots", 0)
+        if not isinstance(retain, int) or isinstance(retain, bool) or retain < 0:
+            raise ConfigError(
+                f"config {path}: [indexing].retain_snapshots must be an "
+                "integer >= 0"
+            )
+        return WorkspaceConfig(
+            root=root,
+            schema_version=int(raw.get("schema_version", 0)),
+            resolvers=res,
+            retain_snapshots=retain,
+        )
 
 
 class ConfigError(Exception):

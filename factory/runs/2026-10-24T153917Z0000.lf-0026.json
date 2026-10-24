@@ -1,0 +1,15 @@
+{
+  "agent": "codex",
+  "command": [
+    "codex",
+    "exec",
+    "$(cat /home/edgar/Documentos/projetos/forjas/code-atlas-forge/factory/prompts/lf-0026.implement.codex.md)"
+  ],
+  "created_at": "2026-10-24T15:39:17+00:00",
+  "id": "lf-0026",
+  "prompt_path": "/home/edgar/Documentos/projetos/forjas/code-atlas-forge/factory/prompts/lf-0026.implement.codex.md",
+  "spec_path": "/home/edgar/Documentos/projetos/forjas/code-atlas-forge/factory/specs/active/lf-0026.md",
+  "spec_sha256": "42ef1754c1fbb732f4251df523b0972b1f1db3f69e7420ac962be5886e59b126",
+  "status": "planned",
+  "title": "Cycle 3.1 Phase 0 \u2014 baseline audit da main + gap register"
+}

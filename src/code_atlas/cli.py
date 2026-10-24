@@ -65,6 +65,75 @@ def _open_db() -> sqlite3.Connection:
     return conn
 
 
+def _resolver_factories(
+    target: Path,
+    *,
+    scip_path: str | None = None,
+    only: Sequence[str] | None = None,
+) -> tuple[Sequence[Any], list[str], dict[str, str], int]:
+    """Resolvers opt-in + ``retain_snapshots`` do ``config.toml``.
+
+    ``[resolvers]`` (lf-0027): ausência de config/tabela → zero
+    factories (syntactic only). Erros de bootstrap são devolvidos
+    como strings de diagnóstico — nunca levantam.
+    ``[indexing] retain_snapshots`` (lf-0031): 0 = ilimitado.
+    lf-0032: ``scip_path`` sobrescreve ``[resolvers.scip].index_path``;
+    ``only`` restringe os resolvers ativos a ``scip`` / ``lsp`` /
+    ``lsp:<nome>`` (``syntactic`` é sempre o baseline).
+    """
+    from code_atlas.resolvers.bootstrap import resolver_factories
+
+    cfg_path = config_file()
+    resolvers: Any = None
+    retain = 0
+    errors: list[str] = []
+    if cfg_path.exists():
+        from code_atlas.config import WorkspaceConfig
+
+        try:
+            cfg = WorkspaceConfig.load(cfg_path)
+            resolvers = cfg.resolvers
+            retain = cfg.retain_snapshots
+        except ConfigError as exc:
+            return (), [f"config load failed: {exc}"], {}, 0
+    table: dict[str, Any] = dict(resolvers or {})
+    if scip_path:
+        scip = dict(table.get("scip") or {})
+        scip["index_path"] = scip_path
+        table["scip"] = scip
+    if only:
+        names = {n.strip() for n in only if n.strip()}
+        known_lsp = set(
+            ((resolvers or {}).get("lsp", {}) or {}).get("servers", {})
+            or {}
+        ) if isinstance((resolvers or {}).get("lsp"), dict) else set()
+        unknown = sorted(
+            n for n in names
+            if n not in ("syntactic", "scip", "lsp")
+            and not (n.startswith("lsp:") and n[4:] in known_lsp)
+        )
+        for u in unknown:
+            errors.append(f"--resolver: resolver desconhecido '{u}'")
+        if "scip" not in names:
+            table.pop("scip", None)
+        lsp = table.get("lsp")
+        if isinstance(lsp, dict) and "lsp" not in names:
+            wanted = {n[4:] for n in names if n.startswith("lsp:")}
+            servers = dict(lsp.get("servers") or {})
+            if wanted:
+                lsp = dict(lsp)
+                lsp["servers"] = {
+                    k: v for k, v in servers.items() if k in wanted
+                }
+                table["lsp"] = lsp
+            else:
+                table.pop("lsp", None)
+    versions: dict[str, str] = {}
+    factories, boot_errors = resolver_factories(table or None, target, versions)
+    errors.extend(boot_errors)
+    return tuple(factories), errors, versions, retain
+
+
 @dataclass(frozen=True)
 class Check:
     """Uma verificação do ``doctor``."""
@@ -308,7 +377,20 @@ def run_index(args: argparse.Namespace) -> int:
         return EXIT_UNSAFE
     conn = _open_db()
     try:
-        coord = IndexCoordinator(conn)
+        # Resolvers opt-in (lf-0027): [resolvers] do config.toml —
+        # erros de bootstrap viram diagnóstico no payload, não crash.
+        # lf-0032: --scip sobrescreve o index_path; --resolver restringe
+        # os resolvers ativos — nome desconhecido é erro tipado (nunca
+        # uma flag que silenciosamente não faz nada).
+        factories, boot_errors, res_versions, retain, fatal = (
+            _index_resolvers(target, args))
+        if fatal:
+            conn.close()
+            return _emit_error(args, fatal)
+        coord = IndexCoordinator(
+            conn, resolver_factories=factories,
+            resolver_versions=res_versions,
+            snapshot_retention=retain)
         # lf-0022: incremental é o default — ``--full`` é o escape
         # (force desliga o caminho incremental internamente).
         outcome: IndexOutcome = coord.index(target, force=args.full, incremental=True)
@@ -332,29 +414,191 @@ def run_index(args: argparse.Namespace) -> int:
         "error": outcome.error,
         "stats": outcome.stats,
         "plan": plan_counts,
-        "diagnostics": [],
+        "diagnostics": boot_errors,
     }
     if args.json:
         print(json.dumps(payload))
     else:
-        if outcome.status == "success":
-            print(f"snapshot #{outcome.snapshot_id} READY — "
-                  f"{outcome.files_indexed} inventory files")
-            s = outcome.stats
-            if s.get("occurrences") or s.get("relations"):
-                print(f"graph: {s.get('symbols_new', 0)} symbols, "
-                      f"{s.get('occurrences', 0)} occurrences, "
-                      f"{s.get('relations', 0)} relations "
-                      f"({s.get('files_failed', 0)} files failed)")
-        elif outcome.status == "noop":
-            print(f"snapshot #{outcome.snapshot_id} unchanged — no-op index")
-        else:
-            print(f"index failed: {outcome.error}", file=sys.stderr)
-        if outcome.secrets_skipped:
-            print(f"secrets excluded: {outcome.secrets_skipped}")
-        for w in outcome.warnings:
-            print(f"warning: {w}", file=sys.stderr)
+        _print_index_human(outcome)
     return EXIT_OK if outcome.status in ("success", "noop") else EXIT_ERROR
+
+
+def _print_index_human(outcome: IndexOutcome) -> None:
+    if outcome.status == "success":
+        print(f"snapshot #{outcome.snapshot_id} READY — "
+              f"{outcome.files_indexed} inventory files")
+        s = outcome.stats
+        if s.get("occurrences") or s.get("relations"):
+            print(f"graph: {s.get('symbols_new', 0)} symbols, "
+                  f"{s.get('occurrences', 0)} occurrences, "
+                  f"{s.get('relations', 0)} relations "
+                  f"({s.get('files_failed', 0)} files failed)")
+    elif outcome.status == "noop":
+        print(f"snapshot #{outcome.snapshot_id} unchanged — no-op index")
+    else:
+        print(f"index failed: {outcome.error}", file=sys.stderr)
+    if outcome.secrets_skipped:
+        print(f"secrets excluded: {outcome.secrets_skipped}")
+    for w in outcome.warnings:
+        print(f"warning: {w}", file=sys.stderr)
+
+
+def _index_resolvers(
+    target: Path, args: argparse.Namespace,
+) -> tuple[Sequence[Any], list[str], dict[str, str], int, str]:
+    """Flags de resolver do ``index`` → factories/versions/retain.
+
+    ``fatal`` não-vazio = erro tipado de flag (resolver desconhecido)
+    — o caller aborta sem indexar.
+    """
+    only: list[str] = []
+    for r in args.resolver or ():
+        only.extend(p for p in r.split(",") if p.strip())
+    factories, errors, versions, retain = _resolver_factories(
+        target, scip_path=args.scip, only=only or None)
+    bad = "; ".join(
+        e for e in errors if e.startswith("--resolver:"))
+    return factories, errors, versions, retain, bad
+
+
+def run_semantic_status(args: argparse.Namespace) -> int:
+    """lf-0032: resolvers installed/enabled/used + cobertura do READY.
+
+    Lê só o snapshot READY persistido — nunca inventa cobertura.
+    ``installed``/``enabled`` vêm de ``describe_resolvers`` (read-only:
+    nenhum server LSP é spawnado); ``used`` vem de
+    ``relations.resolver`` — a única fonte autoritativa de uso real.
+    """
+    target = (
+        Path(args.path).expanduser().resolve()
+        if args.path else resolve_root(args.root)
+    )
+    conn = _open_db()
+    try:
+        payload = _semantic_payload(conn, target)
+    finally:
+        conn.close()
+    return _emit_page(args, payload)
+
+
+def _semantic_payload(
+    conn: sqlite3.Connection, target: Path
+) -> dict[str, Any]:
+    """Monta o payload do ``semantic-status`` lendo só o READY."""
+    search = StructuralSearch(conn)
+    repo_id = search.repo_for_root(str(target))
+    snap = (
+        search.resolve_snapshot(repo_id, None)[0]
+        if repo_id is not None else None
+    )
+    coverage, used = _resolver_usage(conn, snap)
+    reports, boot_errors = _resolver_reports(target, used)
+    analyzer_versions = dict(snap.analyzer_versions) if snap else {}
+    last_job: dict[str, Any] = {}
+    if repo_id is not None:
+        row = conn.execute(
+            "SELECT counts FROM index_jobs WHERE repository_id = ? "
+            "AND status IN ('success','noop','failed') "
+            "ORDER BY id DESC LIMIT 1",
+            (repo_id,),
+        ).fetchone()
+        if row is not None:
+            last_job = json.loads(row["counts"] or "{}")
+    sem_keys = ("semantic_attempted", "semantic_enriched",
+                "semantic_diagnostics")
+    payload: dict[str, Any] = {
+        "tool": "code-atlas",
+        "version": __version__,
+        "schema_version": SCHEMA_VERSION,
+        "root": str(target),
+        "snapshot_id": snap.id if snap else None,
+        "indexed": snap is not None,
+        "resolvers": reports,
+        "coverage": {
+            "resolved": coverage.get("resolved", 0),
+            "ambiguous": coverage.get("ambiguous", 0),
+            "unresolved": coverage.get("unresolved", 0),
+            "external": coverage.get("external", 0),
+            "total": sum(coverage.values()),
+        },
+        "semantic": {k: last_job.get(k, 0) for k in sem_keys},
+        "revision": {
+            "commit_sha": snap.commit_sha if snap else None,
+            "scip_index_sha": analyzer_versions.get("resolver:scip"),
+        },
+        "diagnostics": boot_errors,
+        "_human": [],
+    }
+    for rep in reports:
+        flags = "/".join(
+            k for k in ("installed", "enabled", "used") if rep[k])
+        payload["_human"].append(
+            f"{rep['id']}: {flags or 'none'} edges={rep['edges']}")
+    cov = payload["coverage"]
+    payload["_human"].append(
+        f"coverage: resolved={cov['resolved']} "
+        f"ambiguous={cov['ambiguous']} "
+        f"unresolved={cov['unresolved']} external={cov['external']}")
+    for e in boot_errors:
+        payload["_human"].append(f"diagnostic: {e}")
+    return payload
+
+
+def _resolver_usage(
+    conn: sqlite3.Connection, snap: Any
+) -> tuple[dict[str, int], dict[str, dict[str, int]]]:
+    """Cobertura por status + uso por resolver no snapshot READY."""
+    coverage: dict[str, int] = {}
+    used: dict[str, dict[str, int]] = {}
+    if snap is None or snap.id is None:
+        return coverage, used
+    for r in conn.execute(
+        "SELECT resolver, resolution_status, COUNT(*) AS c "
+        "FROM relations WHERE snapshot_id = ? "
+        "GROUP BY resolver, resolution_status",
+        (snap.id,),
+    ):
+        coverage[r["resolution_status"]] = (
+            coverage.get(r["resolution_status"], 0) + r["c"])
+        used.setdefault(r["resolver"], {}).setdefault(
+            r["resolution_status"], 0)
+        used[r["resolver"]][r["resolution_status"]] += r["c"]
+    return coverage, used
+
+
+def _resolver_reports(
+    target: Path, used: dict[str, dict[str, int]]
+) -> tuple[list[dict[str, Any]], list[str]]:
+    """``describe_resolvers`` + marcação de uso real por resolver."""
+    from code_atlas.resolvers.bootstrap import describe_resolvers
+
+    table: Any = None
+    cfg_path = config_file()
+    if cfg_path.exists():
+        from code_atlas.config import WorkspaceConfig
+
+        try:
+            table = WorkspaceConfig.load(cfg_path).resolvers
+        except ConfigError:
+            table = None
+    reports, errors = describe_resolvers(table, target)
+    for rep in reports:
+        rid = str(rep["id"])
+        by_status = dict(used.get(rid, {}))
+        if rid == "syntactic-scope-v1":
+            # arestas sintáticas carregam o parser-id como resolver
+            # (ex.: tree-sitter-python) — tudo que não é resolver
+            # externo pertence ao tier sintático baseline.
+            for k, v in used.items():
+                if k == rid:
+                    continue
+                if not k.startswith("scip") and not k.startswith("lsp:"):
+                    for st, c in v.items():
+                        by_status[st] = by_status.get(st, 0) + c
+        rep["used"] = bool(by_status)
+        rep["edges"] = sum(by_status.values())
+        rep["by_status"] = by_status
+    return reports, errors
 
 
 def _search_context(
@@ -709,8 +953,28 @@ def build_parser() -> argparse.ArgumentParser:
         "--incremental", action="store_true", default=True,
         help="indexação incremental (default ativo; --full desativa)",
     )
+    p_index.add_argument(
+        "--scip", metavar="PATH", default=None,
+        help="índice SCIP ad-hoc (sobrescreve [resolvers.scip].index_path)",
+    )
+    p_index.add_argument(
+        "--resolver", metavar="NAME", action="append", default=None,
+        help="restringe resolvers ativos (syntactic|scip|lsp|lsp:<nome>); "
+             "repetível ou separado por vírgula",
+    )
     p_index.add_argument("--json", action="store_true", help="saída em JSON")
     p_index.set_defaults(func=run_index)
+
+    p_sem = sub.add_parser(
+        "semantic-status",
+        help="resolvers instalados/habilitados/usados + cobertura semântica",
+    )
+    p_sem.add_argument("path", nargs="?", metavar="PATH",
+                       help="diretório do workspace")
+    p_sem.add_argument("--root", metavar="PATH",
+                       help="raiz alternativa (se PATH ausente)")
+    p_sem.add_argument("--json", action="store_true", help="saída em JSON")
+    p_sem.set_defaults(func=run_semantic_status)
 
     p_plan = sub.add_parser(
         "index-plan", help="dry-run: plano de indexação em JSON (zero writes)"

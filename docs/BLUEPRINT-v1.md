@@ -1,6 +1,7 @@
 # Code Atlas Forge — Technical Blueprint v1.0
 
-**Status:** Proposed architecture / implementation baseline  
+**Status:** Baseline de design — Cycles 1, 2, 3 e 3.1 (semantic
+hardening) entregues; ver `docs/roadmap.md` e `docs/cycle-3.1-evidence.md`
 **Date:** 2026-10-24  
 **Language:** pt-BR (contracts and code identifiers in English)
 

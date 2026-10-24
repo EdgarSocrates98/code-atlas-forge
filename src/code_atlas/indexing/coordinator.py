@@ -21,10 +21,12 @@ Regras:
 
 from __future__ import annotations
 
+import contextlib
+import dataclasses
 import hashlib
 import sqlite3
 import time
-from collections.abc import Callable
+from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import TypeGuard
@@ -47,8 +49,17 @@ from code_atlas.indexing.dependency_planner import (
 )
 from code_atlas.indexing.persist import persist_graph
 from code_atlas.indexing.reuse import cache_key_for, config_digest
-from code_atlas.parsers.contracts import ParseResult
+from code_atlas.parsers.contracts import (
+    GraphBuildResult,
+    ParseDiagnostic,
+    ParseResult,
+)
 from code_atlas.parsers.engine import ParseEngine
+from code_atlas.resolvers.bootstrap import ResolverFactory
+from code_atlas.resolvers.contracts import SemanticResolver
+from code_atlas.resolvers.coordinator import ResolverCoordinator
+from code_atlas.resolvers.enrichment import SemanticEnricher
+from code_atlas.resolvers.registry import ResolverRegistry
 from code_atlas.resolvers.syntactic.resolver import (
     RESOLVER_ID as _SYN_RESOLVER_ID,
 )
@@ -86,6 +97,9 @@ class IndexCoordinator:
         scanner: Callable[[Path], ScanResult] = default_scan,
         engine: ParseEngine | None = None,
         builder: GraphBuilder | None = None,
+        resolver_factories: Sequence[ResolverFactory] = (),
+        resolver_versions: Mapping[str, str] | None = None,
+        snapshot_retention: int = 0,
     ) -> None:
         self._conn = conn
         self._store = Store(conn)
@@ -93,6 +107,11 @@ class IndexCoordinator:
         self._engine = engine or ParseEngine()
         self._builder = builder or GraphBuilder()
         self._planner = InvalidationPlanner()
+        self._resolver_factories = tuple(resolver_factories)
+        self._resolver_versions = dict(resolver_versions or {})
+        # lf-0031: 0 = retenção ilimitada (histórico completo); >0 =
+        # máximo de STALE mantidos, podados na transação de publicação.
+        self._snapshot_retention = snapshot_retention
         self.last_plan: IndexPlan | None = None  # plano do último index
 
     def _analyzer_versions(self, scan: ScanResult) -> dict[str, str]:
@@ -116,7 +135,62 @@ class IndexCoordinator:
         # O SyntacticResolver é fixo no builder — sua versão define a
         # extração de relações e deve invalidar o índice (lf-0023).
         versions[f"resolver:{_SYN_RESOLVER_ID}"] = _SYN_RESOLVER_VERSION
+        # Resolvers opt-in ativos mudam o resultado da resolução —
+        # entrar/sair da config invalida relações (lf-0027).
+        if self._resolver_factories:
+            versions["resolver:external"] = "enabled/1"
+        # identidade dos resolvers externos (lf-0030): índice SCIP novo
+        # → sha muda → invalidação completa, conservadora e correta.
+        versions.update(self._resolver_versions)
         return versions
+
+    def _enrich_semantic(
+        self, graph: GraphBuildResult
+    ) -> tuple[GraphBuildResult, dict[str, int]]:
+        """Etapa de enriquecimento semântico (lf-0027): resolvers opt-in
+        (factories injetadas) re-resolvem arestas não-resolvidas via
+        ``ResolverCoordinator`` por tier de evidência. Falha de resolver
+        vira diagnóstico no grafo — o índice nunca para por resolver."""
+        if not self._resolver_factories:
+            return graph, {
+                "semantic_attempted": 0,
+                "semantic_enriched": 0,
+                "semantic_diagnostics": 0,
+            }
+        registry = ResolverRegistry()
+        resolvers: list[SemanticResolver] = []
+        diags: list[ParseDiagnostic] = []
+        for factory in self._resolver_factories:
+            try:
+                resolvers.append(factory(self._builder.universe))
+            except Exception as exc:
+                diags.append(
+                    ParseDiagnostic(
+                        code="semantic:bootstrap:resolver-error",
+                        severity="warning",
+                        message=f"resolver factory failed: {exc}",
+                    )
+                )
+        for r in resolvers:
+            registry.register(r)
+        try:
+            enriched, stats = SemanticEnricher(
+                ResolverCoordinator(registry)
+            ).enrich(graph)
+        finally:
+            # LSP e outros resolvers com lifecycle fecham ao fim do
+            # enriquecimento — nenhum processo sobrevive ao index().
+            for r in resolvers:
+                closer = getattr(r, "close", None)
+                if callable(closer):
+                    with contextlib.suppress(Exception):
+                        closer()
+        if diags:
+            enriched = dataclasses.replace(
+                enriched,
+                diagnostics=tuple(diags) + enriched.diagnostics,
+            )
+        return enriched, stats
 
     def index(
         self, root: Path, force: bool = False, incremental: bool = False
@@ -135,10 +209,15 @@ class IndexCoordinator:
         snapshot novo (isolamento lógico). ``force`` desativa o caminho
         incremental.
         """
+        stage_ms: dict[str, int] = {}
+        t_scan = time.monotonic()
         scan = self._scanner(Path(root))
         digest = scan.manifest_sha256()
         versions = self._analyzer_versions(scan)
         store = self._store
+        stage_ms["discovery"] = int(
+            (time.monotonic() - t_scan) * 1000)
+        stage_ms["hashing"] = scan.hash_ms
 
         # Job registrado em transação própria para sobreviver a rollback —
         # falhas precisam ficar inspecionáveis. Sob lock de escrita preso,
@@ -191,24 +270,39 @@ class IndexCoordinator:
         plan: IndexPlan | None = None
         reparse_paths: set[str] = set()
         cache_paths: set[str] = set()
+        t_plan = time.monotonic()
         if incremental and not force:
             plan, reparse_paths, cache_paths = self._plan_incremental(
                 scan, repo_id, versions
             )
+        stage_ms["invalidation"] = int(
+            (time.monotonic() - t_plan) * 1000)
 
         cfg_digest = config_digest(self._engine)
         cache = ParseResultCache(self._conn, repo_id)
 
         # Fase de análise FORA do lock de escrita: parse + grafo + validação.
+        t_parse = time.monotonic()
         results, file_status, read_failures, cache_puts, cache_hits = (
             self._parse_files(
                 root, scan, cache, cfg_digest,
                 reparse=reparse_paths, cache_candidates=cache_paths,
                 incremental=plan is not None,
+                timings=stage_ms,
             )
         )
+        stage_ms["parse"] = int((time.monotonic() - t_parse) * 1000)
+        t_graph = time.monotonic()
         graph = self._builder.build(Path(root).name, scan, results)
+        stage_ms["graph_build"] = int(
+            (time.monotonic() - t_graph) * 1000)
+        t_sem = time.monotonic()
+        graph, sem_stats = self._enrich_semantic(graph)
+        stage_ms["semantic"] = int((time.monotonic() - t_sem) * 1000)
+        t_val = time.monotonic()
         g_errors = validate_graph(graph)
+        stage_ms["validation"] = int(
+            (time.monotonic() - t_val) * 1000)
         if g_errors:
             # invariante violada = bug/violação interna → FAILED, READY salvo
             error = f"graph integrity violated: {'; '.join(g_errors[:3])}"
@@ -231,6 +325,7 @@ class IndexCoordinator:
                 files_indexed=len(scan.files), error=str(begin_err),
                 secrets_skipped=scan.secret_count,
             )
+        t_persist = time.monotonic()
         try:
             current = store.latest_ready_snapshot(repo_id)
 
@@ -254,6 +349,7 @@ class IndexCoordinator:
             file_ids = store.ensure_source_files(repo_id, scan.files)
             rows = [(file_ids[f.path], f) for f in scan.files]
             store.insert_inventory_rows(snapshot_id, rows)
+            t_w = time.monotonic()
             pcounts = persist_graph(
                 store, repo_id, snapshot_id, file_ids, graph,
                 fts5=fts5_available(self._conn), file_status=file_status,
@@ -263,17 +359,30 @@ class IndexCoordinator:
             pcounts["evidence"] += self._record_parse_failures(
                 store, snapshot_id, scan, file_ids, read_failures
             )
+            stage_ms["persist_rows"] = int(
+                (time.monotonic() - t_w) * 1000)
+            t_fk = time.monotonic()
             self._validate(snapshot_id)
+            stage_ms["fk_check"] = int(
+                (time.monotonic() - t_fk) * 1000)
+            t_pub = time.monotonic()
             store.publish_snapshot(repo_id, snapshot_id)
+            snaps_pruned = (
+                store.gc_stale_snapshots(repo_id, self._snapshot_retention)
+                if self._snapshot_retention > 0 else 0
+            )
             pruned = self._apply_cache(
                 cache, repo_id, snapshot_id, cache_puts, cache_hits
             )
+            stage_ms["publish_gc"] = int(
+                (time.monotonic() - t_pub) * 1000)
             counts = {
                 "files": len(rows),
                 "files_parsed": len(results) - len(cache_hits),
                 "files_reused": len(cache_hits),
                 "cache_puts": len(cache_puts),
                 "cache_pruned": pruned,
+                "snapshots_pruned": snaps_pruned,
                 "files_failed": sum(
                     1 for x in read_failures
                     if not x.endswith(":syntax-errors")
@@ -283,8 +392,13 @@ class IndexCoordinator:
                     if x.endswith(":syntax-errors")
                 ),
                 "secrets_skipped": scan.secret_count,
+                **sem_stats,
                 **pcounts,
             }
+            stage_ms["persist_publish"] = int(
+                (time.monotonic() - t_persist) * 1000)
+            counts.update({f"stage_ms_{k}": v
+                           for k, v in stage_ms.items()})
             failures = (
                 tuple(str(w.kind) for w in scan.warnings)
                 + tuple(read_failures)
@@ -459,6 +573,32 @@ class IndexCoordinator:
                 time.sleep(self._BEGIN_BACKOFF_S * (attempt + 1))
         return last
 
+    @staticmethod
+    def _prefetch_cache(
+        cache: ParseResultCache,
+        keys: dict[str, CacheKey | None],
+        cache_candidates: set[str],
+        reparse: set[str],
+        incremental: bool,
+        timings: dict[str, int] | None,
+    ) -> dict[str, ParseResult]:
+        """lf-0031: lookup batchado — um ``json_each`` IN-chunk por 400
+        paths em vez de um SELECT por arquivo candidato."""
+        prefetched: dict[str, ParseResult] = {}
+        if incremental:
+            wanted = [
+                k for p, k in keys.items()
+                if k is not None
+                and p in cache_candidates and p not in reparse
+            ]
+            if wanted:
+                t_cl = time.monotonic()
+                prefetched = cache.get_many(wanted)
+                if timings is not None:
+                    timings["cache_lookup"] = int(
+                        (time.monotonic() - t_cl) * 1000)
+        return prefetched
+
     def _parse_files(
         self,
         root: Path,
@@ -469,6 +609,7 @@ class IndexCoordinator:
         reparse: set[str],
         cache_candidates: set[str],
         incremental: bool,
+        timings: dict[str, int] | None = None,
     ) -> tuple[
         list[ParseResult], dict[str, str], list[str],
         dict[str, tuple[CacheKey, ParseResult]],
@@ -498,11 +639,21 @@ class IndexCoordinator:
         failures: list[str] = []
         puts: dict[str, tuple[CacheKey, ParseResult]] = {}
         hits: dict[str, CacheKey] = {}
+        by_path = {f.path: f for f in scan.files}
+        adapters = {
+            p: self._engine.registry.for_path(p) for p in by_path
+        }
+        keys = {
+            p: cache_key_for(by_path[p], a, cfg_digest)
+            for p, a in adapters.items() if a is not None
+        }
+        prefetched = self._prefetch_cache(
+            cache, keys, cache_candidates, reparse, incremental, timings)
         for f in scan.files:
             adapter = self._engine.registry.for_path(f.path)
             if adapter is None:
                 continue  # extensão sem parser — não conta como falha
-            key = cache_key_for(f, adapter, cfg_digest)
+            key = keys[f.path]
             if f.sha256 is None:
                 failures.append(f"{f.path}:hash-unavailable")
                 file_status[f.path] = "parse-failed"
@@ -514,7 +665,7 @@ class IndexCoordinator:
                 and f.path in cache_candidates
                 and f.path not in reparse
             ):
-                cached = cache.get(key)
+                cached = prefetched.get(f.path)
                 if cached is not None:
                     results.append(cached)
                     hits[f.path] = key

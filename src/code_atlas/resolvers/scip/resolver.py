@@ -27,6 +27,7 @@ from code_atlas.resolvers.scip.importer import (
     ScipRange,
 )
 from code_atlas.resolvers.scip.mapper import ScipCorrelator, parse_symbol
+from code_atlas.resolvers.scip.provenance import IndexProvenance
 from code_atlas.resolvers.syntactic.resolver import ScopeUniverse
 
 RESOLVER_ID = "scip"
@@ -40,10 +41,20 @@ class ScipResolver:
         self,
         index: ScipIndex,
         universe: ScopeUniverse,
+        provenance: IndexProvenance | None = None,
     ) -> None:
         self._index = index
         self._corr = ScipCorrelator(universe)
         self._docs = {d.relative_path: d for d in index.documents}
+        # lf-0028: sem assessment explícito, o índice é não-verificado —
+        # tratado como degraded (nunca comprovado), nunca como current.
+        self._prov_info = provenance or IndexProvenance(
+            producer_name=index.tool_name,
+            producer_version=index.tool_version,
+            repository_identity=index.project_root,
+            validation_status="degraded",
+            validation_evidence=("no revision assessment",),
+        )
 
     @property
     def resolver_id(self) -> str:
@@ -56,6 +67,10 @@ class ScipResolver:
     @property
     def index(self) -> ScipIndex:
         return self._index
+
+    @property
+    def provenance(self) -> IndexProvenance:
+        return self._prov_info
 
     def capabilities(self) -> ResolverCapability:
         return ResolverCapability(
@@ -72,18 +87,49 @@ class ScipResolver:
         )
 
     def _prov(self) -> ResolverProvenance:
+        status = self._prov_info.validation_status
+        detail = (
+            f"{self._index.tool_name} {self._index.tool_version}".strip()
+        )
+        if status != "current":
+            detail = f"{detail} [{status}]".strip()
         return ResolverProvenance(
             resolver_id=RESOLVER_ID,
             resolver_version=RESOLVER_VERSION,
             evidence_tier=int(EvidenceTier.SEMANTIC_INDEX),
-            detail=(
-                f"{self._index.tool_name} {self._index.tool_version}".strip()
-            ),
+            detail=detail,
         )
+
+    def _conf(self, intended: str) -> str:
+        """lf-0028: evidência de índice degraded nunca comprova —
+        confidence capada em ``heuristic``."""
+        if (
+            self._prov_info.validation_status != "current"
+            and intended == "resolved"
+        ):
+            return "heuristic"
+        return intended
 
     # -- contrato SemanticResolver --------------------------------------
 
     def resolve(self, request: ResolutionRequest) -> ResolutionResult:
+        # lf-0028: índice rejeitado não produz resolução nenhuma —
+        # incompatível nunca contamina o snapshot.
+        if self._prov_info.validation_status == "rejected":
+            return ResolutionResult(
+                request=request,
+                reference=ResolvedReference(
+                    status="unresolved",
+                    confidence_class="heuristic",
+                    provenance=self._prov(),
+                    target_text=request.name,
+                ),
+                diagnostics=(self._diag(
+                    "index-rejected",
+                    "scip index rejected by revision safety: "
+                    + "; ".join(self._prov_info.validation_evidence[:3]),
+                    "error"),),
+            )
         doc = self._docs.get(request.path)
         if doc is None:
             return ResolutionResult(
@@ -141,7 +187,9 @@ class ScipResolver:
         nid = self._corr.node_for_symbol(scip_symbol, path)
         if nid is not None:
             status = "resolved"
-            conf = "resolved"  # identidade verificada — alvo único
+            # identidade verificada — alvo único; índice degraded capa
+            # em heuristic (lf-0028: nunca promove como comprovada).
+            conf = self._conf("resolved")
         else:
             cands = self._corr.candidates_for_symbol(scip_symbol)
             if len(cands) > 1:

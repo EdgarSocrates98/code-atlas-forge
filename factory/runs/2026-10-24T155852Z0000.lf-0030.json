@@ -1,0 +1,15 @@
+{
+  "agent": "codex",
+  "command": [
+    "codex",
+    "exec",
+    "$(cat /home/edgar/Documentos/projetos/forjas/code-atlas-forge/factory/prompts/lf-0030.implement.codex.md)"
+  ],
+  "created_at": "2026-10-24T15:58:52+00:00",
+  "id": "lf-0030",
+  "prompt_path": "/home/edgar/Documentos/projetos/forjas/code-atlas-forge/factory/prompts/lf-0030.implement.codex.md",
+  "spec_path": "/home/edgar/Documentos/projetos/forjas/code-atlas-forge/factory/specs/active/lf-0030.md",
+  "spec_sha256": "716b8acb85d1b5402552e25e966526697b7b32d972b940c346e68716405d73ba",
+  "status": "planned",
+  "title": "Cycle 3.1 Phases 5+6 \u2014 incremental graph reuse + dependency-aware invalidation"
+}

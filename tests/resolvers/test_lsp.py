@@ -211,3 +211,80 @@ def test_lsp_definition_locations_defs(tmp_path: Path) -> None:
     assert res.definitions[0].path == "pkg/util.py"
     assert res.reference is not None and res.reference.status == "resolved"
     client.shutdown()
+
+# -- lf-0029: documentSymbol, publishDiagnostics, recovery -----------------
+
+
+def test_document_symbol_request(tmp_path: Path) -> None:
+    client = _client(FakeLspServer())
+    out = client.document_symbol("file:///repo/pkg/util.py")
+    assert out == []
+    client.shutdown()
+
+
+def test_document_symbol_capability_gated(tmp_path: Path) -> None:
+    import pytest as _pt
+    client = _client(FakeLspServer(caps=frozenset({"definitionProvider"})))
+    with _pt.raises(LspError):
+        client.document_symbol("file:///repo/x.py")
+    client.shutdown()
+
+
+def test_publish_diagnostics_captured(tmp_path: Path) -> None:
+    uri = f"{ROOT_URI}/pkg/engine.py"  # path do _req()
+    server = FakeLspServer(
+        push_diagnostics_uri=uri,
+        push_diagnostics=[{"severity": 2, "message": "warn x"}],
+        reference_locations=[],
+    )
+    client = _client(server)
+    resolver = LspResolver(client, _universe(tmp_path))
+    res = resolver.resolve(_req())
+    codes = [d.code for d in res.diagnostics]
+    assert "server-diagnostic" in codes
+    client.shutdown()
+
+
+def test_recovery_restart_after_crash(tmp_path: Path) -> None:
+    """Crash mid-request → adapter tenta UM restart; se o restart
+    consegue reanexar transporte vivo, o retry resolve."""
+    server = FakeLspServer(
+        crash_after=1,
+        reference_locations=[{
+            "uri": f"{ROOT_URI}/pkg/util.py",
+            "range": {"start": {"line": 0, "character": 4},
+                      "end": {"line": 0, "character": 10}},
+        }],
+    )
+    client = _client(server)
+    resolver = LspResolver(client, _universe(tmp_path))
+
+    # restart real chamaria spawn — no teste reanexa um fake vivo.
+    def fake_restart() -> None:
+        client.close()
+        transport, _ = start_fake(FakeLspServer(
+            reference_locations=server.reference_locations))
+        client.attach(transport)
+    client.restart = fake_restart  # type: ignore[method-assign]
+
+    res = resolver.resolve(_req())
+    assert res.reference is not None
+    assert res.reference.status == "resolved"
+    client.shutdown()
+
+
+def test_restart_failure_typed_diagnostic(tmp_path: Path) -> None:
+    """Crash + restart impossível → server-error tipado, nunca crash."""
+    server = FakeLspServer(crash_after=1, reference_locations=[
+        {"uri": f"{ROOT_URI}/pkg/util.py",
+         "range": {"start": {"line": 0, "character": 4},
+                   "end": {"line": 0, "character": 10}}},
+    ])
+    client = _client(server)
+    resolver = LspResolver(client, _universe(tmp_path))
+    res = resolver.resolve(_req())
+    assert res.diagnostics
+    # crash pode se manifestar como timeout ou erro de transporte —
+    # ambos tipados e com restart falho registrado
+    assert res.diagnostics[0].code in ("server-error", "request-timeout")
+    assert "restart failed" in res.diagnostics[0].message

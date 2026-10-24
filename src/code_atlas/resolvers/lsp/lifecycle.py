@@ -77,6 +77,9 @@ class LspClient:
     _available: bool = field(default=False, init=False)
     _lock: threading.Lock = field(default_factory=threading.Lock,
                                   init=False)
+    # textDocument/publishDiagnostics por uri (lf-0029)
+    _diagnostics: dict[str, list[dict[str, Any]]] = field(
+        default_factory=dict, init=False)
 
     # -- ciclo de vida ----------------------------------------------------
 
@@ -159,6 +162,7 @@ class LspClient:
             while True:
                 msg = self._transport.recv(timeout)
                 if msg.is_notification or msg.request_id != rid:
+                    self._capture_notification(msg)
                     continue  # notificações/server-requests não correlacionados
                 if msg.error:
                     raise LspError(
@@ -187,6 +191,35 @@ class LspClient:
         """``$/cancelRequest`` — cancelamento real LSP após timeout."""
         self.notify("$/cancelRequest", {"id": rid})
 
+    def _capture_notification(self, msg: Any) -> None:
+        """lf-0029: ``textDocument/publishDiagnostics`` é a única
+        notificação que guardamos — por uri, para o adapter anexar."""
+        method = getattr(msg, "method", "")
+        if method == "textDocument/publishDiagnostics":
+            params = getattr(msg, "params", None) or {}
+            uri = params.get("uri")
+            if isinstance(uri, str):
+                self._diagnostics[uri] = list(
+                    params.get("diagnostics") or [])
+
+    def diagnostics_for(self, uri: str) -> list[dict[str, Any]]:
+        """Diagnostics publicados para o documento (se o server envia)."""
+        return list(self._diagnostics.get(uri, ()))
+
+    def document_symbol(self, uri: str) -> Any:
+        """``textDocument/documentSymbol`` — só se capability anunciada."""
+        if not self._caps.document_symbol:
+            raise LspError("documentSymbolProvider not advertised")
+        return self.request(
+            "textDocument/documentSymbol",
+            {"textDocument": {"uri": uri}})
+
+    def restart(self) -> None:
+        """lf-0029: recovery pós-crash — fecha tudo e refaz
+        spawn+handshake. Bounded: quem chama decide tentativas."""
+        self.close()
+        self.start()
+
     def shutdown(self) -> None:
         """Sequência ordenada shutdown → exit."""
         if self._transport is None:
@@ -202,6 +235,7 @@ class LspClient:
         if self._transport is not None:
             self._transport.close()
             self._transport = None
+        self._diagnostics.clear()
         if self._proc is not None:
             release_server(self._proc)
             self._proc = None

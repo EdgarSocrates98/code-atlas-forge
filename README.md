@@ -48,8 +48,11 @@ Detalhes em `docs/install.md`.
 code-atlas init --root /caminho/do/repo   # configura o workspace (XDG/APPDATA)
 code-atlas doctor                        # verifica ambiente e config
 code-atlas index /caminho/do/repo        # incremental é o default; --full força rebuild
+code-atlas index . --scip idx.scip       # binding SCIP ad-hoc (proveniência mantida)
+code-atlas index . --resolver scip       # restringe resolvers ativos (erro tipado se desconhecido)
 code-atlas index-plan /caminho/do/repo   # dry-run do IndexPlan, sem tocar no DB
 code-atlas status --json                 # estado do índice, git, migrações
+code-atlas semantic-status . --json      # resolvers: installed/enabled/used + coverage do READY
 
 # consultas sobre o snapshot READY (envelope v2)
 code-atlas search "Engine" --json        # substring em qualified_name
@@ -74,19 +77,25 @@ matriz completa com versões de gramática pinned em
 `docs/parser-adapters.md`. Arquivos de outras linguagens entram no
 inventário como nós `file`, sem extração.
 
-## Limitações (Cycle 3)
+## Limitações (Cycle 3.1)
 
 Implementado hoje: parsing sintático real, símbolos/referências/
 relações com proveniência por aresta, resolução syntactic (imports +
-escopo local), resolvers opt-in SCIP/LSP rotulados, indexação
-incremental com cache versionado de ParseResult, snapshots atômicos,
-busca estrutural SQL + comandos semânticos (envelope v2).
+escopo local) **integrada** a resolvers opt-in SCIP/LSP via
+`SemanticEnricher` (SCIP passa por validação de revisão; LSP por
+config do operador), indexação incremental com cache versionado de
+ParseResult, snapshots atômicos, instrumentação por estágio
+(`stage_ms_*`), busca estrutural SQL + comandos semânticos
+(envelope v2) + `semantic-status`.
 
-**Não implementado** (por design): type-checking real, análise de
-impacto, FTS na busca, context packs, MCP, UI, embeddings. Estados
-`unresolved`/`ambiguous`/`external` são preservados como fatos — nunca
-preenchidos por heurística. Detalhes: `docs/semantic-resolution.md`,
-`docs/cycle-3-evidence.md`.
+**Não implementado** (por design): type-checking real (resolver
+sintático não infere receiver — `d.speak()` fica `unresolved`),
+análise de impacto, FTS na busca, context packs, MCP, UI, embeddings,
+structural sharing de grafo entre snapshots (rejeitado, ADR-0020).
+Estados `unresolved`/`ambiguous`/`external` são preservados como
+fatos — nunca preenchidos por heurística. Detalhes:
+`docs/semantic-resolution.md`, `docs/cycle-3.1-evidence.md`,
+`docs/semantic-accuracy-report.md`.
 
 ## Estrutura do repositório
 
@@ -96,7 +105,8 @@ src/code_atlas/     pacote (layout src; deps pinned = tree-sitter)
   discovery/        scanner Git-aware + manifest de inventário
   parsers/          engine + registry + adaptadores tree-sitter
   graph/            builder canônico, identidades, validação
-  storage/          SQLite: migrações v1-v3, snapshots, FTS5
+  resolvers/        syntactic + SCIP/LSP opt-in, enrichment, bootstrap
+  storage/          SQLite: migrações v1-v5, snapshots, FTS5
   indexing/         coordinator + persistência do grafo
   search/           StructuralSearch (SQL parametrizado)
   observability/    logging estruturado + redaction (sem telemetria)
