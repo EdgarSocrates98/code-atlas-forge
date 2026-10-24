@@ -30,7 +30,10 @@ from code_atlas.context.contracts import (
     PackManifest,
 )
 from code_atlas.context.tokenizer import HeuristicTokenizer, TokenCounter
+from code_atlas.search.contracts import SearchRequest
+from code_atlas.search.engine import SearchEngine
 from code_atlas.search.graph import GraphRetrieval, TraversalLimits
+from code_atlas.search.intent import QueryIntent, classify
 from code_atlas.search.structural import SearchFilters, StructuralSearch
 
 # Reservas do envelope (fração do limite) — metadados+evidências+diags.
@@ -50,6 +53,15 @@ class ContextEngine:
         self._structural = StructuralSearch(conn)
         self._graph = GraphRetrieval(conn)
         self._counter = counter or HeuristicTokenizer()
+        # lf-0052: hybrid retrieval é a fonte primária de candidatos
+        # (construção lazy — nem todo consumidor constrói packs).
+        self._search: SearchEngine | None = None
+
+    @property
+    def _engine(self) -> SearchEngine:  # lazy, evita import circular
+        if self._search is None:
+            self._search = SearchEngine(self._conn)
+        return self._search
 
     # -------------------------------------------------------- público
     def build(self, req: ContextRequest) -> ContextPack:
@@ -65,7 +77,7 @@ class ContextEngine:
         sid = int(snap.id or 0)
 
         budget = self._budget(req)
-        candidates = self._candidates(req, sid)
+        candidates = self._candidates(req, sid, diags)
         items = self._dedup(self._estimate(candidates))
         items.sort(key=lambda i: (i.priority, i.item_id))
         selected, omitted = self._fit(items, budget.available_items)
@@ -89,18 +101,45 @@ class ContextEngine:
             available_items=max(32, limit - meta - evid - diag),
             estimator=self._counter.counter_id)
 
-    def _candidates(self, req: ContextRequest, sid: int) -> list[ContextItem]:
+    def _candidates(
+        self, req: ContextRequest, sid: int, diags: list[str]
+    ) -> list[ContextItem]:
+        """lf-0052: hybrid retrieval é a fonte primária de candidatos
+        (structural+lexical+graph+vector fusionados via RRF). Fallback
+        declarado: structural substring quando hybrid não retorna nada
+        (ex.: FTS indisponível e sem match estrutural interno)."""
         items: list[ContextItem] = []
-        repo_id = self._structural.repo_for_root(req.repository_root)
-        filters = SearchFilters()
-        # símbolos diretos — structural sobre a task (substring qname)
-        page = self._structural.search_symbols(
-            repo_id or 0, sid, req.task, filters,
-            req.max_symbols, 0)
-        occ = self._occ_rows(sid, [int(s["symbol_id"]) for s in page.items])
-        for sym in page.items:
-            qn = str(sym["qualified_name"])
-            row = occ.get(int(sym["symbol_id"]), {})
+        intent = classify(req.task)
+        hits = self._engine.search(SearchRequest(
+            query=req.task, strategy="hybrid",
+            repository_root=req.repository_root, snapshot_id=sid,
+            limit=req.max_symbols)).items
+        source = "hybrid"
+        if not hits:
+            # fallback tipado — structural substring (comportamento v1)
+            source = "structural-fallback"
+            diags.append("candidate-source:structural-fallback")
+            repo_id = self._structural.repo_for_root(req.repository_root)
+            page = self._structural.search_symbols(
+                repo_id or 0, sid, req.task, SearchFilters(),
+                req.max_symbols, 0)
+            from code_atlas.search.contracts import SearchHit
+            hits = tuple(SearchHit(
+                occurrence_id=int(s.get("occurrence_id", 0) or 0),
+                qualified_name=str(s["qualified_name"]),
+                kind=str(s["kind"]), language=str(s["language"]),
+                path=str(s.get("path", "")), span=None, score=0.0,
+                strategy="structural",
+                matched_fields=("qualified_name",))
+                for s in page.items)
+            if not hits:
+                diags.append("candidate-source:empty")
+        occ = self._occ_rows(sid, [
+            h.occurrence_id for h in hits if h.occurrence_id],
+            by="occurrence")
+        for h in hits:
+            qn = h.qualified_name
+            row = occ.get(h.occurrence_id, {})
             sig = str(row.get("signature") or "")
             doc = str(row.get("docstring") or "")
             body = "\n".join(p for p in (qn, sig, doc) if p)
@@ -110,61 +149,67 @@ class ContextEngine:
                 priority=(PRIORITY_CONTRACT if has_contract
                           else PRIORITY_DIRECT),
                 title=qn, body=body, est_tokens=0,
-                symbol_key=qn, path=str(row.get("relative_path", "")),
-                evidence=(PackEvidence(
-                    kind="occurrence", ref=str(row.get("id", ""))),),
+                symbol_key=qn, path=h.path or str(
+                    row.get("relative_path", "")),
+                evidence=(
+                    PackEvidence(kind="occurrence",
+                                 ref=str(h.occurrence_id)),
+                    PackEvidence(kind="ranking",
+                                 ref=f"{source}:{h.score:.6f}"),
+                    PackEvidence(kind="intent",
+                                 ref=intent.task_type)),
                 expandable=True))
-        # vizinhos via grafo (focus: 1 hop; deep: transitivo limitado)
         depth = {"orientation": 0, "focus": 1, "deep": 3}[req.level]
-        seed_ids = [int(str(r["id"])) for r in occ.values()
-                    if r.get("id")]
+        seed_ids = [h.occurrence_id for h in hits if h.occurrence_id]
         if depth:
-            items.extend(self._neighbor_items(sid, seed_ids, depth))
-        # arquivos relevantes — dedup por path
+            items.extend(self._neighbor_items(
+                sid, seed_ids, depth, direction=intent.direction))
         for p in sorted({i.path for i in items if i.path}):
             items.append(ContextItem(
                 item_id=f"file:{p}", kind="file",
                 priority=PRIORITY_COMPLEMENT, title=p, body=p,
                 est_tokens=0, path=p))
-        # dependências comprovadas entre selecionados
-        items.extend(self._dependency_items(sid, seed_ids))
+        items.extend(self._dependency_items(sid, seed_ids, intent))
         return items
 
     def _occ_rows(
-        self, sid: int, symbol_ids: list[int]
+        self, sid: int, ids: list[int], *, by: str = "symbol"
     ) -> dict[int, dict[str, object]]:
-        """Primeira ocorrência por símbolo + signature/docstring do FTS
-        — batched via json_each, sem N+1."""
-        if not symbol_ids:
+        """Ocorrências + signature/docstring do FTS — batched via
+        json_each, sem N+1. ``by="symbol"`` chaveia por
+        ``logical_symbol_id``; ``by="occurrence"`` por ``o.id``."""
+        if not ids:
             return {}
-        rows = self._conn.execute(
+        key_col = ("o.logical_symbol_id" if by == "symbol" else "o.id")
+        sql = (
             "SELECT o.id, o.logical_symbol_id, s.qualified_name,"
             " sf.relative_path, f.signature, f.docstring"
             " FROM symbol_occurrences o"
             " JOIN symbols s ON s.id = o.logical_symbol_id"
             " JOIN source_files sf ON sf.id = o.source_file_id"
             " LEFT JOIN fts_occurrences f ON f.rowid = o.id"
-            " WHERE o.snapshot_id = ? AND o.logical_symbol_id IN"
+            f" WHERE o.snapshot_id = ? AND {key_col} IN"
             " (SELECT value FROM json_each(?))"
-            " ORDER BY o.id",
-            (sid, json.dumps(symbol_ids)),
-        ).fetchall()
+            " ORDER BY o.id")
+        rows = self._conn.execute(sql, (sid, json.dumps(ids))).fetchall()
         out: dict[int, dict[str, object]] = {}
+        kf = "logical_symbol_id" if by == "symbol" else "id"
         for r in rows:
-            sid_key = int(r["logical_symbol_id"])
-            if sid_key not in out:
-                out[sid_key] = dict(r)
+            k = int(r[kf])
+            if k not in out:
+                out[k] = dict(r)
         return out
 
     def _neighbor_items(
-        self, sid: int, seed_ids: list[int], depth: int
+        self, sid: int, seed_ids: list[int], depth: int,
+        direction: str = "both",
     ) -> list[ContextItem]:
         out: list[ContextItem] = []
         seed_ids = seed_ids[:20]
         if not seed_ids:
             return out
         hits, _stats = self._graph.traverse(
-            sid, seed_ids, direction="both",
+            sid, seed_ids, direction=direction,
             limits=TraversalLimits(
                 depth=depth, max_nodes=40, max_results=40))
         for h in hits:
@@ -177,8 +222,16 @@ class ContextEngine:
         return out
 
     def _dependency_items(
-        self, sid: int, seed_ids: list[int]
+        self, sid: int, seed_ids: list[int],
+        intent: QueryIntent | None = None,
     ) -> list[ContextItem]:
+        # lf-0052: intents de investigação sobem dependências comprovadas
+        # para prioridade de contrato (call flow/deps são o foco).
+        dep_priority = PRIORITY_DEP
+        if intent is not None and intent.task_type in (
+                "find-consumers", "explain-dependencies",
+                "investigate-failure"):
+            dep_priority = PRIORITY_CONTRACT
         if not seed_ids:
             return []
         rows = self._conn.execute(
@@ -195,7 +248,7 @@ class ContextEngine:
         ).fetchall()
         return [ContextItem(
             item_id=f"dep:{r['src']}->{r['edge_kind']}->{r['dst']}",
-            kind="dependency", priority=PRIORITY_DEP,
+            kind="dependency", priority=dep_priority,
             title=f"{r['src']} -[{r['edge_kind']}]-> {r['dst']}",
             body=f"{r['src']} {r['edge_kind']} {r['dst']}",
             est_tokens=0,
