@@ -97,10 +97,19 @@ def retrieval_block(tmp: Path, *, runs: int = 3) -> dict[str, Any]:
     conn = build_eval_repo(root)
     try:
         tasks = json.loads(JUDGMENTS.read_text())["tasks"]
-        strategies = ("structural", "lexical", "graph", "hybrid")
+        eng_v1 = SearchEngine(conn, enable_rerank=False)
+        # (label, engine, strategy) — hybrid_v1 mede RRF puro p/
+        # comparação honesta com o rerank task-aware (lf-0050)
+        strategies: list[tuple[str, SearchEngine, str]] = [
+            ("structural", SearchEngine(conn), "structural"),
+            ("lexical", SearchEngine(conn), "lexical"),
+            ("graph", SearchEngine(conn), "graph"),
+            ("hybrid", SearchEngine(conn), "hybrid"),
+            ("hybrid_v1", eng_v1, "hybrid"),
+        ]
         k = 10
         out: dict[str, Any] = {"runs": runs, "k": k, "strategies": {}}
-        for strat in strategies:
+        for label, engine, strat in strategies:
             records: list[MetricRecord] = []
             ev_vals: list[float] = []
             lat_vals: list[float] = []
@@ -111,7 +120,7 @@ def retrieval_block(tmp: Path, *, runs: int = 3) -> dict[str, Any]:
                 last = None
                 for _ in range(runs):
                     t0 = time.monotonic()
-                    last = SearchEngine(conn).search(SearchRequest(
+                    last = engine.search(SearchRequest(
                         query=task["query"], repository_root=str(root),
                         strategy=strat, limit=k,
                     ))
@@ -151,7 +160,7 @@ def retrieval_block(tmp: Path, *, runs: int = 3) -> dict[str, Any]:
                 rep.macro.get("recall_at_k", 0.0), 4)
             sm["mrr"] = round(rep.macro["mrr"], 4)
             sm["ndcg"] = round(rep.macro["ndcg_at_k"], 4)
-            out["strategies"][strat] = sm
+            out["strategies"][label] = sm
         out["context"] = _context_block(conn, root, tasks)
         out["not_run"] = [
             "tarefas agenticas ponta-a-ponta (sem provider de IA no "

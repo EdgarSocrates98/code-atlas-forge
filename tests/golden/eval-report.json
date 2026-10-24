@@ -793,10 +793,10 @@
     "evidence_validity": 0.7692,
     "false_positive_hits": 53,
     "hit_rate_at_k": 0.875,
-    "latency_ms": 0.674,
+    "latency_ms": 0.775,
     "latency_range_ms": [
-     0.33,
-     0.88
+     0.36,
+     1.05
     ],
     "macro": {
      "ap_at_k": 0.5972222222222222,
@@ -906,31 +906,31 @@
     "recall_at_k": 1.0
    },
    "hybrid": {
-    "ap_at_k": 0.6708333333333334,
+    "ap_at_k": 0.7541666666666667,
     "diversity": 1.0,
     "evidence_validity": 1.0,
     "false_positive_hits": 62,
     "hit_rate_at_k": 0.875,
-    "latency_ms": 2.053,
+    "latency_ms": 2.042,
     "latency_range_ms": [
-     1.42,
-     2.14
+     1.41,
+     2.45
     ],
     "macro": {
-     "ap_at_k": 0.6708333333333334,
+     "ap_at_k": 0.7541666666666667,
      "diversity": 1.0,
      "hit_rate_at_k": 0.875,
      "mrr": 0.8125,
-     "ndcg_at_k": 0.7608929995324949,
+     "ndcg_at_k": 0.7793226991786983,
      "precision_at_k": 0.1875,
      "recall_at_k": 1.0
     },
     "median": {
-     "ap_at_k": 0.7250000000000001,
+     "ap_at_k": 0.9333333333333333,
      "diversity": 1.0,
      "hit_rate_at_k": 1.0,
      "mrr": 1.0,
-     "ndcg_at_k": 0.8981067518700246,
+     "ndcg_at_k": 0.9442495287346314,
      "precision_at_k": 0.2,
      "recall_at_k": 1.0
     },
@@ -939,8 +939,8 @@
      "recall": 1.0
     },
     "mrr": 0.8125,
-    "ndcg": 0.7609,
-    "ndcg_at_k": 0.7608929995324949,
+    "ndcg": 0.7793,
+    "ndcg_at_k": 0.7793226991786983,
     "no_relevant": 1,
     "per_category": {
      "architectural": {
@@ -971,20 +971,20 @@
       "recall_at_k": 1.0
      },
      "dependency-discovery": {
-      "ap_at_k": 0.7000000000000001,
+      "ap_at_k": 0.8666666666666667,
       "diversity": 1.0,
       "hit_rate_at_k": 1.0,
       "mrr": 1.0,
-      "ndcg_at_k": 0.8513655471804633,
+      "ndcg_at_k": 0.8884990574692628,
       "precision_at_k": 0.3,
       "recall_at_k": 1.0
      },
      "exact-lookup": {
-      "ap_at_k": 0.5,
+      "ap_at_k": 0.6666666666666666,
       "diversity": 1.0,
       "hit_rate_at_k": 0.6666666666666666,
       "mrr": 0.6666666666666666,
-      "ndcg_at_k": 0.6298986377063907,
+      "ndcg_at_k": 0.6666666666666666,
       "precision_at_k": 0.13333333333333333,
       "recall_at_k": 1.0
      },
@@ -1000,20 +1000,138 @@
     },
     "per_language": {
      "python": {
-      "ap_at_k": 0.6595238095238096,
+      "ap_at_k": 0.719047619047619,
       "diversity": 1.0,
       "hit_rate_at_k": 0.8571428571428571,
       "mrr": 0.7857142857142857,
-      "ndcg_at_k": 0.7346137199571963,
+      "ndcg_at_k": 0.747797370489941,
       "precision_at_k": 0.18571428571428572,
       "recall_at_k": 1.0
      },
      "typescript": {
-      "ap_at_k": 0.75,
+      "ap_at_k": 1.0,
       "diversity": 1.0,
       "hit_rate_at_k": 1.0,
       "mrr": 1.0,
-      "ndcg_at_k": 0.944847956559586,
+      "ndcg_at_k": 1.0,
+      "precision_at_k": 0.2,
+      "recall_at_k": 1.0
+     }
+    },
+    "precision": 0.1875,
+    "precision_at_k": 0.1875,
+    "recall": 1.0,
+    "recall_at_k": 1.0
+   },
+   "hybrid_v1": {
+    "ap_at_k": 0.7541666666666667,
+    "diversity": 1.0,
+    "evidence_validity": 1.0,
+    "false_positive_hits": 62,
+    "hit_rate_at_k": 0.875,
+    "latency_ms": 2.024,
+    "latency_range_ms": [
+     1.52,
+     2.61
+    ],
+    "macro": {
+     "ap_at_k": 0.7541666666666667,
+     "diversity": 1.0,
+     "hit_rate_at_k": 0.875,
+     "mrr": 0.8125,
+     "ndcg_at_k": 0.7793226991786983,
+     "precision_at_k": 0.1875,
+     "recall_at_k": 1.0
+    },
+    "median": {
+     "ap_at_k": 0.9333333333333333,
+     "diversity": 1.0,
+     "hit_rate_at_k": 1.0,
+     "mrr": 1.0,
+     "ndcg_at_k": 0.9442495287346314,
+     "precision_at_k": 0.2,
+     "recall_at_k": 1.0
+    },
+    "micro": {
+     "precision": 0.25862068965517243,
+     "recall": 1.0
+    },
+    "mrr": 0.8125,
+    "ndcg": 0.7793,
+    "ndcg_at_k": 0.7793226991786983,
+    "no_relevant": 1,
+    "per_category": {
+     "architectural": {
+      "ap_at_k": 0.6666666666666666,
+      "diversity": 1.0,
+      "hit_rate_at_k": 1.0,
+      "mrr": 1.0,
+      "ndcg_at_k": 0.8164772947958057,
+      "precision_at_k": 0.3,
+      "recall_at_k": 1.0
+     },
+     "change-preparation": {
+      "ap_at_k": 1.0,
+      "diversity": 1.0,
+      "hit_rate_at_k": 1.0,
+      "mrr": 1.0,
+      "ndcg_at_k": 1.0,
+      "precision_at_k": 0.2,
+      "recall_at_k": 1.0
+     },
+     "debugging": {
+      "ap_at_k": 1.0,
+      "diversity": 1.0,
+      "hit_rate_at_k": 1.0,
+      "mrr": 1.0,
+      "ndcg_at_k": 1.0,
+      "precision_at_k": 0.1,
+      "recall_at_k": 1.0
+     },
+     "dependency-discovery": {
+      "ap_at_k": 0.8666666666666667,
+      "diversity": 1.0,
+      "hit_rate_at_k": 1.0,
+      "mrr": 1.0,
+      "ndcg_at_k": 0.8884990574692628,
+      "precision_at_k": 0.3,
+      "recall_at_k": 1.0
+     },
+     "exact-lookup": {
+      "ap_at_k": 0.6666666666666666,
+      "diversity": 1.0,
+      "hit_rate_at_k": 0.6666666666666666,
+      "mrr": 0.6666666666666666,
+      "ndcg_at_k": 0.6666666666666666,
+      "precision_at_k": 0.13333333333333333,
+      "recall_at_k": 1.0
+     },
+     "natural-language": {
+      "ap_at_k": 0.5,
+      "diversity": 1.0,
+      "hit_rate_at_k": 1.0,
+      "mrr": 0.5,
+      "ndcg_at_k": 0.5296052411645183,
+      "precision_at_k": 0.2,
+      "recall_at_k": 1.0
+     }
+    },
+    "per_language": {
+     "python": {
+      "ap_at_k": 0.719047619047619,
+      "diversity": 1.0,
+      "hit_rate_at_k": 0.8571428571428571,
+      "mrr": 0.7857142857142857,
+      "ndcg_at_k": 0.747797370489941,
+      "precision_at_k": 0.18571428571428572,
+      "recall_at_k": 1.0
+     },
+     "typescript": {
+      "ap_at_k": 1.0,
+      "diversity": 1.0,
+      "hit_rate_at_k": 1.0,
+      "mrr": 1.0,
+      "ndcg_at_k": 1.0,
       "precision_at_k": 0.2,
       "recall_at_k": 1.0
      }
@@ -1029,10 +1147,10 @@
     "evidence_validity": 0.0,
     "false_positive_hits": 8,
     "hit_rate_at_k": 0.875,
-    "latency_ms": 0.167,
+    "latency_ms": 0.155,
     "latency_range_ms": [
      0.09,
-     0.24
+     0.21
     ],
     "macro": {
      "ap_at_k": 0.6458333333333334,
@@ -1147,10 +1265,10 @@
     "evidence_validity": 0.0,
     "false_positive_hits": 0,
     "hit_rate_at_k": 0.75,
-    "latency_ms": 0.207,
+    "latency_ms": 0.166,
     "latency_range_ms": [
-     0.16,
-     0.32
+     0.15,
+     0.18
     ],
     "macro": {
      "ap_at_k": 0.3958333333333333,

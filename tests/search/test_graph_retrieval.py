@@ -112,7 +112,7 @@ def test_explain_path_per_hit(env) -> None:
         h for h in res.items if h.qualified_name == "pkg.engine.run")
     # caminho explicável: evidence traz os saltos de relação
     assert hit.evidence and any(
-        e.startswith(("CALLS:", "IMPORTS:", "REFERENCES:"))
+        "CALLS:" in e or "IMPORTS:" in e or "REFERENCES:" in e
         for e in hit.evidence)
 
 

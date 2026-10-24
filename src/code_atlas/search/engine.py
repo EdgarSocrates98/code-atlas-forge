@@ -39,13 +39,15 @@ class SearchEngine:
     """Ponto único de entrada de busca sobre a conexão."""
 
     def __init__(
-        self, conn: sqlite3.Connection, *, enable_vector: bool = True
+        self, conn: sqlite3.Connection, *, enable_vector: bool = True,
+        enable_rerank: bool = True,
     ) -> None:
         self._conn = conn
         self._structural = StructuralSearch(conn)
         self._lexical = LexicalSearch(conn)
         self._graph = GraphRetrieval(conn)
         self._vec = enable_vector
+        self._rerank = enable_rerank
 
     def capabilities(self) -> SearchCapability:
         fts5 = self._conn.execute(
@@ -211,7 +213,13 @@ class SearchEngine:
             diags.extend(
                 d for d in v_diags if d.code != "vector-empty")
             rankings["vector"] = list(v_hits)
-        fused = fuse(rankings)
+        from code_atlas.search.intent import classify
+
+        fused = fuse(
+            rankings,
+            intent=classify(req.query) if self._rerank else None,
+            query=req.query if self._rerank else "",
+        )
         return tuple(to_search_hit(c) for c in fused), tuple(diags)
 
     def _vector_hits(
@@ -413,6 +421,7 @@ class SearchEngine:
                 score=h.score, strategy="graph",
                 matched_fields=("graph",),
                 evidence=tuple(
+                    f"dir={intent.direction}:"
                     f"{s.relation}:{s.from_id}->{s.to_id}"
                     f"({s.resolution_status})"
                     for s in h.steps
