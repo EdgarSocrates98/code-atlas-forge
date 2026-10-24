@@ -92,17 +92,20 @@ def test_hybrid_end_to_end(env) -> None:
     assert "pkg.util.helper" in names
     # matched_fields lista estratégias participantes por hit
     top = res.items[0]
-    assert set(top.matched_fields) <= {"lexical", "structural", "graph"}
+    assert set(top.matched_fields) <= {
+        "lexical", "structural", "graph", "vector"}
 
 
 def test_hybrid_works_without_vector(env) -> None:
-    """Degradação honesta: 3 estratégias reais, sem provider vetorial."""
+    """Degradação honesta: vetorial desligado, hybrid sobre 3 reais."""
     conn, root = env
-    caps = SearchEngine(conn).capabilities()
+    caps = SearchEngine(conn, enable_vector=False).capabilities()
     assert "hybrid" in caps.strategies and not caps.vector
-    res = SearchEngine(conn).search(SearchRequest(
+    res = SearchEngine(conn, enable_vector=False).search(SearchRequest(
         query="helper", strategy="hybrid", repository_root=root))
     assert res.items  # funciona sem vetorial
+    assert all(
+        "vector" not in h.matched_fields for h in res.items)
 
 
 def test_hybrid_vs_baselines_union_coverage(env) -> None:

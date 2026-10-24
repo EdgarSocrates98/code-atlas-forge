@@ -206,6 +206,30 @@ CREATE VIRTUAL TABLE fts_occurrences USING fts5(
 );
 """
 
+_SCHEMA_V8_VECTORS = """
+CREATE TABLE vector_embeddings (
+    snapshot_id   INTEGER NOT NULL REFERENCES snapshots(id) ON DELETE CASCADE,
+    occurrence_id INTEGER NOT NULL REFERENCES symbol_occurrences(id) ON DELETE CASCADE,
+    symbol_key    TEXT NOT NULL,
+    model_id      TEXT NOT NULL,
+    model_version TEXT NOT NULL,
+    dim           INTEGER NOT NULL,
+    content_hash  TEXT NOT NULL,
+    vector        BLOB NOT NULL,
+    PRIMARY KEY (snapshot_id, occurrence_id, model_id)
+);
+CREATE INDEX idx_vector_embeddings_snap ON vector_embeddings(snapshot_id, model_id);
+CREATE TABLE embedding_cache (
+    model_id      TEXT NOT NULL,
+    model_version TEXT NOT NULL,
+    content_hash  TEXT NOT NULL,
+    dim           INTEGER NOT NULL,
+    vector        BLOB NOT NULL,
+    created_at    TEXT NOT NULL DEFAULT (datetime('now')),
+    PRIMARY KEY (model_id, model_version, content_hash)
+);
+"""
+
 
 def migrations(*, fts5: bool) -> list[Migration]:
     """Lista de migrações; a v2 (FTS5) só existe quando a build suporta."""
@@ -221,6 +245,10 @@ def migrations(*, fts5: bool) -> list[Migration]:
             7, "fts_occurrences snapshot-scoped lexical index (lf-0036)",
             _SCHEMA_V7_FTS_OCC,
         ))
+    m.append(Migration(
+        8, "vector embeddings + content cache (lf-0039)",
+        _SCHEMA_V8_VECTORS,
+    ))
     return m
 
 

@@ -45,6 +45,7 @@ ganham arquivo quando o ciclo correspondente as tornar reais.
 | ADR | Título | Arquivo |
 |---|---|---|
 | 021 | Política de precedência de evidência (verificação por tier superior) | `adr-0021-evidence-precedence.md` |
+| 022 | Backend vetorial: sqlite-vec opt-in + bruteforce stdlib | `adr-0022-vector-backend.md` |
 
 ## Propostas (ciclos futuros — não implementadas)
 

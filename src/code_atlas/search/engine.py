@@ -6,6 +6,7 @@ tipado honesto (nunca resultado vazio silencioso)."""
 from __future__ import annotations
 
 import dataclasses
+import json
 import sqlite3
 
 from code_atlas.search.contracts import (
@@ -24,27 +25,45 @@ from code_atlas.search.graph import GraphRetrieval
 from code_atlas.search.hybrid import RANKING_VERSION_HYBRID, fuse, to_search_hit
 from code_atlas.search.lexical import LexicalSearch
 from code_atlas.search.structural import StructuralSearch
+from code_atlas.search.vector.contracts import (
+    EmbeddingProvider,
+)
+from code_atlas.search.vector.embeddings import SqliteEmbeddingCache
+from code_atlas.search.vector.index import (
+    BruteForceIndex,
+    sqlite_vec_available,
+)
 
 
 class SearchEngine:
     """Ponto único de entrada de busca sobre a conexão."""
 
-    def __init__(self, conn: sqlite3.Connection) -> None:
+    def __init__(
+        self, conn: sqlite3.Connection, *, enable_vector: bool = True
+    ) -> None:
         self._conn = conn
         self._structural = StructuralSearch(conn)
         self._lexical = LexicalSearch(conn)
         self._graph = GraphRetrieval(conn)
+        self._vec = enable_vector
 
     def capabilities(self) -> SearchCapability:
         fts5 = self._conn.execute(
             "SELECT 1 FROM sqlite_master WHERE name='fts_occurrences'"
         ).fetchone() is not None
+        base: tuple[str, ...] = ("lexical", "structural", "graph", "hybrid")
+        if self._vec:
+            base += ("vector",)
+        backend = (
+            "sqlite-vec" if sqlite_vec_available() else "bruteforce")
         return SearchCapability(
-            strategies=(("lexical", "structural", "graph", "hybrid")
-                        if fts5 else ("structural", "graph", "hybrid")),
+            strategies=base if fts5 else tuple(
+                s for s in base if s != "lexical"),
             fts5=fts5,
-            vector=False,
-            detail="vector: planned (lf-0039)",
+            vector=self._vec,
+            detail=(
+                f"vector: provider=naive-hash backend={backend}"
+                if self._vec else "vector: disabled"),
         )
 
     def search(self, req: SearchRequest) -> SearchResult:
@@ -108,6 +127,10 @@ class SearchEngine:
             hits, total, lex_diags = self._lexical.search(req, sid, offset)
             diags.extend(lex_diags)
             ranking = RANKING_VERSION
+        elif req.strategy == "vector":
+            hits, total, v_diags = self._vector_hits(req, sid, offset)
+            diags.extend(v_diags)
+            ranking = "vector-cosine-v1"
         else:
             diags.append(SearchDiagnostic(
                 code="strategy-unavailable", severity="error",
@@ -182,8 +205,147 @@ class SearchEngine:
         g_hits, _, g_diags = self._graph_hits(lex_req, snapshot_id)
         diags.extend(d for d in g_diags if d.code != "seed-not-found")
         rankings["graph"] = list(g_hits)
+        if self._vec:
+            v_hits, _vt, v_diags = self._vector_hits(
+                dataclasses.replace(req, limit=fetch), snapshot_id, 0)
+            diags.extend(
+                d for d in v_diags if d.code != "vector-empty")
+            rankings["vector"] = list(v_hits)
         fused = fuse(rankings)
         return tuple(to_search_hit(c) for c in fused), tuple(diags)
+
+    def _vector_hits(
+        self, req: SearchRequest, snapshot_id: int, offset: int
+    ) -> tuple[tuple[SearchHit, ...], int, tuple[SearchDiagnostic, ...]]:
+        """Busca vetorial: ensure embeddings → embed query → KNN → hits.
+
+        Backend: sqlite-vec se o extra estiver instalado, senão scan
+        bruteforce stdlib — capability declarada, nunca silenciosa.
+        """
+        from code_atlas.search.vector import (
+            BruteForceIndex,
+            NaiveEmbeddingProvider,
+            SqliteEmbeddingCache,
+            embed_texts_cached,
+            sqlite_vec_available,
+        )
+
+        provider = NaiveEmbeddingProvider()
+        model = provider.info()
+        if sqlite_vec_available():
+            from code_atlas.search.vector.index import SqliteVecIndex
+
+            index: BruteForceIndex = SqliteVecIndex(
+                self._conn, model.model_id, model.version, model.dim)
+        else:
+            index = BruteForceIndex(self._conn, model.model_id, model.version)
+        cache = SqliteEmbeddingCache(self._conn)
+        built = self._ensure_embeddings(
+            snapshot_id, provider, cache, index)
+        qvec, _qh, _qm = embed_texts_cached(provider, cache, [req.query])
+        results = index.search(
+            snapshot_id, qvec[0], offset + max(1, req.limit or 20))
+        results = results[offset:]
+        occ_ids = [r.occurrence_id for r in results]
+        info: dict[int, dict[str, object]] = {}
+        if occ_ids:
+            rows = self._conn.execute(
+                "SELECT o.id, s.qualified_name, s.kind, s.language,"
+                " sf.relative_path, o.span_start, o.span_end,"
+                " o.line, o.col"
+                " FROM symbol_occurrences o"
+                " JOIN source_files sf ON sf.id = o.source_file_id"
+                " JOIN symbols s ON s.id = o.logical_symbol_id"
+                " WHERE o.id IN (SELECT value FROM json_each(?))",
+                (json.dumps(occ_ids),),
+            ).fetchall()
+            for r in rows:
+                info[int(r["id"])] = dict(r)
+        hits = tuple(
+            SearchHit(
+                occurrence_id=r.occurrence_id,
+                qualified_name=str(
+                    info.get(r.occurrence_id, {}).get(
+                        "qualified_name", r.symbol_key)),
+                kind=str(info.get(r.occurrence_id, {}).get("kind", "")),
+                language=str(
+                    info.get(r.occurrence_id, {}).get("language", "")),
+                path=str(
+                    info.get(r.occurrence_id, {}).get(
+                        "relative_path", "")),
+                span=None,
+                score=round(r.score, 6),
+                strategy="vector",
+                matched_fields=("embedding",),
+                evidence=(
+                    f"cosine={r.score:.4f}",
+                    f"model={r.model_id} dim={model.dim}",
+                    f"embeddings_built={built}",
+                ),
+            )
+            for r in results
+            if r.occurrence_id in info and r.score > 0.0
+        )
+        diags: tuple[SearchDiagnostic, ...] = ()
+        if not hits:
+            diags = (SearchDiagnostic(
+                code="vector-empty", severity="info",
+                message="sem hits vetoriais para esta query"),)
+        return hits, len(hits) + offset, diags
+
+    def _ensure_embeddings(
+        self,
+        snapshot_id: int,
+        provider: EmbeddingProvider,
+        cache: SqliteEmbeddingCache,
+        index: BruteForceIndex,
+    ) -> int:
+        """Materializa embeddings do snapshot — só os que faltam na
+        versão atual do modelo (rebuild por mudança de conteúdo/modelo).
+        Retorna quantos embeddings novos foram gerados."""
+        from code_atlas.search.vector.embeddings import (
+            content_hash,
+            embed_texts_cached,
+            index_text_for,
+        )
+
+        model = provider.info()
+        rows = self._conn.execute(
+            "SELECT f.rowid AS occ_id, s.qualified_name, f.signature,"
+            " f.docstring FROM fts_occurrences f"
+            " JOIN symbol_occurrences o ON o.id = f.rowid"
+            " JOIN symbols s ON s.id = o.logical_symbol_id"
+            " WHERE f.snapshot_id = ?",
+            (snapshot_id,),
+        ).fetchall()
+        pending: list[tuple[int, str, str, str]] = []
+        for r in rows:
+            text = index_text_for(
+                str(r["qualified_name"]),
+                str(r["signature"] or ""), str(r["docstring"] or ""))
+            pending.append(
+                (int(r["occ_id"]), str(r["qualified_name"]),
+                 text, content_hash(text)))
+        existing = {
+            (int(x["occurrence_id"]), str(x["content_hash"]))
+            for x in self._conn.execute(
+                "SELECT occurrence_id, content_hash "
+                "FROM vector_embeddings "
+                "WHERE snapshot_id = ? AND model_id = ?"
+                " AND model_version = ?",
+                (snapshot_id, model.model_id, model.version),
+            ).fetchall()
+        }
+        todo = [p for p in pending if (p[0], p[3]) not in existing]
+        if not todo:
+            return 0
+        vecs, _h, _m = embed_texts_cached(
+            provider, cache, [t[2] for t in todo])
+        for (occ_id, sym, _text, chash), vec in zip(
+                todo, vecs, strict=True):
+            index.upsert(
+                snapshot_id, occ_id, sym, vec, content_hash=chash)
+        return len(todo)
 
     def _graph_hits(
         self, req: SearchRequest, snapshot_id: int
