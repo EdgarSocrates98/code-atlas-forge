@@ -29,6 +29,7 @@ from code_atlas.resolvers.lsp.adapter import LspResolver
 from code_atlas.resolvers.lsp.lifecycle import make_client
 from code_atlas.resolvers.lsp.spawn import LspServerSpec
 from code_atlas.resolvers.scip.loader import load_index
+from code_atlas.resolvers.scip.provenance import assess_revision
 from code_atlas.resolvers.scip.resolver import ScipResolver
 from code_atlas.resolvers.syntactic.resolver import ScopeUniverse
 
@@ -86,7 +87,24 @@ def _scip_factory(
         )
         return
     index = out.index
-    factories.append(lambda universe: ScipResolver(index, universe))
+    # Revision safety (lf-0028): índice válido ≠ índice compatível.
+    # Rejected → erro e nenhuma factory; degraded → resolver marcado,
+    # nunca promove como comprovado.
+    assessment = assess_revision(index, path, root)
+    prov = assessment.provenance
+    if assessment.errors:
+        errors.append(
+            f"scip index {path}: {'; '.join(assessment.errors)}"
+        )
+        return
+    if prov.validation_status == "degraded":
+        errors.append(
+            f"scip index {path}: degraded — "
+            f"{'; '.join(prov.validation_evidence[:3])}"
+        )
+    factories.append(
+        lambda universe: ScipResolver(index, universe, prov)
+    )
 
 
 def _lsp_factories(

@@ -35,6 +35,7 @@ from code_atlas.resolvers.scip.mapper import (
     parse_symbol,
     symbol_to_qname,
 )
+from code_atlas.resolvers.scip.provenance import IndexProvenance
 from code_atlas.resolvers.scip.validation import (
     project_root_matches,
     validate_index,
@@ -206,6 +207,12 @@ def test_parse_symbol_malformed() -> None:
     assert parse_symbol("not a symbol") is None
 
 
+
+
+def _prov_current() -> IndexProvenance:
+    """Proveniência explícita 'current' para testes do resolver."""
+    return IndexProvenance(validation_status="current")
+
 # -- ScipResolver e2e -------------------------------------------------------
 
 
@@ -237,7 +244,7 @@ def test_scip_resolver_conformance(tmp_path: Path,
                                    valid_index: bytes) -> None:
     b = _build_universe(tmp_path)
     idx = parse_index(valid_index)
-    resolver = ScipResolver(idx, b.universe)
+    resolver = ScipResolver(idx, b.universe, _prov_current())
     assert isinstance(resolver, SemanticResolver)
     caps = resolver.capabilities()
     assert caps.tier == 1  # SEMANTIC_INDEX
@@ -250,7 +257,7 @@ def test_scip_resolves_via_coordinator(tmp_path: Path,
     from code_atlas.resolvers.registry import ResolverRegistry
 
     reg = ResolverRegistry()
-    reg.register(ScipResolver(idx, b.universe))
+    reg.register(ScipResolver(idx, b.universe, _prov_current()))
     reg.register(SyntacticResolver(b.universe))
     coord = ResolverCoordinator(reg)
 
@@ -271,7 +278,7 @@ def test_scip_resolves_via_coordinator(tmp_path: Path,
 def test_scip_document_not_in_index(tmp_path: Path,
                                     valid_index: bytes) -> None:
     b = _build_universe(tmp_path)
-    resolver = ScipResolver(parse_index(valid_index), b.universe)
+    resolver = ScipResolver(parse_index(valid_index), b.universe, _prov_current())
     res = resolver.resolve(
         ResolutionRequest(name="x", kind="call", path="nope.py"))
     assert res.reference is None
@@ -281,7 +288,7 @@ def test_scip_document_not_in_index(tmp_path: Path,
 def test_scip_symbol_not_in_snapshot_external(tmp_path: Path,
                                               valid_index: bytes) -> None:
     b = _build_universe(tmp_path)
-    resolver = ScipResolver(parse_index(valid_index), b.universe)
+    resolver = ScipResolver(parse_index(valid_index), b.universe, _prov_current())
     req = ResolutionRequest(name="y", kind="reference",
                             path="pkg/engine.py")
     res = resolver.resolve_symbol(req, f"{PKG} `other/lib.py`/thing().")
