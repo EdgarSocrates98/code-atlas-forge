@@ -82,6 +82,7 @@ def probe_git(root: Path, git_available: bool | None = None) -> GitInfo:
         is_worktree=is_worktree,
         remote_url=remote_url,
         root_commit=roots[0] if roots else "",
+        toplevel=_out(["rev-parse", "--show-toplevel"]),
     )
 
 

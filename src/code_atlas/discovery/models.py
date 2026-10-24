@@ -67,6 +67,7 @@ class GitInfo:
     is_worktree: bool = False
     remote_url: str = ""  # remote.origin.url — identidade preferida (lf-0021)
     root_commit: str = ""  # 1º commit (max-parents=0) — identidade fallback
+    toplevel: str = ""  # rev-parse --show-toplevel (lf-0058: escopo sub-root)
 
 
 @dataclass(frozen=True)
