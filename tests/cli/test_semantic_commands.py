@@ -246,8 +246,9 @@ def test_help_lists_new_commands(capsys: pytest.CaptureFixture[str]) -> None:
     with pytest.raises(SystemExit):
         cli.main(["--help"])
     out = capsys.readouterr().out
-    for cmd in ("index-plan", "definitions", "dependencies"):
+    for cmd in ("index-plan", "definitions", "dependencies",
+                "impact"):
         assert cmd in out
-    for fake in ("impact", "serve", "ui",
+    for fake in ("serve", "ui",
                  "workspace", "plugin"):
         assert fake not in out

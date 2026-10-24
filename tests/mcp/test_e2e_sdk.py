@@ -70,7 +70,8 @@ def test_real_client_handshake_and_tools(repo: Path, tmp_path: Path):
         assert names == {
             "atlas_context", "atlas_dependencies", "atlas_evidence",
             "atlas_expand", "atlas_references", "atlas_search",
-            "atlas_status", "atlas_symbol"}
+            "atlas_status", "atlas_symbol",
+            "atlas_impact", "atlas_diff", "atlas_test_impact"}
         status = _payload(await s.call_tool(
             "atlas_status", {"root": str(repo)}))
         assert status["repo_id"] > 0

@@ -26,7 +26,7 @@ def test_help_lists_only_real_commands(capsys: pytest.CaptureFixture[str]) -> No
     assert "init" in out
     for real in ("search", "symbol", "references", "graph"):
         assert real in out
-    for fake in ("impact", "serve", "ui"):
+    for fake in ("serve", "ui"):
         assert fake not in out
 
 
