@@ -1,5 +1,19 @@
 {
   "0": "Review: lf-0001 — Cycle 1 scaffold",
   "1": "2026/lf-0001.md",
-  "2": "lf-0001.review.claude.md"
+  "2": "lf-0001.review.claude.md",
+  "3": "scan",
+  "4": "models.py",
+  "5": "scanner.py",
+  "6": "GitIgnoreScope",
+  "7": "_filter_dirs",
+  "8": "ScanOptions",
+  "9": "git",
+  "10": "GitIgnoreStack",
+  "11": "Review: lf-0002 — Git-aware discovery scanner",
+  "12": "2026/lf-0002.md",
+  "13": "__init__.py",
+  "14": "ScanResult",
+  "15": "lf-0002.implement.claude.md",
+  "16": "lf-0002.review.claude.md"
 }

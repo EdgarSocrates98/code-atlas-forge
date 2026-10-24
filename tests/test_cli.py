@@ -78,7 +78,7 @@ def test_init_refuses_to_clobber(
 
 def test_init_rejects_nonexistent_root(capsys: pytest.CaptureFixture[str]) -> None:
     rc = cli.main(["init", "--root", "/nonexistent/atlas-path-xyz"])
-    assert rc == 1
+    assert rc == 3  # EXIT_UNSAFE
     assert "not a directory" in capsys.readouterr().err
 
 

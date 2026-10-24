@@ -43,6 +43,8 @@ class IndexOutcome:
     files_indexed: int
     noop: bool = False
     error: str = ""
+    secrets_skipped: int = 0
+    warnings: tuple[str, ...] = ()
 
 
 class IndexCoordinator:
@@ -57,8 +59,12 @@ class IndexCoordinator:
         self._store = Store(conn)
         self._scanner = scanner
 
-    def index(self, root: Path) -> IndexOutcome:
-        """Escaneia `root` e publica snapshot READY (ou no-op) atomicamente."""
+    def index(self, root: Path, force: bool = False) -> IndexOutcome:
+        """Escaneia `root` e publica snapshot READY (ou no-op) atomicamente.
+
+        ``force=True`` ignora o atalho de no-op por digest idêntico.
+        Um scan parcial/truncado nunca vira READY — é registrado como falha.
+        """
         scan = self._scanner(Path(root))
         digest = scan.manifest_sha256()
         versions = _analyzer_versions(scan)
@@ -70,13 +76,24 @@ class IndexCoordinator:
             repo_id = store.get_or_create_repository(str(Path(root).resolve()))
             job_id = store.insert_index_job(repo_id, digest)
 
+        if scan.partial or scan.truncated:
+            error = "scan incomplete (partial or truncated; not publishing READY)"
+            snap_id = self._mark_failed(repo_id, job_id, error)
+            return IndexOutcome(
+                snapshot_id=snap_id, job_id=job_id, status="failed",
+                files_indexed=len(scan.files), error=error,
+                secrets_skipped=scan.secret_count,
+                warnings=tuple(str(w.kind) for w in scan.warnings),
+            )
+
         # Escritor único: BEGIN IMMEDIATE serializa com outros escritores.
         self._conn.execute("BEGIN IMMEDIATE")
         try:
             current = store.latest_ready_snapshot(repo_id)
 
             if (
-                current is not None
+                not force
+                and current is not None
                 and current.worktree_digest == digest
                 and dict(current.analyzer_versions) == versions
             ):
@@ -110,7 +127,8 @@ class IndexCoordinator:
             self._conn.commit()
             return IndexOutcome(
                 snapshot_id=snapshot_id, job_id=job_id, status="success",
-                files_indexed=len(rows),
+                files_indexed=len(rows), secrets_skipped=scan.secret_count,
+                warnings=tuple(str(w.kind) for w in scan.warnings),
             )
         except Exception as exc:
             self._conn.rollback()
