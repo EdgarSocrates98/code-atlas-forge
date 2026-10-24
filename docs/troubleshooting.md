@@ -101,3 +101,8 @@ Adapters são opt-in e `enabled: false` por default — configure
 `[resolvers.lsp.servers.<name>]` com o binário do server **instalado
 por você** (o Atlas nunca baixa/instala). Erros aparecem como
 `SpawnError`/`LspError` tipados; timeouts são finitos por design.
+
+Diagnóstico primeiro: `code-atlas semantic-status <repo> --json`
+mostra por resolver `installed` (artefato presente), `enabled`
+(produziria resolver) e `used` (arestas `resolver=*` no snapshot
+READY) — distingue "server não instalado" de "nenhuma aresta usada".

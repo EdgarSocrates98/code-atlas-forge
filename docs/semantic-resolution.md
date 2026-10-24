@@ -7,9 +7,14 @@ sem type-checker, sem rede. Resolvers externos são opt-in e rotulados.
 
 | tier | resolver | o que resolve | o que NÃO resolve |
 |---|---|---|---|
-| syntactic | `syntactic` (sempre ativo) | imports locais, nomes bound, chamadas de símbolo visível | tipos, overloads, barrel reexports, `import *` members |
-| scip | `scip` (opt-in, `.scip` file) | refs do índice externo correlacionadas por span | docs fora do índice, repo errado (rejeitado) |
-| lsp | `lsp` (opt-in, config) | definition/references do server | server ausente → erro tipado, nunca fallback silencioso |
+| syntactic | `syntactic-scope-v1` (sempre ativo; arestas estruturais do parser aparecem como `tree-sitter-*`) | imports locais, nomes bound, chamadas de símbolo visível | tipos, overloads, barrel reexports, `import *` members, receiver-type (`d.speak()`) |
+| scip | `scip` (opt-in, `.scip` file — validado por `assess_revision`) | refs do índice externo correlacionadas por span | docs fora do índice, repo errado (rejeitado), índice stale → degraded |
+| lsp | `lsp:<server>` (opt-in, config) | definition/references/documentSymbol do server | server ausente → erro tipado, nunca fallback silencioso |
+
+Integração (Cycle 3.1): arestas não-resolvidas do baseline são
+re-submetidas aos resolvers externos pelo `SemanticEnricher` —
+promoção só com alvo persistível deste build. Detalhes:
+`docs/semantic-enrichment-pipeline.md`.
 
 ## Desfechos honestos
 
