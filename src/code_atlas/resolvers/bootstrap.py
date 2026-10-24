@@ -61,6 +61,96 @@ def resolver_factories(
     return factories, errors
 
 
+def describe_resolvers(
+    table: Mapping[str, object] | None,
+    workspace_root: Path,
+) -> tuple[list[dict[str, object]], list[str]]:
+    """lf-0032: relatório installed/enabled por resolver — read-only.
+
+    ``installed`` = artefato presente (índice SCIP carrega; binário
+    LSP existe no PATH). ``enabled`` = produziria resolver ativo
+    (assessment não-rejected para SCIP; ``enabled=true`` para LSP).
+    Nenhum server LSP é spawnado aqui — ``shutil.which`` apenas.
+    """
+    import shutil
+
+    reports: list[dict[str, object]] = [
+        {
+            "id": "syntactic-scope-v1", "kind": "builtin",
+            "installed": True, "enabled": True,
+            "detail": "tree-sitter + scope analysis",
+        }
+    ]
+    errors: list[str] = []
+    scip = table.get("scip") if isinstance(table, Mapping) else None
+    if isinstance(scip, Mapping):
+        _describe_scip(scip, workspace_root, reports, errors)
+    lsp = table.get("lsp") if isinstance(table, Mapping) else None
+    if isinstance(lsp, Mapping):
+        servers = lsp.get("servers")
+        if isinstance(servers, Mapping):
+            for name, spec in sorted(servers.items()):
+                if not isinstance(spec, Mapping):
+                    errors.append(
+                        f"resolvers.lsp.servers.{name}: spec inválido")
+                    continue
+                cmd = spec.get("command")
+                binary = cmd[0] if isinstance(cmd, (list, tuple)) and cmd else None
+                reports.append({
+                    "id": f"lsp:{name}", "kind": "lsp",
+                    "command": " ".join(str(c) for c in cmd) if cmd else "",
+                    "installed": bool(
+                        binary and shutil.which(str(binary))),
+                    "enabled": bool(spec.get("enabled", False)),
+                })
+    return reports, errors
+
+
+def _describe_scip(
+    scip: Mapping[str, object],
+    root: Path,
+    reports: list[dict[str, object]],
+    errors: list[str],
+) -> None:
+    index_path = scip.get("index_path")
+    if not index_path or not isinstance(index_path, str):
+        errors.append("resolvers.scip: index_path ausente ou inválido")
+        return
+    path = Path(index_path)
+    if not path.is_absolute():
+        path = root / path
+    kwargs: dict[str, object] = {
+        "workspace_root": root,
+        "allow_revision_mismatch": bool(
+            scip.get("allow_revision_mismatch", False)),
+    }
+    max_bytes = scip.get("max_bytes")
+    if isinstance(max_bytes, int):
+        kwargs["max_bytes"] = max_bytes
+    load = load_index(path, **kwargs)  # type: ignore[arg-type]
+    installed = load.ok and load.index is not None
+    rev_status = "not-assessed"
+    enabled = False
+    if installed and load.index is not None:
+        a = assess_revision(load.index, path, root)
+        rev_status = a.provenance.validation_status
+        enabled = not a.errors
+        if a.provenance.validation_status == "degraded":
+            errors.append(
+                f"scip index {path}: degraded — "
+                f"{'; '.join(a.provenance.validation_evidence[:3])}")
+    else:
+        errors.append(
+            f"scip index {path}: "
+            f"{'; '.join(load.errors) or 'load failed'}")
+    reports.append({
+        "id": "scip", "kind": "scip",
+        "index_path": str(path),
+        "installed": installed, "enabled": enabled,
+        "revision_status": rev_status,
+    })
+
+
 def _scip_factory(
     scip: Mapping[str, object],
     root: Path,
