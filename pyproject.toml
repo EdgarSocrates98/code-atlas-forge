@@ -74,4 +74,6 @@ warn_unreachable = true
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+# corpus vendored é dado de eval (lf-0055), nunca suíte de testes
+norecursedirs = ["tests/corpus"]
 addopts = "-ra"

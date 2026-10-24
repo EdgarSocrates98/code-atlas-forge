@@ -1,0 +1,49 @@
+{
+ "fixture": "EVAL_REPO (~7 arquivos, py+ts)",
+ "runs_per_cell": 20,
+ "stages": {
+  "context-build-serialized-enforce": {
+   "p50_ms": 0.018,
+   "p95_ms": 0.045,
+   "p99_ms": 0.045,
+   "runs": 20
+  },
+  "evidence-occurrence-ref": {
+   "p50_ms": 0.007,
+   "p95_ms": 0.009,
+   "p99_ms": 0.009,
+   "runs": 20
+  },
+  "hybrid-candidates-rrf": {
+   "p50_ms": 2.096,
+   "p95_ms": 2.371,
+   "p99_ms": 2.371,
+   "runs": 20
+  },
+  "hybrid-candidates-rrf+rerank": {
+   "p50_ms": 2.07,
+   "p95_ms": 2.221,
+   "p99_ms": 2.221,
+   "runs": 20
+  },
+  "mcp-atlas-evidence": {
+   "p50_ms": 0.985,
+   "p95_ms": 1.29,
+   "p99_ms": 1.29,
+   "runs": 20
+  },
+  "render-json": {
+   "p50_ms": 0.175,
+   "p95_ms": 0.185,
+   "p99_ms": 0.185,
+   "runs": 20
+  },
+  "token-estimate-pack": {
+   "p50_ms": 0.177,
+   "p95_ms": 0.186,
+   "p99_ms": 0.186,
+   "runs": 20
+  }
+ },
+ "tool": "code-atlas perf-cycle4.1"
+}

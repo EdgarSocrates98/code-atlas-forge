@@ -183,6 +183,14 @@ class EvidenceGrounder:
             (occurrence_id, snapshot_id)).fetchone()
         if row is None:
             return None
+        # lf-0056: repository_id do caller deve bater com o dono REAL
+        # do snapshot — sem essa checagem uma ref cross-repo recebia
+        # identidade falsificada.
+        srow = self._conn.execute(
+            "SELECT repository_id FROM snapshots WHERE id = ?",
+            (snapshot_id,)).fetchone()
+        if srow is None or int(srow["repository_id"]) != repository_id:
+            return None
         return OccurrenceRef(
             repository_id=repository_id, snapshot_id=snapshot_id,
             occurrence_id=occurrence_id,
