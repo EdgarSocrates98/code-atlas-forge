@@ -178,7 +178,7 @@ def test_revision_binding_opt_in(tmp_path: Path) -> None:
 
 def test_project_root_matches(tmp_path: Path) -> None:
     idx = parse_index(index_bytes(
-        f"file://{tmp_path}", [document("a.py")]))
+        tmp_path.as_uri(), [document("a.py")]))
     assert project_root_matches(idx, tmp_path)
     assert not project_root_matches(idx, tmp_path / "other")
 
@@ -295,7 +295,7 @@ def test_no_protobuf_import_anywhere() -> None:
 
     src = Path("src")
     for f in src.rglob("*.py"):
-        tree = ast.parse(f.read_text())
+        tree = ast.parse(f.read_text(encoding="utf-8"))
         for node in ast.walk(tree):
             if isinstance(node, (ast.Import, ast.ImportFrom)):
                 names = [a.name for a in node.names] if isinstance(

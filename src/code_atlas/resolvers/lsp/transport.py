@@ -26,6 +26,7 @@ from typing import IO, Any
 
 MAX_MESSAGE_BYTES = 16 * 1024 * 1024  # 16 MiB por mensagem
 _POLL_S = 0.1
+_IS_WINDOWS = os.name == "nt"  # select() no Windows só aceita sockets
 
 
 class TransportError(RuntimeError):
@@ -55,8 +56,15 @@ class _FdReader:
 
     def _read_some(self) -> bytes | None:
         """Chunk novo ou None (EOF/fechado). Polla ``_closed`` a cada
-        100ms para shutdown limpo."""
+        100ms para shutdown limpo. No Windows ``select`` não aceita
+        pipes — usa ``os.read`` bloqueante; ``close()`` destrava a
+        thread fechando o fd."""
         while not self._closed.is_set():
+            if _IS_WINDOWS:
+                try:
+                    return os.read(self._fd, 65536) or None
+                except OSError:
+                    return None
             try:
                 ready, _, _ = select.select([self._fd], [], [], _POLL_S)
             except (OSError, ValueError):
