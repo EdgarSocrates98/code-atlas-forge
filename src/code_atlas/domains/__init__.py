@@ -20,6 +20,15 @@ from code_atlas.domains.contracts import (
     ExtractedDomainRelation,
     confidence_rank,
 )
+from code_atlas.domains.crossresolve import (
+    CROSS_RESOLVER_ID,
+    CROSS_RESOLVER_VERSION,
+    CrossDiagnostic,
+    CrossDomainResolver,
+    CrossEdge,
+    CrossResolutionPlan,
+    CrossUpdate,
+)
 from code_atlas.domains.evidence import (
     DOMAIN_EXTRACTOR_PREFIX,
     DomainEvidence,
@@ -48,6 +57,8 @@ from code_atlas.domains.resolution import DomainResolution
 from code_atlas.domains.validation import validate_extraction
 
 __all__ = [
+    "CROSS_RESOLVER_ID",
+    "CROSS_RESOLVER_VERSION",
     "DOMAIN_CONTRACT_VERSION",
     "DOMAIN_EXTRACTOR_PREFIX",
     "DOMAIN_RELATION_TYPES",
@@ -56,6 +67,11 @@ __all__ = [
     "AdapterRegistryError",
     "ArtifactSupport",
     "ConfidenceModel",
+    "CrossDiagnostic",
+    "CrossDomainResolver",
+    "CrossEdge",
+    "CrossResolutionPlan",
+    "CrossUpdate",
     "DiscoveredArtifact",
     "DiscoveryRule",
     "DomainAdapter",

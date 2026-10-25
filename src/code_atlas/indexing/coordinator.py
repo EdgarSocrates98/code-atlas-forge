@@ -43,6 +43,7 @@ from code_atlas.domains.contracts import (
     DomainExtractionRequest,
     DomainExtractionResult,
 )
+from code_atlas.domains.crossresolve import CrossDomainResolver
 from code_atlas.domains.registry import DomainRegistry
 from code_atlas.domains.validation import validate_extraction
 from code_atlas.graph.builder import GraphBuilder
@@ -109,6 +110,7 @@ class IndexCoordinator:
         resolver_versions: Mapping[str, str] | None = None,
         snapshot_retention: int = 0,
         domain_registry: DomainRegistry | None = None,
+        cross_resolver: CrossDomainResolver | None = None,
     ) -> None:
         self._conn = conn
         self._store = Store(conn)
@@ -127,6 +129,14 @@ class IndexCoordinator:
         # build e persiste via ``persist_domain_result`` na mesma
         # transação de publicação do grafo de código.
         self._domain_registry = domain_registry
+        # lf-0117 (Cycle 7 Ph.9): resolução cross-domain também é OPT-IN
+        # — ``None`` (default) = zero trabalho. Com um resolver injetado,
+        # após a persistência dos adapters o coordinator roda
+        # ``resolver.plan`` + ``persist_cross_resolutions`` dentro do
+        # mesmo BEGIN de publicação. Só faz sentido com domain_registry;
+        # sem adapters não há rows de domínio para ligar — o plano sai
+        # vazio (documentado, não erro).
+        self._cross_resolver = cross_resolver
         self.last_plan: IndexPlan | None = None  # plano do último index
 
     def _analyzer_versions(self, scan: ScanResult) -> dict[str, str]:
@@ -165,6 +175,12 @@ class IndexCoordinator:
                 versions[f"domain:{dom.domain_id}"] = (
                     dom.adapter_version
                 )
+        # Cross-resolution opt-in (lf-0117): ligar/desligar ou trocar a
+        # versão muda as rows de domínio — derrota o no-op por design.
+        if self._cross_resolver is not None:
+            versions["resolver:cross-domain"] = (
+                self._cross_resolver.resolver_version
+            )
         return versions
 
     def _enrich_semantic(
@@ -460,6 +476,11 @@ class IndexCoordinator:
             dcounts = _persist_domains(
                 store, repo_id, snapshot_id, file_ids,
                 domain_results, domain_failures,
+            )
+            # lf-0117 (Cycle 7 Ph.9): pós-extração opt-in — depois de
+            # TODOS os adapters persistirem, dentro da mesma transação.
+            self._run_cross_resolution(
+                store, snapshot_id, dcounts, domain_failures
             )
             stage_ms["persist_rows"] = int(
                 (time.monotonic() - t_w) * 1000)
@@ -824,6 +845,45 @@ class IndexCoordinator:
             raise sqlite3.IntegrityError(
                 f"cross-snapshot relations {cross[:5]} in snapshot {snapshot_id}"
             )
+        # lf-0117: mesma auditoria para relações de domínio — arestas
+        # cross-domain só podem ligar ocorrências do próprio snapshot.
+        cross_dom = self._store.cross_snapshot_domain_relations(snapshot_id)
+        if cross_dom:
+            raise sqlite3.IntegrityError(
+                f"cross-snapshot domain relations {cross_dom[:5]} "
+                f"in snapshot {snapshot_id}"
+            )
+
+    def _run_cross_resolution(
+        self,
+        store: Store,
+        snapshot_id: int,
+        dcounts: dict[str, int],
+        domain_failures: list[str],
+    ) -> None:
+        """lf-0117 (Cycle 7 Ph.9): resolução cross-domain opt-in.
+
+        Chamado depois de TODOS os adapters persistirem, dentro da
+        mesma transação de publicação — um erro aqui sofre rollback
+        junto com o snapshot inteiro. O plano lê as rows recém-gravadas
+        (mesma conexão) e só casa por identidade qualificada entre
+        domínios distintos; updates/edges carregam evidência dos dois
+        lados. ``None`` (default) = feature desligada, zero custo.
+        """
+        if self._cross_resolver is None:
+            return
+        xplan = self._cross_resolver.plan(store, snapshot_id)
+        xc = store.persist_cross_resolutions(
+            snapshot_id, xplan.update_rows(),
+            xplan.insert_rows(snapshot_id),
+        )
+        for k, v in xplan.stats.items():
+            dcounts[k] = dcounts.get(k, 0) + v
+        for k, v in xc.items():
+            dcounts[k] = dcounts.get(k, 0) + v
+        for d in xplan.diagnostics:
+            if d.severity in ("warning", "error"):
+                domain_failures.append(f"cross:{d.code}:{d.message}")
 
     def _mark_failed(self, repo_id: int, job_id: int, error: str) -> int:
         """Insere snapshot FAILED para diagnóstico (transação separada).

@@ -772,6 +772,127 @@ class Store:
         ).fetchall()
         return [int(r["id"]) for r in rows]
 
+    # --- resolução cross-domain (lf-0117, Phase 9) ---------------------
+
+    def domain_occurrences_snapshot(
+        self, snapshot_id: int
+    ) -> list[sqlite3.Row]:
+        """Ocorrências de domínio do snapshot com a entidade lógica.
+
+        Junta ``domain_entity_occurrences`` + ``domain_entities`` +
+        path do arquivo-fonte — a visão completa que a resolução
+        cross-domain precisa (identidade canônica vem da
+        ``identity_key``; ``root`` só existe lá dentro).
+        """
+        return self._conn.execute(
+            """
+            SELECT deo.id AS occ_id, deo.entity_id, deo.source_file_id,
+                   deo.span_start, deo.span_end, deo.extraction_status,
+                   de.domain, de.kind, de.identity_key, de.qualified_name,
+                   de.name, de.catalog, de.namespace, de.environment,
+                   de.attributes,
+                   sf.relative_path AS source_path
+              FROM domain_entity_occurrences deo
+              JOIN domain_entities de ON de.id = deo.entity_id
+              LEFT JOIN source_files sf ON sf.id = deo.source_file_id
+             WHERE deo.snapshot_id = ?
+             ORDER BY deo.id
+            """,
+            (snapshot_id,),
+        ).fetchall()
+
+    def domain_relations_snapshot(
+        self, snapshot_id: int
+    ) -> list[sqlite3.Row]:
+        """Todas as rows de ``domain_relations`` do snapshot (ordem de id).
+
+        O resolver lê o conjunto inteiro — re-resolve só as
+        ``unresolved``, mas precisa das demais para dedup de arestas
+        novas e para idempotência (``resolver='cross-domain'``).
+        """
+        return self._conn.execute(
+            """
+            SELECT id, type, from_entity_occ_id, from_symbol_occ_id,
+                   to_entity_occ_id, to_symbol_occ_id, to_unresolved,
+                   resolution_status, confidence_class, resolver,
+                   evidence_ids
+              FROM domain_relations
+             WHERE snapshot_id = ?
+             ORDER BY id
+            """,
+            (snapshot_id,),
+        ).fetchall()
+
+    def evidence_snapshot(self, snapshot_id: int) -> list[sqlite3.Row]:
+        """Rows de ``evidence`` do snapshot — insumo de proveniência."""
+        return self._conn.execute(
+            """
+            SELECT id, source_file_id, path, span, extractor, notes
+              FROM evidence
+             WHERE snapshot_id = ?
+             ORDER BY id
+            """,
+            (snapshot_id,),
+        ).fetchall()
+
+    def file_symbol_occurrences(
+        self, snapshot_id: int
+    ) -> list[tuple[str, int]]:
+        """``(path, occ_id)`` de símbolos FILE com ocorrência no snapshot.
+
+        Ponte domínio→código (lf-0117): ``qualified_name`` de nó FILE é
+        o path relativo — alvo honesto para refs textuais que são paths
+        inventariados (artefato de CI, script de job).
+        """
+        rows = self._conn.execute(
+            """
+            SELECT s.qualified_name AS path, so.id AS occ_id
+              FROM symbol_occurrences so
+              JOIN symbols s ON s.id = so.logical_symbol_id
+             WHERE so.snapshot_id = ? AND s.kind = 'file'
+             ORDER BY s.qualified_name, so.id
+            """,
+            (snapshot_id,),
+        ).fetchall()
+        return [(str(r["path"]), int(r["occ_id"])) for r in rows]
+
+    def persist_cross_resolutions(
+        self,
+        snapshot_id: int,
+        updates: Iterable[tuple[object, ...]],
+        rows: Iterable[tuple[object, ...]],
+    ) -> dict[str, int]:
+        """Aplica o plano do resolver cross-domain — transação do caller.
+
+        ``updates``: (to_entity_occ, to_symbol_occ, to_unresolved,
+        resolution_status, confidence_class, resolver, evidence_ids_json,
+        relation_id) — re-resolução in place de rows ``unresolved``;
+        ``resolver`` marca a proveniência da decisão (``cross-domain``).
+        O ``WHERE`` exige ``snapshot_id`` — isolamento por construção,
+        nenhuma row de outro snapshot pode ser tocada.
+
+        ``rows``: mesmo shape de ``insert_domain_relations`` — arestas
+        novas entre ocorrências do snapshot. Retorna contagens.
+        """
+        upd = list(updates)
+        ins = list(rows)
+        self._conn.executemany(
+            "UPDATE domain_relations"
+            "   SET to_entity_occ_id = ?, to_symbol_occ_id = ?,"
+            "       to_unresolved = ?, resolution_status = ?,"
+            "       confidence_class = ?, resolver = ?, evidence_ids = ?"
+            " WHERE id = ? AND snapshot_id = ?",
+            [(*u, snapshot_id) for u in upd],
+        )
+        self._conn.executemany(
+            "INSERT INTO domain_relations (snapshot_id, from_entity_occ_id,"
+            " from_symbol_occ_id, to_entity_occ_id, to_symbol_occ_id,"
+            " to_unresolved, type, resolution_status, confidence_class,"
+            " resolver, evidence_ids) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            ins,
+        )
+        return {"cross_updated": len(upd), "cross_inserted": len(ins)}
+
     # --- index jobs ---------------------------------------------------
 
     def insert_index_job(self, repository_id: int, manifest_hash: str) -> int:
