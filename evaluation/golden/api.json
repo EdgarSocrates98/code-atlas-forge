@@ -1,0 +1,518 @@
+{
+  "schema": 1,
+  "domain": "api",
+  "fixture": "tests/fixtures/api_repo",
+  "entities": {
+    "total": 30,
+    "by_kind": {
+      "api_contract": 4,
+      "api_endpoint": 15,
+      "api_service": 11
+    },
+    "names": [
+      "api:app.main#admin",
+      "api:app.main#admin.POST /v2/admin/users/{uid}",
+      "api:app.main#app",
+      "api:app.main#app.GET /edge/health",
+      "api:app.main#pets_router",
+      "api:app.routers#pets_router",
+      "api:app.routers#pets_router.GET /pets/",
+      "api:app.routers#pets_router.GET /pets/{pet_id}",
+      "api:openapi/anchored.yaml",
+      "api:openapi/anchored.yaml#anchored-api",
+      "api:openapi/anchored.yaml#anchored-api.GET /api/x",
+      "api:openapi/malformed.yaml",
+      "api:openapi/malformed.yaml#broken-spec",
+      "api:openapi/malformed.yaml#broken-spec.GET /v9/bad",
+      "api:openapi/malformed.yaml#broken-spec.GET /v9/ok",
+      "api:openapi/petstore.yaml",
+      "api:openapi/petstore.yaml#pet-store",
+      "api:openapi/petstore.yaml#pet-store.GET /v1/pets",
+      "api:openapi/petstore.yaml#pet-store.GET /v1/pets/{petId}",
+      "api:openapi/petstore.yaml#pet-store.POST /v1/pets",
+      "api:openapi/spec.json",
+      "api:openapi/spec.json#json-api",
+      "api:openapi/spec.json#json-api.GET /base/things",
+      "api:web.legacy#app",
+      "api:web.legacy#app.GET /legacy",
+      "api:web.routes#app",
+      "api:web.routes#app.GET /status",
+      "api:web.routes#router",
+      "api:web.routes#router.GET /api/items/{id}",
+      "api:web.routes#router.POST /api/items"
+    ],
+    "expected": [
+      "api:openapi/petstore.yaml#pet-store.GET /v1/pets/{petId}",
+      "api:app.main#admin.POST /v2/admin/users/{uid}",
+      "api:web.routes#router.GET /api/items/{id}",
+      "api:openapi/spec.json#json-api.GET /base/things",
+      "api:web.legacy#app.GET /legacy"
+    ],
+    "forbidden": [
+      "api:openapi/not_a_spec.yaml",
+      "api:pkg/config.json",
+      "api:app.main#app.GET /edge/{dyn}",
+      "api:app.main#app.GET /{dyn}"
+    ]
+  },
+  "relations": {
+    "total": 43,
+    "by_type": {
+      "CALLS_ENDPOINT": 10,
+      "CONTAINS": 18,
+      "DEFINES": 11,
+      "REFERENCES": 4
+    },
+    "by_status": {
+      "external": 5,
+      "unresolved": 9,
+      "resolved": 29
+    },
+    "by_confidence": {
+      "syntactic": 33,
+      "heuristic": 10
+    },
+    "by_resolver": {
+      "domain:api": 43
+    },
+    "edges_skipped": 2
+  },
+  "diagnostics": [
+    {
+      "severity": "info",
+      "code": "dynamic-url",
+      "path": "app/client.py",
+      "adapter": "api"
+    },
+    {
+      "severity": "info",
+      "code": "cross-file-router-prefix",
+      "path": "app/main.py",
+      "adapter": "api"
+    },
+    {
+      "severity": "warning",
+      "code": "dynamic-route-path",
+      "path": "app/main.py",
+      "adapter": "api"
+    },
+    {
+      "severity": "info",
+      "code": "non-http-decorator",
+      "path": "app/main.py",
+      "adapter": "api"
+    },
+    {
+      "severity": "info",
+      "code": "undeclared-receiver",
+      "path": "app/main.py",
+      "adapter": "api"
+    },
+    {
+      "severity": "warning",
+      "code": "unexpected-indent",
+      "path": "openapi/anchored.yaml",
+      "adapter": "api"
+    },
+    {
+      "severity": "warning",
+      "code": "yaml-alias-unsupported",
+      "path": "openapi/anchored.yaml",
+      "adapter": "api"
+    },
+    {
+      "severity": "warning",
+      "code": "yaml-anchor-unsupported",
+      "path": "openapi/anchored.yaml",
+      "adapter": "api"
+    },
+    {
+      "severity": "warning",
+      "code": "yaml-merge-key-unsupported",
+      "path": "openapi/anchored.yaml",
+      "adapter": "api"
+    },
+    {
+      "severity": "error",
+      "code": "flow-parse-error",
+      "path": "openapi/malformed.yaml",
+      "adapter": "api"
+    },
+    {
+      "severity": "error",
+      "code": "not-a-mapping",
+      "path": "openapi/malformed.yaml",
+      "adapter": "api"
+    },
+    {
+      "severity": "info",
+      "code": "not-openapi-artifact",
+      "path": "openapi/not_a_spec.yaml",
+      "adapter": "api"
+    },
+    {
+      "severity": "info",
+      "code": "not-openapi-artifact",
+      "path": "pkg/config.json",
+      "adapter": "api"
+    },
+    {
+      "severity": "info",
+      "code": "dynamic-url",
+      "path": "web/client.ts",
+      "adapter": "api"
+    },
+    {
+      "severity": "warning",
+      "code": "dynamic-route-path",
+      "path": "web/routes.ts",
+      "adapter": "api"
+    }
+  ],
+  "edges": [
+    {
+      "type": "CALLS_ENDPOINT",
+      "from": "sym:app.client",
+      "to": "txt:https://api.pets.example/v1/pets/1",
+      "status": "external",
+      "confidence": "syntactic",
+      "resolver": "domain:api"
+    },
+    {
+      "type": "CALLS_ENDPOINT",
+      "from": "sym:app.client",
+      "to": "txt:https://other.example/ping",
+      "status": "external",
+      "confidence": "syntactic",
+      "resolver": "domain:api"
+    },
+    {
+      "type": "CALLS_ENDPOINT",
+      "from": "sym:app.client.fetch_dynamic",
+      "to": "txt:dynamic:url",
+      "status": "unresolved",
+      "confidence": "heuristic",
+      "resolver": "domain:api"
+    },
+    {
+      "type": "CALLS_ENDPOINT",
+      "from": "sym:app.client.fetch_pets",
+      "to": "txt:/v1/pets",
+      "status": "unresolved",
+      "confidence": "syntactic",
+      "resolver": "domain:api"
+    },
+    {
+      "type": "CALLS_ENDPOINT",
+      "from": "sym:app.client.fetch_pets",
+      "to": "txt:https://api.pets.example/v1/pets",
+      "status": "external",
+      "confidence": "syntactic",
+      "resolver": "domain:api"
+    },
+    {
+      "type": "CALLS_ENDPOINT",
+      "from": "sym:web.client",
+      "to": "txt:/v1/pets/2",
+      "status": "unresolved",
+      "confidence": "syntactic",
+      "resolver": "domain:api"
+    },
+    {
+      "type": "CALLS_ENDPOINT",
+      "from": "sym:web.client",
+      "to": "txt:dynamic:${cfg.base}/dyn",
+      "status": "unresolved",
+      "confidence": "heuristic",
+      "resolver": "domain:api"
+    },
+    {
+      "type": "CALLS_ENDPOINT",
+      "from": "sym:web.client",
+      "to": "txt:https://api.pets.example/v1/pets",
+      "status": "external",
+      "confidence": "syntactic",
+      "resolver": "domain:api"
+    },
+    {
+      "type": "CALLS_ENDPOINT",
+      "from": "sym:web.client.loadPets",
+      "to": "txt:/v1/pets/1",
+      "status": "unresolved",
+      "confidence": "syntactic",
+      "resolver": "domain:api"
+    },
+    {
+      "type": "CALLS_ENDPOINT",
+      "from": "sym:web.client.loadPets",
+      "to": "txt:https://api.pets.example/v1/pets",
+      "status": "external",
+      "confidence": "syntactic",
+      "resolver": "domain:api"
+    },
+    {
+      "type": "CONTAINS",
+      "from": "api:app.main#admin",
+      "to": "api:app.main#admin.POST /v2/admin/users/{uid}",
+      "status": "resolved",
+      "confidence": "syntactic",
+      "resolver": "domain:api"
+    },
+    {
+      "type": "CONTAINS",
+      "from": "api:app.main#app",
+      "to": "api:app.main#admin",
+      "status": "resolved",
+      "confidence": "syntactic",
+      "resolver": "domain:api"
+    },
+    {
+      "type": "CONTAINS",
+      "from": "api:app.main#app",
+      "to": "api:app.main#app.GET /edge/health",
+      "status": "resolved",
+      "confidence": "syntactic",
+      "resolver": "domain:api"
+    },
+    {
+      "type": "CONTAINS",
+      "from": "api:app.main#app",
+      "to": "api:app.main#pets_router",
+      "status": "resolved",
+      "confidence": "syntactic",
+      "resolver": "domain:api"
+    },
+    {
+      "type": "CONTAINS",
+      "from": "api:app.routers#pets_router",
+      "to": "api:app.routers#pets_router.GET /pets/",
+      "status": "resolved",
+      "confidence": "syntactic",
+      "resolver": "domain:api"
+    },
+    {
+      "type": "CONTAINS",
+      "from": "api:app.routers#pets_router",
+      "to": "api:app.routers#pets_router.GET /pets/{pet_id}",
+      "status": "resolved",
+      "confidence": "syntactic",
+      "resolver": "domain:api"
+    },
+    {
+      "type": "CONTAINS",
+      "from": "api:openapi/anchored.yaml#anchored-api",
+      "to": "api:openapi/anchored.yaml#anchored-api.GET /api/x",
+      "status": "resolved",
+      "confidence": "syntactic",
+      "resolver": "domain:api"
+    },
+    {
+      "type": "CONTAINS",
+      "from": "api:openapi/malformed.yaml#broken-spec",
+      "to": "api:openapi/malformed.yaml#broken-spec.GET /v9/bad",
+      "status": "resolved",
+      "confidence": "syntactic",
+      "resolver": "domain:api"
+    },
+    {
+      "type": "CONTAINS",
+      "from": "api:openapi/malformed.yaml#broken-spec",
+      "to": "api:openapi/malformed.yaml#broken-spec.GET /v9/ok",
+      "status": "resolved",
+      "confidence": "syntactic",
+      "resolver": "domain:api"
+    },
+    {
+      "type": "CONTAINS",
+      "from": "api:openapi/petstore.yaml#pet-store",
+      "to": "api:openapi/petstore.yaml#pet-store.GET /v1/pets",
+      "status": "resolved",
+      "confidence": "syntactic",
+      "resolver": "domain:api"
+    },
+    {
+      "type": "CONTAINS",
+      "from": "api:openapi/petstore.yaml#pet-store",
+      "to": "api:openapi/petstore.yaml#pet-store.GET /v1/pets/{petId}",
+      "status": "resolved",
+      "confidence": "syntactic",
+      "resolver": "domain:api"
+    },
+    {
+      "type": "CONTAINS",
+      "from": "api:openapi/petstore.yaml#pet-store",
+      "to": "api:openapi/petstore.yaml#pet-store.POST /v1/pets",
+      "status": "resolved",
+      "confidence": "syntactic",
+      "resolver": "domain:api"
+    },
+    {
+      "type": "CONTAINS",
+      "from": "api:openapi/spec.json#json-api",
+      "to": "api:openapi/spec.json#json-api.GET /base/things",
+      "status": "resolved",
+      "confidence": "syntactic",
+      "resolver": "domain:api"
+    },
+    {
+      "type": "CONTAINS",
+      "from": "api:web.legacy#app",
+      "to": "api:web.legacy#app.GET /legacy",
+      "status": "resolved",
+      "confidence": "heuristic",
+      "resolver": "domain:api"
+    },
+    {
+      "type": "CONTAINS",
+      "from": "api:web.routes#app",
+      "to": "api:web.routes#app.GET /status",
+      "status": "resolved",
+      "confidence": "heuristic",
+      "resolver": "domain:api"
+    },
+    {
+      "type": "CONTAINS",
+      "from": "api:web.routes#app",
+      "to": "api:web.routes#router",
+      "status": "resolved",
+      "confidence": "heuristic",
+      "resolver": "domain:api"
+    },
+    {
+      "type": "CONTAINS",
+      "from": "api:web.routes#router",
+      "to": "api:web.routes#router.GET /api/items/{id}",
+      "status": "resolved",
+      "confidence": "heuristic",
+      "resolver": "domain:api"
+    },
+    {
+      "type": "CONTAINS",
+      "from": "api:web.routes#router",
+      "to": "api:web.routes#router.POST /api/items",
+      "status": "resolved",
+      "confidence": "heuristic",
+      "resolver": "domain:api"
+    },
+    {
+      "type": "DEFINES",
+      "from": "api:openapi/anchored.yaml",
+      "to": "api:openapi/anchored.yaml#anchored-api",
+      "status": "resolved",
+      "confidence": "syntactic",
+      "resolver": "domain:api"
+    },
+    {
+      "type": "DEFINES",
+      "from": "api:openapi/malformed.yaml",
+      "to": "api:openapi/malformed.yaml#broken-spec",
+      "status": "resolved",
+      "confidence": "syntactic",
+      "resolver": "domain:api"
+    },
+    {
+      "type": "DEFINES",
+      "from": "api:openapi/petstore.yaml",
+      "to": "api:openapi/petstore.yaml#pet-store",
+      "status": "resolved",
+      "confidence": "syntactic",
+      "resolver": "domain:api"
+    },
+    {
+      "type": "DEFINES",
+      "from": "api:openapi/spec.json",
+      "to": "api:openapi/spec.json#json-api",
+      "status": "resolved",
+      "confidence": "syntactic",
+      "resolver": "domain:api"
+    },
+    {
+      "type": "DEFINES",
+      "from": "sym:app.main.create_user",
+      "to": "api:app.main#admin.POST /v2/admin/users/{uid}",
+      "status": "resolved",
+      "confidence": "syntactic",
+      "resolver": "domain:api"
+    },
+    {
+      "type": "DEFINES",
+      "from": "sym:app.main.health",
+      "to": "api:app.main#app.GET /edge/health",
+      "status": "resolved",
+      "confidence": "syntactic",
+      "resolver": "domain:api"
+    },
+    {
+      "type": "DEFINES",
+      "from": "sym:app.routers.get_pet",
+      "to": "api:app.routers#pets_router.GET /pets/{pet_id}",
+      "status": "resolved",
+      "confidence": "syntactic",
+      "resolver": "domain:api"
+    },
+    {
+      "type": "DEFINES",
+      "from": "sym:app.routers.list_pets",
+      "to": "api:app.routers#pets_router.GET /pets/",
+      "status": "resolved",
+      "confidence": "syntactic",
+      "resolver": "domain:api"
+    },
+    {
+      "type": "DEFINES",
+      "from": "sym:web.routes",
+      "to": "api:web.routes#app.GET /status",
+      "status": "resolved",
+      "confidence": "heuristic",
+      "resolver": "domain:api"
+    },
+    {
+      "type": "DEFINES",
+      "from": "sym:web.routes",
+      "to": "api:web.routes#router.GET /api/items/{id}",
+      "status": "resolved",
+      "confidence": "heuristic",
+      "resolver": "domain:api"
+    },
+    {
+      "type": "DEFINES",
+      "from": "sym:web.routes",
+      "to": "api:web.routes#router.POST /api/items",
+      "status": "resolved",
+      "confidence": "heuristic",
+      "resolver": "domain:api"
+    },
+    {
+      "type": "REFERENCES",
+      "from": "api:openapi/petstore.yaml#pet-store.GET /v1/pets",
+      "to": "txt:#/components/schemas/Pets",
+      "status": "unresolved",
+      "confidence": "syntactic",
+      "resolver": "domain:api"
+    },
+    {
+      "type": "REFERENCES",
+      "from": "api:openapi/petstore.yaml#pet-store.GET /v1/pets/{petId}",
+      "to": "txt:#/components/schemas/Pet",
+      "status": "unresolved",
+      "confidence": "syntactic",
+      "resolver": "domain:api"
+    },
+    {
+      "type": "REFERENCES",
+      "from": "api:openapi/petstore.yaml#pet-store.POST /v1/pets",
+      "to": "txt:#/components/schemas/Pet",
+      "status": "unresolved",
+      "confidence": "syntactic",
+      "resolver": "domain:api"
+    },
+    {
+      "type": "REFERENCES",
+      "from": "api:openapi/spec.json#json-api.GET /base/things",
+      "to": "txt:#/components/schemas/Thing",
+      "status": "unresolved",
+      "confidence": "syntactic",
+      "resolver": "domain:api"
+    }
+  ]
+}

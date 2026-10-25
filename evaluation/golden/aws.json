@@ -1,0 +1,650 @@
+{
+  "schema": 1,
+  "domain": "aws",
+  "fixture": "tests/fixtures/aws_repo",
+  "entities": {
+    "total": 63,
+    "by_kind": {
+      "data_catalog": 3,
+      "data_column": 6,
+      "data_pipeline": 4,
+      "data_table": 25,
+      "data_transformation": 6,
+      "glue_job": 5,
+      "iam_role": 5,
+      "iceberg_table": 3,
+      "spark_job": 6
+    },
+    "names": [
+      "aws-data:athena/queries/daily_report.sql#1",
+      "aws-data:aws:glue.lake_db.agg_orders",
+      "aws-data:aws:glue.sales_db.orders",
+      "aws-data:aws:glue.shared_db.dim_customer",
+      "aws-data:aws:glue:111111111111",
+      "aws-data:aws:glue:111111111111.shared_db.dim_customer",
+      "aws-data:aws:glue:222222222222",
+      "aws-data:aws:glue:222222222222.shared_db.dim_customer",
+      "aws-data:aws:iam:123456789012.role/EMR_DefaultRole",
+      "aws-data:aws:iam:123456789012.role/EMR_EC2_DefaultRole",
+      "aws-data:aws:iam:123456789012.role/GlueNightlyRole",
+      "aws-data:aws:iam:123456789012.role/GlueServiceRole",
+      "aws-data:aws:iam:999888777666.role/RescueRole",
+      "aws-data:awsdatacatalog.lake_db.agg_orders",
+      "aws-data:awsdatacatalog.reporting.daily_totals",
+      "aws-data:emr.compact-orders",
+      "aws-data:emr.emr-cluster:nightly-cluster",
+      "aws-data:emr.ingest-orders",
+      "aws-data:emr.steps#compact-orders",
+      "aws-data:emr.steps#ingest-orders",
+      "aws-data:emr.steps#notify",
+      "aws-data:glue/jobs.athena_runner",
+      "aws-data:glue/jobs.broken",
+      "aws-data:glue/jobs.cross_account",
+      "aws-data:glue/jobs.iceberg_upsert",
+      "aws-data:glue/jobs.nightly-enrich",
+      "aws-data:glue/jobs.orders_etl",
+      "aws-data:glue/jobs/athena_runner.py@L10#1",
+      "aws-data:glue/jobs/iceberg_upsert.py@L19#0",
+      "aws-data:glue/jobs/iceberg_upsert.py@L25#0",
+      "aws-data:glue/jobs/iceberg_upsert.py@L28#0",
+      "aws-data:glue/jobs/orders_etl.py@L40#0",
+      "aws-data:jobs.nightly-etl",
+      "aws-data:jobs.trigger:nightly-trigger",
+      "aws-data:lake",
+      "aws-data:lake.db.orders",
+      "aws-data:lake.db.orders.id",
+      "aws-data:lake.db.orders.qty",
+      "aws-data:lake.db.orders.snapshots",
+      "aws-data:lake.db.orders_archive",
+      "aws-data:lake_db.agg_orders",
+      "aws-data:orders_src",
+      "aws-data:s3://athena-results-bucket/daily",
+      "aws-data:s3://emr-bucket/state/done",
+      "aws-data:s3://enriched-bucket/out",
+      "aws-data:s3://etl-out-bucket/final",
+      "aws-data:s3://events-bucket/raw",
+      "aws-data:s3://glue-scripts-bucket/nightly.py",
+      "aws-data:s3://glue-scripts-bucket/nightly_enrich.py",
+      "aws-data:s3://inbound-bucket/orders",
+      "aws-data:s3://jobs-bucket/scripts/compact.py",
+      "aws-data:s3://jobs-bucket/scripts/ingest.py",
+      "aws-data:s3://lake-wh/warehouse",
+      "aws-data:s3://raw-logs-bucket/orders/daily",
+      "aws-data:s3://rescue-bucket/still-visible",
+      "aws-data:scripts.submit",
+      "aws-data:staging.daily_events",
+      "aws-data:staging.raw_events",
+      "aws-data:staging.raw_events.event_id",
+      "aws-data:staging.raw_events.payload",
+      "aws-data:updates_src",
+      "aws-data:updates_src.id",
+      "aws-data:updates_src.qty"
+    ],
+    "expected": [
+      "aws-data:aws:glue.shared_db.dim_customer",
+      "aws-data:aws:glue:111111111111.shared_db.dim_customer",
+      "aws-data:aws:glue:222222222222.shared_db.dim_customer",
+      "aws-data:aws:iam:123456789012.role/GlueServiceRole",
+      "aws-data:lake.db.orders",
+      "aws-data:jobs.nightly-etl",
+      "aws-data:emr.emr-cluster:nightly-cluster"
+    ],
+    "forbidden": [
+      "aws-data:aws:glue:333333333333.shared_db.dim_customer",
+      "aws-data:aws:glue:111111111111.shared_db.orders",
+      "aws-data:docs/notes",
+      "aws-data:docs/notes.txt#0"
+    ]
+  },
+  "relations": {
+    "total": 60,
+    "by_type": {
+      "ASSUMES_ROLE": 4,
+      "CONTAINS": 8,
+      "DEPENDS_ON": 3,
+      "DERIVES_FROM": 7,
+      "READS_FROM": 13,
+      "REFERENCES": 16,
+      "TRANSFORMS": 1,
+      "TRIGGERS": 1,
+      "WRITES_TO": 7
+    },
+    "by_status": {
+      "resolved": 59,
+      "external": 1
+    },
+    "by_confidence": {
+      "syntactic": 60
+    },
+    "by_resolver": {
+      "domain:aws-data": 60
+    },
+    "edges_skipped": 0
+  },
+  "diagnostics": [
+    {
+      "severity": "info",
+      "code": "implicit-column-list",
+      "path": "athena/queries/daily_report.sql",
+      "adapter": "aws-data"
+    },
+    {
+      "severity": "error",
+      "code": "malformed-config",
+      "path": "emr/bad.json",
+      "adapter": "aws-data"
+    },
+    {
+      "severity": "info",
+      "code": "implicit-column-list",
+      "path": "glue/jobs/athena_runner.py",
+      "adapter": "aws-data"
+    },
+    {
+      "severity": "error",
+      "code": "py-parse-error",
+      "path": "glue/jobs/broken.py",
+      "adapter": "aws-data"
+    },
+    {
+      "severity": "info",
+      "code": "implicit-column-list",
+      "path": "glue/jobs/iceberg_upsert.py",
+      "adapter": "aws-data"
+    },
+    {
+      "severity": "warning",
+      "code": "select-star",
+      "path": "glue/jobs/iceberg_upsert.py",
+      "adapter": "aws-data"
+    },
+    {
+      "severity": "info",
+      "code": "implicit-column-list",
+      "path": "glue/jobs/orders_etl.py",
+      "adapter": "aws-data"
+    }
+  ],
+  "edges": [
+    {
+      "type": "ASSUMES_ROLE",
+      "from": "aws-data:emr.emr-cluster:nightly-cluster",
+      "to": "aws-data:aws:iam:123456789012.role/EMR_DefaultRole",
+      "status": "resolved",
+      "confidence": "syntactic",
+      "resolver": "domain:aws-data"
+    },
+    {
+      "type": "ASSUMES_ROLE",
+      "from": "aws-data:emr.emr-cluster:nightly-cluster",
+      "to": "aws-data:aws:iam:123456789012.role/EMR_EC2_DefaultRole",
+      "status": "resolved",
+      "confidence": "syntactic",
+      "resolver": "domain:aws-data"
+    },
+    {
+      "type": "ASSUMES_ROLE",
+      "from": "aws-data:glue/jobs.nightly-enrich",
+      "to": "aws-data:aws:iam:123456789012.role/GlueNightlyRole",
+      "status": "resolved",
+      "confidence": "syntactic",
+      "resolver": "domain:aws-data"
+    },
+    {
+      "type": "ASSUMES_ROLE",
+      "from": "aws-data:jobs.nightly-etl",
+      "to": "aws-data:aws:iam:123456789012.role/GlueServiceRole",
+      "status": "resolved",
+      "confidence": "syntactic",
+      "resolver": "domain:aws-data"
+    },
+    {
+      "type": "CONTAINS",
+      "from": "aws-data:emr.steps#compact-orders",
+      "to": "aws-data:emr.compact-orders",
+      "status": "resolved",
+      "confidence": "syntactic",
+      "resolver": "domain:aws-data"
+    },
+    {
+      "type": "CONTAINS",
+      "from": "aws-data:emr.steps#ingest-orders",
+      "to": "aws-data:emr.ingest-orders",
+      "status": "resolved",
+      "confidence": "syntactic",
+      "resolver": "domain:aws-data"
+    },
+    {
+      "type": "CONTAINS",
+      "from": "aws-data:glue/jobs.athena_runner",
+      "to": "aws-data:glue/jobs.nightly-enrich",
+      "status": "resolved",
+      "confidence": "syntactic",
+      "resolver": "domain:aws-data"
+    },
+    {
+      "type": "CONTAINS",
+      "from": "aws-data:glue/jobs.athena_runner",
+      "to": "aws-data:glue/jobs/athena_runner.py@L10#1",
+      "status": "resolved",
+      "confidence": "syntactic",
+      "resolver": "domain:aws-data"
+    },
+    {
+      "type": "CONTAINS",
+      "from": "aws-data:glue/jobs.iceberg_upsert",
+      "to": "aws-data:glue/jobs/iceberg_upsert.py@L19#0",
+      "status": "resolved",
+      "confidence": "syntactic",
+      "resolver": "domain:aws-data"
+    },
+    {
+      "type": "CONTAINS",
+      "from": "aws-data:glue/jobs.iceberg_upsert",
+      "to": "aws-data:glue/jobs/iceberg_upsert.py@L25#0",
+      "status": "resolved",
+      "confidence": "syntactic",
+      "resolver": "domain:aws-data"
+    },
+    {
+      "type": "CONTAINS",
+      "from": "aws-data:glue/jobs.iceberg_upsert",
+      "to": "aws-data:glue/jobs/iceberg_upsert.py@L28#0",
+      "status": "resolved",
+      "confidence": "syntactic",
+      "resolver": "domain:aws-data"
+    },
+    {
+      "type": "CONTAINS",
+      "from": "aws-data:glue/jobs.orders_etl",
+      "to": "aws-data:glue/jobs/orders_etl.py@L40#0",
+      "status": "resolved",
+      "confidence": "syntactic",
+      "resolver": "domain:aws-data"
+    },
+    {
+      "type": "DEPENDS_ON",
+      "from": "aws-data:emr.steps#compact-orders",
+      "to": "aws-data:emr.steps#ingest-orders",
+      "status": "resolved",
+      "confidence": "syntactic",
+      "resolver": "domain:aws-data"
+    },
+    {
+      "type": "DEPENDS_ON",
+      "from": "aws-data:emr.steps#notify",
+      "to": "aws-data:emr.steps#compact-orders",
+      "status": "resolved",
+      "confidence": "syntactic",
+      "resolver": "domain:aws-data"
+    },
+    {
+      "type": "DEPENDS_ON",
+      "from": "aws-data:jobs.trigger:nightly-trigger",
+      "to": "txt:glue-job:upstream-loader",
+      "status": "external",
+      "confidence": "syntactic",
+      "resolver": "domain:aws-data"
+    },
+    {
+      "type": "DERIVES_FROM",
+      "from": "aws-data:awsdatacatalog.reporting.daily_totals",
+      "to": "aws-data:awsdatacatalog.lake_db.agg_orders",
+      "status": "resolved",
+      "confidence": "syntactic",
+      "resolver": "domain:aws-data"
+    },
+    {
+      "type": "DERIVES_FROM",
+      "from": "aws-data:lake.db.orders",
+      "to": "aws-data:updates_src",
+      "status": "resolved",
+      "confidence": "syntactic",
+      "resolver": "domain:aws-data"
+    },
+    {
+      "type": "DERIVES_FROM",
+      "from": "aws-data:lake.db.orders.id",
+      "to": "aws-data:updates_src.id",
+      "status": "resolved",
+      "confidence": "syntactic",
+      "resolver": "domain:aws-data"
+    },
+    {
+      "type": "DERIVES_FROM",
+      "from": "aws-data:lake.db.orders.qty",
+      "to": "aws-data:updates_src.qty",
+      "status": "resolved",
+      "confidence": "syntactic",
+      "resolver": "domain:aws-data"
+    },
+    {
+      "type": "DERIVES_FROM",
+      "from": "aws-data:lake.db.orders_archive",
+      "to": "aws-data:lake.db.orders",
+      "status": "resolved",
+      "confidence": "syntactic",
+      "resolver": "domain:aws-data"
+    },
+    {
+      "type": "DERIVES_FROM",
+      "from": "aws-data:lake_db.agg_orders",
+      "to": "aws-data:orders_src",
+      "status": "resolved",
+      "confidence": "syntactic",
+      "resolver": "domain:aws-data"
+    },
+    {
+      "type": "DERIVES_FROM",
+      "from": "aws-data:staging.daily_events",
+      "to": "aws-data:staging.raw_events",
+      "status": "resolved",
+      "confidence": "syntactic",
+      "resolver": "domain:aws-data"
+    },
+    {
+      "type": "READS_FROM",
+      "from": "aws-data:athena/queries/daily_report.sql#1",
+      "to": "aws-data:staging.raw_events",
+      "status": "resolved",
+      "confidence": "syntactic",
+      "resolver": "domain:aws-data"
+    },
+    {
+      "type": "READS_FROM",
+      "from": "aws-data:glue/jobs.cross_account",
+      "to": "aws-data:aws:glue.shared_db.dim_customer",
+      "status": "resolved",
+      "confidence": "syntactic",
+      "resolver": "domain:aws-data"
+    },
+    {
+      "type": "READS_FROM",
+      "from": "aws-data:glue/jobs.cross_account",
+      "to": "aws-data:aws:glue:111111111111.shared_db.dim_customer",
+      "status": "resolved",
+      "confidence": "syntactic",
+      "resolver": "domain:aws-data"
+    },
+    {
+      "type": "READS_FROM",
+      "from": "aws-data:glue/jobs.cross_account",
+      "to": "aws-data:aws:glue:222222222222.shared_db.dim_customer",
+      "status": "resolved",
+      "confidence": "syntactic",
+      "resolver": "domain:aws-data"
+    },
+    {
+      "type": "READS_FROM",
+      "from": "aws-data:glue/jobs.iceberg_upsert",
+      "to": "aws-data:s3://inbound-bucket/orders",
+      "status": "resolved",
+      "confidence": "syntactic",
+      "resolver": "domain:aws-data"
+    },
+    {
+      "type": "READS_FROM",
+      "from": "aws-data:glue/jobs.orders_etl",
+      "to": "aws-data:aws:glue.sales_db.orders",
+      "status": "resolved",
+      "confidence": "syntactic",
+      "resolver": "domain:aws-data"
+    },
+    {
+      "type": "READS_FROM",
+      "from": "aws-data:glue/jobs.orders_etl",
+      "to": "aws-data:s3://raw-logs-bucket/orders/daily",
+      "status": "resolved",
+      "confidence": "syntactic",
+      "resolver": "domain:aws-data"
+    },
+    {
+      "type": "READS_FROM",
+      "from": "aws-data:glue/jobs/athena_runner.py@L10#1",
+      "to": "aws-data:awsdatacatalog.lake_db.agg_orders",
+      "status": "resolved",
+      "confidence": "syntactic",
+      "resolver": "domain:aws-data"
+    },
+    {
+      "type": "READS_FROM",
+      "from": "aws-data:glue/jobs/iceberg_upsert.py@L19#0",
+      "to": "aws-data:lake.db.orders",
+      "status": "resolved",
+      "confidence": "syntactic",
+      "resolver": "domain:aws-data"
+    },
+    {
+      "type": "READS_FROM",
+      "from": "aws-data:glue/jobs/iceberg_upsert.py@L19#0",
+      "to": "aws-data:updates_src",
+      "status": "resolved",
+      "confidence": "syntactic",
+      "resolver": "domain:aws-data"
+    },
+    {
+      "type": "READS_FROM",
+      "from": "aws-data:glue/jobs/iceberg_upsert.py@L25#0",
+      "to": "aws-data:lake.db.orders",
+      "status": "resolved",
+      "confidence": "syntactic",
+      "resolver": "domain:aws-data"
+    },
+    {
+      "type": "READS_FROM",
+      "from": "aws-data:glue/jobs/iceberg_upsert.py@L28#0",
+      "to": "aws-data:lake.db.orders.snapshots",
+      "status": "resolved",
+      "confidence": "syntactic",
+      "resolver": "domain:aws-data"
+    },
+    {
+      "type": "READS_FROM",
+      "from": "aws-data:glue/jobs/orders_etl.py@L40#0",
+      "to": "aws-data:orders_src",
+      "status": "resolved",
+      "confidence": "syntactic",
+      "resolver": "domain:aws-data"
+    },
+    {
+      "type": "REFERENCES",
+      "from": "aws-data:emr.compact-orders",
+      "to": "aws-data:s3://jobs-bucket/scripts/compact.py",
+      "status": "resolved",
+      "confidence": "syntactic",
+      "resolver": "domain:aws-data"
+    },
+    {
+      "type": "REFERENCES",
+      "from": "aws-data:emr.ingest-orders",
+      "to": "aws-data:s3://jobs-bucket/scripts/ingest.py",
+      "status": "resolved",
+      "confidence": "syntactic",
+      "resolver": "domain:aws-data"
+    },
+    {
+      "type": "REFERENCES",
+      "from": "aws-data:emr.steps#notify",
+      "to": "aws-data:s3://emr-bucket/state/done",
+      "status": "resolved",
+      "confidence": "syntactic",
+      "resolver": "domain:aws-data"
+    },
+    {
+      "type": "REFERENCES",
+      "from": "aws-data:glue/jobs.broken",
+      "to": "aws-data:aws:iam:999888777666.role/RescueRole",
+      "status": "resolved",
+      "confidence": "syntactic",
+      "resolver": "domain:aws-data"
+    },
+    {
+      "type": "REFERENCES",
+      "from": "aws-data:glue/jobs.broken",
+      "to": "aws-data:s3://rescue-bucket/still-visible",
+      "status": "resolved",
+      "confidence": "syntactic",
+      "resolver": "domain:aws-data"
+    },
+    {
+      "type": "REFERENCES",
+      "from": "aws-data:glue/jobs.cross_account",
+      "to": "aws-data:aws:glue:111111111111",
+      "status": "resolved",
+      "confidence": "syntactic",
+      "resolver": "domain:aws-data"
+    },
+    {
+      "type": "REFERENCES",
+      "from": "aws-data:glue/jobs.cross_account",
+      "to": "aws-data:aws:glue:222222222222",
+      "status": "resolved",
+      "confidence": "syntactic",
+      "resolver": "domain:aws-data"
+    },
+    {
+      "type": "REFERENCES",
+      "from": "aws-data:glue/jobs.iceberg_upsert",
+      "to": "aws-data:lake",
+      "status": "resolved",
+      "confidence": "syntactic",
+      "resolver": "domain:aws-data"
+    },
+    {
+      "type": "REFERENCES",
+      "from": "aws-data:glue/jobs.iceberg_upsert",
+      "to": "aws-data:s3://lake-wh/warehouse",
+      "status": "resolved",
+      "confidence": "syntactic",
+      "resolver": "domain:aws-data"
+    },
+    {
+      "type": "REFERENCES",
+      "from": "aws-data:glue/jobs.nightly-enrich",
+      "to": "aws-data:s3://enriched-bucket/out",
+      "status": "resolved",
+      "confidence": "syntactic",
+      "resolver": "domain:aws-data"
+    },
+    {
+      "type": "REFERENCES",
+      "from": "aws-data:glue/jobs.nightly-enrich",
+      "to": "aws-data:s3://glue-scripts-bucket/nightly_enrich.py",
+      "status": "resolved",
+      "confidence": "syntactic",
+      "resolver": "domain:aws-data"
+    },
+    {
+      "type": "REFERENCES",
+      "from": "aws-data:jobs.nightly-etl",
+      "to": "aws-data:s3://etl-out-bucket/final",
+      "status": "resolved",
+      "confidence": "syntactic",
+      "resolver": "domain:aws-data"
+    },
+    {
+      "type": "REFERENCES",
+      "from": "aws-data:jobs.nightly-etl",
+      "to": "aws-data:s3://glue-scripts-bucket/nightly.py",
+      "status": "resolved",
+      "confidence": "syntactic",
+      "resolver": "domain:aws-data"
+    },
+    {
+      "type": "REFERENCES",
+      "from": "aws-data:lake",
+      "to": "aws-data:s3://lake-wh/warehouse",
+      "status": "resolved",
+      "confidence": "syntactic",
+      "resolver": "domain:aws-data"
+    },
+    {
+      "type": "REFERENCES",
+      "from": "aws-data:scripts.submit",
+      "to": "aws-data:s3://jobs-bucket/scripts/ingest.py",
+      "status": "resolved",
+      "confidence": "syntactic",
+      "resolver": "domain:aws-data"
+    },
+    {
+      "type": "REFERENCES",
+      "from": "aws-data:staging.raw_events",
+      "to": "aws-data:s3://events-bucket/raw",
+      "status": "resolved",
+      "confidence": "syntactic",
+      "resolver": "domain:aws-data"
+    },
+    {
+      "type": "TRANSFORMS",
+      "from": "aws-data:glue/jobs/iceberg_upsert.py@L19#0",
+      "to": "aws-data:lake.db.orders",
+      "status": "resolved",
+      "confidence": "syntactic",
+      "resolver": "domain:aws-data"
+    },
+    {
+      "type": "TRIGGERS",
+      "from": "aws-data:jobs.trigger:nightly-trigger",
+      "to": "aws-data:jobs.nightly-etl",
+      "status": "resolved",
+      "confidence": "syntactic",
+      "resolver": "domain:aws-data"
+    },
+    {
+      "type": "WRITES_TO",
+      "from": "aws-data:athena/queries/daily_report.sql#1",
+      "to": "aws-data:staging.daily_events",
+      "status": "resolved",
+      "confidence": "syntactic",
+      "resolver": "domain:aws-data"
+    },
+    {
+      "type": "WRITES_TO",
+      "from": "aws-data:glue/jobs.athena_runner",
+      "to": "aws-data:s3://athena-results-bucket/daily",
+      "status": "resolved",
+      "confidence": "syntactic",
+      "resolver": "domain:aws-data"
+    },
+    {
+      "type": "WRITES_TO",
+      "from": "aws-data:glue/jobs.iceberg_upsert",
+      "to": "aws-data:lake.db.orders",
+      "status": "resolved",
+      "confidence": "syntactic",
+      "resolver": "domain:aws-data"
+    },
+    {
+      "type": "WRITES_TO",
+      "from": "aws-data:glue/jobs.orders_etl",
+      "to": "aws-data:aws:glue.lake_db.agg_orders",
+      "status": "resolved",
+      "confidence": "syntactic",
+      "resolver": "domain:aws-data"
+    },
+    {
+      "type": "WRITES_TO",
+      "from": "aws-data:glue/jobs/athena_runner.py@L10#1",
+      "to": "aws-data:awsdatacatalog.reporting.daily_totals",
+      "status": "resolved",
+      "confidence": "syntactic",
+      "resolver": "domain:aws-data"
+    },
+    {
+      "type": "WRITES_TO",
+      "from": "aws-data:glue/jobs/iceberg_upsert.py@L25#0",
+      "to": "aws-data:lake.db.orders_archive",
+      "status": "resolved",
+      "confidence": "syntactic",
+      "resolver": "domain:aws-data"
+    },
+    {
+      "type": "WRITES_TO",
+      "from": "aws-data:glue/jobs/orders_etl.py@L40#0",
+      "to": "aws-data:lake_db.agg_orders",
+      "status": "resolved",
+      "confidence": "syntactic",
+      "resolver": "domain:aws-data"
+    }
+  ]
+}

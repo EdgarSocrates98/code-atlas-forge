@@ -1,0 +1,357 @@
+{
+  "schema": 1,
+  "domain": "sql",
+  "fixture": "tests/fixtures/sql_warehouse",
+  "entities": {
+    "total": 36,
+    "by_kind": {
+      "data_column": 23,
+      "data_table": 5,
+      "data_transformation": 7,
+      "data_view": 1
+    },
+    "names": [
+      "sql:broken/99_broken.sql#0",
+      "sql:broken/99_broken.sql#1",
+      "sql:landing.customers",
+      "sql:landing.customers.customer_id",
+      "sql:landing.customers.region",
+      "sql:landing.customers.segment",
+      "sql:landing.orders",
+      "sql:landing.orders.amount",
+      "sql:landing.orders.created_at",
+      "sql:landing.orders.currency",
+      "sql:landing.orders.customer_id",
+      "sql:landing.orders.order_id",
+      "sql:landing/01_landing.sql#2",
+      "sql:mart.customer_stats",
+      "sql:mart.customer_stats.customer_id",
+      "sql:mart.customer_stats.orders",
+      "sql:mart.customer_stats.total_spend",
+      "sql:mart.daily_revenue",
+      "sql:mart.daily_revenue.orders",
+      "sql:mart.daily_revenue.region",
+      "sql:mart.daily_revenue.revenue",
+      "sql:mart/03_mart.sql#0",
+      "sql:mart/03_mart.sql#1",
+      "sql:staging.order_facts",
+      "sql:staging.order_facts.amount_usd",
+      "sql:staging.order_facts.customer_id",
+      "sql:staging.order_facts.order_id",
+      "sql:staging.order_facts.region",
+      "sql:staging.v_enriched_orders",
+      "sql:staging.v_enriched_orders.amount_usd",
+      "sql:staging.v_enriched_orders.customer_id",
+      "sql:staging.v_enriched_orders.order_id",
+      "sql:staging.v_enriched_orders.region",
+      "sql:staging.v_enriched_orders.segment",
+      "sql:staging/02_staging.sql#0",
+      "sql:staging/02_staging.sql#1"
+    ],
+    "expected": [
+      "sql:landing.orders",
+      "sql:landing.customers",
+      "sql:staging.v_enriched_orders",
+      "sql:staging.order_facts",
+      "sql:mart.daily_revenue",
+      "sql:mart.customer_stats",
+      "sql:staging.v_enriched_orders.amount_usd",
+      "sql:mart.daily_revenue.revenue"
+    ],
+    "forbidden": [
+      "sql:staging.v_enriched_orders.amount",
+      "sql:staging.order_facts.rn"
+    ]
+  },
+  "relations": {
+    "total": 32,
+    "by_type": {
+      "DERIVES_FROM": 19,
+      "READS_FROM": 8,
+      "TRANSFORMS": 1,
+      "WRITES_TO": 4
+    },
+    "by_status": {
+      "resolved": 32
+    },
+    "by_confidence": {
+      "syntactic": 32
+    },
+    "by_resolver": {
+      "domain:sql": 32
+    },
+    "edges_skipped": 0
+  },
+  "diagnostics": [
+    {
+      "severity": "error",
+      "code": "parse-error",
+      "path": "broken/99_broken.sql",
+      "adapter": "sql"
+    },
+    {
+      "severity": "error",
+      "code": "parse-error",
+      "path": "broken/99_broken.sql",
+      "adapter": "sql"
+    }
+  ],
+  "edges": [
+    {
+      "type": "DERIVES_FROM",
+      "from": "sql:mart.customer_stats",
+      "to": "sql:staging.order_facts",
+      "status": "resolved",
+      "confidence": "syntactic",
+      "resolver": "domain:sql"
+    },
+    {
+      "type": "DERIVES_FROM",
+      "from": "sql:mart.customer_stats.customer_id",
+      "to": "sql:staging.order_facts.customer_id",
+      "status": "resolved",
+      "confidence": "syntactic",
+      "resolver": "domain:sql"
+    },
+    {
+      "type": "DERIVES_FROM",
+      "from": "sql:mart.customer_stats.total_spend",
+      "to": "sql:staging.order_facts.amount_usd",
+      "status": "resolved",
+      "confidence": "syntactic",
+      "resolver": "domain:sql"
+    },
+    {
+      "type": "DERIVES_FROM",
+      "from": "sql:mart.daily_revenue",
+      "to": "sql:staging.order_facts",
+      "status": "resolved",
+      "confidence": "syntactic",
+      "resolver": "domain:sql"
+    },
+    {
+      "type": "DERIVES_FROM",
+      "from": "sql:mart.daily_revenue.orders",
+      "to": "sql:staging.order_facts.order_id",
+      "status": "resolved",
+      "confidence": "syntactic",
+      "resolver": "domain:sql"
+    },
+    {
+      "type": "DERIVES_FROM",
+      "from": "sql:mart.daily_revenue.region",
+      "to": "sql:staging.order_facts.region",
+      "status": "resolved",
+      "confidence": "syntactic",
+      "resolver": "domain:sql"
+    },
+    {
+      "type": "DERIVES_FROM",
+      "from": "sql:mart.daily_revenue.revenue",
+      "to": "sql:staging.order_facts.amount_usd",
+      "status": "resolved",
+      "confidence": "syntactic",
+      "resolver": "domain:sql"
+    },
+    {
+      "type": "DERIVES_FROM",
+      "from": "sql:staging.order_facts",
+      "to": "sql:staging.v_enriched_orders",
+      "status": "resolved",
+      "confidence": "syntactic",
+      "resolver": "domain:sql"
+    },
+    {
+      "type": "DERIVES_FROM",
+      "from": "sql:staging.order_facts.amount_usd",
+      "to": "sql:staging.v_enriched_orders.amount_usd",
+      "status": "resolved",
+      "confidence": "syntactic",
+      "resolver": "domain:sql"
+    },
+    {
+      "type": "DERIVES_FROM",
+      "from": "sql:staging.order_facts.customer_id",
+      "to": "sql:staging.v_enriched_orders.customer_id",
+      "status": "resolved",
+      "confidence": "syntactic",
+      "resolver": "domain:sql"
+    },
+    {
+      "type": "DERIVES_FROM",
+      "from": "sql:staging.order_facts.order_id",
+      "to": "sql:staging.v_enriched_orders.order_id",
+      "status": "resolved",
+      "confidence": "syntactic",
+      "resolver": "domain:sql"
+    },
+    {
+      "type": "DERIVES_FROM",
+      "from": "sql:staging.order_facts.region",
+      "to": "sql:staging.v_enriched_orders.region",
+      "status": "resolved",
+      "confidence": "syntactic",
+      "resolver": "domain:sql"
+    },
+    {
+      "type": "DERIVES_FROM",
+      "from": "sql:staging.v_enriched_orders",
+      "to": "sql:landing.customers",
+      "status": "resolved",
+      "confidence": "syntactic",
+      "resolver": "domain:sql"
+    },
+    {
+      "type": "DERIVES_FROM",
+      "from": "sql:staging.v_enriched_orders",
+      "to": "sql:landing.orders",
+      "status": "resolved",
+      "confidence": "syntactic",
+      "resolver": "domain:sql"
+    },
+    {
+      "type": "DERIVES_FROM",
+      "from": "sql:staging.v_enriched_orders.amount_usd",
+      "to": "sql:landing.orders.amount",
+      "status": "resolved",
+      "confidence": "syntactic",
+      "resolver": "domain:sql"
+    },
+    {
+      "type": "DERIVES_FROM",
+      "from": "sql:staging.v_enriched_orders.customer_id",
+      "to": "sql:landing.orders.customer_id",
+      "status": "resolved",
+      "confidence": "syntactic",
+      "resolver": "domain:sql"
+    },
+    {
+      "type": "DERIVES_FROM",
+      "from": "sql:staging.v_enriched_orders.order_id",
+      "to": "sql:landing.orders.order_id",
+      "status": "resolved",
+      "confidence": "syntactic",
+      "resolver": "domain:sql"
+    },
+    {
+      "type": "DERIVES_FROM",
+      "from": "sql:staging.v_enriched_orders.region",
+      "to": "sql:landing.customers.region",
+      "status": "resolved",
+      "confidence": "syntactic",
+      "resolver": "domain:sql"
+    },
+    {
+      "type": "DERIVES_FROM",
+      "from": "sql:staging.v_enriched_orders.segment",
+      "to": "sql:landing.customers.segment",
+      "status": "resolved",
+      "confidence": "syntactic",
+      "resolver": "domain:sql"
+    },
+    {
+      "type": "READS_FROM",
+      "from": "sql:broken/99_broken.sql#0",
+      "to": "sql:staging.order_facts",
+      "status": "resolved",
+      "confidence": "syntactic",
+      "resolver": "domain:sql"
+    },
+    {
+      "type": "READS_FROM",
+      "from": "sql:broken/99_broken.sql#1",
+      "to": "sql:landing.orders",
+      "status": "resolved",
+      "confidence": "syntactic",
+      "resolver": "domain:sql"
+    },
+    {
+      "type": "READS_FROM",
+      "from": "sql:mart/03_mart.sql#0",
+      "to": "sql:staging.order_facts",
+      "status": "resolved",
+      "confidence": "syntactic",
+      "resolver": "domain:sql"
+    },
+    {
+      "type": "READS_FROM",
+      "from": "sql:mart/03_mart.sql#1",
+      "to": "sql:mart.customer_stats",
+      "status": "resolved",
+      "confidence": "syntactic",
+      "resolver": "domain:sql"
+    },
+    {
+      "type": "READS_FROM",
+      "from": "sql:mart/03_mart.sql#1",
+      "to": "sql:staging.order_facts",
+      "status": "resolved",
+      "confidence": "syntactic",
+      "resolver": "domain:sql"
+    },
+    {
+      "type": "READS_FROM",
+      "from": "sql:staging/02_staging.sql#0",
+      "to": "sql:landing.customers",
+      "status": "resolved",
+      "confidence": "syntactic",
+      "resolver": "domain:sql"
+    },
+    {
+      "type": "READS_FROM",
+      "from": "sql:staging/02_staging.sql#0",
+      "to": "sql:landing.orders",
+      "status": "resolved",
+      "confidence": "syntactic",
+      "resolver": "domain:sql"
+    },
+    {
+      "type": "READS_FROM",
+      "from": "sql:staging/02_staging.sql#1",
+      "to": "sql:staging.v_enriched_orders",
+      "status": "resolved",
+      "confidence": "syntactic",
+      "resolver": "domain:sql"
+    },
+    {
+      "type": "TRANSFORMS",
+      "from": "sql:mart/03_mart.sql#1",
+      "to": "sql:mart.customer_stats",
+      "status": "resolved",
+      "confidence": "syntactic",
+      "resolver": "domain:sql"
+    },
+    {
+      "type": "WRITES_TO",
+      "from": "sql:landing/01_landing.sql#2",
+      "to": "sql:landing.customers",
+      "status": "resolved",
+      "confidence": "syntactic",
+      "resolver": "domain:sql"
+    },
+    {
+      "type": "WRITES_TO",
+      "from": "sql:mart/03_mart.sql#0",
+      "to": "sql:mart.daily_revenue",
+      "status": "resolved",
+      "confidence": "syntactic",
+      "resolver": "domain:sql"
+    },
+    {
+      "type": "WRITES_TO",
+      "from": "sql:staging/02_staging.sql#0",
+      "to": "sql:staging.v_enriched_orders",
+      "status": "resolved",
+      "confidence": "syntactic",
+      "resolver": "domain:sql"
+    },
+    {
+      "type": "WRITES_TO",
+      "from": "sql:staging/02_staging.sql#1",
+      "to": "sql:staging.order_facts",
+      "status": "resolved",
+      "confidence": "syntactic",
+      "resolver": "domain:sql"
+    }
+  ]
+}

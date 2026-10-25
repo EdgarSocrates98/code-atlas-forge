@@ -1,0 +1,642 @@
+{
+  "schema": 1,
+  "domain": "pyspark",
+  "fixture": "tests/fixtures/pyspark_repo",
+  "entities": {
+    "total": 37,
+    "by_kind": {
+      "data_table": 13,
+      "data_transformation": 17,
+      "data_view": 1,
+      "iceberg_table": 1,
+      "spark_job": 5
+    },
+    "names": [
+      "pyspark:dynamic_job",
+      "pyspark:dynamic_job.py#expr@24",
+      "pyspark:dynamic_job.py#expr@29",
+      "pyspark:dynamic_job.py#live@15",
+      "pyspark:dynamic_job.py#merged@18",
+      "pyspark:dynamic_job.py#source@17",
+      "pyspark:dynamic_job.py#templated@16",
+      "pyspark:etl_orders",
+      "pyspark:etl_orders.py#all_customers@22",
+      "pyspark:etl_orders.py#archive@20",
+      "pyspark:etl_orders.py#customers@19",
+      "pyspark:etl_orders.py#enriched@24",
+      "pyspark:etl_orders.py#orders@18",
+      "pyspark:mart.customer_region_counts",
+      "pyspark:mart.daily",
+      "pyspark:mart.enriched_orders",
+      "pyspark:mart.joined",
+      "pyspark:notebook_implicit",
+      "pyspark:notebook_implicit.py#clean@10",
+      "pyspark:notebook_implicit.py#df@8",
+      "pyspark:orders_v",
+      "pyspark:s3://datalake/customers/",
+      "pyspark:s3://datalake/customers_archive/",
+      "pyspark:s3://datalake/mart/enriched_orders/",
+      "pyspark:sql_job",
+      "pyspark:sql_job.py#expr@18",
+      "pyspark:sql_job.py#region_counts@11",
+      "pyspark:staging.customers",
+      "pyspark:staging.daily_source",
+      "pyspark:staging.events",
+      "pyspark:staging.events_clean",
+      "pyspark:staging.incoming_clean",
+      "pyspark:staging.orders",
+      "pyspark:staging.regions",
+      "pyspark:views_job",
+      "pyspark:views_job.py#joined@15",
+      "pyspark:views_job.py#orders@12"
+    ],
+    "expected": [
+      "pyspark:etl_orders",
+      "pyspark:staging.orders",
+      "pyspark:mart.enriched_orders",
+      "pyspark:orders_v",
+      "pyspark:mart.customer_region_counts",
+      "pyspark:staging.incoming_clean"
+    ],
+    "forbidden": [
+      "pyspark:broken_job",
+      "pyspark:plain_utils",
+      "pyspark:mart.{table_name}",
+      "pyspark:f'mart.{table_name}'"
+    ]
+  },
+  "relations": {
+    "total": 62,
+    "by_type": {
+      "CONTAINS": 17,
+      "DERIVES_FROM": 26,
+      "READS_FROM": 10,
+      "WRITES_TO": 9
+    },
+    "by_status": {
+      "resolved": 55,
+      "unresolved": 7
+    },
+    "by_confidence": {
+      "syntactic": 62
+    },
+    "by_resolver": {
+      "domain:pyspark": 62
+    },
+    "edges_skipped": 0
+  },
+  "diagnostics": [
+    {
+      "severity": "error",
+      "code": "parse-error",
+      "path": "broken_job.py",
+      "adapter": "pyspark"
+    },
+    {
+      "severity": "warning",
+      "code": "dynamic-source",
+      "path": "dynamic_job.py",
+      "adapter": "pyspark"
+    },
+    {
+      "severity": "warning",
+      "code": "dynamic-source",
+      "path": "dynamic_job.py",
+      "adapter": "pyspark"
+    },
+    {
+      "severity": "warning",
+      "code": "dynamic-sql",
+      "path": "dynamic_job.py",
+      "adapter": "pyspark"
+    },
+    {
+      "severity": "warning",
+      "code": "dynamic-write-target",
+      "path": "dynamic_job.py",
+      "adapter": "pyspark"
+    },
+    {
+      "severity": "warning",
+      "code": "dynamic-write-target",
+      "path": "dynamic_job.py",
+      "adapter": "pyspark"
+    },
+    {
+      "severity": "info",
+      "code": "unresolved-dataframe",
+      "path": "dynamic_job.py",
+      "adapter": "pyspark"
+    },
+    {
+      "severity": "info",
+      "code": "implicit-column-list",
+      "path": "sql_job.py",
+      "adapter": "pyspark"
+    },
+    {
+      "severity": "warning",
+      "code": "select-star",
+      "path": "sql_job.py",
+      "adapter": "pyspark"
+    }
+  ],
+  "edges": [
+    {
+      "type": "CONTAINS",
+      "from": "pyspark:dynamic_job",
+      "to": "pyspark:dynamic_job.py#expr@24",
+      "status": "resolved",
+      "confidence": "syntactic",
+      "resolver": "domain:pyspark"
+    },
+    {
+      "type": "CONTAINS",
+      "from": "pyspark:dynamic_job",
+      "to": "pyspark:dynamic_job.py#expr@29",
+      "status": "resolved",
+      "confidence": "syntactic",
+      "resolver": "domain:pyspark"
+    },
+    {
+      "type": "CONTAINS",
+      "from": "pyspark:dynamic_job",
+      "to": "pyspark:dynamic_job.py#live@15",
+      "status": "resolved",
+      "confidence": "syntactic",
+      "resolver": "domain:pyspark"
+    },
+    {
+      "type": "CONTAINS",
+      "from": "pyspark:dynamic_job",
+      "to": "pyspark:dynamic_job.py#merged@18",
+      "status": "resolved",
+      "confidence": "syntactic",
+      "resolver": "domain:pyspark"
+    },
+    {
+      "type": "CONTAINS",
+      "from": "pyspark:dynamic_job",
+      "to": "pyspark:dynamic_job.py#source@17",
+      "status": "resolved",
+      "confidence": "syntactic",
+      "resolver": "domain:pyspark"
+    },
+    {
+      "type": "CONTAINS",
+      "from": "pyspark:dynamic_job",
+      "to": "pyspark:dynamic_job.py#templated@16",
+      "status": "resolved",
+      "confidence": "syntactic",
+      "resolver": "domain:pyspark"
+    },
+    {
+      "type": "CONTAINS",
+      "from": "pyspark:etl_orders",
+      "to": "pyspark:etl_orders.py#all_customers@22",
+      "status": "resolved",
+      "confidence": "syntactic",
+      "resolver": "domain:pyspark"
+    },
+    {
+      "type": "CONTAINS",
+      "from": "pyspark:etl_orders",
+      "to": "pyspark:etl_orders.py#archive@20",
+      "status": "resolved",
+      "confidence": "syntactic",
+      "resolver": "domain:pyspark"
+    },
+    {
+      "type": "CONTAINS",
+      "from": "pyspark:etl_orders",
+      "to": "pyspark:etl_orders.py#customers@19",
+      "status": "resolved",
+      "confidence": "syntactic",
+      "resolver": "domain:pyspark"
+    },
+    {
+      "type": "CONTAINS",
+      "from": "pyspark:etl_orders",
+      "to": "pyspark:etl_orders.py#enriched@24",
+      "status": "resolved",
+      "confidence": "syntactic",
+      "resolver": "domain:pyspark"
+    },
+    {
+      "type": "CONTAINS",
+      "from": "pyspark:etl_orders",
+      "to": "pyspark:etl_orders.py#orders@18",
+      "status": "resolved",
+      "confidence": "syntactic",
+      "resolver": "domain:pyspark"
+    },
+    {
+      "type": "CONTAINS",
+      "from": "pyspark:notebook_implicit",
+      "to": "pyspark:notebook_implicit.py#clean@10",
+      "status": "resolved",
+      "confidence": "syntactic",
+      "resolver": "domain:pyspark"
+    },
+    {
+      "type": "CONTAINS",
+      "from": "pyspark:notebook_implicit",
+      "to": "pyspark:notebook_implicit.py#df@8",
+      "status": "resolved",
+      "confidence": "syntactic",
+      "resolver": "domain:pyspark"
+    },
+    {
+      "type": "CONTAINS",
+      "from": "pyspark:sql_job",
+      "to": "pyspark:sql_job.py#expr@18",
+      "status": "resolved",
+      "confidence": "syntactic",
+      "resolver": "domain:pyspark"
+    },
+    {
+      "type": "CONTAINS",
+      "from": "pyspark:sql_job",
+      "to": "pyspark:sql_job.py#region_counts@11",
+      "status": "resolved",
+      "confidence": "syntactic",
+      "resolver": "domain:pyspark"
+    },
+    {
+      "type": "CONTAINS",
+      "from": "pyspark:views_job",
+      "to": "pyspark:views_job.py#joined@15",
+      "status": "resolved",
+      "confidence": "syntactic",
+      "resolver": "domain:pyspark"
+    },
+    {
+      "type": "CONTAINS",
+      "from": "pyspark:views_job",
+      "to": "pyspark:views_job.py#orders@12",
+      "status": "resolved",
+      "confidence": "syntactic",
+      "resolver": "domain:pyspark"
+    },
+    {
+      "type": "DERIVES_FROM",
+      "from": "pyspark:dynamic_job.py#expr@24",
+      "to": "txt:name",
+      "status": "unresolved",
+      "confidence": "syntactic",
+      "resolver": "domain:pyspark"
+    },
+    {
+      "type": "DERIVES_FROM",
+      "from": "pyspark:dynamic_job.py#expr@29",
+      "to": "txt:src",
+      "status": "unresolved",
+      "confidence": "syntactic",
+      "resolver": "domain:pyspark"
+    },
+    {
+      "type": "DERIVES_FROM",
+      "from": "pyspark:dynamic_job.py#live@15",
+      "to": "txt:sql:f'SELECT * FROM {table_name}'",
+      "status": "unresolved",
+      "confidence": "syntactic",
+      "resolver": "domain:pyspark"
+    },
+    {
+      "type": "DERIVES_FROM",
+      "from": "pyspark:dynamic_job.py#merged@18",
+      "to": "pyspark:dynamic_job.py#live@15",
+      "status": "resolved",
+      "confidence": "syntactic",
+      "resolver": "domain:pyspark"
+    },
+    {
+      "type": "DERIVES_FROM",
+      "from": "pyspark:dynamic_job.py#merged@18",
+      "to": "pyspark:dynamic_job.py#source@17",
+      "status": "resolved",
+      "confidence": "syntactic",
+      "resolver": "domain:pyspark"
+    },
+    {
+      "type": "DERIVES_FROM",
+      "from": "pyspark:dynamic_job.py#merged@18",
+      "to": "pyspark:dynamic_job.py#templated@16",
+      "status": "resolved",
+      "confidence": "syntactic",
+      "resolver": "domain:pyspark"
+    },
+    {
+      "type": "DERIVES_FROM",
+      "from": "pyspark:dynamic_job.py#source@17",
+      "to": "txt:out_path",
+      "status": "unresolved",
+      "confidence": "syntactic",
+      "resolver": "domain:pyspark"
+    },
+    {
+      "type": "DERIVES_FROM",
+      "from": "pyspark:dynamic_job.py#templated@16",
+      "to": "txt:sql:query",
+      "status": "unresolved",
+      "confidence": "syntactic",
+      "resolver": "domain:pyspark"
+    },
+    {
+      "type": "DERIVES_FROM",
+      "from": "pyspark:etl_orders.py#all_customers@22",
+      "to": "pyspark:etl_orders.py#archive@20",
+      "status": "resolved",
+      "confidence": "syntactic",
+      "resolver": "domain:pyspark"
+    },
+    {
+      "type": "DERIVES_FROM",
+      "from": "pyspark:etl_orders.py#all_customers@22",
+      "to": "pyspark:etl_orders.py#customers@19",
+      "status": "resolved",
+      "confidence": "syntactic",
+      "resolver": "domain:pyspark"
+    },
+    {
+      "type": "DERIVES_FROM",
+      "from": "pyspark:etl_orders.py#enriched@24",
+      "to": "pyspark:etl_orders.py#all_customers@22",
+      "status": "resolved",
+      "confidence": "syntactic",
+      "resolver": "domain:pyspark"
+    },
+    {
+      "type": "DERIVES_FROM",
+      "from": "pyspark:etl_orders.py#enriched@24",
+      "to": "pyspark:etl_orders.py#orders@18",
+      "status": "resolved",
+      "confidence": "syntactic",
+      "resolver": "domain:pyspark"
+    },
+    {
+      "type": "DERIVES_FROM",
+      "from": "pyspark:mart.customer_region_counts",
+      "to": "pyspark:staging.customers",
+      "status": "resolved",
+      "confidence": "syntactic",
+      "resolver": "domain:pyspark"
+    },
+    {
+      "type": "DERIVES_FROM",
+      "from": "pyspark:mart.customer_region_counts",
+      "to": "pyspark:staging.regions",
+      "status": "resolved",
+      "confidence": "syntactic",
+      "resolver": "domain:pyspark"
+    },
+    {
+      "type": "DERIVES_FROM",
+      "from": "pyspark:mart.daily",
+      "to": "pyspark:staging.daily_source",
+      "status": "resolved",
+      "confidence": "syntactic",
+      "resolver": "domain:pyspark"
+    },
+    {
+      "type": "DERIVES_FROM",
+      "from": "pyspark:mart.enriched_orders",
+      "to": "pyspark:s3://datalake/customers/",
+      "status": "resolved",
+      "confidence": "syntactic",
+      "resolver": "domain:pyspark"
+    },
+    {
+      "type": "DERIVES_FROM",
+      "from": "pyspark:mart.enriched_orders",
+      "to": "pyspark:s3://datalake/customers_archive/",
+      "status": "resolved",
+      "confidence": "syntactic",
+      "resolver": "domain:pyspark"
+    },
+    {
+      "type": "DERIVES_FROM",
+      "from": "pyspark:mart.enriched_orders",
+      "to": "pyspark:staging.orders",
+      "status": "resolved",
+      "confidence": "syntactic",
+      "resolver": "domain:pyspark"
+    },
+    {
+      "type": "DERIVES_FROM",
+      "from": "pyspark:mart.joined",
+      "to": "pyspark:staging.customers",
+      "status": "resolved",
+      "confidence": "syntactic",
+      "resolver": "domain:pyspark"
+    },
+    {
+      "type": "DERIVES_FROM",
+      "from": "pyspark:mart.joined",
+      "to": "pyspark:staging.orders",
+      "status": "resolved",
+      "confidence": "syntactic",
+      "resolver": "domain:pyspark"
+    },
+    {
+      "type": "DERIVES_FROM",
+      "from": "pyspark:notebook_implicit.py#clean@10",
+      "to": "pyspark:notebook_implicit.py#df@8",
+      "status": "resolved",
+      "confidence": "syntactic",
+      "resolver": "domain:pyspark"
+    },
+    {
+      "type": "DERIVES_FROM",
+      "from": "pyspark:orders_v",
+      "to": "pyspark:views_job.py#orders@12",
+      "status": "resolved",
+      "confidence": "syntactic",
+      "resolver": "domain:pyspark"
+    },
+    {
+      "type": "DERIVES_FROM",
+      "from": "pyspark:s3://datalake/mart/enriched_orders/",
+      "to": "pyspark:s3://datalake/customers/",
+      "status": "resolved",
+      "confidence": "syntactic",
+      "resolver": "domain:pyspark"
+    },
+    {
+      "type": "DERIVES_FROM",
+      "from": "pyspark:s3://datalake/mart/enriched_orders/",
+      "to": "pyspark:s3://datalake/customers_archive/",
+      "status": "resolved",
+      "confidence": "syntactic",
+      "resolver": "domain:pyspark"
+    },
+    {
+      "type": "DERIVES_FROM",
+      "from": "pyspark:s3://datalake/mart/enriched_orders/",
+      "to": "pyspark:staging.orders",
+      "status": "resolved",
+      "confidence": "syntactic",
+      "resolver": "domain:pyspark"
+    },
+    {
+      "type": "DERIVES_FROM",
+      "from": "pyspark:staging.events_clean",
+      "to": "pyspark:staging.events",
+      "status": "resolved",
+      "confidence": "syntactic",
+      "resolver": "domain:pyspark"
+    },
+    {
+      "type": "READS_FROM",
+      "from": "pyspark:etl_orders.py#archive@20",
+      "to": "pyspark:s3://datalake/customers_archive/",
+      "status": "resolved",
+      "confidence": "syntactic",
+      "resolver": "domain:pyspark"
+    },
+    {
+      "type": "READS_FROM",
+      "from": "pyspark:etl_orders.py#customers@19",
+      "to": "pyspark:s3://datalake/customers/",
+      "status": "resolved",
+      "confidence": "syntactic",
+      "resolver": "domain:pyspark"
+    },
+    {
+      "type": "READS_FROM",
+      "from": "pyspark:etl_orders.py#orders@18",
+      "to": "pyspark:staging.orders",
+      "status": "resolved",
+      "confidence": "syntactic",
+      "resolver": "domain:pyspark"
+    },
+    {
+      "type": "READS_FROM",
+      "from": "pyspark:notebook_implicit.py#df@8",
+      "to": "pyspark:staging.events",
+      "status": "resolved",
+      "confidence": "syntactic",
+      "resolver": "domain:pyspark"
+    },
+    {
+      "type": "READS_FROM",
+      "from": "pyspark:sql_job.py#expr@18",
+      "to": "pyspark:staging.daily_source",
+      "status": "resolved",
+      "confidence": "syntactic",
+      "resolver": "domain:pyspark"
+    },
+    {
+      "type": "READS_FROM",
+      "from": "pyspark:sql_job.py#region_counts@11",
+      "to": "pyspark:staging.customers",
+      "status": "resolved",
+      "confidence": "syntactic",
+      "resolver": "domain:pyspark"
+    },
+    {
+      "type": "READS_FROM",
+      "from": "pyspark:sql_job.py#region_counts@11",
+      "to": "pyspark:staging.regions",
+      "status": "resolved",
+      "confidence": "syntactic",
+      "resolver": "domain:pyspark"
+    },
+    {
+      "type": "READS_FROM",
+      "from": "pyspark:views_job.py#joined@15",
+      "to": "pyspark:orders_v",
+      "status": "resolved",
+      "confidence": "syntactic",
+      "resolver": "domain:pyspark"
+    },
+    {
+      "type": "READS_FROM",
+      "from": "pyspark:views_job.py#joined@15",
+      "to": "pyspark:staging.customers",
+      "status": "resolved",
+      "confidence": "syntactic",
+      "resolver": "domain:pyspark"
+    },
+    {
+      "type": "READS_FROM",
+      "from": "pyspark:views_job.py#orders@12",
+      "to": "pyspark:staging.orders",
+      "status": "resolved",
+      "confidence": "syntactic",
+      "resolver": "domain:pyspark"
+    },
+    {
+      "type": "WRITES_TO",
+      "from": "pyspark:dynamic_job.py#expr@29",
+      "to": "pyspark:staging.incoming_clean",
+      "status": "resolved",
+      "confidence": "syntactic",
+      "resolver": "domain:pyspark"
+    },
+    {
+      "type": "WRITES_TO",
+      "from": "pyspark:dynamic_job.py#merged@18",
+      "to": "txt:f'mart.{table_name}'",
+      "status": "unresolved",
+      "confidence": "syntactic",
+      "resolver": "domain:pyspark"
+    },
+    {
+      "type": "WRITES_TO",
+      "from": "pyspark:dynamic_job.py#merged@18",
+      "to": "txt:out_path",
+      "status": "unresolved",
+      "confidence": "syntactic",
+      "resolver": "domain:pyspark"
+    },
+    {
+      "type": "WRITES_TO",
+      "from": "pyspark:etl_orders.py#enriched@24",
+      "to": "pyspark:mart.enriched_orders",
+      "status": "resolved",
+      "confidence": "syntactic",
+      "resolver": "domain:pyspark"
+    },
+    {
+      "type": "WRITES_TO",
+      "from": "pyspark:etl_orders.py#enriched@24",
+      "to": "pyspark:s3://datalake/mart/enriched_orders/",
+      "status": "resolved",
+      "confidence": "syntactic",
+      "resolver": "domain:pyspark"
+    },
+    {
+      "type": "WRITES_TO",
+      "from": "pyspark:notebook_implicit.py#clean@10",
+      "to": "pyspark:staging.events_clean",
+      "status": "resolved",
+      "confidence": "syntactic",
+      "resolver": "domain:pyspark"
+    },
+    {
+      "type": "WRITES_TO",
+      "from": "pyspark:sql_job.py#expr@18",
+      "to": "pyspark:mart.daily",
+      "status": "resolved",
+      "confidence": "syntactic",
+      "resolver": "domain:pyspark"
+    },
+    {
+      "type": "WRITES_TO",
+      "from": "pyspark:sql_job.py#region_counts@11",
+      "to": "pyspark:mart.customer_region_counts",
+      "status": "resolved",
+      "confidence": "syntactic",
+      "resolver": "domain:pyspark"
+    },
+    {
+      "type": "WRITES_TO",
+      "from": "pyspark:views_job.py#joined@15",
+      "to": "pyspark:mart.joined",
+      "status": "resolved",
+      "confidence": "syntactic",
+      "resolver": "domain:pyspark"
+    }
+  ]
+}

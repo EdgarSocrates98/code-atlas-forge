@@ -1,0 +1,349 @@
+{
+  "schema": 1,
+  "domain": "cicd",
+  "fixture": "tests/fixtures/cicd_repo",
+  "entities": {
+    "total": 13,
+    "by_kind": {
+      "cicd_job": 9,
+      "cicd_workflow": 4
+    },
+    "names": [
+      "cicd:.github/workflows.broken.yml#Broken",
+      "cicd:.github/workflows.broken.yml#Broken/jobs/bad-tab",
+      "cicd:.github/workflows.ci.yml#CI",
+      "cicd:.github/workflows.ci.yml#CI/jobs/build",
+      "cicd:.github/workflows.ci.yml#CI/jobs/lint",
+      "cicd:.github/workflows.ci.yml#CI/jobs/test",
+      "cicd:.github/workflows.release.yml#Release",
+      "cicd:.github/workflows.release.yml#Release/jobs/call-external",
+      "cicd:.github/workflows.release.yml#Release/jobs/call-reusable",
+      "cicd:.github/workflows.release.yml#Release/jobs/deploy",
+      "cicd:.github/workflows.release.yml#Release/jobs/release",
+      "cicd:.github/workflows.reusable.yml#Reusable Checks",
+      "cicd:.github/workflows.reusable.yml#Reusable Checks/jobs/reusable-job"
+    ],
+    "expected": [
+      "cicd:.github/workflows.ci.yml#CI",
+      "cicd:.github/workflows.release.yml#Release",
+      "cicd:.github/workflows.release.yml#Release/jobs/deploy",
+      "cicd:.github/workflows.reusable.yml#Reusable Checks"
+    ],
+    "forbidden": [
+      "cicd:.gitlab-ci.yml#test",
+      "cicd:.github/workflows.ci.yml#CI/jobs/test[ubuntu-latest]"
+    ]
+  },
+  "relations": {
+    "total": 34,
+    "by_type": {
+      "CONTAINS": 9,
+      "DEPENDS_ON": 4,
+      "DEPLOYS": 3,
+      "REFERENCES": 10,
+      "TESTS": 2,
+      "TRIGGERS": 6
+    },
+    "by_status": {
+      "resolved": 14,
+      "external": 17,
+      "unresolved": 3
+    },
+    "by_confidence": {
+      "syntactic": 31,
+      "heuristic": 3
+    },
+    "by_resolver": {
+      "domain:cicd": 34
+    },
+    "edges_skipped": 0
+  },
+  "diagnostics": [
+    {
+      "severity": "error",
+      "code": "yaml-tab-indent",
+      "path": ".github/workflows/broken.yml",
+      "adapter": "cicd"
+    },
+    {
+      "severity": "error",
+      "code": "yaml-unexpected-indent",
+      "path": ".github/workflows/broken.yml",
+      "adapter": "cicd"
+    }
+  ],
+  "edges": [
+    {
+      "type": "CONTAINS",
+      "from": "cicd:.github/workflows.broken.yml#Broken",
+      "to": "cicd:.github/workflows.broken.yml#Broken/jobs/bad-tab",
+      "status": "resolved",
+      "confidence": "syntactic",
+      "resolver": "domain:cicd"
+    },
+    {
+      "type": "CONTAINS",
+      "from": "cicd:.github/workflows.ci.yml#CI",
+      "to": "cicd:.github/workflows.ci.yml#CI/jobs/build",
+      "status": "resolved",
+      "confidence": "syntactic",
+      "resolver": "domain:cicd"
+    },
+    {
+      "type": "CONTAINS",
+      "from": "cicd:.github/workflows.ci.yml#CI",
+      "to": "cicd:.github/workflows.ci.yml#CI/jobs/lint",
+      "status": "resolved",
+      "confidence": "syntactic",
+      "resolver": "domain:cicd"
+    },
+    {
+      "type": "CONTAINS",
+      "from": "cicd:.github/workflows.ci.yml#CI",
+      "to": "cicd:.github/workflows.ci.yml#CI/jobs/test",
+      "status": "resolved",
+      "confidence": "syntactic",
+      "resolver": "domain:cicd"
+    },
+    {
+      "type": "CONTAINS",
+      "from": "cicd:.github/workflows.release.yml#Release",
+      "to": "cicd:.github/workflows.release.yml#Release/jobs/call-external",
+      "status": "resolved",
+      "confidence": "syntactic",
+      "resolver": "domain:cicd"
+    },
+    {
+      "type": "CONTAINS",
+      "from": "cicd:.github/workflows.release.yml#Release",
+      "to": "cicd:.github/workflows.release.yml#Release/jobs/call-reusable",
+      "status": "resolved",
+      "confidence": "syntactic",
+      "resolver": "domain:cicd"
+    },
+    {
+      "type": "CONTAINS",
+      "from": "cicd:.github/workflows.release.yml#Release",
+      "to": "cicd:.github/workflows.release.yml#Release/jobs/deploy",
+      "status": "resolved",
+      "confidence": "syntactic",
+      "resolver": "domain:cicd"
+    },
+    {
+      "type": "CONTAINS",
+      "from": "cicd:.github/workflows.release.yml#Release",
+      "to": "cicd:.github/workflows.release.yml#Release/jobs/release",
+      "status": "resolved",
+      "confidence": "syntactic",
+      "resolver": "domain:cicd"
+    },
+    {
+      "type": "CONTAINS",
+      "from": "cicd:.github/workflows.reusable.yml#Reusable Checks",
+      "to": "cicd:.github/workflows.reusable.yml#Reusable Checks/jobs/reusable-job",
+      "status": "resolved",
+      "confidence": "syntactic",
+      "resolver": "domain:cicd"
+    },
+    {
+      "type": "DEPENDS_ON",
+      "from": "cicd:.github/workflows.ci.yml#CI/jobs/build",
+      "to": "cicd:.github/workflows.ci.yml#CI/jobs/test",
+      "status": "resolved",
+      "confidence": "syntactic",
+      "resolver": "domain:cicd"
+    },
+    {
+      "type": "DEPENDS_ON",
+      "from": "cicd:.github/workflows.ci.yml#CI/jobs/test",
+      "to": "cicd:.github/workflows.ci.yml#CI/jobs/lint",
+      "status": "resolved",
+      "confidence": "syntactic",
+      "resolver": "domain:cicd"
+    },
+    {
+      "type": "DEPENDS_ON",
+      "from": "cicd:.github/workflows.release.yml#Release/jobs/deploy",
+      "to": "cicd:.github/workflows.release.yml#Release/jobs/release",
+      "status": "resolved",
+      "confidence": "syntactic",
+      "resolver": "domain:cicd"
+    },
+    {
+      "type": "DEPENDS_ON",
+      "from": "cicd:.github/workflows.release.yml#Release/jobs/release",
+      "to": "cicd:.github/workflows.release.yml#Release/jobs/call-reusable",
+      "status": "resolved",
+      "confidence": "syntactic",
+      "resolver": "domain:cicd"
+    },
+    {
+      "type": "DEPLOYS",
+      "from": "cicd:.github/workflows.release.yml#Release/jobs/deploy",
+      "to": "txt:environment:staging",
+      "status": "external",
+      "confidence": "syntactic",
+      "resolver": "domain:cicd"
+    },
+    {
+      "type": "DEPLOYS",
+      "from": "cicd:.github/workflows.release.yml#Release/jobs/deploy",
+      "to": "txt:step:\"Roll out\"",
+      "status": "unresolved",
+      "confidence": "heuristic",
+      "resolver": "domain:cicd"
+    },
+    {
+      "type": "DEPLOYS",
+      "from": "cicd:.github/workflows.release.yml#Release/jobs/release",
+      "to": "txt:environment:production",
+      "status": "external",
+      "confidence": "syntactic",
+      "resolver": "domain:cicd"
+    },
+    {
+      "type": "REFERENCES",
+      "from": "cicd:.github/workflows.ci.yml#CI/jobs/build",
+      "to": "txt:actions/checkout@v4",
+      "status": "external",
+      "confidence": "syntactic",
+      "resolver": "domain:cicd"
+    },
+    {
+      "type": "REFERENCES",
+      "from": "cicd:.github/workflows.ci.yml#CI/jobs/build",
+      "to": "txt:actions/download-artifact@v4",
+      "status": "external",
+      "confidence": "syntactic",
+      "resolver": "domain:cicd"
+    },
+    {
+      "type": "REFERENCES",
+      "from": "cicd:.github/workflows.ci.yml#CI/jobs/lint",
+      "to": "txt:actions/checkout@v4",
+      "status": "external",
+      "confidence": "syntactic",
+      "resolver": "domain:cicd"
+    },
+    {
+      "type": "REFERENCES",
+      "from": "cicd:.github/workflows.ci.yml#CI/jobs/test",
+      "to": "txt:actions/checkout@v4",
+      "status": "external",
+      "confidence": "syntactic",
+      "resolver": "domain:cicd"
+    },
+    {
+      "type": "REFERENCES",
+      "from": "cicd:.github/workflows.ci.yml#CI/jobs/test",
+      "to": "txt:actions/upload-artifact@v4",
+      "status": "external",
+      "confidence": "syntactic",
+      "resolver": "domain:cicd"
+    },
+    {
+      "type": "REFERENCES",
+      "from": "cicd:.github/workflows.release.yml#Release/jobs/call-external",
+      "to": "txt:octocat/hello-world/.github/workflows/reusable.yml@v1",
+      "status": "external",
+      "confidence": "syntactic",
+      "resolver": "domain:cicd"
+    },
+    {
+      "type": "REFERENCES",
+      "from": "cicd:.github/workflows.release.yml#Release/jobs/call-reusable",
+      "to": "cicd:.github/workflows.reusable.yml#Reusable Checks",
+      "status": "resolved",
+      "confidence": "syntactic",
+      "resolver": "domain:cicd"
+    },
+    {
+      "type": "REFERENCES",
+      "from": "cicd:.github/workflows.release.yml#Release/jobs/release",
+      "to": "txt:actions/checkout@v4",
+      "status": "external",
+      "confidence": "syntactic",
+      "resolver": "domain:cicd"
+    },
+    {
+      "type": "REFERENCES",
+      "from": "cicd:.github/workflows.release.yml#Release/jobs/release",
+      "to": "txt:docker/build-push-action@v6",
+      "status": "external",
+      "confidence": "syntactic",
+      "resolver": "domain:cicd"
+    },
+    {
+      "type": "REFERENCES",
+      "from": "cicd:.github/workflows.reusable.yml#Reusable Checks/jobs/reusable-job",
+      "to": "txt:actions/checkout@v4",
+      "status": "external",
+      "confidence": "syntactic",
+      "resolver": "domain:cicd"
+    },
+    {
+      "type": "TESTS",
+      "from": "cicd:.github/workflows.ci.yml#CI/jobs/test",
+      "to": "txt:step:\"Test\"",
+      "status": "unresolved",
+      "confidence": "heuristic",
+      "resolver": "domain:cicd"
+    },
+    {
+      "type": "TESTS",
+      "from": "cicd:.github/workflows.reusable.yml#Reusable Checks/jobs/reusable-job",
+      "to": "txt:run:pytest -q tests/smoke",
+      "status": "unresolved",
+      "confidence": "heuristic",
+      "resolver": "domain:cicd"
+    },
+    {
+      "type": "TRIGGERS",
+      "from": "cicd:.github/workflows.broken.yml#Broken",
+      "to": "txt:push",
+      "status": "external",
+      "confidence": "syntactic",
+      "resolver": "domain:cicd"
+    },
+    {
+      "type": "TRIGGERS",
+      "from": "cicd:.github/workflows.ci.yml#CI",
+      "to": "txt:pull_request",
+      "status": "external",
+      "confidence": "syntactic",
+      "resolver": "domain:cicd"
+    },
+    {
+      "type": "TRIGGERS",
+      "from": "cicd:.github/workflows.ci.yml#CI",
+      "to": "txt:push",
+      "status": "external",
+      "confidence": "syntactic",
+      "resolver": "domain:cicd"
+    },
+    {
+      "type": "TRIGGERS",
+      "from": "cicd:.github/workflows.release.yml#Release",
+      "to": "txt:schedule:cron=17 3 * * 1",
+      "status": "external",
+      "confidence": "syntactic",
+      "resolver": "domain:cicd"
+    },
+    {
+      "type": "TRIGGERS",
+      "from": "cicd:.github/workflows.release.yml#Release",
+      "to": "txt:workflow_dispatch",
+      "status": "external",
+      "confidence": "syntactic",
+      "resolver": "domain:cicd"
+    },
+    {
+      "type": "TRIGGERS",
+      "from": "cicd:.github/workflows.reusable.yml#Reusable Checks",
+      "to": "txt:workflow_call",
+      "status": "external",
+      "confidence": "syntactic",
+      "resolver": "domain:cicd"
+    }
+  ]
+}

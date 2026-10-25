@@ -1,0 +1,312 @@
+{
+  "schema": 1,
+  "domain": "crossdomain",
+  "fixture": "tests/fixtures/crossdomain_ws",
+  "entities": {
+    "total": 27,
+    "by_kind": {
+      "api_contract": 1,
+      "api_endpoint": 2,
+      "api_service": 1,
+      "data_column": 9,
+      "data_table": 9,
+      "data_transformation": 4,
+      "spark_job": 1
+    },
+    "names": [
+      "api:openapi/spec.yaml",
+      "api:openapi/spec.yaml#pet-service",
+      "api:openapi/spec.yaml#pet-service.GET /v1/pets",
+      "api:openapi/spec.yaml#pet-service.POST /v1/pets",
+      "pyspark:jobs/etl",
+      "pyspark:jobs/etl.py#events@14",
+      "pyspark:jobs/etl.py#joined@17",
+      "pyspark:jobs/etl.py#metrics@15",
+      "pyspark:jobs/etl.py#orders@13",
+      "pyspark:mart.joined",
+      "pyspark:mart.metrics_out",
+      "pyspark:shared.metrics",
+      "pyspark:staging.events",
+      "pyspark:staging.orders",
+      "sql:cat_a.shared.metrics",
+      "sql:cat_a.shared.metrics.metric_key",
+      "sql:cat_a.shared.metrics.metric_val",
+      "sql:cat_b.shared.metrics",
+      "sql:cat_b.shared.metrics.metric_key",
+      "sql:cat_b.shared.metrics.metric_val",
+      "sql:staging.events",
+      "sql:staging.events.event_id",
+      "sql:staging.events.payload",
+      "sql:staging.orders",
+      "sql:staging.orders.amount",
+      "sql:staging.orders.customer_id",
+      "sql:staging.orders.order_id"
+    ],
+    "expected": [
+      "sql:staging.orders",
+      "pyspark:staging.orders",
+      "sql:cat_a.shared.metrics",
+      "sql:cat_b.shared.metrics",
+      "pyspark:shared.metrics",
+      "api:openapi/spec.yaml#pet-service.POST /v1/pets"
+    ],
+    "forbidden": [
+      "pyspark:cat_a.shared.metrics",
+      "pyspark:cat_b.shared.metrics",
+      "sql:mart.joined",
+      "sql:mart.metrics_out"
+    ]
+  },
+  "relations": {
+    "total": 26,
+    "by_type": {
+      "CALLS_ENDPOINT": 4,
+      "CONTAINS": 6,
+      "DEFINES": 1,
+      "DERIVES_FROM": 5,
+      "READS_FROM": 3,
+      "REFERENCES": 5,
+      "WRITES_TO": 2
+    },
+    "by_status": {
+      "unresolved": 2,
+      "resolved": 20,
+      "external": 1,
+      "ambiguous": 3
+    },
+    "by_confidence": {
+      "syntactic": 23,
+      "resolved": 3
+    },
+    "by_resolver": {
+      "domain:api": 6,
+      "cross-domain": 6,
+      "domain:pyspark": 14
+    },
+    "edges_skipped": 0
+  },
+  "diagnostics": [
+    {
+      "severity": "info",
+      "code": "endpoint-unmatched",
+      "path": "",
+      "adapter": "cross-domain"
+    },
+    {
+      "severity": "info",
+      "code": "no-cross-target",
+      "path": "",
+      "adapter": "cross-domain"
+    }
+  ],
+  "edges": [
+    {
+      "type": "CALLS_ENDPOINT",
+      "from": "sym:app.client.get_missing",
+      "to": "txt:/v1/missing",
+      "status": "unresolved",
+      "confidence": "syntactic",
+      "resolver": "domain:api"
+    },
+    {
+      "type": "CALLS_ENDPOINT",
+      "from": "sym:app.client.post_pet",
+      "to": "api:openapi/spec.yaml#pet-service.POST /v1/pets",
+      "status": "resolved",
+      "confidence": "resolved",
+      "resolver": "cross-domain"
+    },
+    {
+      "type": "CALLS_ENDPOINT",
+      "from": "sym:web.client",
+      "to": "txt:https://cdn.test.example/lib.js",
+      "status": "external",
+      "confidence": "syntactic",
+      "resolver": "domain:api"
+    },
+    {
+      "type": "CALLS_ENDPOINT",
+      "from": "sym:web.client.loadPets",
+      "to": "txt:/v1/pets [candidates: api:openapi/spec.yaml#pet-service.GET /v1/pets, api:openapi/spec.yaml#pet-service.POST /v1/pets]",
+      "status": "ambiguous",
+      "confidence": "syntactic",
+      "resolver": "cross-domain"
+    },
+    {
+      "type": "CONTAINS",
+      "from": "api:openapi/spec.yaml#pet-service",
+      "to": "api:openapi/spec.yaml#pet-service.GET /v1/pets",
+      "status": "resolved",
+      "confidence": "syntactic",
+      "resolver": "domain:api"
+    },
+    {
+      "type": "CONTAINS",
+      "from": "api:openapi/spec.yaml#pet-service",
+      "to": "api:openapi/spec.yaml#pet-service.POST /v1/pets",
+      "status": "resolved",
+      "confidence": "syntactic",
+      "resolver": "domain:api"
+    },
+    {
+      "type": "CONTAINS",
+      "from": "pyspark:jobs/etl",
+      "to": "pyspark:jobs/etl.py#events@14",
+      "status": "resolved",
+      "confidence": "syntactic",
+      "resolver": "domain:pyspark"
+    },
+    {
+      "type": "CONTAINS",
+      "from": "pyspark:jobs/etl",
+      "to": "pyspark:jobs/etl.py#joined@17",
+      "status": "resolved",
+      "confidence": "syntactic",
+      "resolver": "domain:pyspark"
+    },
+    {
+      "type": "CONTAINS",
+      "from": "pyspark:jobs/etl",
+      "to": "pyspark:jobs/etl.py#metrics@15",
+      "status": "resolved",
+      "confidence": "syntactic",
+      "resolver": "domain:pyspark"
+    },
+    {
+      "type": "CONTAINS",
+      "from": "pyspark:jobs/etl",
+      "to": "pyspark:jobs/etl.py#orders@13",
+      "status": "resolved",
+      "confidence": "syntactic",
+      "resolver": "domain:pyspark"
+    },
+    {
+      "type": "DEFINES",
+      "from": "api:openapi/spec.yaml",
+      "to": "api:openapi/spec.yaml#pet-service",
+      "status": "resolved",
+      "confidence": "syntactic",
+      "resolver": "domain:api"
+    },
+    {
+      "type": "DERIVES_FROM",
+      "from": "pyspark:jobs/etl.py#joined@17",
+      "to": "pyspark:jobs/etl.py#events@14",
+      "status": "resolved",
+      "confidence": "syntactic",
+      "resolver": "domain:pyspark"
+    },
+    {
+      "type": "DERIVES_FROM",
+      "from": "pyspark:jobs/etl.py#joined@17",
+      "to": "pyspark:jobs/etl.py#orders@13",
+      "status": "resolved",
+      "confidence": "syntactic",
+      "resolver": "domain:pyspark"
+    },
+    {
+      "type": "DERIVES_FROM",
+      "from": "pyspark:mart.joined",
+      "to": "pyspark:staging.events",
+      "status": "resolved",
+      "confidence": "syntactic",
+      "resolver": "domain:pyspark"
+    },
+    {
+      "type": "DERIVES_FROM",
+      "from": "pyspark:mart.joined",
+      "to": "pyspark:staging.orders",
+      "status": "resolved",
+      "confidence": "syntactic",
+      "resolver": "domain:pyspark"
+    },
+    {
+      "type": "DERIVES_FROM",
+      "from": "pyspark:mart.metrics_out",
+      "to": "pyspark:shared.metrics",
+      "status": "resolved",
+      "confidence": "syntactic",
+      "resolver": "domain:pyspark"
+    },
+    {
+      "type": "READS_FROM",
+      "from": "pyspark:jobs/etl.py#events@14",
+      "to": "pyspark:staging.events",
+      "status": "resolved",
+      "confidence": "syntactic",
+      "resolver": "domain:pyspark"
+    },
+    {
+      "type": "READS_FROM",
+      "from": "pyspark:jobs/etl.py#metrics@15",
+      "to": "pyspark:shared.metrics",
+      "status": "resolved",
+      "confidence": "syntactic",
+      "resolver": "domain:pyspark"
+    },
+    {
+      "type": "READS_FROM",
+      "from": "pyspark:jobs/etl.py#orders@13",
+      "to": "pyspark:staging.orders",
+      "status": "resolved",
+      "confidence": "syntactic",
+      "resolver": "domain:pyspark"
+    },
+    {
+      "type": "REFERENCES",
+      "from": "api:openapi/spec.yaml#pet-service.GET /v1/pets",
+      "to": "txt:#/components/schemas/Pets",
+      "status": "unresolved",
+      "confidence": "syntactic",
+      "resolver": "domain:api"
+    },
+    {
+      "type": "REFERENCES",
+      "from": "pyspark:shared.metrics",
+      "to": "txt:[ambiguous candidates: pyspark:shared.metrics | sql:cat_a.shared.metrics]",
+      "status": "ambiguous",
+      "confidence": "syntactic",
+      "resolver": "cross-domain"
+    },
+    {
+      "type": "REFERENCES",
+      "from": "pyspark:shared.metrics",
+      "to": "txt:[ambiguous candidates: pyspark:shared.metrics | sql:cat_b.shared.metrics]",
+      "status": "ambiguous",
+      "confidence": "syntactic",
+      "resolver": "cross-domain"
+    },
+    {
+      "type": "REFERENCES",
+      "from": "sql:staging.events",
+      "to": "pyspark:staging.events",
+      "status": "resolved",
+      "confidence": "resolved",
+      "resolver": "cross-domain"
+    },
+    {
+      "type": "REFERENCES",
+      "from": "sql:staging.orders",
+      "to": "pyspark:staging.orders",
+      "status": "resolved",
+      "confidence": "resolved",
+      "resolver": "cross-domain"
+    },
+    {
+      "type": "WRITES_TO",
+      "from": "pyspark:jobs/etl.py#joined@17",
+      "to": "pyspark:mart.joined",
+      "status": "resolved",
+      "confidence": "syntactic",
+      "resolver": "domain:pyspark"
+    },
+    {
+      "type": "WRITES_TO",
+      "from": "pyspark:jobs/etl.py#metrics@15",
+      "to": "pyspark:mart.metrics_out",
+      "status": "resolved",
+      "confidence": "syntactic",
+      "resolver": "domain:pyspark"
+    }
+  ]
+}
