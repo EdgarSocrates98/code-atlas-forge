@@ -269,6 +269,8 @@ class _AtlasHttpd(ThreadingHTTPServer):
         super().__init__(addr, _AtlasHandler)
         self.db_path = db_path
         self.verbose = verbose
+        # lf-0141: instante de subida para o uptime do ``/diagnostics``.
+        self.started_at = time.monotonic()
         self.static_root = static_root
         self.request_timeout = request_timeout
         self.rate_limiter = _RateLimiter(rate_limit)

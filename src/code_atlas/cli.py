@@ -18,7 +18,7 @@ import json
 import os
 import sqlite3
 import sys
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 from dataclasses import asdict, dataclass, replace
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
@@ -408,7 +408,12 @@ def run_index(args: argparse.Namespace) -> int:
             cross_resolver=cross_res)
         # lf-0022: incremental é o default — ``--full`` é o escape
         # (force desliga o caminho incremental internamente).
-        outcome: IndexOutcome = coord.index(target, force=args.full, incremental=True)
+        # lf-0141: ``--verbose`` liga o callback de progresso — linhas
+        # ``[index]`` em stderr, stdout fica livre para ``--json``.
+        outcome: IndexOutcome = coord.index(
+            target, force=args.full, incremental=True,
+            progress=_index_progress
+            if getattr(args, "verbose", False) else None)
         plan_counts = (
             coord.last_plan.counts() if coord.last_plan is not None else {}
         )
@@ -441,6 +446,16 @@ def run_index(args: argparse.Namespace) -> int:
     else:
         _print_index_human(outcome)
     return EXIT_OK if outcome.status in ("success", "noop") else EXIT_ERROR
+
+
+def _index_progress(event: str, fields: Mapping[str, Any]) -> None:
+    """``index --verbose``: uma linha ``[index] <evento> k=v …`` em stderr.
+
+    stdout fica reservado ao payload — ``--json`` continua parseável
+    com o progresso ligado. Nenhum campo carrega paths nem segredos.
+    """
+    parts = " ".join(f"{k}={v}" for k, v in fields.items())
+    print(f"[index] {event} {parts}".rstrip(), file=sys.stderr)
 
 
 def _index_domains(
@@ -1763,6 +1778,11 @@ def build_parser() -> argparse.ArgumentParser:
     p_index.add_argument(
         "--cross-domain", action="store_true",
         help="resolução cross-domain no snapshot (requer --domains)",
+    )
+    p_index.add_argument(
+        "--verbose", action="store_true",
+        help="progresso por estágio em stderr: ms por etapa + files/s "
+             "no parse (stdout e --json não são tocados)",
     )
     p_index.add_argument("--json", action="store_true", help="saída em JSON")
     p_index.set_defaults(func=run_index)

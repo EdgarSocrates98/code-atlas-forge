@@ -29,7 +29,7 @@ import time
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import TypeGuard
+from typing import Any, TypeGuard
 
 from code_atlas.contracts.enums import SnapshotStatus
 from code_atlas.contracts.models import Snapshot
@@ -80,6 +80,44 @@ from code_atlas.storage.store import Store
 
 ANALYZER_NAME = "code-atlas"
 ANALYZER_VERSION = "0.1.0"
+
+# lf-0141 (Cycle 8 Phase 15): callback de progresso local — a CLI o
+# conecta a stderr com ``--verbose``; ``None`` (default) = zero custo.
+# Eventos: ``"stage"`` (``stage``, ``ms`` — um por estágio medido,
+# mesmos nomes das chaves ``stage_ms_*`` do job), ``"parse-progress"``
+# (``parsed``, ``total``, ``files_per_sec`` — a cada 64 arquivos e ao
+# fim da fase) e ``"noop"`` (``snapshot_id``). Nenhum evento carrega
+# paths nem dados indexados — só contadores e tempos.
+ProgressFn = Callable[[str, Mapping[str, Any]], None]
+
+
+def _emit_progress(progress: ProgressFn | None, event: str,
+                   **fields: Any) -> None:
+    """Emite um evento de progresso quando o caller registra callback."""
+    if progress is not None:
+        progress(event, fields)
+
+
+def _files_per_sec(done: int, t0: float) -> float:
+    """Throughput da fase de parse; 0.0 num clock sem resolução."""
+    el = time.monotonic() - t0
+    return round(done / el, 1) if el > 0 else 0.0
+
+
+def _parse_tick(progress: ProgressFn | None, done: int, total: int,
+                t0: float) -> None:
+    """Tick periódico do parse — a cada 64 arquivos, sem custo default."""
+    if progress is not None and done % 64 == 0:
+        _emit_progress(progress, "parse-progress", parsed=done,
+                       total=total, files_per_sec=_files_per_sec(done, t0))
+
+
+def _parse_tick_final(progress: ProgressFn | None, total: int,
+                      t0: float) -> None:
+    """Tick final do parse — fecha sempre em ``parsed == total``."""
+    if progress is not None and total:
+        _emit_progress(progress, "parse-progress", parsed=total,
+                       total=total, files_per_sec=_files_per_sec(total, t0))
 
 
 @dataclass(frozen=True)
@@ -294,7 +332,8 @@ class IndexCoordinator:
         return out, failures
 
     def index(
-        self, root: Path, force: bool = False, incremental: bool = False
+        self, root: Path, force: bool = False, incremental: bool = False,
+        progress: ProgressFn | None = None,
     ) -> IndexOutcome:
         """Escaneia `root` e publica snapshot READY (ou no-op) atomicamente.
 
@@ -309,6 +348,11 @@ class IndexCoordinator:
         com resultados de todos os arquivos e persistido inteiro no
         snapshot novo (isolamento lógico). ``force`` desativa o caminho
         incremental.
+
+        ``progress`` (lf-0141): callback opcional de telemetria local —
+        eventos ``"stage"``/``"parse-progress"``/``"noop"`` documentados
+        em ``ProgressFn``. Default ``None`` preserva o comportamento
+        anterior com custo zero.
         """
         stage_ms: dict[str, int] = {}
         t_scan = time.monotonic()
@@ -319,6 +363,11 @@ class IndexCoordinator:
         stage_ms["discovery"] = int(
             (time.monotonic() - t_scan) * 1000)
         stage_ms["hashing"] = scan.hash_ms
+        _emit_progress(progress, "stage", stage="discovery",
+                       ms=stage_ms["discovery"], files=len(scan.files),
+                       secrets=scan.secret_count)
+        _emit_progress(progress, "stage", stage="hashing",
+                       ms=stage_ms["hashing"])
 
         # Job registrado em transação própria para sobreviver a rollback —
         # falhas precisam ficar inspecionáveis. Sob lock de escrita preso,
@@ -358,6 +407,7 @@ class IndexCoordinator:
                     job_id, "noop", snapshot_id=current.id,
                     counts={"files": 0}, failures=(),
                 )
+            _emit_progress(progress, "noop", snapshot_id=current.id)
             return self._noop_outcome(current.id, job_id)
 
         # Planejamento incremental ANTES de parsear (lf-0019): o plano é
@@ -378,6 +428,8 @@ class IndexCoordinator:
             )
         stage_ms["invalidation"] = int(
             (time.monotonic() - t_plan) * 1000)
+        _emit_progress(progress, "stage", stage="invalidation",
+                       ms=stage_ms["invalidation"])
 
         cfg_digest = config_digest(self._engine)
         cache = ParseResultCache(self._conn, repo_id)
@@ -390,16 +442,23 @@ class IndexCoordinator:
                 reparse=reparse_paths, cache_candidates=cache_paths,
                 incremental=plan is not None,
                 timings=stage_ms,
+                progress=progress,
             )
         )
         stage_ms["parse"] = int((time.monotonic() - t_parse) * 1000)
+        _emit_progress(progress, "stage", stage="parse",
+                       ms=stage_ms["parse"])
         t_graph = time.monotonic()
         graph = self._builder.build(Path(root).name, scan, results)
         stage_ms["graph_build"] = int(
             (time.monotonic() - t_graph) * 1000)
+        _emit_progress(progress, "stage", stage="graph_build",
+                       ms=stage_ms["graph_build"])
         t_sem = time.monotonic()
         graph, sem_stats = self._enrich_semantic(graph)
         stage_ms["semantic"] = int((time.monotonic() - t_sem) * 1000)
+        _emit_progress(progress, "stage", stage="semantic",
+                       ms=stage_ms["semantic"])
         # Domínio opt-in (lf-0111): extração fora do lock de escrita,
         # mesmo desenho do parse — adapters leem os artefatos do
         # request dentro do workspace; nada é executado.
@@ -408,10 +467,14 @@ class IndexCoordinator:
             scan, ikey, digest
         )
         stage_ms["domains"] = int((time.monotonic() - t_dom) * 1000)
+        _emit_progress(progress, "stage", stage="domains",
+                       ms=stage_ms["domains"])
         t_val = time.monotonic()
         g_errors = validate_graph(graph)
         stage_ms["validation"] = int(
             (time.monotonic() - t_val) * 1000)
+        _emit_progress(progress, "stage", stage="validation",
+                       ms=stage_ms["validation"])
         if g_errors:
             # invariante violada = bug/violação interna → FAILED, READY salvo
             error = f"graph integrity violated: {'; '.join(g_errors[:3])}"
@@ -444,6 +507,7 @@ class IndexCoordinator:
                     counts={"files": 0}, failures=(),
                 )
                 self._conn.commit()
+                _emit_progress(progress, "noop", snapshot_id=current.id)
                 return self._noop_outcome(current.id, job_id)
 
             snapshot_id = store.insert_snapshot(
@@ -484,10 +548,14 @@ class IndexCoordinator:
             )
             stage_ms["persist_rows"] = int(
                 (time.monotonic() - t_w) * 1000)
+            _emit_progress(progress, "stage", stage="persist_rows",
+                           ms=stage_ms["persist_rows"])
             t_fk = time.monotonic()
             self._validate(snapshot_id)
             stage_ms["fk_check"] = int(
                 (time.monotonic() - t_fk) * 1000)
+            _emit_progress(progress, "stage", stage="fk_check",
+                           ms=stage_ms["fk_check"])
             t_pub = time.monotonic()
             store.publish_snapshot(repo_id, snapshot_id)
             snaps_pruned = (
@@ -499,6 +567,8 @@ class IndexCoordinator:
             )
             stage_ms["publish_gc"] = int(
                 (time.monotonic() - t_pub) * 1000)
+            _emit_progress(progress, "stage", stage="publish_gc",
+                           ms=stage_ms["publish_gc"])
             counts = {
                 "files": len(rows),
                 "files_parsed": len(results) - len(cache_hits),
@@ -521,6 +591,8 @@ class IndexCoordinator:
             }
             stage_ms["persist_publish"] = int(
                 (time.monotonic() - t_persist) * 1000)
+            _emit_progress(progress, "stage", stage="persist_publish",
+                           ms=stage_ms["persist_publish"])
             counts.update({f"stage_ms_{k}": v
                            for k, v in stage_ms.items()})
             failures = (
@@ -706,6 +778,7 @@ class IndexCoordinator:
         reparse: set[str],
         incremental: bool,
         timings: dict[str, int] | None,
+        progress: ProgressFn | None = None,
     ) -> dict[str, ParseResult]:
         """lf-0031: lookup batchado — um ``json_each`` IN-chunk por 400
         paths em vez de um SELECT por arquivo candidato."""
@@ -722,6 +795,10 @@ class IndexCoordinator:
                 if timings is not None:
                     timings["cache_lookup"] = int(
                         (time.monotonic() - t_cl) * 1000)
+                    _emit_progress(progress, "stage",
+                                   stage="cache_lookup",
+                                   ms=timings["cache_lookup"],
+                                   keys=len(wanted))
         return prefetched
 
     def _parse_files(
@@ -735,6 +812,7 @@ class IndexCoordinator:
         cache_candidates: set[str],
         incremental: bool,
         timings: dict[str, int] | None = None,
+        progress: ProgressFn | None = None,
     ) -> tuple[
         list[ParseResult], dict[str, str], list[str],
         dict[str, tuple[CacheKey, ParseResult]],
@@ -752,6 +830,11 @@ class IndexCoordinator:
         parsear o arquivo; miss cai para o caminho normal (o sha do
         manifesto prova conteúdo idêntico → mesmo resultado). Parse
         real só acontece para ``reparse`` ou em modo full.
+
+        ``progress`` (lf-0141): emite ``"parse-progress"`` a cada 64
+        arquivos e ao fim — ``files_per_sec`` medido sobre o total de
+        arquivos do scan (processados ou não), o throughput real da
+        fase. ``cache_lookup`` sai como evento ``"stage"``.
 
         Integridade scan→parse (lf-0015): os bytes parseados precisam ser
         exatamente os bytes hasheados pelo manifest — leitura verificada
@@ -773,8 +856,11 @@ class IndexCoordinator:
             for p, a in adapters.items() if a is not None
         }
         prefetched = self._prefetch_cache(
-            cache, keys, cache_candidates, reparse, incremental, timings)
-        for f in scan.files:
+            cache, keys, cache_candidates, reparse, incremental, timings,
+            progress)
+        total_files = len(scan.files)
+        t_files = time.monotonic()
+        for i, f in enumerate(scan.files, 1):
             adapter = self._engine.registry.for_path(f.path)
             if adapter is None:
                 continue  # extensão sem parser — não conta como falha
@@ -821,6 +907,8 @@ class IndexCoordinator:
             if key is not None and res.supported:
                 puts[f.path] = (key, res)
             self._status_of(res, f.path, file_status, failures)
+            _parse_tick(progress, i, total_files, t_files)
+        _parse_tick_final(progress, total_files, t_files)
         return results, file_status, failures, puts, hits
 
     @staticmethod
