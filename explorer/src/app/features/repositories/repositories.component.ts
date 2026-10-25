@@ -38,11 +38,10 @@ interface CopyFeedback {
  * via `code-atlas index` on the CLI.
  */
 @Component({
-  selector: 'atlas-repositories',
-  standalone: true,
-  changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [RouterLink, StateBlockComponent],
-  template: `
+    selector: 'atlas-repositories',
+    changeDetection: ChangeDetectionStrategy.OnPush,
+    imports: [RouterLink, StateBlockComponent],
+    template: `
     <section class="repositories" aria-labelledby="repositories-title">
       <header class="repositories__header">
         <h1 id="repositories-title">Repositórios</h1>
@@ -183,8 +182,8 @@ interface CopyFeedback {
       }
     </section>
   `,
-  styles: [
-    `
+    styles: [
+        `
       .repositories {
         padding: var(--atlas-space-5);
         display: flex;
@@ -359,7 +358,7 @@ interface CopyFeedback {
         color: var(--atlas-color-warning);
       }
     `,
-  ],
+    ]
 })
 export class RepositoriesComponent implements OnInit, OnDestroy {
   readonly phase = signal<RepositoriesPhase>('loading');

@@ -25,20 +25,19 @@ type ViewMode = 'graph' | 'table';
  * canvas/inspector/table share one instance per visit).
  */
 @Component({
-  selector: 'atlas-graph',
-  standalone: true,
-  changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [
-    StateBlockComponent,
-    EvidenceBadgeComponent,
-    GraphCanvasComponent,
-    GraphDiagnosticsComponent,
-    GraphInspectorComponent,
-    GraphTableComponent,
-  ],
-  providers: [GraphDataStore],
-  templateUrl: './graph.component.html',
-  styleUrl: './graph.component.css',
+    selector: 'atlas-graph',
+    changeDetection: ChangeDetectionStrategy.OnPush,
+    imports: [
+        StateBlockComponent,
+        EvidenceBadgeComponent,
+        GraphCanvasComponent,
+        GraphDiagnosticsComponent,
+        GraphInspectorComponent,
+        GraphTableComponent,
+    ],
+    providers: [GraphDataStore],
+    templateUrl: './graph.component.html',
+    styleUrl: './graph.component.css'
 })
 export class GraphComponent implements OnInit {
   readonly canvas = viewChild(GraphCanvasComponent);

@@ -32,11 +32,10 @@ type RevisionsPhase = 'idle' | 'loading' | 'ready' | 'error' | 'offline';
  * surface as the PARTIAL banner, never as a verified result.
  */
 @Component({
-  selector: 'atlas-revisions',
-  standalone: true,
-  changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [FormsModule, StateBlockComponent, ImpactResultsComponent],
-  template: `
+    selector: 'atlas-revisions',
+    changeDetection: ChangeDetectionStrategy.OnPush,
+    imports: [FormsModule, StateBlockComponent, ImpactResultsComponent],
+    template: `
     <section class="revisions" aria-labelledby="revisions-title">
       <header class="revisions__header">
         <h1 id="revisions-title">Revisões</h1>
@@ -175,8 +174,8 @@ type RevisionsPhase = 'idle' | 'loading' | 'ready' | 'error' | 'offline';
       }
     </section>
   `,
-  styles: [
-    `
+    styles: [
+        `
       .revisions {
         padding: var(--atlas-space-5);
         display: flex;
@@ -320,7 +319,7 @@ type RevisionsPhase = 'idle' | 'loading' | 'ready' | 'error' | 'offline';
         }
       }
     `,
-  ],
+    ]
 })
 export class RevisionsComponent implements OnInit, OnDestroy {
   readonly form = {

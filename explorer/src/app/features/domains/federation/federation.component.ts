@@ -39,11 +39,10 @@ export interface MemberRow {
  * so explicitly instead of fabricating state.
  */
 @Component({
-  selector: 'atlas-federation',
-  standalone: true,
-  changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [StateBlockComponent],
-  template: `
+    selector: 'atlas-federation',
+    changeDetection: ChangeDetectionStrategy.OnPush,
+    imports: [StateBlockComponent],
+    template: `
     <section class="federation" aria-labelledby="federation-title">
       <header class="federation__header">
         <h1 id="federation-title">Federação</h1>
@@ -151,8 +150,8 @@ export interface MemberRow {
       }
     </section>
   `,
-  styles: [
-    `
+    styles: [
+        `
       .federation {
         padding: var(--atlas-space-5);
         display: flex;
@@ -280,7 +279,7 @@ export interface MemberRow {
         font-size: var(--atlas-font-size-sm);
       }
     `,
-  ],
+    ]
 })
 export class FederationComponent implements OnInit, OnDestroy {
   readonly phase = signal<FederationPhase>('loading');

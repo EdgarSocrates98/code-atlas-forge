@@ -53,11 +53,10 @@ const QUICK_LINKS: QuickLink[] = [
 ];
 
 @Component({
-  selector: 'atlas-dashboard',
-  standalone: true,
-  changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [RouterLink, StateBlockComponent],
-  template: `
+    selector: 'atlas-dashboard',
+    changeDetection: ChangeDetectionStrategy.OnPush,
+    imports: [RouterLink, StateBlockComponent],
+    template: `
     <section class="dashboard" aria-labelledby="dashboard-title">
       <header class="dashboard__header">
         <h1 id="dashboard-title">Painel</h1>
@@ -136,8 +135,8 @@ const QUICK_LINKS: QuickLink[] = [
       }
     </section>
   `,
-  styles: [
-    `
+    styles: [
+        `
       .dashboard {
         padding: var(--atlas-space-5);
         display: flex;
@@ -249,7 +248,7 @@ const QUICK_LINKS: QuickLink[] = [
         font-size: var(--atlas-font-size-sm);
       }
     `,
-  ],
+    ]
 })
 export class DashboardComponent implements OnInit, OnDestroy {
   readonly quickLinks = QUICK_LINKS;

@@ -42,11 +42,10 @@ export interface ConsumersState {
  * files as provenance. Everything is snapshot-scoped and read-only.
  */
 @Component({
-  selector: 'atlas-contracts',
-  standalone: true,
-  changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [StateBlockComponent, EvidenceBadgeComponent],
-  template: `
+    selector: 'atlas-contracts',
+    changeDetection: ChangeDetectionStrategy.OnPush,
+    imports: [StateBlockComponent, EvidenceBadgeComponent],
+    template: `
     <section class="contracts" aria-labelledby="contracts-title">
       <header class="contracts__header">
         <h1 id="contracts-title">Contratos de API</h1>
@@ -242,8 +241,8 @@ export interface ConsumersState {
       }
     </section>
   `,
-  styles: [
-    `
+    styles: [
+        `
       .contracts {
         padding: var(--atlas-space-5);
         display: flex;
@@ -386,7 +385,7 @@ export interface ConsumersState {
         font-size: var(--atlas-font-size-sm);
       }
     `,
-  ],
+    ]
 })
 export class ContractsComponent implements OnInit, OnDestroy {
   readonly phase = signal<ContractsPhase>('loading');

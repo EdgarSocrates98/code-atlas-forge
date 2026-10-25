@@ -23,11 +23,10 @@ import { ImpactView, impactToMarkdown, toImpactView } from './impact.vm';
 type ImpactPhase = 'idle' | 'loading' | 'ready' | 'error' | 'offline';
 
 @Component({
-  selector: 'atlas-impact',
-  standalone: true,
-  changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [FormsModule, StateBlockComponent, ImpactResultsComponent],
-  template: `
+    selector: 'atlas-impact',
+    changeDetection: ChangeDetectionStrategy.OnPush,
+    imports: [FormsModule, StateBlockComponent, ImpactResultsComponent],
+    template: `
     <section class="impact" aria-labelledby="impact-title">
       <header class="impact__header">
         <h1 id="impact-title">Análise de impacto</h1>
@@ -172,8 +171,8 @@ type ImpactPhase = 'idle' | 'loading' | 'ready' | 'error' | 'offline';
       }
     </section>
   `,
-  styles: [
-    `
+    styles: [
+        `
       .impact {
         padding: var(--atlas-space-5);
         display: flex;
@@ -294,7 +293,7 @@ type ImpactPhase = 'idle' | 'loading' | 'ready' | 'error' | 'offline';
         color: var(--atlas-color-text-muted);
       }
     `,
-  ],
+    ]
 })
 export class ImpactComponent implements OnInit, OnDestroy {
   readonly form = {

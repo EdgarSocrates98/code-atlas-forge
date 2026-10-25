@@ -11,11 +11,10 @@ import { parseOccurrenceId, toEvidenceLevel } from './graph.utils';
  * (which only the /symbols/{id} detail endpoint provides).
  */
 @Component({
-  selector: 'atlas-graph-inspector',
-  standalone: true,
-  changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [RouterLink, EvidenceBadgeComponent],
-  template: `
+    selector: 'atlas-graph-inspector',
+    changeDetection: ChangeDetectionStrategy.OnPush,
+    imports: [RouterLink, EvidenceBadgeComponent],
+    template: `
     <aside class="inspector" aria-label="Inspetor de seleção">
       @if (node(); as n) {
         <header class="inspector__header">
@@ -191,8 +190,8 @@ import { parseOccurrenceId, toEvidenceLevel } from './graph.utils';
       }
     </aside>
   `,
-  styles: [
-    `
+    styles: [
+        `
       .inspector {
         display: flex;
         flex-direction: column;
@@ -321,7 +320,7 @@ import { parseOccurrenceId, toEvidenceLevel } from './graph.utils';
         font-size: var(--atlas-font-size-sm);
       }
     `,
-  ],
+    ]
 })
 export class GraphInspectorComponent {
   readonly copied = signal(false);

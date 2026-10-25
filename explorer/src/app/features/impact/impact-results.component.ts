@@ -16,11 +16,10 @@ import type { ImpactView } from './impact.vm';
  * Staged reveal honors `prefers-reduced-motion` purely via CSS — no timers.
  */
 @Component({
-  selector: 'atlas-impact-results',
-  standalone: true,
-  changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [RouterLink, DiagnosticsListComponent, EvidenceBadgeComponent],
-  template: `
+    selector: 'atlas-impact-results',
+    changeDetection: ChangeDetectionStrategy.OnPush,
+    imports: [RouterLink, DiagnosticsListComponent, EvidenceBadgeComponent],
+    template: `
     @if (view(); as v) {
       <div class="impact-result" role="region" aria-live="polite" aria-label="Resultado da análise de impacto">
         @if (v.partial) {
@@ -315,8 +314,8 @@ import type { ImpactView } from './impact.vm';
       </div>
     }
   `,
-  styles: [
-    `
+    styles: [
+        `
       .impact-result {
         display: flex;
         flex-direction: column;
@@ -520,7 +519,7 @@ import type { ImpactView } from './impact.vm';
         padding-left: var(--atlas-space-5);
       }
     `,
-  ],
+    ]
 })
 export class ImpactResultsComponent {
   readonly view = input.required<ImpactView>();

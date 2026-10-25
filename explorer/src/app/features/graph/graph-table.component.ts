@@ -11,11 +11,10 @@ import { toEvidenceLevel } from './graph.utils';
  * as a plain button so keyboard and AT users lose nothing.
  */
 @Component({
-  selector: 'atlas-graph-table',
-  standalone: true,
-  changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [RouterLink, EvidenceBadgeComponent],
-  template: `
+    selector: 'atlas-graph-table',
+    changeDetection: ChangeDetectionStrategy.OnPush,
+    imports: [RouterLink, EvidenceBadgeComponent],
+    template: `
     <div class="tables">
       <section class="tables__section" aria-labelledby="nodes-caption">
         <h2 id="nodes-caption" class="tables__caption">
@@ -128,8 +127,8 @@ import { toEvidenceLevel } from './graph.utils';
       </section>
     </div>
   `,
-  styles: [
-    `
+    styles: [
+        `
       .tables {
         display: grid;
         grid-template-columns: 1fr 1fr;
@@ -230,7 +229,7 @@ import { toEvidenceLevel } from './graph.utils';
         padding: 0 var(--atlas-space-1);
       }
     `,
-  ],
+    ]
 })
 export class GraphTableComponent {
   constructor(readonly store: GraphDataStore) {}

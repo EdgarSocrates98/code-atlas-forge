@@ -29,11 +29,10 @@ const LEVELS: { value: ApiContextLevel; label: string; hint: string }[] = [
 ];
 
 @Component({
-  selector: 'atlas-context',
-  standalone: true,
-  changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [FormsModule, RouterLink, StateBlockComponent],
-  template: `
+    selector: 'atlas-context',
+    changeDetection: ChangeDetectionStrategy.OnPush,
+    imports: [FormsModule, RouterLink, StateBlockComponent],
+    template: `
     <section class="context" aria-labelledby="context-title">
       <header class="context__header">
         <h1 id="context-title">Context Packs</h1>
@@ -393,8 +392,8 @@ const LEVELS: { value: ApiContextLevel; label: string; hint: string }[] = [
       }
     </section>
   `,
-  styles: [
-    `
+    styles: [
+        `
       .context {
         padding: var(--atlas-space-5);
         display: flex;
@@ -631,7 +630,7 @@ const LEVELS: { value: ApiContextLevel; label: string; hint: string }[] = [
         font-size: var(--atlas-font-size-sm);
       }
     `,
-  ],
+    ]
 })
 export class ContextComponent implements OnInit, OnDestroy {
   readonly levels = LEVELS;
