@@ -58,7 +58,7 @@ const SAMPLE_WINDOW_MS = 500;
         </div>
         <div class="diag__item">
           <dt>Estado do layout</dt>
-          <dd class="diag__value">{{ layoutBusy() ? 'executando' : 'ocioso' }}</dd>
+          <dd class="diag__value">{{ layoutStateText() }}</dd>
         </div>
         <div class="diag__item">
           <dt>Último layout</dt>
@@ -126,6 +126,7 @@ export class GraphDiagnosticsComponent implements OnInit, OnDestroy {
   readonly fps = signal<number | null>(null);
   readonly zoomRatio = signal<number | null>(null);
   readonly layoutBusy = signal(false);
+  readonly layoutProgress = signal<{ done: number; total: number } | null>(null);
   readonly lastLayoutMs = signal<number | null>(null);
 
   private rafId: number | null = null;
@@ -151,6 +152,17 @@ export class GraphDiagnosticsComponent implements OnInit, OnDestroy {
     // Ratio is "fraction of the framed graph on screen" — show it raw with
     // enough precision to be useful at both extremes of the camera range.
     return ratio >= 10 ? ratio.toFixed(0) : ratio.toFixed(2);
+  }
+
+  /**
+   * "executando" now spans a real async worker pass — include the live
+   * iteration counter so the panel reports bounded progress, not just a
+   * flag.
+   */
+  layoutStateText(): string {
+    if (!this.layoutBusy()) return 'ocioso';
+    const p = this.layoutProgress();
+    return p ? `executando · ${p.done}/${p.total} it.` : 'executando';
   }
 
   lastLayoutText(): string {
@@ -179,6 +191,7 @@ export class GraphDiagnosticsComponent implements OnInit, OnDestroy {
           const canvas = this.canvas();
           this.zoomRatio.set(canvas?.cameraRatio() ?? null);
           this.layoutBusy.set(canvas?.layoutBusy ?? false);
+          this.layoutProgress.set(canvas?.layoutProgress ?? null);
           this.lastLayoutMs.set(canvas?.lastLayoutMs ?? null);
         }
         this.rafId = requestAnimationFrame(tick);

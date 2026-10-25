@@ -31,6 +31,16 @@
           <button type="button" class="seg__btn" (click)="store.requestRelayout()" title="Recalcular posições (respeita nós fixados)">
             Reorganizar
           </button>
+          @if (store.layoutBusy()) {
+            <button
+              type="button"
+              class="seg__btn"
+              (click)="canvas()?.cancelLayout()"
+              title="Abortar o cálculo de layout em andamento — posições são mantidas"
+            >
+              Cancelar layout
+            </button>
+          }
         </div>
       }
 

@@ -10,7 +10,15 @@ import {
 } from '@angular/core';
 import Graph from 'graphology';
 import forceAtlas2 from 'graphology-layout-forceatlas2';
+import FA2_DEFAULT_SETTINGS from 'graphology-layout-forceatlas2/defaults';
+import { graphToByteArrays } from 'graphology-layout-forceatlas2/helpers';
 import Sigma from 'sigma';
+import {
+  FA2_NODE_FIXED_OFFSET,
+  FA2_NODE_STRIDE,
+  Fa2LayoutRunner,
+} from './fa2-layout-runner';
+import type { Fa2RunResult } from './fa2-layout-runner';
 import { GraphDataStore } from './graph-data.store';
 import { GraphMode, GraphEdgeVM, GraphNodeVM } from './graph.models';
 import { GraphStateService } from './graph-state.service';
@@ -31,6 +39,19 @@ const PAN_STEP = 0.08;
 const ZOOM_FACTOR = 1.5;
 /** Container resize → renderer refresh debounce (ms). */
 const RESIZE_DEBOUNCE_MS = 120;
+
+/**
+ * Edge weight for layout serialization — mirrors the library default
+ * (`'weight'` attribute, falling back to 1). Our edges carry no weight,
+ * so every relation pulls equally.
+ */
+function edgeWeight(
+  _edge: string,
+  attr: Record<string, unknown>,
+): number {
+  const w = attr['weight'];
+  return typeof w === 'number' && Number.isFinite(w) ? w : 1;
+}
 
 interface Palette {
   text: string;
@@ -111,12 +132,24 @@ export class GraphCanvasComponent implements AfterViewInit, OnDestroy {
   private glCanvases: HTMLCanvasElement[] = [];
   private lastMode: GraphMode | null = null;
   /**
+   * Async layout lifecycle (Phase 0.2): FA2 iterations run in a Web Worker
+   * owned by `layoutRunner`; `layoutGen` is the generation token that makes
+   * stale worker results impossible to commit. A run is invalidated by:
+   * a newer runLayout (supersede), a dataVersion bump (the serialized node
+   * set no longer matches the live graph), an explicit Cancel button, or
+   * component destroy.
+   */
+  private readonly layoutRunner = new Fa2LayoutRunner();
+  private layoutGen = 0;
+  /**
    * Diagnostics read these live (plain fields, not signals — runLayout runs
    * inside the sync effect where signal writes are deferred in Angular 18).
-   * `layoutBusy` is true only during the synchronous ForceAtlas2 pass, so a
-   * sampler may legitimately never observe it — that is the honest state.
+   * `layoutBusy` now spans the whole async pass: worker spawn, chunked
+   * iterations and commit — it is observable for seconds, not microseconds.
    */
   layoutBusy = false;
+  /** Live iteration progress of the in-flight run; null when idle. */
+  layoutProgress: { done: number; total: number } | null = null;
   lastLayoutMs: number | null = null;
   private readonly reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
   private readonly onMotionChange = (): void => this.applyMotionSettings();
@@ -215,6 +248,9 @@ export class GraphCanvasComponent implements AfterViewInit, OnDestroy {
   }
 
   ngOnDestroy(): void {
+    // An in-flight layout can never commit after the view dies — kill it
+    // before the renderer so its resolve lands on a dead generation.
+    this.cancelLayoutRun();
     // Capture the view BEFORE killing the renderer so "navigate away and
     // back" restores the exact camera + selection (see GraphStateService).
     this.persistViewState();
@@ -377,6 +413,11 @@ export class GraphCanvasComponent implements AfterViewInit, OnDestroy {
     const sigma = this.sigma;
     if (!graph || !sigma) return;
 
+    // A data revision while a layout is in flight invalidates its matrices
+    // (they describe the pre-change node set). Cancel before mutating so a
+    // stale worker result can never land on the new structure.
+    if (this.layoutRunner.running) this.cancelLayoutRun();
+
     const wantedNodes = new Set(nodes.map((n) => n.id));
     const wantedEdges = new Set(edges.map((e) => e.id));
 
@@ -441,14 +482,24 @@ export class GraphCanvasComponent implements AfterViewInit, OnDestroy {
     if (needsLayout) {
       this.runLayout();
     }
-    sigma.refresh();
+    // No explicit sigma.refresh() here: paintAll() always runs right after
+    // syncStructure inside sync() and ends with the single full refresh —
+    // two sync re-indexations per data version was a ~170 ms task at 2000
+    // nodes (measured on the relayout click path).
   }
 
   /**
-   * One bounded ForceAtlas2 pass; pinned positions are restored verbatim.
-   * Afterwards positions are frozen forever (needsLayout stays the only
-   * trigger); the camera either restores the persisted view state from
-   * the last visit or does a consistent fit.
+   * Kicks off one bounded ForceAtlas2 pass in the layout worker — the main
+   * thread only serializes the graph, then stays free until the worker's
+   * `done` message lands on `finishLayout`. Pinned nodes are serialized
+   * with the FA2 `fixed` flag (record offset 9) so they never move.
+   *
+   * Positions are committed exactly once at the end and only when the run
+   * is still current (`layoutGen` + `dataVersion` both unchanged); a stale
+   * worker result is dropped wholesale. Afterwards positions are frozen
+   * forever (needsLayout stays the only trigger); the camera either
+   * restores the persisted view state from the last visit or does a
+   * consistent fit.
    */
   private runLayout(): void {
     const graph = this.graph;
@@ -456,34 +507,146 @@ export class GraphCanvasComponent implements AfterViewInit, OnDestroy {
     if (!graph || !sigma || graph.order === 0) return;
 
     const pinned = this.store.pinnedIds();
+    // Pre-layout position of every node — bounded by the render cap — so
+    // the commit can restore the CURRENT pin set verbatim (covers nodes
+    // pinned while the worker was already running too).
     const saved = new Map<string, { x: number; y: number }>();
+    graph.forEachNode((id, attrs) => {
+      saved.set(id, { x: attrs['x'] as number, y: attrs['y'] as number });
+    });
+
+    const matrices = graphToByteArrays(graph, edgeWeight);
     if (pinned.size) {
-      graph.forEachNode((id, attrs) => {
-        if (pinned.has(id)) saved.set(id, { x: attrs['x'] as number, y: attrs['y'] as number });
+      let i = 0;
+      graph.forEachNode((id) => {
+        if (pinned.has(id)) matrices.nodes[i + FA2_NODE_FIXED_OFFSET] = 1;
+        i += FA2_NODE_STRIDE;
       });
     }
+
+    const iterations = layoutIterations(graph.order);
+    const settings: Record<string, unknown> = {
+      ...FA2_DEFAULT_SETTINGS,
+      ...forceAtlas2.inferSettings(graph),
+      adjustSizes: true,
+      strongGravityMode: true,
+    };
+
+    const gen = ++this.layoutGen;
+    // The version the matrix describes — every structure change bumps it
+    // (syncStructure only runs on version change), so this is the
+    // generation token for "the graph still matches the serialized set".
+    const runVersion = this.lastDataVersion;
 
     this.layoutBusy = true;
-    const layoutStart = performance.now();
-    try {
-      forceAtlas2.assign(graph, {
-        iterations: layoutIterations(graph.order),
-        settings: {
-          ...forceAtlas2.inferSettings(graph),
-          adjustSizes: true,
-          strongGravityMode: true,
-        },
-      });
-    } finally {
-      this.layoutBusy = false;
-      this.lastLayoutMs = performance.now() - layoutStart;
+    this.layoutProgress = { done: 0, total: iterations };
+    this.stageRef.nativeElement.setAttribute('aria-busy', 'true');
+    // Store signal writes are deferred out of the sync effect — the flag
+    // drives the toolbar's Cancel button, not the render path.
+    queueMicrotask(() => this.store.layoutBusy.set(true));
+
+    this.zone.runOutsideAngular(() => {
+      void this.layoutRunner
+        .run({
+          nodes: matrices.nodes,
+          edges: matrices.edges,
+          settings,
+          iterations,
+          progressEvery: Math.max(1, Math.round(iterations / 50)),
+          isStale: () =>
+            gen !== this.layoutGen ||
+            this.store.dataVersion().version !== runVersion,
+          onProgress: (done, total) => {
+            this.layoutProgress = { done, total };
+          },
+        })
+        .then((result) => this.finishLayout(result, gen, runVersion, saved));
+    });
+  }
+
+  /**
+   * User-facing cancel (toolbar button): the in-flight worker is
+   * terminated and nothing is committed. Positions stay exactly where
+   * they were — an honest no-op, not a partial layout.
+   */
+  cancelLayout(): void {
+    this.cancelLayoutRun();
+  }
+
+  /**
+   * Invalidate + terminate the in-flight run, if any. `layoutGen` bumps
+   * first so the pending resolve drops out of `finishLayout` before it
+   * can touch flags owned by a newer run.
+   */
+  private cancelLayoutRun(): void {
+    if (!this.layoutRunner.running) return;
+    this.layoutGen++;
+    this.layoutRunner.cancel();
+    this.layoutBusy = false;
+    this.layoutProgress = null;
+    this.stageRef.nativeElement.removeAttribute('aria-busy');
+    queueMicrotask(() => this.store.layoutBusy.set(false));
+  }
+
+  /**
+   * Commit path for a finished layout pass. Runs outside Angular (worker
+   * promise chain): drops stale/cancelled/error results without touching
+   * the graph, then applies positions, re-validates coordinates, restores
+   * pinned nodes, freezes the normalized bbox and settles the camera.
+   */
+  private finishLayout(
+    result: Fa2RunResult,
+    gen: number,
+    runVersion: number,
+    saved: ReadonlyMap<string, { x: number; y: number }>,
+  ): void {
+    if (gen !== this.layoutGen) return; // superseded — a newer run owns the flags
+    this.layoutBusy = false;
+    this.layoutProgress = null;
+    this.stageRef.nativeElement.removeAttribute('aria-busy');
+    this.store.layoutBusy.set(false);
+
+    if (result.status === 'error') {
+      this.store.reportDiagnostics(
+        'O cálculo de layout falhou — as posições anteriores foram mantidas.',
+      );
+      return;
+    }
+    // 'cancelled' / 'stale': honest no-op — geometry untouched.
+    if (result.status !== 'done' || !result.nodes) return;
+
+    const graph = this.graph;
+    const sigma = this.sigma;
+    if (!graph || !sigma) return;
+    // The graph moved on after this run serialized it — drop wholesale.
+    if (this.store.dataVersion().version !== runVersion) return;
+    if (result.nodes.length !== graph.order * FA2_NODE_STRIDE) {
+      this.store.reportDiagnostics(
+        'Resultado de layout inconsistente com o grafo atual — descartado.',
+      );
+      return;
     }
 
-    // Post-layout sanitize: a node FA2 leaves at NaN/Infinity is dropped
-    // (edges cascade) — a diagnostic reports it; rendering continues.
+    this.lastLayoutMs = result.elapsedMs;
+
+    // Apply worker positions in serialization order — one batched
+    // updateEachNodeAttributes (single graph event → single sigma pass),
+    // not 2000 per-node sets. A node FA2 leaves at NaN/Infinity is dropped
+    // (edges cascade) — reported, never silent.
+    const matrix = result.nodes;
     const dropped: string[] = [];
-    graph.forEachNode((id, attrs) => {
-      if (!isFinitePosition(attrs['x'] as number, attrs['y'] as number)) dropped.push(id);
+    let i = 0;
+    graph.updateEachNodeAttributes((id, attrs) => {
+      const x = matrix[i] as number;
+      const y = matrix[i + 1] as number;
+      i += FA2_NODE_STRIDE;
+      if (isFinitePosition(x, y)) {
+        attrs['x'] = x;
+        attrs['y'] = y;
+      } else {
+        dropped.push(id);
+      }
+      return attrs;
     });
     for (const id of dropped) graph.dropNode(id);
     if (dropped.length) {
@@ -493,12 +656,17 @@ export class GraphCanvasComponent implements AfterViewInit, OnDestroy {
       );
     }
 
-    for (const [id, pos] of saved) {
-      if (graph.hasNode(id)) {
+    // Pinned positions win over layout — including pins toggled mid-run.
+    for (const id of this.store.pinnedIds()) {
+      const pos = saved.get(id);
+      if (pos && graph.hasNode(id)) {
         graph.setNodeAttribute(id, 'x', pos.x);
         graph.setNodeAttribute(id, 'y', pos.y);
       }
     }
+    // No manual refresh: sigma's graph listeners already scheduled a render,
+    // and reportPositions → commitData re-fires the sync effect → paintAll,
+    // which owns the single full refresh per data revision.
 
     // Freeze normalization around the laid-out extent (+40% headroom so
     // later expansions don't shift the frame). Graph-space bbox computed
@@ -527,9 +695,9 @@ export class GraphCanvasComponent implements AfterViewInit, OnDestroy {
     graph.forEachNode((id, attrs) => {
       positions.set(id, { x: attrs['x'] as number, y: attrs['y'] as number });
     });
-    // Deferido para fora do effect de sync — reportPositions → commitData
-    // escreve `nodes`, que este effect lê.
-    queueMicrotask(() => this.store.reportPositions(positions));
+    // Already outside the sync effect (worker promise chain) — the write
+    // to `nodes` re-runs paintAll harmlessly via the unchanged version.
+    this.store.reportPositions(positions);
 
     // Relayout explícito invalida a câmera persistida (foi medida sobre o
     // layout anterior — restaurá-la joga todos os nós para fora do frustum).
@@ -602,60 +770,54 @@ export class GraphCanvasComponent implements AfterViewInit, OnDestroy {
     }
 
     const vmById = new Map(nodes.map((n) => [n.id, n]));
-    graph.forEachNode((id) => {
+    // Batched write: updateEachNodeAttributes fires ONE graph event for the
+    // whole pass — the previous per-attribute sets emitted ~7 sigma events
+    // per node (a ~170 ms main-thread task at 2000 nodes on relayout).
+    graph.updateEachNodeAttributes((id, attrs) => {
       const vm = vmById.get(id);
-      if (!vm) return;
+      if (!vm) return attrs;
       const isSelected = id === selectedNode;
       const isFocused = id === kbdFocus;
       const isPinned = pinned.has(id);
       const isNeighbor = incident.has(id);
       const isBusy = busy.has(id);
-      graph.setNodeAttribute(id, 'label', vm.label);
-      graph.setNodeAttribute(id, 'size', this.nodeSize(vm, degree.get(id) ?? 0));
-      graph.setNodeAttribute(
-        id,
-        'color',
-        isSelected
-          ? palette.nodeSelected
-          : isFocused
-            ? palette.nodeFocused
-            : isPinned
-              ? palette.nodePinned
-              : vm.kind === 'file'
-                ? palette.nodeFile
-                : isNeighbor || !selectedNode
-                  ? palette.node
-                  : palette.edgeDim,
-      );
-      graph.setNodeAttribute(id, 'zIndex', isSelected ? 4 : isFocused || isPinned ? 3 : 1);
-      graph.setNodeAttribute(id, 'highlighted', isSelected || isFocused);
-      graph.setNodeAttribute(
-        id,
-        'forceLabel',
-        isSelected || isFocused || isPinned || isBusy,
-      );
+      attrs['label'] = vm.label;
+      attrs['size'] = this.nodeSize(vm, degree.get(id) ?? 0);
+      attrs['color'] = isSelected
+        ? palette.nodeSelected
+        : isFocused
+          ? palette.nodeFocused
+          : isPinned
+            ? palette.nodePinned
+            : vm.kind === 'file'
+              ? palette.nodeFile
+              : isNeighbor || !selectedNode
+                ? palette.node
+                : palette.edgeDim;
+      attrs['zIndex'] = isSelected ? 4 : isFocused || isPinned ? 3 : 1;
+      attrs['highlighted'] = isSelected || isFocused;
+      attrs['forceLabel'] = isSelected || isFocused || isPinned || isBusy;
       // Selected node's neighbors get a subtle halo via zIndex bump.
-      if (isNeighbor && !isSelected) graph.setNodeAttribute(id, 'zIndex', 2);
+      if (isNeighbor && !isSelected) attrs['zIndex'] = 2;
+      return attrs;
     });
 
     const edgeVm = new Map(edges.map((e) => [e.id, e]));
-    graph.forEachEdge((id) => {
+    graph.updateEachEdgeAttributes((id, attrs) => {
       const vm = edgeVm.get(id);
-      if (!vm) return;
+      if (!vm) return attrs;
       const level = toEvidenceLevel(vm.resolutionStatus);
       const selected = id === selectedEdge;
       const touchesSel = selectedNode && (vm.from === selectedNode || vm.to === selectedNode);
-      graph.setEdgeAttribute(id, 'color', selected ? palette.nodeSelected : palette.statuses[level]);
-      graph.setEdgeAttribute(
-        id,
-        'size',
+      attrs['color'] = selected ? palette.nodeSelected : palette.statuses[level];
+      attrs['size'] =
         (selected ? 2.5 : level === 'verified' ? 1.8 : level === 'supported' ? 1.4 : 1) *
-          (touchesSel ? 1.6 : 1),
-      );
+        (touchesSel ? 1.6 : 1);
       // Non-color marker: the evidence glyph is drawn at the edge midpoint.
-      graph.setEdgeAttribute(id, 'label', EVIDENCE_MARKERS[level] ?? '');
-      graph.setEdgeAttribute(id, 'zIndex', selected || touchesSel ? 3 : 1);
-      graph.setEdgeAttribute(id, 'type', 'arrow');
+      attrs['label'] = EVIDENCE_MARKERS[level] ?? '';
+      attrs['zIndex'] = selected || touchesSel ? 3 : 1;
+      attrs['type'] = 'arrow';
+      return attrs;
     });
 
     sigma.refresh();

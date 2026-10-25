@@ -217,8 +217,9 @@ export function isFinitePosition(
 
 /**
  * Bounded ForceAtlas2 iteration count: ~60k units of work per pass,
- * clamped to [80, 400] so the synchronous layout can never run unbounded
- * — tiny graphs still converge, huge graphs stay under the frame budget.
+ * clamped to [80, 400] so the async (worker) layout can never run
+ * unbounded — tiny graphs still converge, huge graphs stay under a
+ * bounded wall-time budget.
  */
 export function layoutIterations(order: number): number {
   const n = Math.max(1, Math.floor(order) || 1);
