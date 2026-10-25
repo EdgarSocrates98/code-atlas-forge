@@ -36,6 +36,7 @@ import os
 import re
 import socket
 import subprocess
+import sys
 import tempfile
 import threading
 import time
@@ -45,6 +46,11 @@ from pathlib import Path
 from unittest import mock
 
 import pytest
+
+POSIX_ONLY = pytest.mark.skipif(
+    sys.platform == "win32",
+    reason="POSIX-only surface: bash build script / control-char filenames",
+)
 
 import code_atlas.api.server as server_mod
 from code_atlas.api.server import serve
@@ -778,11 +784,13 @@ class TestBuildReleaseScript:
             capture_output=True, text=True, timeout=30,
             cwd=cwd or REPO_ROOT, env=env)
 
+    @POSIX_ONLY
     def test_bash_syntax_valid(self) -> None:
         r = subprocess.run(["bash", "-n", str(BUILD_SCRIPT)],
                            capture_output=True, text=True, timeout=15)
         assert r.returncode == 0, r.stderr
 
+    @POSIX_ONLY
     def test_non_numeric_source_date_epoch_fails_fast(self) -> None:
         """SDE hostil do ambiente → FATAL antes de npm/build (N5)."""
         for bad in ("abc", "123;id", "$(id)", "12 34", "-1",
@@ -792,11 +800,13 @@ class TestBuildReleaseScript:
             assert "SOURCE_DATE_EPOCH" in r.stderr
             assert "npm" not in r.stderr  # falha antes do estágio npm
 
+    @POSIX_ONLY
     def test_unknown_flag_rejected(self) -> None:
         r = self._run(None, None, "--pwn")
         assert r.returncode == 2
         assert "unknown flag" in r.stderr
 
+    @POSIX_ONLY
     def test_root_anchored_to_script_not_cwd(self) -> None:
         """cwd hostil não move o ROOT — o script ancora em
         ``BASH_SOURCE``; rodar de /tmp falha igual pelo SDE."""
@@ -823,6 +833,7 @@ class TestVerboseProgressHonest:
     """E2E: index com filename hostil — o canal ``--verbose`` continua
     emitindo só ``[index] <evento> k=v`` de campos fixos."""
 
+    @POSIX_ONLY
     def test_hostile_filename_never_reaches_progress(
         self, tmp_path: Path, capsys: pytest.CaptureFixture[str]
     ) -> None:

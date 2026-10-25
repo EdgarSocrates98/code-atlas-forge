@@ -296,6 +296,9 @@ export class GraphCanvasComponent implements AfterViewInit, OnDestroy {
     this.graph = new Graph({ multi: false, type: 'directed' });
     const motion = this.motionZero();
     this.sigma = new Sigma(this.graph, container, {
+      // Container can be 0x0 transiently during mount/unmount churn and
+      // view transitions — that is a legit state, not a Sigma error.
+      allowInvalidContainer: true,
       renderEdgeLabels: true,
       edgeLabelSize: 11,
       edgeLabelColor: { attribute: 'color' },
