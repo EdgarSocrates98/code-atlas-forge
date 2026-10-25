@@ -1,0 +1,355 @@
+{
+  "schema": 1,
+  "method": "hand-labeled expected blast radius per scenario — labels written from the fixture files + declared traversal semantics (DEPENDS_ON-style edges propagate to->from; WRITES_TO/TRANSFORMS/PROVISIONS/TRIGGERS/DEPLOYS/DEFINES are coupled both ways; REFERENCES only when it is an identity pair). Expected names are the ImpactCandidate.qualified_name forms the engine emits (domain nodes carry the 'domain:' display prefix; symbol nodes carry the bare code qualified_name).",
+  "scenarios": [
+    {
+      "id": "sql-table-change",
+      "prompt_class": "SQL table change",
+      "fixture": "tests/fixtures/sql_warehouse",
+      "domains": ["sql"],
+      "cross_domain": false,
+      "seed": "landing.orders",
+      "task": "what breaks if table landing.orders changes",
+      "expected": {
+        "direct": [
+          "sql:staging.v_enriched_orders",
+          "sql:staging/02_staging.sql#0",
+          "sql:broken/99_broken.sql#1"
+        ],
+        "transitive": [
+          "sql:staging.order_facts",
+          "sql:staging/02_staging.sql#1",
+          "sql:mart.daily_revenue",
+          "sql:mart.customer_stats",
+          "sql:mart/03_mart.sql#0",
+          "sql:mart/03_mart.sql#1",
+          "sql:broken/99_broken.sql#0"
+        ],
+        "absent": [
+          "sql:landing.customers",
+          "sql:landing.orders.order_id",
+          "sql:staging.v_enriched_orders.order_id",
+          "sql:staging.v_enriched_orders.customer_id",
+          "sql:landing/01_landing.sql#2"
+        ]
+      },
+      "notes": "Pipeline landing->staging->mart. The seed is the TABLE entity only — column entities (landing.orders.order_id...) carry their own edges and are not reachable from the table seed. landing.customers joins the same view but is a sibling source, not a dependent. landing/01_landing.sql#2 writes only landing.customers."
+    },
+    {
+      "id": "iceberg-table-change",
+      "prompt_class": "Iceberg table change",
+      "fixture": "tests/fixtures/aws_repo",
+      "domains": ["aws-data"],
+      "cross_domain": false,
+      "seed": "lake.db.orders",
+      "task": "what breaks if Iceberg table lake.db.orders changes",
+      "expected": {
+        "direct": [
+          "aws-data:lake.db.orders_archive",
+          "aws-data:glue/jobs/iceberg_upsert.py@L19#0",
+          "aws-data:glue/jobs/iceberg_upsert.py@L25#0",
+          "aws-data:glue/jobs.iceberg_upsert"
+        ],
+        "transitive": [],
+        "absent": [
+          "aws-data:updates_src",
+          "aws-data:lake.db.orders.snapshots",
+          "aws-data:lake.db.orders.id",
+          "aws-data:lake.db.orders.qty",
+          "aws-data:s3://inbound-bucket/orders",
+          "aws-data:lake",
+          "aws-data:awsdatacatalog.lake_db.agg_orders"
+        ]
+      },
+      "notes": "Iceberg catalog table: archive derives from it (DERIVES_FROM), two spark.sql statements read it (READS_FROM), the glue job writes it (WRITES_TO coupled). updates_src is UPSTREAM (DERIVES_FROM lake.db.orders -> updates_src is from-side, not traversed). The meta-table orders.snapshots and source bucket are not dependents."
+    },
+    {
+      "id": "pyspark-job-change",
+      "prompt_class": "PySpark job change",
+      "fixture": "tests/fixtures/pyspark_repo",
+      "domains": ["pyspark"],
+      "cross_domain": false,
+      "seed": "etl_orders",
+      "task": "what breaks if spark job etl_orders changes",
+      "expected": {
+        "direct": [],
+        "transitive": [],
+        "absent": [
+          "pyspark:etl_orders.py#orders@18",
+          "pyspark:etl_orders.py#customers@19",
+          "pyspark:etl_orders.py#archive@20",
+          "pyspark:etl_orders.py#all_customers@22",
+          "pyspark:etl_orders.py#enriched@24",
+          "pyspark:mart.enriched_orders",
+          "pyspark:s3://datalake/mart/enriched_orders/"
+        ]
+      },
+      "notes": "Honest direction check: the spark_job only has OUTGOING CONTAINS edges (aggregate contains its transformations — change in the part impacts the aggregate, not the reverse). Nothing declares a dependency ON the job entity, so the labeled blast is EMPTY. The transformations/written tables must NOT be fabricated as dependents (they change WITH the job, not BECAUSE of it)."
+    },
+    {
+      "id": "pyspark-table-change",
+      "prompt_class": "PySpark job change (adjacent: table read by jobs)",
+      "fixture": "tests/fixtures/pyspark_repo",
+      "domains": ["pyspark"],
+      "cross_domain": false,
+      "seed": "staging.orders",
+      "task": "what breaks if table staging.orders (read by spark jobs) changes",
+      "expected": {
+        "direct": [
+          "pyspark:etl_orders.py#orders@18",
+          "pyspark:views_job.py#orders@12",
+          "pyspark:mart.enriched_orders",
+          "pyspark:s3://datalake/mart/enriched_orders/",
+          "pyspark:mart.joined"
+        ],
+        "transitive": [
+          "pyspark:etl_orders.py#enriched@24",
+          "pyspark:etl_orders",
+          "pyspark:orders_v",
+          "pyspark:views_job",
+          "pyspark:views_job.py#joined@15"
+        ],
+        "absent": [
+          "pyspark:staging.customers",
+          "pyspark:staging.regions",
+          "pyspark:mart.customer_region_counts",
+          "pyspark:mart.daily",
+          "pyspark:staging.daily_source",
+          "pyspark:staging.events",
+          "pyspark:staging.incoming_clean",
+          "pyspark:dynamic_job"
+        ]
+      },
+      "notes": "Two jobs read staging.orders (etl_orders, views_job); mart.enriched_orders and mart.joined derive from it; the s3 mart mirror is coupled via WRITES_TO. Transitives reach the containing jobs and the enriched transformation. staging.customers is a sibling source — never a dependent of orders."
+    },
+    {
+      "id": "api-endpoint-removal",
+      "prompt_class": "API endpoint removal",
+      "fixture": "tests/fixtures/api_repo",
+      "domains": ["api"],
+      "cross_domain": false,
+      "seed": "GET /pets/",
+      "task": "what breaks if FastAPI route GET /pets/ is removed",
+      "expected": {
+        "direct": [
+          "api:app.routers#pets_router",
+          "app.routers.list_pets"
+        ],
+        "transitive": [
+          "app.routers",
+          "app/routers.py"
+        ],
+        "absent": [
+          "api:app.routers#pets_router.GET /pets/{pet_id}",
+          "api:openapi/petstore.yaml#pet-store.GET /v1/pets",
+          "api:web.routes#router.GET /api/items/{id}",
+          "web.client.loadPets",
+          "app.client.fetch_pets"
+        ]
+      },
+      "notes": "Removing the route hits the router aggregate (CONTAINS) and the handler symbol list_pets (DEFINES coupled — the domain->code bridge), then the module + file symbols via code relations. The sibling route GET /pets/{pet_id} and the OpenAPI contract endpoints are NOT dependents of this FastAPI route (different identity, unmounted prefix)."
+    },
+    {
+      "id": "api-contract-endpoint-removal",
+      "prompt_class": "API endpoint removal (OpenAPI contract)",
+      "fixture": "tests/fixtures/api_repo",
+      "domains": ["api"],
+      "cross_domain": false,
+      "seed": "GET /v1/pets",
+      "task": "what breaks if contract endpoint GET /v1/pets is removed",
+      "expected": {
+        "direct": [
+          "api:openapi/petstore.yaml#pet-store"
+        ],
+        "transitive": [
+          "api:openapi/petstore.yaml"
+        ],
+        "absent": [
+          "api:openapi/petstore.yaml#pet-store.POST /v1/pets",
+          "api:openapi/petstore.yaml#pet-store.GET /v1/pets/{petId}",
+          "api:openapi/spec.json#json-api.GET /base/things",
+          "app.client.fetch_pets",
+          "web.client.loadPets"
+        ]
+      },
+      "notes": "Contract endpoint removal reaches the pet-store api_service (CONTAINS) and the spec file entity (DEFINES coupled). Consumer CALLS_ENDPOINT edges in this fixture point at unresolved/external TEXT targets (no cross-domain resolution in the api-only index) — so no consumer symbol is a verified dependent; the pending references count as uncertainty, never blast."
+    },
+    {
+      "id": "openapi-spec-change",
+      "prompt_class": "OpenAPI schema change",
+      "fixture": "tests/fixtures/api_repo",
+      "domains": ["api"],
+      "cross_domain": false,
+      "seed": "openapi/petstore.yaml",
+      "task": "what breaks if the petstore OpenAPI spec file changes",
+      "expected": {
+        "direct": [
+          "api:openapi/petstore.yaml#pet-store"
+        ],
+        "transitive": [],
+        "absent": [
+          "api:openapi/petstore.yaml#pet-store.GET /v1/pets",
+          "api:openapi/petstore.yaml#pet-store.GET /v1/pets/{petId}",
+          "api:openapi/petstore.yaml#pet-store.POST /v1/pets",
+          "api:openapi/anchored.yaml#anchored-api",
+          "api:openapi/malformed.yaml#broken-spec",
+          "api:openapi/spec.json#json-api",
+          "api:app.main#app"
+        ]
+      },
+      "notes": "DEFINES (file -> api_service) is coupled: the file reaches the api_service it declares. The service->endpoints direction is CONTAINS (part->aggregate only) — the endpoints are NOT reached from the spec file; component schemas (#/components/schemas/*) are not entities at all (unresolved text targets)."
+    },
+    {
+      "id": "terraform-module-change",
+      "prompt_class": "Terraform module change",
+      "fixture": "tests/fixtures/terraform_infra",
+      "domains": ["terraform"],
+      "cross_domain": false,
+      "seed": "module.network",
+      "task": "what breaks if terraform module network changes",
+      "expected": {
+        "direct": [
+          "terraform:module.network.aws_s3_bucket.flow_logs@dev",
+          "terraform:module.network.aws_cloudwatch_log_group.flow@dev"
+        ],
+        "transitive": [],
+        "absent": [
+          "terraform:module.root@dev",
+          "terraform:module.shared@dev",
+          "terraform:module.extra@dev",
+          "terraform:aws_s3_bucket.data@dev",
+          "terraform:unresolved:broken.aws_s3_bucket.broken"
+        ]
+      },
+      "notes": "PROVISIONS is coupled both ways: the module reaches the two resources it provisions. module.root/shared/extra declare nothing about module.network — untouched. The broken/ resources stay unresolved and out of the blast."
+    },
+    {
+      "id": "iam-role-removal",
+      "prompt_class": "IAM role removal",
+      "fixture": "tests/fixtures/terraform_infra",
+      "domains": ["terraform"],
+      "cross_domain": false,
+      "seed": "aws_iam_role.glue",
+      "task": "what breaks if IAM role aws_iam_role.glue is removed",
+      "expected": {
+        "direct": [
+          "terraform:aws_glue_job.etl@dev",
+          "terraform:aws_emr_cluster.analytics@dev",
+          "terraform:aws_iam_role_policy_attachment.glue@dev",
+          "terraform:aws_iam_role_policy.extra@dev",
+          "terraform:aws_sfn_state_machine.pipeline@dev",
+          "terraform:module.root@dev"
+        ],
+        "transitive": [
+          "terraform:aws_iam_role.lambda_exec@dev",
+          "terraform:aws_iam_policy.glue_s3@dev",
+          "terraform:aws_s3_bucket.data@dev",
+          "terraform:aws_lambda_function.trigger@dev",
+          "terraform:aws_cloudwatch_log_group.lambda@dev",
+          "terraform:aws_cloudwatch_metric_alarm.depth@dev",
+          "terraform:aws_sqs_queue.workers@dev",
+          "terraform:data.aws_iam_policy_document.extra@dev",
+          "terraform:data.terraform_remote_state.network@dev",
+          "terraform:random_id.suffix@dev"
+        ],
+        "absent": [
+          "terraform:module.network@dev",
+          "terraform:module.network.aws_s3_bucket.flow_logs@dev",
+          "terraform:module.network.aws_cloudwatch_log_group.flow@dev",
+          "terraform:module.extra@dev",
+          "terraform:module.shared@dev",
+          "terraform:unresolved:broken.aws_s3_bucket.broken",
+          "terraform:unresolved:broken.aws_s3_bucket.survivor"
+        ]
+      },
+      "notes": "Role removal ripples through every declared dependent (jobs, cluster, sfn, policies, attachment) and — because PROVISIONS is coupled — through module.root into the whole declared estate (16 of 24 entities). The network module tree, the registry/shared/extra modules and the broken unresolved resources stay out: nothing ties them to this role."
+    },
+    {
+      "id": "gh-actions-change",
+      "prompt_class": "GH Actions change",
+      "fixture": "tests/fixtures/cicd_repo",
+      "domains": ["cicd"],
+      "cross_domain": false,
+      "seed": "reusable.yml#Reusable Checks",
+      "task": "what breaks if the reusable workflow Reusable Checks changes",
+      "expected": {
+        "direct": [
+          "cicd:.github/workflows.release.yml#Release/jobs/call-reusable"
+        ],
+        "transitive": [
+          "cicd:.github/workflows.release.yml#Release",
+          "cicd:.github/workflows.release.yml#Release/jobs/release",
+          "cicd:.github/workflows.release.yml#Release/jobs/deploy"
+        ],
+        "absent": [
+          "cicd:.github/workflows.ci.yml#CI",
+          "cicd:.github/workflows.ci.yml#CI/jobs/build",
+          "cicd:.github/workflows.ci.yml#CI/jobs/lint",
+          "cicd:.github/workflows.ci.yml#CI/jobs/test",
+          "cicd:.github/workflows.release.yml#Release/jobs/call-external",
+          "cicd:.github/workflows.reusable.yml#Reusable Checks/jobs/reusable-job",
+          "cicd:.github/workflows.broken.yml#Broken"
+        ]
+      },
+      "notes": "The reusable workflow is referenced (REFERENCES resolved) by job call-reusable, which is needed by release, which deploy needs; the Release workflow aggregate is hit via CONTAINS. The CI workflow, the external-octocat caller and the reusable job itself are unrelated."
+    },
+    {
+      "id": "cross-repo-dependency",
+      "prompt_class": "cross-repo dependency (cross-domain analog)",
+      "fixture": "tests/fixtures/crossdomain_ws",
+      "domains": ["sql", "pyspark", "api"],
+      "cross_domain": true,
+      "seed": "sql:staging.orders",
+      "task": "what breaks if the sql-declared staging.orders changes (cross-adapter consumers)",
+      "expected": {
+        "direct": [
+          "pyspark:staging.orders"
+        ],
+        "transitive": [
+          "pyspark:mart.joined",
+          "pyspark:jobs/etl.py#orders@13",
+          "pyspark:jobs/etl.py#joined@17",
+          "pyspark:jobs/etl"
+        ],
+        "absent": [
+          "sql:staging.events",
+          "pyspark:staging.events",
+          "pyspark:shared.metrics",
+          "sql:cat_a.shared.metrics",
+          "sql:cat_b.shared.metrics",
+          "pyspark:mart.metrics_out",
+          "api:openapi/spec.yaml#pet-service"
+        ]
+      },
+      "notes": "Cross-domain (not cross-repo — snapshot isolation makes cross-repo blast impossible BY DESIGN; this is the prompt class measured at the domain layer): the REFERENCES identity bridge links the sql and pyspark views of the same logical table, then DERIVES_FROM/READS_FROM/CONTAINS carry the blast into the etl job. shared.metrics is an AMBIGUOUS cross-domain pair (cat_a vs cat_b) — it must stay out of the verified blast."
+    },
+    {
+      "id": "api-consumer-call",
+      "prompt_class": "cross-repo dependency (resolved caller)",
+      "fixture": "tests/fixtures/crossdomain_ws",
+      "domains": ["sql", "pyspark", "api"],
+      "cross_domain": true,
+      "seed": "POST /v1/pets",
+      "task": "who/what is affected when contract endpoint POST /v1/pets changes",
+      "expected": {
+        "direct": [
+          "api:openapi/spec.yaml#pet-service",
+          "app.client.post_pet"
+        ],
+        "transitive": [
+          "api:openapi/spec.yaml",
+          "app.client",
+          "app/client.py"
+        ],
+        "absent": [
+          "api:openapi/spec.yaml#pet-service.GET /v1/pets",
+          "app.client.get_missing",
+          "web.client.loadPets",
+          "pyspark:staging.orders",
+          "sql:staging.orders"
+        ]
+      },
+      "notes": "CrossDomainResolver bound sym:app.client.post_pet's CALLS_ENDPOINT to the endpoint entity (resolved) — the caller becomes a verified dependent through the domain->symbol bridge; module + file symbols follow through code relations. The sibling GET endpoint, the unresolved /v1/missing caller and the ambiguous TS caller stay out."
+    }
+  ]
+}

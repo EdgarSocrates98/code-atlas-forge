@@ -1,0 +1,179 @@
+{
+  "schema": 1,
+  "method": "real task-like questions over the domain fixtures. Each task labels the fact set a correct answer must contain (the ImpactCandidate.qualified_name forms measured in lf-0135 — same names, same seeds). Arms: (a) no-atlas = iterative literal grep+read simulation over the fixture tree; (b) pack-only = real DomainContextEngine.build_domain pack (budget 4000); (c) atlas+search = real `impact symbol` JSON and real `domains entities/lineage` calls. Proxy only — no LLM/agent harness exists (declared NOT RUN).",
+  "tasks": [
+    {
+      "id": "blast-landing-orders",
+      "question": "what breaks if table landing.orders changes",
+      "fixture": "tests/fixtures/sql_warehouse",
+      "domains": ["sql"],
+      "cross_domain": false,
+      "seed": "landing.orders",
+      "seed_domain": "sql",
+      "grep_seeds": ["landing.orders"],
+      "facts": [
+        "sql:staging.v_enriched_orders",
+        "sql:staging.order_facts",
+        "sql:mart.daily_revenue",
+        "sql:mart.customer_stats",
+        "sql:staging/02_staging.sql#0",
+        "sql:staging/02_staging.sql#1",
+        "sql:mart/03_mart.sql#0",
+        "sql:mart/03_mart.sql#1",
+        "sql:broken/99_broken.sql#0",
+        "sql:broken/99_broken.sql#1"
+      ],
+      "notes": "10 verified blast nodes over a 5-file SQL warehouse — the pack/impact must beat read-everything in both tokens and queries."
+    },
+    {
+      "id": "blast-iceberg-orders",
+      "question": "what breaks if Iceberg table lake.db.orders changes",
+      "fixture": "tests/fixtures/aws_repo",
+      "domains": ["aws-data"],
+      "cross_domain": false,
+      "seed": "lake.db.orders",
+      "seed_domain": "aws-data",
+      "grep_seeds": ["lake.db.orders"],
+      "facts": [
+        "aws-data:lake.db.orders_archive",
+        "aws-data:glue/jobs/iceberg_upsert.py@L19#0",
+        "aws-data:glue/jobs/iceberg_upsert.py@L25#0",
+        "aws-data:glue/jobs.iceberg_upsert"
+      ],
+      "notes": "4 dependents of the catalog table (archive + 2 statements + the glue job) spread across a 30-file repo — grep must read many files to confirm."
+    },
+    {
+      "id": "blast-spark-orders",
+      "question": "what breaks if table staging.orders (read by spark jobs) changes",
+      "fixture": "tests/fixtures/pyspark_repo",
+      "domains": ["pyspark"],
+      "cross_domain": false,
+      "seed": "staging.orders",
+      "seed_domain": "pyspark",
+      "grep_seeds": ["staging.orders"],
+      "facts": [
+        "pyspark:etl_orders.py#orders@18",
+        "pyspark:etl_orders.py#enriched@24",
+        "pyspark:etl_orders",
+        "pyspark:views_job.py#orders@12",
+        "pyspark:views_job.py#joined@15",
+        "pyspark:views_job",
+        "pyspark:orders_v",
+        "pyspark:mart.enriched_orders",
+        "pyspark:s3://datalake/mart/enriched_orders/",
+        "pyspark:mart.joined"
+      ],
+      "notes": "10 blast nodes across two jobs — including the job entities themselves (reachable only via CONTAINS, invisible to data-flow lineage)."
+    },
+    {
+      "id": "endpoint-pets-get",
+      "question": "what breaks if FastAPI route GET /pets/ is removed",
+      "fixture": "tests/fixtures/api_repo",
+      "domains": ["api"],
+      "cross_domain": false,
+      "seed": "GET /pets/",
+      "seed_domain": "api",
+      "grep_seeds": ["/pets"],
+      "facts": [
+        "api:app.routers#pets_router",
+        "app.routers.list_pets",
+        "app.routers",
+        "app/routers.py"
+      ],
+      "notes": "Route removal hits the router aggregate + handler symbol + module + file — the code-symbol facts come through the DEFINES domain->code bridge."
+    },
+    {
+      "id": "terraform-module",
+      "question": "what breaks if terraform module network changes",
+      "fixture": "tests/fixtures/terraform_infra",
+      "domains": ["terraform"],
+      "cross_domain": false,
+      "seed": "module.network",
+      "seed_domain": "terraform",
+      "grep_seeds": ["network"],
+      "facts": [
+        "terraform:module.network.aws_s3_bucket.flow_logs@dev",
+        "terraform:module.network.aws_cloudwatch_log_group.flow@dev"
+      ],
+      "notes": "Two provisioned resources inside the module — reachable via coupled PROVISIONS."
+    },
+    {
+      "id": "iam-role-glue",
+      "question": "what breaks if IAM role aws_iam_role.glue is removed",
+      "fixture": "tests/fixtures/terraform_infra",
+      "domains": ["terraform"],
+      "cross_domain": false,
+      "seed": "aws_iam_role.glue",
+      "seed_domain": "terraform",
+      "grep_seeds": ["aws_iam_role.glue"],
+      "facts": [
+        "terraform:aws_glue_job.etl@dev",
+        "terraform:aws_emr_cluster.analytics@dev",
+        "terraform:aws_iam_role_policy_attachment.glue@dev",
+        "terraform:aws_iam_role_policy.extra@dev",
+        "terraform:aws_sfn_state_machine.pipeline@dev",
+        "terraform:module.root@dev",
+        "terraform:aws_iam_role.lambda_exec@dev",
+        "terraform:aws_iam_policy.glue_s3@dev",
+        "terraform:aws_s3_bucket.data@dev",
+        "terraform:aws_lambda_function.trigger@dev",
+        "terraform:aws_cloudwatch_log_group.lambda@dev",
+        "terraform:aws_cloudwatch_metric_alarm.depth@dev",
+        "terraform:aws_sqs_queue.workers@dev",
+        "terraform:data.aws_iam_policy_document.extra@dev",
+        "terraform:data.terraform_remote_state.network@dev",
+        "terraform:random_id.suffix@dev"
+      ],
+      "notes": "16 of 24 terraform entities — the widest blast in the corpus; no-atlas has to read nearly every .tf file."
+    },
+    {
+      "id": "cicd-reusable",
+      "question": "what breaks if the reusable workflow Reusable Checks changes",
+      "fixture": "tests/fixtures/cicd_repo",
+      "domains": ["cicd"],
+      "cross_domain": false,
+      "seed": "reusable.yml#Reusable Checks",
+      "seed_domain": "cicd",
+      "grep_seeds": ["reusable.yml"],
+      "facts": [
+        "cicd:.github/workflows.release.yml#Release/jobs/call-reusable",
+        "cicd:.github/workflows.release.yml#Release",
+        "cicd:.github/workflows.release.yml#Release/jobs/release",
+        "cicd:.github/workflows.release.yml#Release/jobs/deploy"
+      ],
+      "notes": "Caller job + its needs-chain (release -> deploy) + workflow aggregate — 4 nodes over 4 workflow files."
+    },
+    {
+      "id": "xdomain-sql-orders",
+      "question": "what breaks if the sql-declared staging.orders changes (cross-adapter consumers)",
+      "fixture": "tests/fixtures/crossdomain_ws",
+      "domains": ["sql", "pyspark", "api"],
+      "cross_domain": true,
+      "seed": "sql:staging.orders",
+      "seed_domain": "sql",
+      "grep_seeds": ["staging.orders"],
+      "facts": [
+        "pyspark:staging.orders",
+        "pyspark:mart.joined",
+        "pyspark:jobs/etl.py#orders@13",
+        "pyspark:jobs/etl.py#joined@17",
+        "pyspark:jobs/etl"
+      ],
+      "notes": "Blast crosses the REFERENCES identity bridge into the pyspark view of the same table — grep has no notion of the identity link but finds it by name."
+    },
+    {
+      "id": "who-calls-post-pets",
+      "question": "who calls endpoint POST /v1/pets",
+      "fixture": "tests/fixtures/crossdomain_ws",
+      "domains": ["sql", "pyspark", "api"],
+      "cross_domain": true,
+      "seed": "POST /v1/pets",
+      "seed_domain": "api",
+      "grep_seeds": ["/v1/pets"],
+      "facts": [
+        "app.client.post_pet"
+      ],
+      "notes": "Single-fact who-calls: the resolved Python caller (web.client.loadPets stays ambiguous — deliberately not a fact)."
+    }
+  ]
+}
