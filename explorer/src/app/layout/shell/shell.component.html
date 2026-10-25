@@ -1,14 +1,69 @@
 <a class="shell__skip-link" href="#shell-main">Pular para o conteúdo principal</a>
 
-<div class="shell">
+<div class="shell" [class.shell--collapsed]="sidebarCollapsed()">
   <header class="shell__toolbar" role="banner">
+    <button
+      type="button"
+      class="shell__menu-toggle"
+      (click)="toggleSidebar()"
+      [attr.aria-expanded]="!sidebarCollapsed()"
+      aria-controls="shell-sidebar"
+      [attr.aria-label]="
+        sidebarCollapsed() ? 'Mostrar navegação' : 'Ocultar navegação'
+      "
+    >
+      ☰
+    </button>
     <span class="shell__brand">Code Atlas Explorer</span>
 
-    <div class="shell__repo-selector" aria-label="Repositório atual">
-      @if (repositories.selected(); as repo) {
-        <span>{{ repo.root_handle }}</span>
-      } @else {
-        <span class="shell__repo-selector--empty">Nenhum repositório selecionado</span>
+    <div class="shell__context" aria-label="Contexto do Explorer">
+      <label class="shell__context-label" for="shell-repo-select">
+        Repositório
+      </label>
+      <select
+        id="shell-repo-select"
+        class="shell__repo-select"
+        (change)="onRepositoryChange($event)"
+        [disabled]="
+          ctx.repositoriesPhase() !== 'ready' || ctx.repositories().length === 0
+        "
+      >
+        @if (ctx.repositoriesPhase() === 'loading' || ctx.repositoriesPhase() === 'idle') {
+          <option value="">Carregando…</option>
+        } @else if (ctx.repositoriesPhase() === 'offline' || ctx.repositoriesPhase() === 'error') {
+          <option value="">API indisponível</option>
+        } @else if (ctx.repositories().length === 0) {
+          <option value="">Nenhum repositório indexado</option>
+        } @else {
+          @for (repo of ctx.repositories(); track repo.id) {
+            <option
+              value="{{ repo.id }}"
+              [selected]="ctx.activeRepository()?.id === repo.id"
+            >
+              {{ repo.root_handle }}
+            </option>
+          }
+        }
+      </select>
+      <span class="shell__snapshot">
+        @if (ctx.activeSnapshot(); as snap) {
+          snapshot #{{ snap.id }}
+        } @else if (ctx.activeRepository()) {
+          snapshot: mais recente
+        }
+      </span>
+      @if (ctx.notice(); as notice) {
+        <span class="shell__notice" role="status">
+          {{ notice }}
+          <button
+            type="button"
+            class="shell__notice-dismiss"
+            (click)="ctx.clearNotice()"
+            aria-label="Dispensar aviso"
+          >
+            ×
+          </button>
+        </span>
       }
     </div>
 
@@ -23,7 +78,12 @@
     </button>
   </header>
 
-  <nav class="shell__sidebar" aria-label="Navegação principal">
+  <nav
+    id="shell-sidebar"
+    class="shell__sidebar"
+    aria-label="Navegação principal"
+    [hidden]="sidebarCollapsed()"
+  >
     <ul>
       @for (item of navItems; track item.path) {
         <li>
@@ -34,6 +94,21 @@
   </nav>
 
   <main id="shell-main" class="shell__main" tabindex="-1">
+    @if (breadcrumbs().length > 0) {
+      <nav class="shell__breadcrumbs" aria-label="Trilha de navegação">
+        <ol>
+          @for (crumb of breadcrumbs(); track crumb.label) {
+            <li>
+              @if (crumb.path) {
+                <a [routerLink]="crumb.path">{{ crumb.label }}</a>
+              } @else {
+                <span aria-current="page">{{ crumb.label }}</span>
+              }
+            </li>
+          }
+        </ol>
+      </nav>
+    }
     <router-outlet />
   </main>
 </div>

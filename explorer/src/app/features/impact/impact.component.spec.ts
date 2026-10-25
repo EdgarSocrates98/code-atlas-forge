@@ -1,4 +1,6 @@
 import { TestBed } from '@angular/core/testing';
+import { provideRouter, Router } from '@angular/router';
+import { RouterTestingHarness } from '@angular/router/testing';
 import { ApiService } from '../../core/api/api.service';
 import { ApiUnreachableError } from '../../core/api/api.errors';
 import type {
@@ -10,6 +12,7 @@ import { ImpactComponent } from './impact.component';
 import {
   groupBlastCandidates,
   groupSymbolChanges,
+  impactToMarkdown,
   isPartialAnalysis,
   toImpactView,
 } from './impact.vm';
@@ -165,6 +168,31 @@ describe('impact view-model', () => {
     expect(clean.semanticBlocked).toBe(false);
     expect(clean.partial).toBe(false);
   });
+
+  it('maps test candidates with occurrence id for graph focus', () => {
+    const view = toImpactView(makeResult());
+    expect(view.testCandidates[0].occurrenceId).toBe(30);
+  });
+
+  it('serializes a deterministic markdown export', () => {
+    const md = impactToMarkdown(makeResult());
+    expect(md).toContain('# Análise de impacto');
+    expect(md).toContain('`pkg.a`');
+    expect(md).toContain('`pkg.b`');
+    expect(md).toContain('revisão alvo');
+    expect(md).toContain('testa pkg.a diretamente');
+    expect(md).toContain('snapshot 3');
+    expect(md).not.toContain('ANÁLISE PARCIAL');
+  });
+
+  it('flags partial analysis in the markdown export', () => {
+    const md = impactToMarkdown(
+      makeResult({
+        diagnostics: [{ code: 'partial-analysis', message: 'parcial' }],
+      }),
+    );
+    expect(md).toContain('ANÁLISE PARCIAL');
+  });
 });
 
 describe('ImpactComponent', () => {
@@ -183,7 +211,10 @@ describe('ImpactComponent', () => {
 
     await TestBed.configureTestingModule({
       imports: [ImpactComponent],
-      providers: [{ provide: ApiService, useValue: api }],
+      providers: [
+        provideRouter([{ path: 'impact', component: ImpactComponent }]),
+        { provide: ApiService, useValue: api },
+      ],
     }).compileComponents();
   });
 
@@ -246,5 +277,128 @@ describe('ImpactComponent', () => {
     component.form.baseRevision = 'HEAD~1';
     await component.analyze();
     expect(component.phase()).toBe('offline');
+  });
+
+  it('restores parameters from the URL and auto-runs the analysis', async () => {
+    const harness = await RouterTestingHarness.create();
+    const component = await harness.navigateByUrl(
+      '/impact?repo=/repo&base=HEAD~1&target=HEAD&base_snapshot=3&target_snapshot=4&possible=0&known=1&symbol=pkg.a',
+      ImpactComponent,
+    );
+    await harness.fixture.whenStable();
+
+    expect(api.analyzeImpact).toHaveBeenCalledWith(
+      jasmine.objectContaining({
+        repository_root: '/repo',
+        base_revision: 'HEAD~1',
+        target_revision: 'HEAD',
+        base_snapshot_id: 3,
+        target_snapshot_id: 4,
+        include_possible: false,
+        known_only: true,
+        symbol: 'pkg.a',
+      }),
+      jasmine.anything(),
+    );
+    expect(component.baseSnapshotId()).toBe(3);
+    expect(component.targetSnapshotId()).toBe(4);
+    expect(component.form.repositoryRoot).toBe('/repo');
+  });
+
+  it('does not auto-run without a repo param, but still restores fields', async () => {
+    const harness = await RouterTestingHarness.create();
+    const component = await harness.navigateByUrl(
+      '/impact?base=HEAD~2&target_snapshot=7',
+      ImpactComponent,
+    );
+    await harness.fixture.whenStable();
+
+    expect(api.analyzeImpact).not.toHaveBeenCalled();
+    expect(component.form.baseRevision).toBe('HEAD~2');
+    expect(component.targetSnapshotId()).toBe(7);
+    expect(component.baseSnapshotId()).toBeNull();
+  });
+
+  it('writes parameters back to the URL on analyze', async () => {
+    const harness = await RouterTestingHarness.create();
+    const component = await harness.navigateByUrl('/impact', ImpactComponent);
+    await harness.fixture.whenStable();
+
+    component.form.repositoryRoot = '/repo';
+    component.form.baseRevision = 'HEAD~1';
+    component.form.knownOnly = true;
+    await component.analyze();
+    await harness.fixture.whenStable();
+
+    const url = decodeURIComponent(TestBed.inject(Router).url);
+    expect(url).toContain('repo=/repo');
+    expect(url).toContain('base=HEAD~1');
+    expect(url).toContain('known=1');
+  });
+
+  it('renders graph-focus links on candidates with occurrence ids', async () => {
+    const fixture = TestBed.createComponent(ImpactComponent);
+    fixture.detectChanges();
+    await fixture.whenStable();
+    const component = fixture.componentInstance;
+    await component.analyze();
+    fixture.detectChanges();
+
+    const el = fixture.nativeElement as HTMLElement;
+    const hrefs = [...el.querySelectorAll<HTMLAnchorElement>('a.impact-item__graph')].map(
+      (a) => a.getAttribute('href') ?? '',
+    );
+    // blast candidate occ 9 + test candidate occ 30
+    expect(hrefs.length).toBe(2);
+    expect(hrefs.some((h) => /focus=occ(%3A|:)9/.test(h))).toBe(true);
+    expect(hrefs.some((h) => /focus=occ(%3A|:)30/.test(h))).toBe(true);
+    // revision tag stays visible next to the test candidate
+    expect(el.textContent).toContain('revisão alvo');
+    expect(el.textContent).toContain('testa pkg.a diretamente');
+  });
+
+  it('omits graph-focus links when candidates carry no occurrence id', async () => {
+    api.analyzeImpact.and.resolveTo(
+      makeResult({
+        impacts: [makeImpact({ occurrence_id: null })],
+        test_candidates: [
+          { ...makeResult().test_candidates[0], occurrence_id: null, reason: '' },
+        ],
+      }),
+    );
+    const fixture = TestBed.createComponent(ImpactComponent);
+    fixture.detectChanges();
+    await fixture.whenStable();
+    const component = fixture.componentInstance;
+    await component.analyze();
+    fixture.detectChanges();
+
+    const el = fixture.nativeElement as HTMLElement;
+    expect(el.querySelector('a.impact-item__graph')).toBeNull();
+    // honest fallback instead of an empty justification
+    expect(el.textContent).toContain('sem justificativa registrada');
+  });
+
+  it('exports the last result as JSON and Markdown blobs', async () => {
+    const fixture = TestBed.createComponent(ImpactComponent);
+    fixture.detectChanges();
+    await fixture.whenStable();
+    const component = fixture.componentInstance;
+    await component.analyze();
+
+    const createUrl = spyOn(URL, 'createObjectURL').and.returnValue('blob:fake');
+    const revoke = spyOn(URL, 'revokeObjectURL');
+    const click = spyOn(HTMLAnchorElement.prototype, 'click');
+
+    component.exportJson();
+    component.exportMarkdown();
+
+    expect(createUrl).toHaveBeenCalledTimes(2);
+    expect(click).toHaveBeenCalledTimes(2);
+    expect(revoke).toHaveBeenCalledTimes(2);
+    const jsonBlob = createUrl.calls.argsFor(0)[0] as Blob;
+    expect(jsonBlob.type).toBe('application/json');
+    const mdBlob = createUrl.calls.argsFor(1)[0] as Blob;
+    expect(mdBlob.type).toBe('text/markdown');
   });
 });
