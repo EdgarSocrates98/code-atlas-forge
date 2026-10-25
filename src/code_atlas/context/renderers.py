@@ -53,4 +53,19 @@ def render_markdown(pack: ContextPack) -> str:
         for r in pack.expansion_refs:
             lines.append(f"- `{r.ref_id}` ({r.kind}) — {r.reason}")
         lines.append("")
+    if pack.domain is not None:
+        d = pack.domain
+        lines.append(f"## Domain — {d.status} "
+                     f"(schema v{d.schema_version})")
+        if d.entity is not None:
+            e = d.entity
+            lines.append(
+                f"- {e.kind} `{e.identity_key}` — {e.qualified_name}")
+        lines.append(
+            f"- neighbors: {len(d.neighbors)}/{d.neighbors_total} "
+            f"(omitted {d.neighbors_omitted}) · "
+            f"counts: {dict(sorted(d.counts.items()))}")
+        if d.summary:
+            lines.append(f"- lineage: {d.summary}")
+        lines.append("")
     return "\n".join(lines)

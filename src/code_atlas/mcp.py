@@ -107,7 +107,51 @@ _TOOLS: dict[str, dict[str, Any]] = {
             "root": {"type": "string"}},
             "additionalProperties": False},
     },
+    "atlas_domains": {
+        "description": "adapters de domínio registrados "
+                       "(opt-in — listar não extrai)",
+        "inputSchema": {"type": "object", "properties": {},
+                        "additionalProperties": False},
+    },
+    "atlas_domain_entity": {
+        "description": "cartão de entidade de domínio: identidade, "
+                       "ocorrências, relações e evidência do snapshot",
+        "inputSchema": {"type": "object", "properties": {
+            "key": {"type": "string",
+                    "description": "identity_key 'dom:…' | id | "
+                                   "qualified_name"},
+            "root": {"type": "string"}},
+            "required": ["key"], "additionalProperties": False},
+    },
+    "atlas_domain_lineage": {
+        "description": "linhagem READS/WRITES limitada (bounded BFS) "
+                       "de uma entidade de dados",
+        "inputSchema": {"type": "object", "properties": {
+            "entity": {"type": "string",
+                       "description": "identity_key | id | "
+                                      "qualified_name"},
+            "direction": {"type": "string",
+                          "enum": ["up", "down", "both"]},
+            "depth": {"type": "integer", "maximum": 8},
+            "limit": {"type": "integer", "maximum": 500},
+            "root": {"type": "string"}},
+            "required": ["entity"], "additionalProperties": False},
+    },
+    "atlas_federation_view": {
+        "description": "view federada de um workspace "
+                       "(repo→snapshot resolvido; read-only)",
+        "inputSchema": {"type": "object", "properties": {
+            "workspace": {"type": "string",
+                          "description": "nome ou id do workspace"},
+            "pins": {"type": "object",
+                     "description": "{repository_id: snapshot_id} "
+                                    "overrides de pin"}},
+            "required": ["workspace"], "additionalProperties": False},
+    },
 }
+
+# Tools que não ancoram num repo/snapshot (lf-0123): resolvem sem _ctx.
+_GLOBAL_TOOLS = frozenset({"atlas_domains", "atlas_federation_view"})
 
 _RESOURCES = (
     ("atlas://repository", "repositório indexado"),
@@ -285,6 +329,11 @@ class AtlasMcpServer:
     def _run_tool(self, name: str, args: dict[str, Any]) -> Any:
         from code_atlas.search import SearchEngine, SearchRequest
 
+        # Tools sem escopo de repo: federação atravessa repositórios e a
+        # listagem de adapters nem toca o banco (lf-0123, Phase 15).
+        if name in _GLOBAL_TOOLS:
+            return self._run_global_tool(name, args)
+
         ctx = self._ctx(args)
         try:
             if name == "atlas_search":
@@ -325,19 +374,104 @@ class AtlasMcpServer:
                     "capabilities": dataclasses_asdict_safe(
                         SearchEngine(ctx.conn).capabilities()),
                 }
-            if name == "atlas_symbol":
-                return self._symbol(ctx, str(args["name"]))
-            if name == "atlas_references":
-                return self._references(ctx, str(args["name"]))
-            if name == "atlas_dependencies":
-                return self._dependencies(
-                    ctx, str(args.get("relation_type") or ""))
-            if name == "atlas_evidence":
-                return self._evidence(ctx, str(args["name"]))
-            return self._run_impact_tool(ctx, name, args)
+            return self._run_symbol_tool(ctx, name, args)
         finally:
             ctx.conn.close()
         raise LookupError(f"tool '{name}' não implementada")
+
+    def _run_global_tool(self, name: str, args: dict[str, Any]) -> Any:
+        """Tools que não ancoram num repo/snapshot do caller (lf-0123)."""
+        if name == "atlas_domains":
+            from code_atlas.domains.cli_surface import (
+                NOTE_OPT_IN,
+                adapters_report,
+            )
+
+            return {"adapters": adapters_report(), "note": NOTE_OPT_IN}
+        return self._federation_view(args)
+
+    def _run_symbol_tool(
+        self, ctx: _Ctx, name: str, args: dict[str, Any],
+    ) -> dict[str, Any]:
+        """Despacho das tools por qualified_name — cai nas de domínio."""
+        if name == "atlas_symbol":
+            return self._symbol(ctx, str(args["name"]))
+        if name == "atlas_references":
+            return self._references(ctx, str(args["name"]))
+        if name == "atlas_dependencies":
+            return self._dependencies(
+                ctx, str(args.get("relation_type") or ""))
+        if name == "atlas_evidence":
+            return self._evidence(ctx, str(args["name"]))
+        return self._run_domain_tool(ctx, name, args)
+
+    # ---------------------------------------------------- domains (lf-0123)
+    def _run_domain_tool(
+        self, ctx: _Ctx, name: str, args: dict[str, Any],
+    ) -> dict[str, Any]:
+        """Despacho das tools de domínio — cai no impacto como último."""
+        if name == "atlas_domain_entity":
+            return self._domain_entity(ctx, str(args["key"]))
+        if name == "atlas_domain_lineage":
+            return self._domain_lineage(ctx, args)
+        return self._run_impact_tool(ctx, name, args)
+
+    def _domain_entity(self, ctx: _Ctx, key: str) -> dict[str, Any]:
+        from code_atlas.domains.cli_surface import (
+            entity_detail,
+            resolve_single_entity,
+        )
+
+        entity, err = resolve_single_entity(ctx.conn, ctx.repo_id, key)
+        if entity is None:
+            raise LookupError(err)
+        return entity_detail(ctx.conn, entity, ctx.snapshot_id)
+
+    def _domain_lineage(
+        self, ctx: _Ctx, args: dict[str, Any]
+    ) -> dict[str, Any]:
+        from code_atlas.domains.cli_surface import (
+            lineage,
+            resolve_single_entity,
+        )
+
+        entity, err = resolve_single_entity(
+            ctx.conn, ctx.repo_id, str(args["entity"]))
+        if entity is None:
+            raise LookupError(err)
+        return lineage(
+            ctx.conn, entity, ctx.snapshot_id,
+            direction=str(args.get("direction") or "both"),
+            depth=int(args.get("depth") or 2),
+            limit=min(500, int(args.get("limit") or 200)))
+
+    def _federation_view(self, args: dict[str, Any]) -> dict[str, Any]:
+        """``atlas_federation_view`` — view repo→snapshot do workspace."""
+        from code_atlas.cli import _open_db
+        from code_atlas.federation import Federation, FederationError
+
+        conn = _open_db()
+        try:
+            fed = Federation(conn)
+            raw = args.get("pins") or {}
+            pins: dict[int, int] = {}
+            if isinstance(raw, dict):
+                pins = {int(k): int(v) for k, v in raw.items()}
+            elif isinstance(raw, str) and raw.strip():
+                for seg in raw.split(","):
+                    repo, sep, snap = seg.partition(":")
+                    if sep and repo.isdigit() and snap.isdigit():
+                        pins[int(repo)] = int(snap)
+            ws_name = str(args.get("workspace") or "")
+            if not ws_name:
+                raise LookupError("workspace obrigatório")
+            try:
+                ws = fed.get_workspace(ws_name)
+                return fed.resolve_view(ws, pins).to_dict()
+            except FederationError as exc:
+                raise LookupError(str(exc)) from exc
+        finally:
+            conn.close()
 
     def _symbol(self, ctx: _Ctx, name: str) -> dict[str, Any]:
         rows = ctx.conn.execute(

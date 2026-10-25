@@ -54,6 +54,11 @@ from code_atlas.domains.registry import (
     default_registry,
 )
 from code_atlas.domains.resolution import DomainResolution
+from code_atlas.domains.summarize import (
+    SUMMARIZE_VERSION,
+    LineageFact,
+    summarize_lineage,
+)
 from code_atlas.domains.validation import validate_extraction
 
 __all__ = [
@@ -63,6 +68,7 @@ __all__ = [
     "DOMAIN_EXTRACTOR_PREFIX",
     "DOMAIN_RELATION_TYPES",
     "ENTRYPOINT_GROUP",
+    "SUMMARIZE_VERSION",
     "AdapterDisabledError",
     "AdapterRegistryError",
     "ArtifactSupport",
@@ -90,10 +96,12 @@ __all__ = [
     "DuplicateAdapterError",
     "ExtractedDomainEntity",
     "ExtractedDomainRelation",
+    "LineageFact",
     "UnknownDomainError",
     "confidence_rank",
     "default_registry",
     "domain_extractor_id",
     "evidence_record",
+    "summarize_lineage",
     "validate_extraction",
 ]

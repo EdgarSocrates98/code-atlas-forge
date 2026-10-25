@@ -25,6 +25,8 @@ from code_atlas.context.contracts import (
     ContextItem,
     ContextPack,
     ContextRequest,
+    DomainPackRequest,
+    DomainSectionFactory,
     ExpansionRef,
     PackDiagnostics,
     PackEvidence,
@@ -101,34 +103,43 @@ class ContextEngine:
         return pack
 
     def _enforce_payload_budget(
-        self, req: ContextRequest, sid: int, budget: Budget,
+        self, req: ContextRequest | DomainPackRequest, sid: int,
+        budget: Budget,
         selected: list[ContextItem], omitted: list[ContextItem],
         essentials_cost: int, insufficient: bool,
         diags: list[str], snap_status: str,
+        *, domain_factory: DomainSectionFactory | None = None,
     ) -> ContextPack:
         """lf-0053: o orçamento cobre o payload SERIALIZADO (envelope +
         itens + metadados + diagnósticos), não só os corpos. Se estoura,
-        despeja itens de menor prioridade para ``omitted`` até caber."""
+        despeja itens de menor prioridade para ``omitted`` até caber.
+
+        lf-0121: ``domain_factory`` recebe os selecionados DE CADA
+        iteração — a seção de domínio é recriada junto com o envelope,
+        então o custo dela também é contado no payload."""
         from code_atlas.context.renderers import render_json
         sel, omit = list(selected), list(omitted)
         enforced = False
         while True:
             pack = self._pack(req, sid, budget, sel, omit,
                               essentials_cost, insufficient,
-                              diags, snap_status)
+                              diags, snap_status,
+                              domain_factory=domain_factory)
             est = self._counter.count(render_json(pack))
             if est <= budget.limit or not sel:
                 if enforced:
                     diags = [*diags, "payload-budget-enforced"]
                     pack = self._pack(req, sid, budget, sel, omit,
                                       essentials_cost, insufficient,
-                                      diags, snap_status)
+                                      diags, snap_status,
+                                      domain_factory=domain_factory)
                     est = self._counter.count(render_json(pack))
                 if est > budget.limit:
                     pack = self._pack(req, sid, budget, sel, omit,
                                       essentials_cost, True,
                                       [*diags, "payload-over-budget"],
-                                      snap_status)
+                                      snap_status,
+                                      domain_factory=domain_factory)
                     est = self._counter.count(render_json(pack))
                 # grava a estimativa final no manifest
                 return dataclasses.replace(
@@ -146,7 +157,7 @@ class ContextEngine:
             enforced = True
 
     # -------------------------------------------------------- internals
-    def _budget(self, req: ContextRequest) -> Budget:
+    def _budget(self, req: ContextRequest | DomainPackRequest) -> Budget:
         limit = max(64, min(req.budget_tokens, _MAX_BUDGET))
         meta = int(limit * _RESERVE_META)
         evid = int(limit * _RESERVE_EVID)
@@ -347,10 +358,12 @@ class ContextEngine:
         return sel, omit
 
     def _pack(
-        self, req: ContextRequest, sid: int, budget: Budget,
+        self, req: ContextRequest | DomainPackRequest, sid: int,
+        budget: Budget,
         selected: list[ContextItem], omitted: list[ContextItem],
         essentials_cost: int, insufficient: bool,
         diags: list[str], snap_status: str,
+        *, domain_factory: DomainSectionFactory | None = None,
     ) -> ContextPack:
         codes: list[str] = list(diags)
         if omitted:
@@ -358,6 +371,23 @@ class ContextEngine:
         if insufficient:
             codes.extend(("insufficient-budget",
                           "mandatory-context-omitted"))
+        # lf-0121: a fábrica produz a seção de domínio + refs extras a
+        # partir dos selecionados desta iteração — contada no payload.
+        part = domain_factory(tuple(selected)) if domain_factory else None
+        expansion: list[ExpansionRef] = [
+            ExpansionRef(ref_id=i.item_id, kind=i.kind,
+                         reason="omitido por budget ou nível")
+            for i in omitted if i.expandable]
+        unresolved: tuple[str, ...] = ()
+        ranking = (
+            "prioridade: evidências > diretos > contratos > deps > "
+            "snippets > complementar > transitivos; dentro da "
+            "classe, item_id estável")
+        if part is not None:
+            expansion.extend(part.extra_expansion_refs)
+            unresolved = part.extra_unresolved
+            if part.ranking_explanation:
+                ranking = part.ranking_explanation
         manifest = PackManifest(
             schema_version=PACK_SCHEMA_VERSION,
             repository=req.repository_root, snapshot_id=sid,
@@ -366,10 +396,7 @@ class ContextEngine:
             selected=len(selected), omitted=len(omitted),
             truncated=bool(omitted),
             freshness=f"snapshot:{sid} status:{snap_status}",
-            ranking_explanation=(
-                "prioridade: evidências > diretos > contratos > deps > "
-                "snippets > complementar > transitivos; dentro da "
-                "classe, item_id estável"))
+            ranking_explanation=ranking)
         diagnostics = PackDiagnostics(
             codes=tuple(codes), messages=tuple(diags),
             insufficient_budget=insufficient,
@@ -388,14 +415,14 @@ class ContextEngine:
             dependencies=tuple(
                 ev for i in selected if i.kind == "dependency"
                 for ev in i.evidence),
-            unresolved_refs=(),
-            expansion_refs=tuple(
-                ExpansionRef(ref_id=i.item_id, kind=i.kind,
-                             reason="omitido por budget ou nível")
-                for i in omitted if i.expandable),
-            diagnostics=diagnostics)
+            unresolved_refs=unresolved,
+            expansion_refs=tuple(expansion),
+            diagnostics=diagnostics,
+            domain=part.section if part is not None else None)
 
-    def _empty(self, req: ContextRequest, msg: str) -> ContextPack:
+    def _empty(
+        self, req: ContextRequest | DomainPackRequest, msg: str
+    ) -> ContextPack:
         budget = self._budget(req)
         manifest = PackManifest(
             schema_version=PACK_SCHEMA_VERSION,
