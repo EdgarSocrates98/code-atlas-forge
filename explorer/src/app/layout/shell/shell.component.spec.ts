@@ -16,7 +16,7 @@ describe('ShellComponent', () => {
     const links = (fixture.nativeElement as HTMLElement).querySelectorAll(
       '.shell__sidebar a',
     );
-    expect(links.length).toBe(7);
+    expect(links.length).toBe(9);
   });
 
   it('should toggle theme on button click', () => {

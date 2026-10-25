@@ -73,12 +73,12 @@ test.describe('explorer core flows', () => {
     await page.goto('/dashboard');
     const toggle = page.getByRole('button', { name: 'Alternar tema claro/escuro' });
     const before = await toggle.getAttribute('aria-pressed');
+    const expected = before === 'true' ? 'false' : 'true';
     await toggle.click();
-    const after = await toggle.getAttribute('aria-pressed');
-    expect(after).not.toBe(before);
+    await expect(toggle).toHaveAttribute('aria-pressed', expected);
     await page.reload();
     const toggleAfterReload = page.getByRole('button', { name: 'Alternar tema claro/escuro' });
-    await expect(toggleAfterReload).toHaveAttribute('aria-pressed', after ?? '');
+    await expect(toggleAfterReload).toHaveAttribute('aria-pressed', expected);
   });
 
   test('08 — keyboard navigation reaches nav links and the skip link works', async ({ page }) => {
