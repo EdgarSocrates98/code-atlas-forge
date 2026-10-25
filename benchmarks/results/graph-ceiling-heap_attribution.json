@@ -33,15 +33,15 @@
       },
       {
         "cycle": 4,
-        "dom_nodes": 72809,
+        "dom_nodes": 72611,
         "dom_listeners": 3088,
-        "dom_nodes_delta": 9106
+        "dom_nodes_delta": 8908
       },
       {
         "cycle": 5,
         "dom_nodes": 81655,
         "dom_listeners": 3088,
-        "dom_nodes_delta": 8846
+        "dom_nodes_delta": 9044
       },
       {
         "cycle": 6,
@@ -78,10 +78,10 @@
     "cycles": 4,
     "instrumentation": "none in the loop — el.click() inside one evaluate; CDP only before/after",
     "heap_mb": {
-      "before": 11.84,
-      "after": 11.01,
-      "delta": -0.83,
-      "per_cycle_kb": -212.5
+      "before": 11.81,
+      "after": 10.97,
+      "delta": -0.84,
+      "per_cycle_kb": -215
     },
     "dom_nodes": {
       "before": 126809,
@@ -94,14 +94,14 @@
   "cycles_mode": "all settled (waitLayoutIdle after every mount)",
   "heap_mb": {
     "before": 7.31,
-    "after": 11.84,
-    "delta": 4.53,
-    "per_cycle_kb": 463.9
+    "after": 11.81,
+    "delta": 4.5,
+    "per_cycle_kb": 460.8
   },
   "snapshot_diff": {
-    "a_total_mb": 15.44,
-    "b_total_mb": 48.36,
-    "delta_mb": 32.92,
+    "a_total_mb": 15.52,
+    "b_total_mb": 48.33,
+    "delta_mb": 32.82,
     "detached_mb_after": 0.98,
     "detached_nodes_after": 9185,
     "top_retained_classes": [
@@ -147,9 +147,9 @@
       },
       {
         "key": "native:NodeList",
-        "delta_bytes": 1200680,
+        "delta_bytes": 1200648,
         "delta_count": 15011,
-        "bytes_after": 1561200,
+        "bytes_after": 1561168,
         "count_after": 19519,
         "detached_after": 0
       },
@@ -242,7 +242,7 @@
         "detached_after": 502
       },
       {
-        "key": "native:<td _ngcontent-ng-c2139466728=\"\" class=\"cell--actions\">",
+        "key": "native:<td _ngcontent-ng-c2139466728=\"\" class=\"cell--mono\">",
         "delta_bytes": 572000,
         "delta_count": 5500,
         "bytes_after": 728000,
@@ -258,7 +258,7 @@
         "detached_after": 500
       },
       {
-        "key": "native:<td _ngcontent-ng-c2139466728=\"\" class=\"cell--mono\">",
+        "key": "native:<td _ngcontent-ng-c2139466728=\"\" class=\"cell--actions\">",
         "delta_bytes": 572000,
         "delta_count": 5500,
         "bytes_after": 728000,

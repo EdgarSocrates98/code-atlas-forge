@@ -36,26 +36,26 @@
     "hub_occurrence_id": 6002,
     "client_limit_100": {
       "samples_ms": [
-        14.853,
-        13.383000000000001,
-        12.696000000000002,
-        13.349,
-        12.718
+        13.508,
+        11.159,
+        11.504999999999999,
+        11.57,
+        11.405999999999999
       ],
-      "median_ms": 13.349,
+      "median_ms": 11.504999999999999,
       "edges": 100,
       "nodes": 101,
       "truncated": true
     },
     "server_cap_200": {
       "samples_ms": [
-        12.884,
-        18.467000000000002,
-        13.017000000000001,
-        13.823,
-        13.823
+        12.396,
+        12.345,
+        12.632000000000001,
+        11.854999999999999,
+        13.597
       ],
-      "median_ms": 13.823,
+      "median_ms": 12.396,
       "edges": 151,
       "nodes": 152,
       "truncated": false
@@ -72,17 +72,17 @@
       "url": "/graph?focus=6002",
       "surface": "canvas",
       "renderer_failed_banner": false,
-      "wall_nav_to_ready_ms": 391,
+      "wall_nav_to_ready_ms": 368,
       "resource": {
-        "navDuration": 132.2,
+        "navDuration": 124.3,
         "neighborsApi": {
-          "start": 266.6,
-          "duration": 52.7,
-          "responseEnd": 319.3,
+          "start": 249.6,
+          "duration": 52.1,
+          "responseEnd": 301.7,
           "transferSize": 48588,
           "encodedBodySize": 48288
         },
-        "symbolApi": 51.6
+        "symbolApi": 51.7
       },
       "counts_initial": {
         "rendered": 101,
@@ -93,10 +93,10 @@
         "mode": "canvas",
         "rendererFailed": false
       },
-      "max_raf_gap_ms": 199.9,
+      "max_raf_gap_ms": 166.6,
       "longtasks": [
-        64,
-        151
+        58,
+        117
       ],
       "sigma_errors": [],
       "page_errors": [],
@@ -104,7 +104,7 @@
         "before_load": 1.1,
         "end": 9.8
       },
-      "raf_alive_ms": 8.2
+      "raf_alive_ms": 11.5
     },
     "table_expansion_phase": {
       "view": "accessible table (renderer fallback keeps it usable)",
@@ -127,28 +127,28 @@
         {
           "index": 1,
           "target": "first-enabled-1",
-          "wall_ms": 79,
+          "wall_ms": 76,
           "nodes_after": 110,
           "edges_after": 123
         },
         {
           "index": 2,
           "target": "first-enabled-2",
-          "wall_ms": 78,
+          "wall_ms": 77,
           "nodes_after": 112,
           "edges_after": 133
         },
         {
           "index": 3,
           "target": "first-enabled-3",
-          "wall_ms": 78,
+          "wall_ms": 77,
           "nodes_after": 114,
           "edges_after": 142
         },
         {
           "index": 4,
           "target": "first-enabled-4",
-          "wall_ms": 74,
+          "wall_ms": 78,
           "nodes_after": 116,
           "edges_after": 150
         },
@@ -162,14 +162,14 @@
         {
           "index": 6,
           "target": "first-enabled-6",
-          "wall_ms": 79,
+          "wall_ms": 77,
           "nodes_after": 120,
           "edges_after": 164
         },
         {
           "index": 7,
           "target": "first-enabled-7",
-          "wall_ms": 75,
+          "wall_ms": 77,
           "nodes_after": 122,
           "edges_after": 171
         },
@@ -183,7 +183,7 @@
         {
           "index": 9,
           "target": "first-enabled-9",
-          "wall_ms": 77,
+          "wall_ms": 76,
           "nodes_after": 126,
           "edges_after": 185
         },
@@ -204,14 +204,14 @@
         {
           "index": 12,
           "target": "first-enabled-12",
-          "wall_ms": 78,
+          "wall_ms": 79,
           "nodes_after": 132,
           "edges_after": 206
         },
         {
           "index": 13,
           "target": "first-enabled-13",
-          "wall_ms": 81,
+          "wall_ms": 79,
           "nodes_after": 134,
           "edges_after": 213
         },
@@ -236,7 +236,7 @@
         "collapsed_to": 100,
         "apply": {
           "max_gap_ms": 16.8,
-          "settle_ms": 1613.9
+          "settle_ms": 1614.9
         },
         "counts_collapsed": {
           "rendered": 100,
@@ -249,7 +249,7 @@
         },
         "restore": {
           "max_gap_ms": 16.8,
-          "settle_ms": 1609.5
+          "settle_ms": 1609.1
         },
         "counts_restored": {
           "rendered": 136,
@@ -266,7 +266,7 @@
     "canvas_session": {
       "arch_load": {
         "surface": "canvas",
-        "wall_nav_to_ready_ms": 393,
+        "wall_nav_to_ready_ms": 356,
         "counts": {
           "rendered": 500,
           "edges": 0,
@@ -280,19 +280,19 @@
       },
       "pan_arch": {
         "frames": 196,
-        "fps_mean": 57.5,
-        "delta_mean_ms": 17.39,
+        "fps_mean": 57.6,
+        "delta_mean_ms": 17.35,
         "delta_p95_ms": 16.8,
         "delta_max_ms": 33.4,
-        "frames_over_33ms": 0,
-        "draw_calls": 172,
-        "draw_verts": 228060
+        "frames_over_33ms": 1,
+        "draw_calls": 171,
+        "draw_verts": 228057
       },
       "drill_attempt": {
         "attempted": true,
-        "target": "unresolved (drilled mod_1924.py)",
+        "target": "unresolved (drilled mod_1926.py)",
         "action": "']' ×k + Enter + e — drillFile() in-session",
-        "wall_ms": 539,
+        "wall_ms": 557,
         "outcome": "canvas-edges",
         "page_state": {
           "state": null,
@@ -316,14 +316,14 @@
       },
       "edge_canvas_metrics": {
         "pan_ego": {
-          "frames": 206,
+          "frames": 205,
           "fps_mean": 60.3,
-          "delta_mean_ms": 16.59,
-          "delta_p95_ms": 16.7,
+          "delta_mean_ms": 16.6,
+          "delta_p95_ms": 16.8,
           "delta_max_ms": 16.8,
           "frames_over_33ms": 0,
-          "draw_calls": 123,
-          "draw_verts": 9369
+          "draw_calls": 124,
+          "draw_verts": 9372
         },
         "canvas_expand": {
           "attempts": 4,
@@ -352,7 +352,7 @@
           "collapsed_to": 25,
           "apply": {
             "max_gap_ms": 16.8,
-            "settle_ms": 1612.5
+            "settle_ms": 1609.7
           },
           "counts_collapsed": {
             "rendered": 25,
@@ -365,7 +365,7 @@
           },
           "restore": {
             "max_gap_ms": 16.8,
-            "settle_ms": 1608.9
+            "settle_ms": 1607.2
           },
           "counts_restored": {
             "rendered": 26,
@@ -379,8 +379,8 @@
         },
         "pan_dense": {
           "frames": 205,
-          "fps_mean": 60.3,
-          "delta_mean_ms": 16.6,
+          "fps_mean": 60,
+          "delta_mean_ms": 16.67,
           "delta_p95_ms": 16.8,
           "delta_max_ms": 16.8,
           "frames_over_33ms": 0,
@@ -388,7 +388,7 @@
           "draw_verts": 9516
         },
         "remount_table_to_graph": {
-          "wall_ms": 1326,
+          "wall_ms": 1324,
           "surface_after": "canvas",
           "renderer_failed": false,
           "sigma_errors_so_far": 0
@@ -397,87 +397,83 @@
       "sigma_errors": [],
       "page_errors": [],
       "longtasks": [
-        52,
-        73,
-        60,
-        59,
-        54,
-        58,
-        57,
-        57,
-        56,
-        57,
-        57,
-        59,
-        57,
-        59,
-        58,
+        50,
+        76,
         61,
-        55,
-        55,
-        57,
-        54,
+        59,
         57,
         56,
         56,
-        56,
-        56,
-        55,
-        56,
-        55,
-        55,
-        56,
-        56,
-        56,
-        56,
-        55,
         57,
-        49,
         56,
         58,
-        55,
-        54,
-        55,
-        55,
-        54,
-        57,
-        55,
+        58,
         56,
-        54,
-        55,
         58,
         57,
-        54,
+        58,
         56,
         54,
-        55,
         56,
-        56,
-        56,
+        58,
         56,
         56,
         54,
-        55,
-        54,
+        58,
+        58,
         57,
-        56,
         55,
         56,
         57,
+        56,
+        57,
+        57,
+        57,
+        55,
+        55,
+        56,
+        54,
+        57,
+        56,
+        56,
+        57,
+        55,
+        56,
+        56,
+        59,
+        53,
         54,
         56,
+        54,
+        54,
+        54,
+        55,
+        55,
+        56,
+        54,
+        56,
+        56,
+        55,
+        57,
+        54,
+        56,
+        56,
+        55,
+        57,
+        54,
         55,
         55,
         54,
         55,
-        93,
-        143
+        55,
+        99,
+        149
       ],
       "heap_mb": {
         "before": 0.5,
-        "end": 7.8
+        "end": 7.7
       },
-      "raf_alive_ms": 18.5
+      "raf_alive_ms": 18.1
     }
   }
 }
