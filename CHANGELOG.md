@@ -58,6 +58,43 @@ repositório. Decisão de versionamento: `docs/RELEASING.md`.
   1188 passed/1 skipped, ruff clean, mypy 163 arquivos, ng test
   219/219, CI verde em `main`. Ambiente e verbatim em
   `docs/cycle-8-baseline.md`.
+- **`view_id` de federação formato 2** (lf-0134): a chave do cache de
+  view passa a cobrir `identity_key` por membro, digest de
+  `analyzer_versions` do snapshot resolvido, resolver e versão de
+  schema — antes, re-bind ou bump de adapter sob o mesmo `repo_id` era
+  invisível. Escala medida de 5 membros e isolamento de pin
+  (`pinned_s2_rows: 0`) em `docs/cycle-8-federation-scale.md`.
+- **Validação de impacto vs. verdade-terreno** (lf-0135): corpus
+  rotulado de 12 cenários cross-domain — micro-agregado
+  **P=R=F1=1.000** (63 TP, 0 FP, 0 FN), 0 leaks
+  `possible→verified`, truncamento honesto verificado por sondas.
+  `docs/cycle-8-impact-validation.md`.
+- **Valor medido de context packs** (lf-0136): 9 tarefas reais, 4
+  braços determinísticos — `impact` cobre 56/56 fatos com 1 query;
+  pack 75% (grounding, não blast); grep baseline 94.6% mas sem prova.
+  `docs/cycle-8-context-pack-value.md`.
+- **Security audit** (lf-0137): 7 achados reais corrigidos (2 high —
+  contenção de estático por prefixo, alias symlink→`.env`), 71 testes
+  adversariais novos, sweeps AST de execução insegura em CI.
+  `docs/cycle-8-security-audit.md`.
+- **Supply chain** (lf-0138): SBOM CycloneDX 1.5 (`sbom.json`, 1140
+  componentes), `pip-audit` limpo nas 3 deps de runtime, pinning
+  auditado, dependabot cobrindo `npm /explorer`, zero copyleft.
+  `docs/cycle-8-supply-chain.md`.
+- **Observabilidade** (lf-0141): `GET /api/v1/diagnostics` (schema,
+  FTS real, `last_job.stage_ms`, adapters), `index --verbose` com
+  progresso por estágio em stderr, slow-query guard
+  `CODE_ATLAS_SLOW_MS`. `docs/cycle-8-observability.md`.
+- **Release engineering** (lf-0142): `scripts/release_check.sh` com
+  14 gates, política SemVer/PEP440 em `docs/RELEASING.md`, checklist
+  em `docs/RELEASE-CHECKLIST.md`, wheel `1.0.0rc1` inventariado.
+- **Benchmark competitivo** (lf-0143): matriz vs 7 classes de
+  ferramentas + medições reais (engine structural 0.13–2.7 ms; CLI
+  one-shot 14–22× mais lento que rg — declarado); auditoria de claims
+  do README. `docs/cycle-8-competitive.md`.
+- **Scorecard de production readiness** (lf-0144): agregação das
+  evidências medidas do ciclo em 8 dimensões — total **22/32**,
+  registro NOT RUN consolidado. `docs/cycle-8-scorecard.md`.
 
 ### Corrigido — Cycle 8
 
@@ -65,6 +102,14 @@ repositório. Decisão de versionamento: `docs/RELEASING.md`.
   `validate_graph` (fail-closed) derrubava o snapshot inteiro do axios.
 - Resolver Python: `from .api import x` em `__init__.py` agora resolve
   relativo ao pacote (`pkg → pkg.api`).
+- `embedding_cache` não persistia via CLI one-shot (`put()` sem
+  commit → rollback no close) — achado do competitive bench, fix em
+  `155e658`.
+- `eval/impact_truth.py` violava o sweep `import os` — env override
+  via `patched_env` (`e5c0ffb`).
+- Worker zumbi por layout terminado e arestas filtradas renderizando
+  no canvas do Explorer (lf-0131) — ver
+  `docs/cycle-8-graph-hardening.md`.
 
 ### Adicionado — Cycle 7 (branch `cycle-7-domain-intelligence-federation`)
 

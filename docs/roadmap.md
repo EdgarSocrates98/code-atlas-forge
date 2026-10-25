@@ -130,10 +130,31 @@ screen reader/Windows interativo, sem FTS de domínio (LIKE), mutação
 de domínio só via CLI, arestas cross-repo computadas-não-persistidas,
 sem integração AWS real (estático por design).
 
-## Cycle 8 — Production Quality
+## Cycle 8 — Production Quality 🔶 em andamento (RC cortado)
 
-Escopo: hardening, benchmark competitivo, otimizador, observabilidade,
-compatibilidade, release, SBOM.
+> Branch `cycle-8-production-quality`, specs lf-0127–lf-0145. Versão
+> `1.0.0rc1` (primeiro corte do repo — `docs/RELEASING.md`).
+> Scorecard consolidado: `docs/cycle-8-scorecard.md` (**22/32**).
 
-**Gate:** releases reproduzíveis, roadmap/documentação e revisão externa de
-achados.
+Escopo realizado (todas as fases com evidência medida commitada):
+baseline audit (lf-0127), benchmark real-world de 5 repos OSS
+(lf-0128), acurácia de adapters vs ground truth — precision 1.0 nos 6
+(lf-0129), compat de dialetos de parser + fix do P1 axios
+(lf-0130), hardening do grafo/worker do Explorer (lf-0131), índices
+SQLite v11 + FTS5 de domínio v12 (lf-0132/0133), `view_id` v2 + escala
+de federação 5 membros (lf-0134), validação de impacto vs corpus
+rotulado P/R/F1=1.0 (lf-0135), valor medido de context packs
+(lf-0136), security audit com 7 achados corrigidos + 71 testes
+adversariais (lf-0137), supply chain: SBOM CycloneDX + audits +
+dependabot npm (lf-0138), observabilidade `/api/v1/diagnostics` +
+`--verbose` + slow-guard (lf-0141), release eng: RC + gate de 14 itens
+(lf-0142), benchmark competitivo honesto vs rg/ferramentas
+(lf-0143), scorecard + DX docs (lf-0144).
+
+**Gate:** releases reproduzíveis, roadmap/documentação e revisão
+externa de achados — **PARCIAL**. Reproduzibilidade entregue
+(`scripts/release_check.sh`, wheel inventariado, clean-venv smoke,
+SBOM); docs/roadmap atualizados. Ressalvas honestas consolidadas no
+scorecard: **Phases 13 (cross-platform) e 14 (a11y-visual) NOT RUN**;
+Angular 18 EOL com 8 vulns de prod (XSS alcançável) aberto e fora do
+escopo do ciclo; sem tag git ainda (delivery = lf-0145).
