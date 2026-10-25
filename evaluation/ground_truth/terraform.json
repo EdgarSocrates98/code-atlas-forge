@@ -1,0 +1,93 @@
+{
+  "schema": 1,
+  "domain": "terraform",
+  "fixture": "tests/fixtures/terraform_infra",
+  "labeled_by": "hand-read of all 12 tf/tfvars/tf.json files (lf-0129); independent of adapter output",
+  "entities": {
+    "complete": true,
+    "expected": [
+      {"name": "terraform:module.root@dev", "kind": "terraform_module", "note": "root module"},
+      {"name": "terraform:module.network@dev", "kind": "terraform_module", "note": "local module ./modules/network"},
+      {"name": "terraform:module.shared@dev", "kind": "terraform_module", "note": "registry module"},
+      {"name": "terraform:module.extra@dev", "kind": "terraform_module", "note": "git-sourced module in extra.tf.json"},
+      {"name": "terraform:aws_s3_bucket.data@dev", "kind": "terraform_resource"},
+      {"name": "terraform:aws_glue_job.etl@dev", "kind": "terraform_resource"},
+      {"name": "terraform:aws_lambda_function.trigger@dev", "kind": "terraform_resource"},
+      {"name": "terraform:aws_cloudwatch_log_group.lambda@dev", "kind": "terraform_resource"},
+      {"name": "terraform:random_id.suffix@dev", "kind": "terraform_resource", "note": "outside closed catalog → generic resource"},
+      {"name": "terraform:aws_iam_role.glue@dev", "kind": "iam_role", "note": "typed role entity"},
+      {"name": "terraform:aws_iam_role.lambda_exec@dev", "kind": "iam_role"},
+      {"name": "terraform:aws_iam_policy.glue_s3@dev", "kind": "terraform_resource"},
+      {"name": "terraform:aws_iam_role_policy_attachment.glue@dev", "kind": "terraform_resource"},
+      {"name": "terraform:aws_iam_role_policy.extra@dev", "kind": "terraform_resource"},
+      {"name": "terraform:aws_sfn_state_machine.pipeline@dev", "kind": "terraform_resource"},
+      {"name": "terraform:data.aws_iam_policy_document.extra@dev", "kind": "terraform_resource", "note": "data source"},
+      {"name": "terraform:data.terraform_remote_state.network@dev", "kind": "terraform_resource", "note": "remote state read"},
+      {"name": "terraform:aws_sqs_queue.workers@dev", "kind": "terraform_resource", "note": "count=var.replicas — ONE entity, never expanded"},
+      {"name": "terraform:aws_cloudwatch_metric_alarm.depth@dev", "kind": "terraform_resource", "note": "for_each — ONE entity"},
+      {"name": "terraform:aws_emr_cluster.analytics@dev", "kind": "terraform_resource", "note": "declared in .tf.json"},
+      {"name": "terraform:module.network.aws_s3_bucket.flow_logs@dev", "kind": "terraform_resource", "note": "inside module.network"},
+      {"name": "terraform:module.network.aws_cloudwatch_log_group.flow@dev", "kind": "terraform_resource"},
+      {"name": "terraform:unresolved:broken.aws_s3_bucket.broken", "note": "unterminated-string block — partial honest extraction, isolated namespace"},
+      {"name": "terraform:unresolved:broken.aws_s3_bucket.survivor", "note": "valid block after stray brace — salvaged"}
+    ],
+    "forbidden": [
+      {"name_contains": "[", "note": "count/for_each NEVER expands — no workers[0], depth[high] etc."},
+      {"name_contains": "acme-data", "note": "bucket = 'acme-data-${var.environment}' — interpolated name must not materialize"},
+      {"name_contains": "flow-logs-", "note": "module bucket name with ${var} — same rule"},
+      {"name_contains": "etl-", "note": "glue job name 'etl-${var.environment}' — same rule"}
+    ]
+  },
+  "relations": {
+    "complete": true,
+    "expected": [
+      {"type": "PROVISIONS", "from": "terraform:module.root@dev", "to_prefix": "terraform:", "status": "resolved", "count": 16, "note": "every root-level resource/data block provisioned by root module"},
+      {"type": "PROVISIONS", "from": "terraform:module.network@dev", "to_prefix": "terraform:module.network.", "status": "resolved", "count": 2, "note": "2 resources inside the local module"},
+      {"type": "DEPENDS_ON", "from": "terraform:aws_glue_job.etl@dev", "to": "terraform:aws_iam_role.glue@dev", "status": "resolved", "note": "role_arn ref"},
+      {"type": "DEPENDS_ON", "from": "terraform:aws_glue_job.etl@dev", "to": "terraform:aws_s3_bucket.data@dev", "status": "resolved", "note": "script_location interpolation"},
+      {"type": "DEPENDS_ON", "from": "terraform:aws_glue_job.etl@dev", "to": "terraform:aws_iam_role_policy_attachment.glue@dev", "status": "resolved", "note": "explicit depends_on"},
+      {"type": "DEPENDS_ON", "from": "terraform:aws_lambda_function.trigger@dev", "to": "terraform:aws_iam_role.lambda_exec@dev", "status": "resolved", "note": "role ref"},
+      {"type": "DEPENDS_ON", "from": "terraform:aws_lambda_function.trigger@dev", "to": "terraform:aws_s3_bucket.data@dev", "status": "resolved", "note": "s3_bucket ref"},
+      {"type": "DEPENDS_ON", "from": "terraform:aws_cloudwatch_log_group.lambda@dev", "to": "terraform:aws_lambda_function.trigger@dev", "status": "resolved", "note": "name interpolation"},
+      {"type": "DEPENDS_ON", "from": "terraform:aws_cloudwatch_metric_alarm.depth@dev", "to": "terraform:aws_sqs_queue.workers@dev", "status": "resolved", "note": "workers[0].name — index dereferenced to resource"},
+      {"type": "DEPENDS_ON", "from": "terraform:aws_emr_cluster.analytics@dev", "to": "terraform:aws_iam_role.glue@dev", "status": "resolved", "note": "tf.json depends_on"},
+      {"type": "DEPENDS_ON", "from": "terraform:aws_iam_role_policy_attachment.glue@dev", "to": "terraform:aws_iam_policy.glue_s3@dev", "status": "resolved", "note": "policy_arn ref"},
+      {"type": "DEPENDS_ON", "from": "terraform:aws_iam_role_policy_attachment.glue@dev", "to": "terraform:aws_iam_role.glue@dev", "status": "resolved", "note": "role ref"},
+      {"type": "DEPENDS_ON", "from": "terraform:aws_iam_role_policy.extra@dev", "to": "terraform:aws_iam_role.glue@dev", "status": "resolved"},
+      {"type": "DEPENDS_ON", "from": "terraform:aws_sfn_state_machine.pipeline@dev", "to": "terraform:aws_iam_role.glue@dev", "status": "resolved", "note": "role_arn ref"},
+      {"type": "DEPENDS_ON", "from": "terraform:module.network.aws_cloudwatch_log_group.flow@dev", "to": "terraform:module.network.aws_s3_bucket.flow_logs@dev", "status": "resolved"},
+      {"type": "ASSUMES_ROLE", "from": "terraform:aws_glue_job.etl@dev", "to": "terraform:aws_iam_role.glue@dev", "status": "resolved"},
+      {"type": "ASSUMES_ROLE", "from": "terraform:aws_lambda_function.trigger@dev", "to": "terraform:aws_iam_role.lambda_exec@dev", "status": "resolved"},
+      {"type": "ASSUMES_ROLE", "from": "terraform:aws_sfn_state_machine.pipeline@dev", "to": "terraform:aws_iam_role.glue@dev", "status": "resolved"},
+      {"type": "ASSUMES_ROLE", "from": "terraform:aws_iam_role_policy.extra@dev", "to": "terraform:aws_iam_role.glue@dev", "status": "resolved", "note": "inline policy binds role"},
+      {"type": "ASSUMES_ROLE", "from": "terraform:aws_iam_role.glue@dev", "to": "terraform:aws_iam_role.lambda_exec@dev", "status": "resolved", "note": "glue named as principal in lambda_exec trust policy — role→role chain"},
+      {"type": "USES_RESOURCE", "from": "terraform:aws_iam_policy.glue_s3@dev", "to": "terraform:aws_s3_bucket.data@dev", "status": "resolved", "note": "${aws_s3_bucket.data.arn}/* in policy doc"},
+      {"type": "USES_RESOURCE", "from": "terraform:data.aws_iam_policy_document.extra@dev", "to": "terraform:aws_s3_bucket.data@dev", "status": "resolved", "note": "resources = [aws_s3_bucket.data.arn]"},
+      {"type": "USES_RESOURCE", "from": "terraform:aws_sfn_state_machine.pipeline@dev", "to": "terraform:aws_lambda_function.trigger@dev", "status": "resolved", "note": "lambda arn inside jsonencode definition"},
+      {"type": "REFERENCES", "from": "terraform:aws_iam_role_policy.extra@dev", "to": "terraform:data.aws_iam_policy_document.extra@dev", "status": "resolved", "note": "policy = data...json"},
+      {"type": "REFERENCES", "from": "terraform:data.terraform_remote_state.network@dev", "to_contains": "remote-state", "status": "external", "note": "s3 remote state outside snapshot — external, not a resource"},
+      {"type": "REFERENCES", "from": "terraform:module.shared@dev", "to_contains": "terraform-aws-modules/vpc/aws", "status": "external", "note": "registry module source"},
+      {"type": "REFERENCES", "from": "terraform:module.extra@dev", "to_contains": "git::https://example.com/mod.git", "status": "external", "note": "git module source"},
+      {"type": "REFERENCES", "from": "terraform:module.root@dev", "to_contains": "backend:s3", "status": "external", "note": "s3 backend — external state location"},
+      {"type": "REFERENCES", "from": "terraform:aws_emr_cluster.analytics@dev", "to_contains": "arn:aws:iam::123456789012:role/EMR_DefaultRole", "status": "external", "note": "literal ARN service_role — external role not declared in code"}
+    ],
+    "forbidden": [
+      {"type": "PROVISIONS", "to_contains": "unresolved:", "note": "broken-file resources are not provisioned by root module"},
+      {"to_contains": "${", "note": "raw interpolation never appears as an edge target"},
+      {"to_contains": "var.", "note": "variable references never become edges"},
+      {"type": "DEPENDS_ON", "to_contains": "var.", "note": "var.replicas count never fabricates a dep"},
+      {"status": "ambiguous", "note": "no ambiguous case exists in this fixture"},
+      {"type": "ASSUMES_ROLE", "from": "terraform:aws_iam_role.lambda_exec@dev", "to": "terraform:aws_iam_role.glue@dev", "note": "direction matters — lambda_exec does NOT assume glue; glue is the principal"}
+    ]
+  },
+  "diagnostics_expected": [
+    {"code": "unterminated-string", "path": "broken/broken.tf", "min_count": 1, "note": "bucket value unterminated"},
+    {"code": "unterminated-block", "path": "broken/broken.tf", "min_count": 1, "note": "resource block left open"},
+    {"code": "stray-brace", "path": "broken/stray.tf", "min_count": 1, "note": "lone } before a valid block"}
+  ],
+  "patterns_forbidden": [
+    {"substr": "sup3r-s3cret-do-not-leak", "note": "sensitive variable default — must never persist"},
+    {"substr": "tok-live-adversarial", "note": "non-sensitive var default looks like a live token — must not persist"},
+    {"substr": "tfvars-secret-must-not-leak", "note": "dev.tfvars value — tfvars contents are config, not entities"}
+  ]
+}
