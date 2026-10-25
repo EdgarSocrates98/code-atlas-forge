@@ -37,6 +37,14 @@ from code_atlas.discovery.identity import identity_key
 from code_atlas.discovery.models import ScanResult
 from code_atlas.discovery.scanner import read_file_verified
 from code_atlas.discovery.scanner import scan as default_scan
+from code_atlas.domains.contracts import (
+    DiscoveredArtifact,
+    DomainAdapter,
+    DomainExtractionRequest,
+    DomainExtractionResult,
+)
+from code_atlas.domains.registry import DomainRegistry
+from code_atlas.domains.validation import validate_extraction
 from code_atlas.graph.builder import GraphBuilder
 from code_atlas.graph.validation import validate_graph
 from code_atlas.indexing.cache import CacheKey, ParseResultCache
@@ -47,7 +55,7 @@ from code_atlas.indexing.dependency_planner import (
     PlanAction,
     PlannedFile,
 )
-from code_atlas.indexing.persist import persist_graph
+from code_atlas.indexing.persist import persist_domain_result, persist_graph
 from code_atlas.indexing.reuse import cache_key_for, config_digest
 from code_atlas.parsers.contracts import (
     GraphBuildResult,
@@ -100,6 +108,7 @@ class IndexCoordinator:
         resolver_factories: Sequence[ResolverFactory] = (),
         resolver_versions: Mapping[str, str] | None = None,
         snapshot_retention: int = 0,
+        domain_registry: DomainRegistry | None = None,
     ) -> None:
         self._conn = conn
         self._store = Store(conn)
@@ -112,6 +121,12 @@ class IndexCoordinator:
         # lf-0031: 0 = retenção ilimitada (histórico completo); >0 =
         # máximo de STALE mantidos, podados na transação de publicação.
         self._snapshot_retention = snapshot_retention
+        # lf-0111 (Cycle 7 Ph.3): domínio é OPT-IN — ``None`` preserva o
+        # comportamento anterior exatamente (zero trabalho de domínio).
+        # Um registry injetado roda os adapters habilitados durante o
+        # build e persiste via ``persist_domain_result`` na mesma
+        # transação de publicação do grafo de código.
+        self._domain_registry = domain_registry
         self.last_plan: IndexPlan | None = None  # plano do último index
 
     def _analyzer_versions(self, scan: ScanResult) -> dict[str, str]:
@@ -142,6 +157,14 @@ class IndexCoordinator:
         # identidade dos resolvers externos (lf-0030): índice SCIP novo
         # → sha muda → invalidação completa, conservadora e correta.
         versions.update(self._resolver_versions)
+        # Domínio opt-in (lf-0111): adapter registrado muda o resultado
+        # do índice — habilitar/desabilitar/atualizar derrota o no-op
+        # por design, exatamente como um parser novo.
+        if self._domain_registry is not None:
+            for dom in self._domain_registry.enabled():
+                versions[f"domain:{dom.domain_id}"] = (
+                    dom.adapter_version
+                )
         return versions
 
     def _enrich_semantic(
@@ -191,6 +214,68 @@ class IndexCoordinator:
                 diagnostics=tuple(diags) + enriched.diagnostics,
             )
         return enriched, stats
+
+    def _extract_domains(
+        self,
+        scan: ScanResult,
+        repository: str,
+        digest: str,
+    ) -> tuple[
+        list[tuple[DomainAdapter, DomainExtractionResult]], list[str]
+    ]:
+        """Fase de domínio opt-in (lf-0111, Cycle 7 — ADR-0010).
+
+        Só roda quando o caller injeta um ``DomainRegistry`` — default
+        ``None`` preserva o comportamento anterior byte a byte. Para
+        cada adapter **habilitado**, artefatos do scan que casam com
+        ``supported_artifacts`` viram um ``DomainExtractionRequest``
+        (path + sha do inventário — o adapter relê e confere). Roda
+        **fora** do lock de escrita, como o parse.
+
+        Disciplina de falha espelhando resolvers: crash de adapter ou
+        resultado que viola ``validate_extraction`` vira failure string
+        auditável e o adapter é pulado — nunca derruba o snapshot.
+        Diagnósticos ``error`` do próprio adapter também viram failures.
+        """
+        out: list[tuple[DomainAdapter, DomainExtractionResult]] = []
+        failures: list[str] = []
+        if self._domain_registry is None:
+            return out, failures
+        sha = {f.path: (f.sha256 or "") for f in scan.files}
+        for adapter in self._domain_registry.enabled():
+            support = adapter.supported_artifacts()
+            paths = sorted(p for p in sha if support.matches(p))
+            if not paths:
+                continue
+            request = DomainExtractionRequest(
+                repository=repository,
+                artifacts=tuple(
+                    DiscoveredArtifact(path=p, sha256=sha[p])
+                    for p in paths
+                ),
+                snapshot=digest,
+            )
+            try:
+                result = adapter.extract(request)
+            except Exception as exc:
+                failures.append(
+                    f"domain:{adapter.domain_id}:extract-crash:{exc}"
+                )
+                continue
+            violations = validate_extraction(adapter, request, result)
+            if violations:
+                failures.append(
+                    f"domain:{adapter.domain_id}:contract-violation:"
+                    f"{violations[0]}"
+                )
+                continue
+            for d in result.diagnostics:
+                if d.severity == "error":
+                    failures.append(
+                        f"{d.path or adapter.domain_id}:domain-{d.code}"
+                    )
+            out.append((adapter, result))
+        return out, failures
 
     def index(
         self, root: Path, force: bool = False, incremental: bool = False
@@ -299,6 +384,14 @@ class IndexCoordinator:
         t_sem = time.monotonic()
         graph, sem_stats = self._enrich_semantic(graph)
         stage_ms["semantic"] = int((time.monotonic() - t_sem) * 1000)
+        # Domínio opt-in (lf-0111): extração fora do lock de escrita,
+        # mesmo desenho do parse — adapters leem os artefatos do
+        # request dentro do workspace; nada é executado.
+        t_dom = time.monotonic()
+        domain_results, domain_failures = self._extract_domains(
+            scan, ikey, digest
+        )
+        stage_ms["domains"] = int((time.monotonic() - t_dom) * 1000)
         t_val = time.monotonic()
         g_errors = validate_graph(graph)
         stage_ms["validation"] = int(
@@ -359,6 +452,15 @@ class IndexCoordinator:
             pcounts["evidence"] += self._record_parse_failures(
                 store, snapshot_id, scan, file_ids, read_failures
             )
+            # domínio opt-in (lf-0111): mesmo BEGIN, isolamento por
+            # snapshot — persist_domain_result é atômico com o snapshot
+            # inteiro: uma exceção aqui derruba a publicação como
+            # qualquer outra escrita (rollback completo, READY anterior
+            # intacto).
+            dcounts = _persist_domains(
+                store, repo_id, snapshot_id, file_ids,
+                domain_results, domain_failures,
+            )
             stage_ms["persist_rows"] = int(
                 (time.monotonic() - t_w) * 1000)
             t_fk = time.monotonic()
@@ -394,6 +496,7 @@ class IndexCoordinator:
                 "secrets_skipped": scan.secret_count,
                 **sem_stats,
                 **pcounts,
+                **dcounts,
             }
             stage_ms["persist_publish"] = int(
                 (time.monotonic() - t_persist) * 1000)
@@ -402,6 +505,7 @@ class IndexCoordinator:
             failures = (
                 tuple(str(w.kind) for w in scan.warnings)
                 + tuple(read_failures)
+                + tuple(domain_failures)
             )
             store.finish_index_job(
                 job_id, "success", snapshot_id=snapshot_id,
@@ -739,3 +843,30 @@ class IndexCoordinator:
                 job_id, "failed", snapshot_id=snap_id, failures=(error[:500],)
             )
         return snap_id
+
+
+def _persist_domains(
+    store: Store,
+    repo_id: int,
+    snapshot_id: int,
+    file_ids: dict[str, int],
+    domain_results: list[tuple[DomainAdapter, DomainExtractionResult]],
+    domain_failures: list[str],
+) -> dict[str, int]:
+    """Persiste resultados de domínio no snapshot (opt-in, lf-0111).
+
+    Roda dentro da transação de publicação — cada chamada a
+    ``persist_domain_result`` compartilha o BEGIN do grafo de código.
+    Retorna contagens prefixadas ``domain_<id>_*`` para o job stats.
+    """
+    counts: dict[str, int] = {}
+    for adapter, dres in domain_results:
+        dc = persist_domain_result(
+            store, repo_id, snapshot_id, file_ids, dres
+        )
+        for k, v in dc.items():
+            key = f"domain_{adapter.domain_id}_{k}"
+            counts[key] = counts.get(key, 0) + v
+    counts["domain_adapters"] = len(domain_results)
+    counts["domain_failures"] = len(domain_failures)
+    return counts
