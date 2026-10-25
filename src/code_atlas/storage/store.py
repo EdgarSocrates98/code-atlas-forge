@@ -14,6 +14,7 @@ from collections.abc import Iterable
 from code_atlas.contracts.enums import SnapshotStatus
 from code_atlas.contracts.models import Repository, Snapshot
 from code_atlas.discovery.models import SourceFile, WarningKind
+from code_atlas.domains.model import DomainEntity
 
 
 def _snapshot_from_row(row: sqlite3.Row) -> Snapshot:
@@ -585,6 +586,191 @@ class Store:
             list(rows),
         )
         return self._conn.total_changes  # para telemetria externa
+
+    # --- domain entities / relations (lf-0110, schema v9) --------------
+
+    def ensure_domain_entities(
+        self, repository_id: int, entities: Iterable[DomainEntity]
+    ) -> dict[str, int]:
+        """Dedup de entidades de domínio — identity_key → row id.
+
+        Mesma técnica de ``ensure_symbols``: SELECT inicial, ``INSERT OR
+        IGNORE`` em lote dos ausentes, SELECT final. ``identity_key`` é
+        a chave lógica canônica (``DomainIdentity.logical_key``) —
+        catálogo/namespace/ambiente fazem parte da chave, então
+        homônimos em escopos distintos não colidem.
+        """
+        items: dict[str, DomainEntity] = {}
+        for e in entities:
+            items[e.identity_key()] = e
+        if not items:
+            return {}
+        existing = self._conn.execute(
+            "SELECT id, identity_key FROM domain_entities"
+            " WHERE repository_id = ?",
+            (repository_id,),
+        ).fetchall()
+        ids = {r["identity_key"]: int(r["id"]) for r in existing}
+        missing = [k for k in sorted(items) if k not in ids]
+        if missing:
+            self._conn.executemany(
+                "INSERT OR IGNORE INTO domain_entities "
+                "(repository_id, domain, kind, identity_key, qualified_name,"
+                " name, catalog, namespace, environment, attributes)"
+                " VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                [
+                    (
+                        repository_id,
+                        items[k].identity.domain,
+                        str(items[k].kind),
+                        k,
+                        items[k].identity.qualified_name,
+                        items[k].name,
+                        items[k].identity.catalog,
+                        items[k].identity.namespace,
+                        items[k].identity.environment,
+                        json.dumps(
+                            dict(items[k].attributes), sort_keys=True
+                        ),
+                    )
+                    for k in missing
+                ],
+            )
+            refetch = self._conn.execute(
+                "SELECT id, identity_key FROM domain_entities"
+                " WHERE repository_id = ?",
+                (repository_id,),
+            ).fetchall()
+            ids = {r["identity_key"]: int(r["id"]) for r in refetch}
+        return ids
+
+    def insert_domain_occurrences_batch(
+        self, rows: list[tuple[object, ...]]
+    ) -> list[int]:
+        """Batch de ocorrências de domínio — retorna ids na ordem.
+
+        ``rows``: (snapshot_id, entity_id, source_file_id, span_start,
+        span_end, line, col, content_hash, attributes_json,
+        extraction_status).
+        """
+        return self._insert_returning(
+            "INSERT INTO domain_entity_occurrences (snapshot_id, entity_id,"
+            " source_file_id, span_start, span_end, line, col, content_hash,"
+            " attributes, extraction_status) VALUES ",
+            rows, 10,
+        )
+
+    def insert_domain_relations(self, rows: Iterable[tuple[object, ...]]) -> int:
+        """Batch de relações de domínio — executemany.
+
+        ``rows``: (snapshot_id, from_entity_occ_id, from_symbol_occ_id,
+        to_entity_occ_id, to_symbol_occ_id, to_unresolved, type,
+        resolution_status, confidence_class, resolver, evidence_ids).
+        """
+        self._conn.executemany(
+            "INSERT INTO domain_relations (snapshot_id, from_entity_occ_id,"
+            " from_symbol_occ_id, to_entity_occ_id, to_symbol_occ_id,"
+            " to_unresolved, type, resolution_status, confidence_class,"
+            " resolver, evidence_ids) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            list(rows),
+        )
+        return self._conn.total_changes
+
+    def snapshot_domain_entities(
+        self, snapshot_id: int
+    ) -> list[tuple[str, str, str, str, str | None]]:
+        """Entidades com ocorrência no snapshot.
+
+        Retorna ``(domain, kind, qualified_name, identity_key, path)`` —
+        insumo de inspeção/testes e da resolução cross-domain (lf-0117).
+        """
+        rows = self._conn.execute(
+            """
+            SELECT de.domain, de.kind, de.qualified_name, de.identity_key,
+                   sf.relative_path AS path
+              FROM domain_entity_occurrences deo
+              JOIN domain_entities de ON de.id = deo.entity_id
+              LEFT JOIN source_files sf ON sf.id = deo.source_file_id
+             WHERE deo.snapshot_id = ?
+             ORDER BY de.domain, de.kind, de.qualified_name
+            """,
+            (snapshot_id,),
+        ).fetchall()
+        return [
+            (r["domain"], r["kind"], r["qualified_name"], r["identity_key"],
+             r["path"])
+            for r in rows
+        ]
+
+    def domain_entity_id_for(
+        self, repository_id: int, identity_key: str
+    ) -> int | None:
+        """Row id de ``domain_entities`` por chave lógica canônica."""
+        row = self._conn.execute(
+            "SELECT id FROM domain_entities"
+            " WHERE repository_id = ? AND identity_key = ?",
+            (repository_id, identity_key),
+        ).fetchone()
+        return int(row["id"]) if row else None
+
+    def domain_occurrences_for(
+        self, snapshot_id: int, entity_id: int
+    ) -> list[int]:
+        """Ids de ocorrências de uma entidade num snapshot."""
+        rows = self._conn.execute(
+            "SELECT id FROM domain_entity_occurrences"
+            " WHERE snapshot_id = ? AND entity_id = ? ORDER BY id",
+            (snapshot_id, entity_id),
+        ).fetchall()
+        return [int(r["id"]) for r in rows]
+
+    def symbol_occurrences_for_name(
+        self, snapshot_id: int, qualified_name: str
+    ) -> list[int]:
+        """Ocorrências de código num snapshot por qualified_name.
+
+        Ponte código↔domínio (lf-0117/0120): endpoints ``*_symbol_occ_id``
+        de ``domain_relations`` referenciam estas rows. Múltiplos matches
+        (mesmo qname, kinds distintos) são retornados todos — o caller
+        decide entre resolved único / ambiguous honesto.
+        """
+        rows = self._conn.execute(
+            """
+            SELECT so.id FROM symbol_occurrences so
+              JOIN symbols s ON s.id = so.logical_symbol_id
+             WHERE so.snapshot_id = ? AND s.qualified_name = ?
+             ORDER BY so.id
+            """,
+            (snapshot_id, qualified_name),
+        ).fetchall()
+        return [int(r["id"]) for r in rows]
+
+    def cross_snapshot_domain_relations(self, snapshot_id: int) -> list[int]:
+        """Relações de domínio com endpoint fora do próprio snapshot.
+
+        Espelha ``cross_snapshot_relations``: endpoints nullable recebem
+        LEFT JOIN e só contam quando presentes.
+        """
+        rows = self._conn.execute(
+            """
+            SELECT r.id FROM domain_relations r
+            LEFT JOIN domain_entity_occurrences fe
+                   ON fe.id = r.from_entity_occ_id
+            LEFT JOIN symbol_occurrences fs
+                   ON fs.id = r.from_symbol_occ_id
+            LEFT JOIN domain_entity_occurrences te
+                   ON te.id = r.to_entity_occ_id
+            LEFT JOIN symbol_occurrences ts
+                   ON ts.id = r.to_symbol_occ_id
+             WHERE r.snapshot_id = ?
+               AND ((r.from_entity_occ_id IS NOT NULL AND fe.snapshot_id != ?)
+                 OR (r.from_symbol_occ_id IS NOT NULL AND fs.snapshot_id != ?)
+                 OR (r.to_entity_occ_id IS NOT NULL AND te.snapshot_id != ?)
+                 OR (r.to_symbol_occ_id IS NOT NULL AND ts.snapshot_id != ?))
+            """,
+            (snapshot_id,) * 5,
+        ).fetchall()
+        return [int(r["id"]) for r in rows]
 
     # --- index jobs ---------------------------------------------------
 
