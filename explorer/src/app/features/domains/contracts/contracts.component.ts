@@ -114,6 +114,9 @@ export interface ConsumersState {
           <section class="contracts__service" [attr.aria-labelledby]="'svc-' + svc.service.id">
             <h2 id="svc-{{ svc.service.id }}">
               {{ svc.service.name || svc.service.qualified_name }}
+              @if (svc.service.name && svc.service.qualified_name !== svc.service.name) {
+                <span class="contracts__muted">({{ svc.service.qualified_name }})</span>
+              }
             </h2>
             <dl class="contracts__meta">
               @if (svc.service.attributes['title']; as title) {
@@ -171,32 +174,38 @@ export interface ConsumersState {
                           {{ consumersOpen().has(ep.id) ? 'Ocultar' : 'Consumidores' }}
                         </button>
                         @if (consumersOpen().has(ep.id)) {
-                          @switch (consumerState(ep.id).phase) {
-                            @case ('loading') {
-                              <p class="contracts__muted" role="status">Carregando…</p>
-                            }
-                            @case ('error') {
-                              <p class="contracts__error" role="alert">{{ consumerState(ep.id).error }}</p>
-                            }
-                            @case ('ready') {
-                              @if (consumerState(ep.id).edges.length === 0) {
-                                <p class="contracts__muted">Nenhum consumidor conhecido.</p>
-                              } @else {
-                                <ul
-                                  class="contracts__consumers"
-                                  [id]="'consumers-' + ep.id"
-                                >
-                                  @for (edge of consumerState(ep.id).edges; track edge.id) {
-                                    <li>
-                                      <atlas-evidence-badge [level]="edgeLevel(edge)" />
-                                      <span>{{ endpointLabel(edge.from) }}</span>
-                                      <span class="contracts__muted">{{ endpointDetail(edge.from) }}</span>
-                                    </li>
-                                  }
-                                </ul>
+                          <!-- The disclosure region must keep this id in
+                               every phase — aria-controls on the toggle
+                               always points at it (axe aria-valid-attr-value
+                               fails on a dangling reference). -->
+                          <div
+                            class="contracts__consumers-region"
+                            [id]="'consumers-' + ep.id"
+                          >
+                            @switch (consumerState(ep.id).phase) {
+                              @case ('loading') {
+                                <p class="contracts__muted" role="status">Carregando…</p>
+                              }
+                              @case ('error') {
+                                <p class="contracts__error" role="alert">{{ consumerState(ep.id).error }}</p>
+                              }
+                              @case ('ready') {
+                                @if (consumerState(ep.id).edges.length === 0) {
+                                  <p class="contracts__muted">Nenhum consumidor conhecido.</p>
+                                } @else {
+                                  <ul class="contracts__consumers">
+                                    @for (edge of consumerState(ep.id).edges; track edge.id) {
+                                      <li>
+                                        <atlas-evidence-badge [level]="edgeLevel(edge)" />
+                                        <span>{{ endpointLabel(edge.from) }}</span>
+                                        <span class="contracts__muted">{{ endpointDetail(edge.from) }}</span>
+                                      </li>
+                                    }
+                                  </ul>
+                                }
                               }
                             }
-                          }
+                          </div>
                         }
                       </td>
                     </tr>
@@ -259,6 +268,7 @@ export interface ConsumersState {
         color: var(--atlas-color-text-muted);
         flex: 1;
         min-width: 16rem;
+        overflow-wrap: anywhere;
       }
 
       .contracts__header button {
@@ -363,6 +373,7 @@ export interface ConsumersState {
         align-items: baseline;
         gap: var(--atlas-space-2);
         flex-wrap: wrap;
+        overflow-wrap: anywhere;
       }
 
       .contracts__muted {

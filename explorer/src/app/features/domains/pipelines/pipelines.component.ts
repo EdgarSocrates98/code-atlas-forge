@@ -171,6 +171,7 @@ const PIPELINE_EDGE_TYPES = 'DEPENDS_ON,DEPLOYS,TRIGGERS';
         color: var(--atlas-color-text-muted);
         flex: 1;
         min-width: 16rem;
+        overflow-wrap: anywhere;
       }
 
       .pipelines__header button {

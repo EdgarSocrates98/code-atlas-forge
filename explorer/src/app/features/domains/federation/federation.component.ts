@@ -177,6 +177,7 @@ export interface MemberRow {
         color: var(--atlas-color-text-muted);
         flex: 1;
         min-width: 16rem;
+        overflow-wrap: anywhere;
       }
 
       .federation__header button {
