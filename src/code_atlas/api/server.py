@@ -242,6 +242,13 @@ class _AtlasHandler(BaseHTTPRequestHandler):
     def _dispatch(self, method: str) -> None:
         try:
             self._guard()
+            # RFC 9110: o request-target nunca carrega controles C0/DEL.
+            # Rejeita cedo — depender do ``resolve()`` estourar em NUL é
+            # não-determinístico entre plataformas/versões (Win py3.13
+            # retorna 200 via SPA fallback onde POSIX/py3.12 dava 400).
+            if any(ord(c) < 0x20 or ord(c) == 0x7F for c in self.path):
+                raise ApiError(
+                    "bad-request", "request-target malformado", 400)
             path = urlparse(self.path).path
             if not path.startswith(API_PREFIX):
                 if method == "GET" and self.server.static_root:
