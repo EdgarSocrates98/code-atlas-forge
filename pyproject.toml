@@ -50,6 +50,13 @@ vector = [
 [tool.setuptools.packages.find]
 where = ["src"]
 
+# Assets compilados do Explorer (gerados por scripts/build_release.sh a
+# partir de explorer/dist/explorer/browser/). São dados de pacote — o
+# diretório é gitignored e pode não existir num checkout limpo; nesse
+# caso o wheel/sdist saem API-only e `code-atlas explorer` avisa.
+[tool.setuptools.package-data]
+code_atlas = ["explorer_dist/**"]
+
 [tool.setuptools.dynamic]
 version = { attr = "code_atlas.__version__" }
 
@@ -77,3 +84,9 @@ testpaths = ["tests"]
 # corpus vendored é dado de eval (lf-0055), nunca suíte de testes
 norecursedirs = ["tests/corpus"]
 addopts = "-ra"
+markers = [
+    # build de wheel + venv limpa + smoke HTTP — pesado mas honesto
+    # (lf-0148, cycle-8.1 Phase 3). Roda por default; pula com NOT RUN
+    # explícito quando a toolchain (build/npm/dist) está ausente.
+    "packaging: heavy packaging tests (wheel build + clean-venv install + HTTP smoke)",
+]

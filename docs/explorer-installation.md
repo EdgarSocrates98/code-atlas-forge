@@ -67,8 +67,11 @@ code-atlas explorer --open # serve a dist recém-compilada
 
 Detalhes importantes:
 
-- **O CLI procura a dist em dois lugares** (`cli.py:865-868`):
-  `explorer/dist/explorer/browser` (saída atual do
+- **O CLI procura a dist em três origens** (`explorer_static_root` em
+  `src/code_atlas/api/server.py`, lf-0148): primeiro
+  `code_atlas/explorer_dist/` **empacotado no wheel** (via
+  `importlib.resources` — é o que faz `pip install` servir a SPA), e em
+  modo dev `explorer/dist/explorer/browser` (saída do
   `@angular-devkit/build-angular:application`) e depois
   `explorer/dist`. Só serve se houver `index.html`; senão imprime
   "Explorer não compilado — servindo apenas a API" e sobe só `/api/v1`.
@@ -77,11 +80,13 @@ Detalhes importantes:
   E2E e o usuário final exercem.
 - **Testes unitários**: `npm test` — Karma + Jasmine em
   `ChromeHeadlessCI` (`karma.conf.js`, `--no-sandbox --disable-gpu`).
-- **Lock dessincronizado**: `package.json` lista
-  `@playwright/test@1.48.2`, mas `package-lock.json` **não contém**
-  entradas do Playwright (verificado por grep). Use `npm install` (que
-  atualiza o lock); `npm ci` falha por divergência lock↔manifest —
-  pendência registrada em `docs/cycle-6-limitations.md`.
+- **`npm ci` exige lockfile consistente**: `npm ci` falha com
+  `ERESOLVE` se `package-lock.json` divergir de `package.json` (foi o
+  caso durante a migração Angular do cycle-8.1, enquanto o lock era
+  regenerado por etapas). `npm install` reconcilia os dois; o lockfile
+  comprometido é a fonte canônica para builds reproduzíveis —
+  `scripts/build_release.sh` usa `npm ci` de propósito: uma divergência
+  deve falhar o release, não ser contornada.
 
 ### E2E (Playwright) — quando for executar
 

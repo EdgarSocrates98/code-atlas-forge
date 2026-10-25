@@ -6,6 +6,25 @@ versionamento [SemVer](https://semver.org/lang/pt-BR/).
 
 ## [Unreleased]
 
+### Adicionado — Cycle 8.1 (branch `cycle-8.1-ga-readiness`)
+
+- **Explorer embutido no wheel** (lf-0148, Phase 3): o dist Angular é
+  empacotado como dados de pacote em `code_atlas/explorer_dist/`
+  (`[tool.setuptools.package-data]`, gerado por
+  `scripts/build_release.sh` a partir de
+  `explorer/dist/explorer/browser/`). `pip install` →
+  `code-atlas explorer` serve a SPA completa; sem os assets o wheel sai
+  API-only e avisa, como antes. Resolução em runtime:
+  `explorer_static_root()` em `api/server.py` — packaged via
+  `importlib.resources` primeiro, fallback para o checkout em dev.
+  Verificado: `tests/packaging/test_wheel_explorer.py` instala o wheel
+  numa venv limpa e faz smoke HTTP real (`/`, `/graph`, `/domains`,
+  asset hashed, `/api/v1/health` — todos 200).
+- **Builds reproduzíveis** (lf-0148, Phase 4): `scripts/build_release.sh`
+  fixa `SOURCE_DATE_EPOCH` (env ou timestamp do HEAD). Wheel
+  byte-idêntico entre builds; sdist normalizado (mtimes + gzip header)
+  também byte-idêntico. Números medidos em `docs/RELEASING.md`.
+
 ## [1.0.0rc1] - 2026-10-25
 
 Primeiro release candidato do code-atlas-forge. Nenhuma tag anterior

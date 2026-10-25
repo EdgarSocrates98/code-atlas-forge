@@ -313,6 +313,37 @@ class AtlasApiServer:
         self._httpd.server_close()
 
 
+def explorer_static_root(repo_hint: Path | None = None) -> Path | None:
+    """Resolve a dist compilada do Explorer para ``static_root``.
+
+    Ordem (lf-0148, cycle-8.1 Phase 3): ``code_atlas/explorer_dist``
+    empacotado no wheel via ``importlib.resources`` → checkout do repo
+    em modo dev (``explorer/dist/explorer/browser`` ou
+    ``explorer/dist`` relativo a ``repo_hint``). Retorna ``None``
+    quando nenhum candidato tem ``index.html`` — o servidor sobe
+    API-only nesse caso.
+
+    Wheels são sempre instaladas descompactadas, então o traversable é
+    um ``Path`` real; loaders exóticos (zipimport) caem no fallback em
+    vez de quebrar.
+    """
+    try:
+        from importlib.resources import files
+        packaged = files("code_atlas").joinpath("explorer_dist")
+        if (isinstance(packaged, Path)
+                and (packaged / "index.html").is_file()):
+            return packaged
+    except (ModuleNotFoundError, TypeError, OSError):
+        pass
+    if repo_hint is not None:
+        for candidate in (
+                repo_hint / "explorer" / "dist" / "explorer" / "browser",
+                repo_hint / "explorer" / "dist"):
+            if (candidate / "index.html").is_file():
+                return candidate
+    return None
+
+
 def serve(db_path: str, host: str = "127.0.0.1", port: int = 8741,
           verbose: bool = False,
           static_root: Path | None = None,

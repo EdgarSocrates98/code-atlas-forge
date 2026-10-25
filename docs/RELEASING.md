@@ -88,11 +88,11 @@ DONE se persistirem falhas P0/P1").
   high/moderate seguem reportadas e não bloqueiam, por decisão
   registrada. **Recomendação: agendar a migração Angular como item
   pós-1.0 ou pré-GA explícito.**
-- **Explorer dist fora do wheel** — `code-atlas explorer` resolve
-  `explorer/dist` relativo ao source tree; wheel instalado via pip
-  serve **API-only** com aviso honesto ("Explorer não compilado —
-  servindo apenas a API"). Empacotar o dist Angular no wheel é
-  decisão de distribuição separada (tamanho, licenças de assets).
+- ~~**Explorer dist fora do wheel**~~ — **resolvido em lf-0148
+  (cycle-8.1, Phase 3)**: o dist Angular é embutido no wheel via
+  `code_atlas/explorer_dist/` (package-data) gerado por
+  `scripts/build_release.sh`. `pip install` → `code-atlas explorer`
+  serve a SPA completa; ver seção "Empacotamento e reprodutibilidade".
 - **Classifier PyPI** — `pyproject.toml` declara
   `Development Status :: 3 - Alpha`. Para GA (`1.0.0`) deve ir a
   `5 - Production/Stable`; para a linha RC `4 - Beta` seria o
@@ -100,3 +100,66 @@ DONE se persistirem falhas P0/P1").
 - **Tag/publish/push** — nunca executados por automação neste repo;
   `scripts/release_check.sh` verifica e reporta, o corte de tag é
   humano.
+
+## Empacotamento e reprodutibilidade (lf-0148, cycle-8.1)
+
+### Explorer dentro do wheel
+
+`scripts/build_release.sh` é o pipeline de artefatos:
+
+1. `npm --prefix explorer ci` + `npm --prefix explorer run build`
+   → `explorer/dist/explorer/browser/`;
+2. copia para `src/code_atlas/explorer_dist/` (gitignored, gerado —
+   entra no pacote via `[tool.setuptools.package-data]`,
+   `code_atlas = ["explorer_dist/**"]`);
+3. `python -m build` (sdist → wheel a partir do sdist);
+4. normaliza mtimes do sdist para `SOURCE_DATE_EPOCH`.
+
+Resolução em runtime (`explorer_static_root` em
+`src/code_atlas/api/server.py`): **primeiro**
+`importlib.resources.files("code_atlas")/explorer_dist` (wheel
+instalado), **fallback** `explorer/dist/explorer/browser` →
+`explorer/dist` relativos ao checkout (modo dev). Sem nenhum → API-only
+com aviso, comportamento anterior preservado.
+
+Sem `explorer_dist` gerado, `python -m build` produz wheel/sdist
+**API-only** — é intencional: a sdist/wheel "pura" continua instalável
+e `code-atlas explorer` avisa e serve só a API.
+
+Verificação honesta: `tests/packaging/test_wheel_explorer.py` builda o
+wheel numa árvore copiada para tmp, instala em venv limpa
+(`--no-deps` — a superfície explorer é stdlib-only) e faz smoke HTTP
+contra `code-atlas explorer` real: `/`, `/graph`, `/domains` (SPA
+fallback → index.html), asset hashed byte-idêntico ao dist e
+`/api/v1/health`. Medido: wheel `1.0.0rc1` com 34 assets do explorer,
+208 entradas; todos os endpoints 200.
+
+### Reprodutibilidade (Phase 4)
+
+`SOURCE_DATE_EPOCH` é resolvido por `build_release.sh` assim:
+`$SOURCE_DATE_EPOCH` do ambiente → `git log -1 --format=%ct` (timestamp
+do HEAD — fixo por commit). Sem git e sem env o script aborta: artefato
+não-reproduzível é pior que falha explícita.
+
+Medido neste repo (2026-10-25, `1.0.0rc1`):
+
+- **wheel byte-idêntico**: dois `python -m build` independentes com o
+  mesmo `SOURCE_DATE_EPOCH` → sha256 idênticos
+  (`c2e90365949542f02c58ec8024849881f7dce9a18a4199ceabee83f803291442`).
+  setuptools honra SDE nos timestamps dos zip entries.
+- **sdist**: setuptools NÃO honra SDE no sdist — entradas de diretório
+  e metadados gerados (`PKG-INFO`, `egg-info/*`, `setup.cfg`) levam o
+  relógio real e o header gzip leva o mtime da compressão. Conteúdo
+  descomprimido era byte-idêntico; os bytes do `.tar.gz` não. O passo
+  de normalização do `build_release.sh` regrava o tar com
+  mtime=SDE em todos os membros + `gzip mtime=SDE` → sdists de dois
+  builds idênticos têm sha256 iguais
+  (`a3b476a27176c8257ff976693601faa700c9316bae9ec5c9b7bf712bf14ae2a8`).
+- **camada npm**: assets Angular têm hash de conteúdo no nome; a
+  reprodutibilidade do `ng build` é assumida por esses hashes — o
+  contrato verificável é o conteúdo do dist copiado, não os nomes.
+
+Instalação via sdist verificada: `pip install dist/*.tar.gz` numa venv
+limpa instala `code_atlas/explorer_dist/` (a sdist carrega os assets
+quando gerados antes do build) e `code-atlas explorer` serve
+`/`, rotas SPA e `/api/v1/health` — medido, não assumido.

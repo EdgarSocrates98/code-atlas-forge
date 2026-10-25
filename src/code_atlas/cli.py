@@ -922,19 +922,17 @@ def run_explorer(args: argparse.Namespace) -> int:
     """`code-atlas explorer` — serve API + assets compilados do Explorer.
 
     Nunca abre o navegador sem `--open`; bind sempre loopback; se a dist
-    do Angular não existir, serve só a API e avisa.
+    do Angular não existir (nem empacotada nem no checkout), serve só a
+    API e avisa.
     """
-    from code_atlas.api.server import serve
+    from code_atlas.api.server import explorer_static_root, serve
 
     db_file = db_path()
     if not db_file.exists():
         print("banco não existe — rode `code-atlas index` antes",
               file=sys.stderr)
         return EXIT_ERROR
-    dist = Path(__file__).resolve().parents[2] / "explorer" / "dist" / "explorer" / "browser"
-    if not dist.is_dir():
-        dist = Path(__file__).resolve().parents[2] / "explorer" / "dist"
-    static = dist if (dist / "index.html").is_file() else None
+    static = explorer_static_root(Path(__file__).resolve().parents[2])
     if static is None:
         print("Explorer não compilado — servindo apenas a API "
               "(build: cd explorer && npm run build)", file=sys.stderr)
@@ -1238,7 +1236,11 @@ def run_impact(args: argparse.Namespace) -> int:
             print(f"  diagnostic {d.code}: {d.message}",
                   file=sys.stderr)
         if res.truncated:
-            print("  TRUNCATED — limites atingidos")
+            # lf-0151: paridade com JSON/Markdown — as razões do
+            # corte fazem parte do estado reportado.
+            why = ", ".join(res.truncation_reasons)
+            print(f"  TRUNCATED — limites atingidos"
+                  + (f" ({why})" if why else ""))
         return 0
     finally:
         conn.close()
