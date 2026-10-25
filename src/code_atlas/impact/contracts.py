@@ -213,6 +213,27 @@ class ImpactDiagnostic:
 
 @dataclass(frozen=True)
 class ImpactLimits:
+    """Limites da análise — cada um tem uma razão de truncamento.
+
+    Semântica medida (cycle-8.1, lf-0151): um bound que descarta
+    trabalho real é declarado em ``ImpactResult.truncation_reasons``
+    (e refletido em ``truncated``) — nunca silencioso.
+
+    - ``max_depth``: hops máximos por caminho. Um candidato emitido
+      exatamente na fronteira (``hops == max_depth``) não é expandido;
+      se ele ainda tem vizinhos atravessáveis (ou incerteza de domínio
+      não contada) o corte é declarado ``max-depth-frontier``.
+    - ``max_nodes``: cap de scan de vizinhos **por expansão** (rows de
+      ``relations``/``domain_relations`` lidas por nó, prefixo
+      determinístico ``ORDER BY id``). Quando a varredura de um nó
+      enche esse limite, rows além dele nunca são vistas — o corte é
+      ``max-nodes-edge-scan``. Não é um bound global de nós
+      visitados (o nome é preservado por compatibilidade).
+    - ``max_paths``: cap de emissão — o blast para quando
+      ``len(candidates) >= max_paths`` → ``max-paths``.
+    - ``max_changes``: cap do diff de símbolos → ``max-changes``.
+    """
+
     max_depth: int = 4
     max_nodes: int = 500
     max_paths: int = 50
@@ -263,8 +284,26 @@ class ImpactResult:
     test_candidates: tuple[TestCandidate, ...]
     risk: RiskAssessment
     unknown_coverage: tuple[str, ...]
+    # ``truncated`` é a união de ``truncation_reasons``: True sse
+    # algum bound descartou trabalho real — nenhuma análise incompleta
+    # se apresenta como exaustiva (cycle-8.1 Phase 8 / lf-0151).
     truncated: bool
     diagnostics: tuple[ImpactDiagnostic, ...]
+    # Vocabulário estável e ordenado de bounds que cortaram a análise:
+    # - ``max-paths`` — emissão do blast atingiu ``max_paths``;
+    # - ``max-changes`` — diff de símbolos atingiu ``max_changes``;
+    # - ``max-nodes-edge-scan`` — scan de vizinhos de um nó encheu
+    #   ``max_nodes`` (prefixo determinístico ``ORDER BY id``);
+    # - ``max-depth-frontier`` — nó emitido em ``hops == max_depth``
+    #   ainda tinha trabalho atravessável e não foi expandido;
+    # - ``symbol-seed-limit`` — lookup de seed what-if atingiu o cap
+    #   de ocorrências;
+    # - ``test-candidates`` — seleção de testes atingiu o cap.
+    # ``truncation_reason``/``max_depth_reached``/``max_nodes_reached``
+    # do Phase 8 mapeiam aqui; ``max_edges``/``query_budget`` não
+    # existem como bounds separados no engine (documentado em
+    # ``docs/impact-truncation-integrity.md``). Aditivo — schema v1.
+    truncation_reasons: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True)

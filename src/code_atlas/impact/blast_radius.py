@@ -55,6 +55,30 @@ def _sym(conn: sqlite3.Connection, occ_id: int) -> _Hit | None:
                 str(row["relative_path"]))
 
 
+def _frontier_pending(
+    conn: sqlite3.Connection, snapshot_id: int, occ: int,
+    origin_key: str, origins: dict[str, int],
+    visited: set[tuple[int, str]], limits: ImpactLimits,
+) -> bool:
+    """``True`` se o nó de fronteira (emitido em ``hops >= max_depth``,
+    nunca enfileirado) ainda tinha consumidor atravessável para a
+    origem — ou o scan de vizinhos excedeu ``max_nodes`` (sonda +1:
+    a cauda não-vista pode esconder trabalho, lf-0151)."""
+    rows = conn.execute(
+        _IN_SQL, (snapshot_id, occ, limits.max_nodes + 1)).fetchall()
+    if len(rows) > limits.max_nodes:
+        return True
+    for r in rows:
+        consumer_occ = int(r["from_id"])
+        if (consumer_occ, origin_key) in visited:
+            continue
+        hit = _sym(conn, consumer_occ)
+        if hit is None or hit.key in origins:
+            continue
+        return True
+    return False
+
+
 def blast(
     conn: sqlite3.Connection, snapshot_id: int,
     origins: dict[str, int],  # symbol_key → occurrence_id alterado
@@ -62,7 +86,16 @@ def blast(
     *,
     reason_suffix: str = "",
 ) -> tuple[tuple[ImpactCandidate, ...], bool]:
-    """BFS de consumidores; retorna (candidatos, truncated)."""
+    """BFS de consumidores; retorna (candidatos, truncated).
+
+    ``truncated`` é a união de todos os bounds que descartaram
+    trabalho (lf-0151): emissão no cap ``max_paths``, varredura de
+    vizinhos de um nó no cap ``max_nodes`` (prefixo ``ORDER BY id``
+    determinístico — rows além dele nunca vistas) e nós na fronteira
+    ``hops >= max_depth`` com consumidores ainda atravessáveis. A
+    discriminação por razão é exposta por
+    ``domain_traversal.blast``/``ImpactResult.truncation_reasons``.
+    """
     conn.row_factory = sqlite3.Row
     out: list[ImpactCandidate] = []
     # lf-0079: visita por (nó, origem) — duas origens até o mesmo
@@ -73,7 +106,8 @@ def blast(
         deque())
     for key, occ in origins.items():
         queue.append((occ, key, [], [], [], 0))
-    truncated = False
+    edge_scan_capped = False
+    frontier: list[tuple[int, str]] = []
 
     while queue:
         occ, origin_key, rel_ids, mids, statuses, depth = queue.popleft()
@@ -81,8 +115,14 @@ def blast(
         if vkey in visited or depth > limits.max_depth:
             continue
         visited.add(vkey)
+        # +1 linha de sonda: distingue fit exato de overflow real —
+        # só o overflow descarta trabalho (lf-0151).
         rows = conn.execute(
-            _IN_SQL, (snapshot_id, occ, limits.max_nodes)).fetchall()
+            _IN_SQL, (snapshot_id, occ,
+                      limits.max_nodes + 1)).fetchall()
+        if len(rows) > limits.max_nodes:
+            edge_scan_capped = True
+            rows = rows[:limits.max_nodes]
         for r in rows:
             consumer_occ = int(r["from_id"])
             if (consumer_occ, origin_key) in visited:
@@ -119,4 +159,13 @@ def blast(
             if hops < limits.max_depth:
                 queue.append((consumer_occ, origin_key,
                               new_rels, new_mid, new_st, depth + 1))
-    return tuple(out), truncated
+            else:
+                # fronteira de depth: emitido mas nunca expandido —
+                # sonda decide se o corte descartou trabalho.
+                frontier.append((consumer_occ, origin_key))
+
+    depth_cut = any(
+        _frontier_pending(conn, snapshot_id, occ, key, origins,
+                          visited, limits)
+        for occ, key in dict.fromkeys(frontier))
+    return tuple(out), edge_scan_capped or depth_cut

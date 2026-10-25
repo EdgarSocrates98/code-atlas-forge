@@ -117,7 +117,11 @@ def _limitations_section(res: ImpactResult) -> list[str]:
     for d in res.diagnostics:
         lines.append(f"- diagnostic `{d.code}`: {d.message}")
     if res.truncated:
-        lines.append("- **TRUNCATED**: limites de análise atingidos")
+        # lf-0151: cada bound que cortou trabalho é nomeado — um
+        # "TRUNCATED" sem razão seria de novo silêncio invertido.
+        why = ", ".join(res.truncation_reasons) or "limites"
+        lines.append(
+            f"- **TRUNCATED**: limites de análise atingidos ({why})")
     return lines
 
 

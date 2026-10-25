@@ -1239,7 +1239,7 @@ def run_impact(args: argparse.Namespace) -> int:
             # lf-0151: paridade com JSON/Markdown — as razões do
             # corte fazem parte do estado reportado.
             why = ", ".join(res.truncation_reasons)
-            print(f"  TRUNCATED — limites atingidos"
+            print("  TRUNCATED — limites atingidos"
                   + (f" ({why})" if why else ""))
         return 0
     finally:
