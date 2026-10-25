@@ -36,7 +36,6 @@ from __future__ import annotations
 import contextlib
 import io
 import json
-import os
 import sqlite3
 from collections.abc import Mapping, Sequence
 from contextlib import redirect_stderr, redirect_stdout
@@ -47,7 +46,6 @@ from typing import Any
 SCENARIO_SCHEMA = 1
 RESULTS_SCHEMA = 1
 
-_ENV_KEYS = ("CODE_ATLAS_DATA_DIR", "CODE_ATLAS_CONFIG_DIR")
 
 # Classe de impacto em ordem decrescente de "alcançável verificado".
 _IMPACT_RANK = {"direct": 0, "transitive": 1, "possible": 2, "unknown": 3}
@@ -149,20 +147,14 @@ def run_cli(
     apontados para o workspace temporário. É a mesma superfície do
     binário — só o transporte é in-process."""
     from code_atlas.cli import main as cli_main
+    from code_atlas.env_override import patched_env
 
-    old = {k: os.environ.get(k) for k in _ENV_KEYS}
-    os.environ["CODE_ATLAS_DATA_DIR"] = str(data_dir)
-    os.environ["CODE_ATLAS_CONFIG_DIR"] = str(config_dir)
     out_buf, err_buf = io.StringIO(), io.StringIO()
-    try:
-        with redirect_stdout(out_buf), redirect_stderr(err_buf):
-            code = int(cli_main(list(argv)))
-    finally:
-        for key, val in old.items():
-            if val is None:
-                os.environ.pop(key, None)
-            else:
-                os.environ[key] = val
+    with patched_env({
+        "CODE_ATLAS_DATA_DIR": str(data_dir),
+        "CODE_ATLAS_CONFIG_DIR": str(config_dir),
+    }), redirect_stdout(out_buf), redirect_stderr(err_buf):
+        code = int(cli_main(list(argv)))
     return CliRun(tuple(argv), code, out_buf.getvalue(),
                   err_buf.getvalue())
 
@@ -524,6 +516,7 @@ def _seed_entity_count(
 
 def evaluate_scenario(
     repo_root: Path, sc: ImpactScenario, conn: sqlite3.Connection,
+    *, data_dir: Path, config_dir: Path,
 ) -> dict[str, Any]:
     """Mede um cenário num repositório JÁ indexado (``conn`` aberto no
     ``atlas.db`` do workspace temporário)."""
@@ -541,8 +534,6 @@ def evaluate_scenario(
         },
     }
     fixture = repo_root / sc.fixture
-    data_dir = Path(os.environ["CODE_ATLAS_DATA_DIR"])
-    config_dir = Path(os.environ["CODE_ATLAS_CONFIG_DIR"])
 
     run, payload = run_impact(
         fixture, sc.seed, data_dir=data_dir, config_dir=config_dir)
@@ -675,41 +666,41 @@ def evaluate_all(
                                "scenarios": {}}
     indexed: dict[tuple[str, tuple[str, ...], bool],
                   _IndexedFixture] = {}
-    try:
-        for sc in scenarios:
-            key = (sc.fixture, sc.domains, sc.cross_domain)
-            fx = indexed.get(key)
-            if fx is None:
-                slot = work_dir / f"ws-{len(indexed)}"
-                data_dir, config_dir = slot / "data", slot / "cfg"
-                data_dir.mkdir(parents=True)
-                config_dir.mkdir(parents=True)
-                run = index_fixture(
-                    repo_root / sc.fixture, sc.domains,
-                    sc.cross_domain,
-                    data_dir=data_dir, config_dir=config_dir)
-                fx = _IndexedFixture(key, data_dir, config_dir, run)
-                indexed[key] = fx
-            if fx.index_run.exit_code != 0:
-                results["scenarios"][sc.scenario_id] = {
-                    "id": sc.scenario_id,
-                    "error": f"index exit {fx.index_run.exit_code}: "
-                             f"{fx.index_run.stderr.strip()[:200]}",
-                }
-                continue
-            conn = fx.open()
-            os.environ["CODE_ATLAS_DATA_DIR"] = str(fx.data_dir)
-            os.environ["CODE_ATLAS_CONFIG_DIR"] = str(fx.config_dir)
+    for sc in scenarios:
+        key = (sc.fixture, sc.domains, sc.cross_domain)
+        fx = indexed.get(key)
+        if fx is None:
+            slot = work_dir / f"ws-{len(indexed)}"
+            data_dir, config_dir = slot / "data", slot / "cfg"
+            data_dir.mkdir(parents=True)
+            config_dir.mkdir(parents=True)
+            run = index_fixture(
+                repo_root / sc.fixture, sc.domains,
+                sc.cross_domain,
+                data_dir=data_dir, config_dir=config_dir)
+            fx = _IndexedFixture(key, data_dir, config_dir, run)
+            indexed[key] = fx
+        if fx.index_run.exit_code != 0:
+            results["scenarios"][sc.scenario_id] = {
+                "id": sc.scenario_id,
+                "error": f"index exit {fx.index_run.exit_code}: "
+                         f"{fx.index_run.stderr.strip()[:200]}",
+            }
+            continue
+        conn = fx.open()
+        from code_atlas.env_override import patched_env
+        with patched_env({
+            "CODE_ATLAS_DATA_DIR": str(fx.data_dir),
+            "CODE_ATLAS_CONFIG_DIR": str(fx.config_dir),
+        }):
             try:
                 results["scenarios"][sc.scenario_id] = \
-                    evaluate_scenario(repo_root, sc, conn)
+                    evaluate_scenario(
+                        repo_root, sc, conn,
+                        data_dir=fx.data_dir,
+                        config_dir=fx.config_dir)
             finally:
-                for env_key in _ENV_KEYS:
-                    os.environ.pop(env_key, None)
                 fx.close()
-    finally:
-        for env_key in _ENV_KEYS:
-            os.environ.pop(env_key, None)
 
     # sumário agregado — micro-média sobre cenários com conjunto
     # esperado não-vazio; vazios honestos contam como cobertura, não

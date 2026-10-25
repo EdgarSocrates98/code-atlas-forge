@@ -574,7 +574,7 @@ def evaluate_all(
 ) -> dict[str, Any]:
     """Indexa cada fixture uma vez (mesmo ``atlas.db`` por par
     fixture+adapters) e mede todos os braços de cada tarefa."""
-    import os
+    from code_atlas.env_override import patched_env
 
     results: dict[str, Any] = {"schema": RESULTS_SCHEMA, "tasks": {}}
     indexed: dict[tuple[str, tuple[str, ...], bool],
@@ -596,20 +596,12 @@ def evaluate_all(
             _open_slot(repo_root, task, slot)
         env = {"CODE_ATLAS_DATA_DIR": str(slot["data_dir"]),
                "CODE_ATLAS_CONFIG_DIR": str(slot["config_dir"])}
-        old = {k: os.environ.get(k) for k in env}
-        os.environ.update(env)
-        try:
+        with patched_env(env):
             results["tasks"][task.task_id] = evaluate_task(
                 repo_root, task, slot["conn"],
                 int(slot["repo_id"]), int(slot["snapshot_id"]),
                 data_dir=slot["data_dir"],
                 config_dir=slot["config_dir"])
-        finally:
-            for k, v in old.items():
-                if v is None:
-                    os.environ.pop(k, None)
-                else:
-                    os.environ[k] = v
     for slot in indexed.values():
         if slot["conn"] is not None:
             slot["conn"].close()
