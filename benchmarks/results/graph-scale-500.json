@@ -7,13 +7,13 @@
   },
   "api": {
     "samples_ms": [
-      10.895,
-      9.01,
-      8.81,
-      9.024000000000001,
-      8.992999999999999
+      5.175,
+      5.1000000000000005,
+      4.992,
+      5.01,
+      5.763
     ],
-    "median_ms": 9.01,
+    "median_ms": 5.1000000000000005,
     "body": {
       "items": 500,
       "total_files": 500,
@@ -27,23 +27,22 @@
       "hardwareConcurrency": 16,
       "devicePixelRatio": 1
     },
-    "wall_nav_to_ready_ms": 452,
-    "ready_ms_page_clock": 446.2,
+    "wall_nav_to_ready_ms": 344,
+    "ready_ms_page_clock": 341.1,
     "resource": {
-      "navDuration": 159,
+      "navDuration": 123.6,
       "overviewApi": {
-        "start": 292.9,
-        "duration": 51.3,
-        "responseEnd": 344.2,
+        "start": 239.2,
+        "duration": 47.3,
+        "responseEnd": 286.5,
         "transferSize": 35781,
         "encodedBodySize": 35481
       },
-      "reposApi": 45.3,
-      "maxRafGap": 50.1,
+      "reposApi": 2.7,
+      "maxRafGap": 66.7,
       "longtasks": [
-        68,
-        99,
-        122
+        52,
+        73
       ]
     },
     "counts": {
@@ -56,27 +55,27 @@
     },
     "heap_mb": {
       "before_load": 1.1,
-      "after_render": 9.2,
-      "after_pan": 11.1
+      "after_render": 9.3,
+      "after_pan": 9.7
     },
     "pan_at_default_cap": {
-      "frames": 178,
-      "fps_mean": 52.2,
-      "delta_mean_ms": 19.16,
-      "delta_p95_ms": 33.4,
-      "delta_max_ms": 50,
-      "frames_over_33ms": 5,
-      "draw_calls": 165,
-      "draw_verts": 216063
+      "frames": 196,
+      "fps_mean": 57.4,
+      "delta_mean_ms": 17.41,
+      "delta_p95_ms": 16.8,
+      "delta_max_ms": 33.4,
+      "frames_over_33ms": 0,
+      "draw_calls": 172,
+      "draw_verts": 228060
     },
     "relayout": {
-      "max_gap_ms": 83.4,
-      "settle_ms": 1613.3
+      "max_gap_ms": 66.6,
+      "settle_ms": 1612.3
     },
     "cap_experiment": null,
     "second_relayout_probe": {
-      "max_gap_ms": 50,
-      "settle_ms": 1208.6,
+      "max_gap_ms": 33.4,
+      "settle_ms": 1208.8,
       "draw_calls_in_window": 10,
       "canvas_frozen_after_first_relayout": false
     }

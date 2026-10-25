@@ -7,13 +7,13 @@
   },
   "api": {
     "samples_ms": [
-      5.029999999999999,
-      4.460000000000001,
-      5.032,
-      3.6740000000000004,
-      4.484
+      3.4,
+      2.539,
+      2.656,
+      2.32,
+      3.004
     ],
-    "median_ms": 4.484,
+    "median_ms": 2.656,
     "body": {
       "items": 100,
       "total_files": 100,
@@ -27,24 +27,20 @@
       "hardwareConcurrency": 16,
       "devicePixelRatio": 1
     },
-    "wall_nav_to_ready_ms": 445,
-    "ready_ms_page_clock": 440.6,
+    "wall_nav_to_ready_ms": 335,
+    "ready_ms_page_clock": 332,
     "resource": {
-      "navDuration": 179.7,
+      "navDuration": 129.6,
       "overviewApi": {
-        "start": 311.5,
-        "duration": 45.5,
-        "responseEnd": 357,
+        "start": 242,
+        "duration": 44,
+        "responseEnd": 286,
         "transferSize": 7381,
         "encodedBodySize": 7081
       },
-      "reposApi": 3.5,
-      "maxRafGap": 83.4,
-      "longtasks": [
-        62,
-        80,
-        94
-      ]
+      "reposApi": 2.4,
+      "maxRafGap": 66.7,
+      "longtasks": []
     },
     "counts": {
       "rendered": 100,
@@ -56,27 +52,27 @@
     },
     "heap_mb": {
       "before_load": 1.1,
-      "after_render": 7.4,
-      "after_pan": 9.2
+      "after_render": 7.5,
+      "after_pan": 9.3
     },
     "pan_at_default_cap": {
       "frames": 204,
-      "fps_mean": 59.9,
-      "delta_mean_ms": 16.69,
+      "fps_mean": 60,
+      "delta_mean_ms": 16.67,
       "delta_p95_ms": 16.8,
       "delta_max_ms": 33.4,
       "frames_over_33ms": 0,
-      "draw_calls": 132,
-      "draw_verts": 36036
+      "draw_calls": 136,
+      "draw_verts": 37830
     },
     "relayout": {
-      "max_gap_ms": 33.3,
-      "settle_ms": 1608
+      "max_gap_ms": 16.8,
+      "settle_ms": 1608.2
     },
     "cap_experiment": null,
     "second_relayout_probe": {
       "max_gap_ms": 16.8,
-      "settle_ms": 1206.1,
+      "settle_ms": 1209.1,
       "draw_calls_in_window": 8,
       "canvas_frozen_after_first_relayout": false
     }

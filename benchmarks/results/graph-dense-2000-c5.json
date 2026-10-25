@@ -36,26 +36,26 @@
     "hub_occurrence_id": 6002,
     "client_limit_100": {
       "samples_ms": [
-        22.294999999999998,
-        20.647,
-        20.395,
-        20.660999999999998,
-        20.622999999999998
+        23.468,
+        22.082,
+        25.678,
+        20.825,
+        20.542
       ],
-      "median_ms": 20.647,
+      "median_ms": 22.082,
       "edges": 100,
       "nodes": 101,
       "truncated": true
     },
     "server_cap_200": {
       "samples_ms": [
-        21.747,
-        21.935,
-        21.723,
-        21.733,
-        21.874000000000002
+        22.072000000000003,
+        21.976,
+        27.851,
+        23.636,
+        29.316
       ],
-      "median_ms": 21.747,
+      "median_ms": 23.636,
       "edges": 151,
       "nodes": 152,
       "truncated": false
@@ -74,15 +74,15 @@
       "renderer_failed_banner": false,
       "wall_nav_to_ready_ms": 546,
       "resource": {
-        "navDuration": 183.1,
+        "navDuration": 184.5,
         "neighborsApi": {
-          "start": 375.1,
-          "duration": 64.9,
-          "responseEnd": 440,
+          "start": 371.6,
+          "duration": 64.7,
+          "responseEnd": 436.3,
           "transferSize": 48588,
           "encodedBodySize": 48288
         },
-        "symbolApi": 55.8
+        "symbolApi": 54.7
       },
       "counts_initial": {
         "rendered": 101,
@@ -93,26 +93,24 @@
         "mode": "canvas",
         "rendererFailed": false
       },
-      "max_raf_gap_ms": 283.3,
+      "max_raf_gap_ms": 300,
       "longtasks": [
-        59,
-        96,
-        204
+        78,
+        99,
+        209
       ],
       "sigma_errors": [],
-      "page_errors": [
-        "console.error: Executing inline event handler violates the following Content Security Policy directive 'script-src 'self''. Either the 'unsafe-inline' keyword, a hash ('sha256-...'), or a nonce ('nonce-...') is required to enable inline execution. Note that hashes do not apply to event handlers, style attributes and javascript: navigations unless the 'unsafe-hashes' keyword is present. The action has been blocked."
-      ],
+      "page_errors": [],
       "heap_mb": {
         "before_load": 1.1,
-        "end": 9.4
+        "end": 9.8
       },
-      "raf_alive_ms": 16.6
+      "raf_alive_ms": 11.7
     },
     "table_expansion_phase": {
       "view": "accessible table (renderer fallback keeps it usable)",
       "hub_self_expand": {
-        "wall_ms": 117,
+        "wall_ms": 89,
         "counts_after": {
           "nodes": 101,
           "edges": 100
@@ -130,7 +128,7 @@
         {
           "index": 1,
           "target": "first-enabled-1",
-          "wall_ms": 76,
+          "wall_ms": 92,
           "nodes_after": 110,
           "edges_after": 123
         },
@@ -144,84 +142,84 @@
         {
           "index": 3,
           "target": "first-enabled-3",
-          "wall_ms": 90,
+          "wall_ms": 75,
           "nodes_after": 114,
           "edges_after": 142
         },
         {
           "index": 4,
           "target": "first-enabled-4",
-          "wall_ms": 76,
+          "wall_ms": 92,
           "nodes_after": 116,
           "edges_after": 150
         },
         {
           "index": 5,
           "target": "first-enabled-5",
-          "wall_ms": 76,
+          "wall_ms": 91,
           "nodes_after": 118,
           "edges_after": 157
         },
         {
           "index": 6,
           "target": "first-enabled-6",
-          "wall_ms": 75,
+          "wall_ms": 93,
           "nodes_after": 120,
           "edges_after": 164
         },
         {
           "index": 7,
           "target": "first-enabled-7",
-          "wall_ms": 92,
+          "wall_ms": 104,
           "nodes_after": 122,
           "edges_after": 171
         },
         {
           "index": 8,
           "target": "first-enabled-8",
-          "wall_ms": 75,
+          "wall_ms": 90,
           "nodes_after": 124,
           "edges_after": 178
         },
         {
           "index": 9,
           "target": "first-enabled-9",
-          "wall_ms": 91,
+          "wall_ms": 89,
           "nodes_after": 126,
           "edges_after": 185
         },
         {
           "index": 10,
           "target": "first-enabled-10",
-          "wall_ms": 78,
+          "wall_ms": 92,
           "nodes_after": 128,
           "edges_after": 192
         },
         {
           "index": 11,
           "target": "first-enabled-11",
-          "wall_ms": 89,
+          "wall_ms": 91,
           "nodes_after": 130,
           "edges_after": 199
         },
         {
           "index": 12,
           "target": "first-enabled-12",
-          "wall_ms": 77,
+          "wall_ms": 91,
           "nodes_after": 132,
           "edges_after": 206
         },
         {
           "index": 13,
           "target": "first-enabled-13",
-          "wall_ms": 79,
+          "wall_ms": 92,
           "nodes_after": 134,
           "edges_after": 213
         },
         {
           "index": 14,
           "target": "first-enabled-14",
-          "wall_ms": 90,
+          "wall_ms": 88,
           "nodes_after": 136,
           "edges_after": 220
         }
@@ -234,12 +232,12 @@
         "nodes": 136,
         "edges": 220
       },
-      "max_raf_gap_during_phase_ms": 16.8,
+      "max_raf_gap_during_phase_ms": 33.3,
       "cap_collapse": {
         "collapsed_to": 100,
         "apply": {
           "max_gap_ms": 16.8,
-          "settle_ms": 1614.4
+          "settle_ms": 1609.6
         },
         "counts_collapsed": {
           "rendered": 100,
@@ -251,8 +249,8 @@
           "rendererFailed": false
         },
         "restore": {
-          "max_gap_ms": 16.8,
-          "settle_ms": 1609.4
+          "max_gap_ms": 33.3,
+          "settle_ms": 1606.3
         },
         "counts_restored": {
           "rendered": 136,
@@ -269,7 +267,7 @@
     "canvas_session": {
       "arch_load": {
         "surface": "canvas",
-        "wall_nav_to_ready_ms": 576,
+        "wall_nav_to_ready_ms": 561,
         "counts": {
           "rendered": 500,
           "edges": 0,
@@ -282,20 +280,20 @@
         "note": "overview carries 0 edges — canvas mounts cleanly"
       },
       "pan_arch": {
-        "frames": 184,
-        "fps_mean": 54.1,
-        "delta_mean_ms": 18.5,
+        "frames": 191,
+        "fps_mean": 56.1,
+        "delta_mean_ms": 17.83,
         "delta_p95_ms": 33.3,
-        "delta_max_ms": 50.1,
-        "frames_over_33ms": 5,
-        "draw_calls": 166,
-        "draw_verts": 216066
+        "delta_max_ms": 49.9,
+        "frames_over_33ms": 1,
+        "draw_calls": 164,
+        "draw_verts": 219054
       },
       "drill_attempt": {
         "attempted": true,
         "target": "mod_0000.py",
         "action": "']' ×k + Enter + e — drillFile() in-session",
-        "wall_ms": 777,
+        "wall_ms": 749,
         "outcome": "canvas-edges",
         "page_state": {
           "state": null,
@@ -319,14 +317,14 @@
       },
       "edge_canvas_metrics": {
         "pan_ego": {
-          "frames": 202,
-          "fps_mean": 59.2,
-          "delta_mean_ms": 16.89,
-          "delta_p95_ms": 16.7,
+          "frames": 203,
+          "fps_mean": 59.5,
+          "delta_mean_ms": 16.8,
+          "delta_p95_ms": 16.8,
           "delta_max_ms": 33.4,
           "frames_over_33ms": 0,
-          "draw_calls": 165,
-          "draw_verts": 99855
+          "draw_calls": 169,
+          "draw_verts": 97383
         },
         "canvas_expand": {
           "attempts": 4,
@@ -354,8 +352,8 @@
         "cap_collapse": {
           "collapsed_to": 100,
           "apply": {
-            "max_gap_ms": 99.9,
-            "settle_ms": 1604.9
+            "max_gap_ms": 66.6,
+            "settle_ms": 1608.6
           },
           "counts_collapsed": {
             "rendered": 100,
@@ -367,8 +365,8 @@
             "rendererFailed": false
           },
           "restore": {
-            "max_gap_ms": 83.2,
-            "settle_ms": 1602.2
+            "max_gap_ms": 50,
+            "settle_ms": 1606.4
           },
           "counts_restored": {
             "rendered": 208,
@@ -382,52 +380,46 @@
         },
         "pan_dense": {
           "frames": 205,
-          "fps_mean": 60.3,
-          "delta_mean_ms": 16.59,
+          "fps_mean": 60.1,
+          "delta_mean_ms": 16.64,
           "delta_p95_ms": 16.7,
           "delta_max_ms": 16.8,
           "frames_over_33ms": 0,
-          "draw_calls": 129,
-          "draw_verts": 76164
+          "draw_calls": 127,
+          "draw_verts": 74916
         },
         "remount_table_to_graph": {
-          "wall_ms": 1861,
+          "wall_ms": 1798,
           "surface_after": "canvas",
           "renderer_failed": false,
           "sigma_errors_so_far": 0
         }
       },
       "sigma_errors": [],
-      "page_errors": [
-        "console.error: Executing inline event handler violates the following Content Security Policy directive 'script-src 'self''. Either the 'unsafe-inline' keyword, a hash ('sha256-...'), or a nonce ('nonce-...') is required to enable inline execution. Note that hashes do not apply to event handlers, style attributes and javascript: navigations unless the 'unsafe-hashes' keyword is present. The action has been blocked."
-      ],
+      "page_errors": [],
       "longtasks": [
-        67,
-        95,
-        121,
+        79,
+        94,
+        115,
         52,
-        85,
-        74,
-        71,
-        67,
-        215,
-        62,
+        75,
+        60,
+        75,
+        73,
         64,
-        54,
-        86,
-        87,
+        211,
+        70,
+        74,
         52,
-        52,
-        105,
-        82,
-        185,
-        345
+        51,
+        210,
+        335
       ],
       "heap_mb": {
         "before": 0.5,
-        "end": 10.4
+        "end": 8.1
       },
-      "raf_alive_ms": 9.7
+      "raf_alive_ms": 6.6
     }
   }
 }
