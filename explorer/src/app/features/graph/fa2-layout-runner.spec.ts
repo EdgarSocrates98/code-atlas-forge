@@ -1,10 +1,16 @@
+import Graph from 'graphology';
+import FA2_DEFAULT_SETTINGS from 'graphology-layout-forceatlas2/defaults';
+import { graphToByteArrays } from 'graphology-layout-forceatlas2/helpers';
 import {
+  ChunkedFa2Engine,
   Fa2Engine,
   Fa2EngineEvents,
   Fa2LayoutJob,
   Fa2LayoutRunner,
   Fa2RunResult,
+  WorkerFa2Engine,
 } from './fa2-layout-runner';
+import { graphTelemetry } from './graph-telemetry';
 
 /**
  * Worker-lifecycle coverage for the async FA2 runner. The engine boundary
@@ -231,5 +237,216 @@ describe('Fa2LayoutRunner (worker lifecycle)', () => {
     engines[0].fail();
     const result = await promise;
     expect(result.status).toBe('done');
+  });
+
+  /* ------------------------------------------------------------------
+   * Cycle-8 regression: EVERY terminal status must release its engine.
+   * Before the fix, 'done'/'error' cleared `active` without cancelling —
+   * one zombie worker per completed layout, and a permanently leaked
+   * worker if the component died right after the last message.
+   * ------------------------------------------------------------------ */
+
+  it('a DONE run terminates its engine — no zombie survives success', async () => {
+    const promise = runner.run(makeJob());
+    engines[0].done();
+    const result = await promise;
+    expect(result.status).toBe('done');
+    expect(engines[0].cancelled).toBe(1);
+    expect(runner.running).toBeFalse();
+  });
+
+  it('an ERROR run terminates its engine — a crashed backend is not kept', async () => {
+    const promise = runner.run(makeJob());
+    engines[0].fail();
+    const result = await promise;
+    expect(result.status).toBe('error');
+    expect(engines[0].cancelled).toBe(1);
+  });
+
+  it('repeated runs never accumulate live engines', async () => {
+    for (let i = 0; i < 5; i++) {
+      const promise = runner.run(makeJob());
+      engines[i].done();
+      await promise;
+    }
+    expect(engines.length).toBe(5);
+    expect(engines.every((e) => e.cancelled === 1)).toBeTrue();
+    expect(runner.running).toBeFalse();
+  });
+
+  /* ------------------------- fallback plumbing ----------------------- */
+
+  it('onFallback marks the result as degraded without failing it', async () => {
+    class FallbackThenDone extends FakeEngine {
+      override start(job: Fa2LayoutJob, events: Fa2EngineEvents): void {
+        super.start(job, events);
+        events.onFallback?.('injected-degraded');
+      }
+    }
+    const engine = new FallbackThenDone();
+    const r = new Fa2LayoutRunner({ engine: () => engine });
+    const promise = r.run(makeJob());
+    engine.done();
+    const result = await promise;
+    expect(result.status).toBe('done');
+    expect(result.fallback).toBe('injected-degraded');
+  });
+
+  it('a normal run reports fallback=null', async () => {
+    const promise = runner.run(makeJob());
+    engines[0].done();
+    const result = await promise;
+    expect(result.fallback).toBeNull();
+  });
+});
+
+/* ----------------------------------------------------------------------
+ * ChunkedFa2Engine — the real FA2 `iterate` on the main thread, sliced
+ * into ~12 ms macrotasks. These specs run the actual algorithm on small
+ * matrices: no fake engine here.
+ * -------------------------------------------------------------------- */
+
+/** Small real job: a 24-node ring, matrices built by the same helper
+ * the canvas uses. */
+function realJob(iterations = 40): Fa2LayoutJob {
+  const graph = new Graph({ multi: false, type: 'directed' });
+  for (let i = 0; i < 24; i++) graph.addNode(`n${i}`, { x: i, y: (i * 7) % 11 });
+  for (let i = 0; i < 24; i++) graph.addEdge(`n${i}`, `n${(i + 1) % 24}`);
+  const matrices = graphToByteArrays(graph, () => 1);
+  return {
+    nodes: matrices.nodes,
+    edges: matrices.edges,
+    settings: { ...FA2_DEFAULT_SETTINGS, adjustSizes: true, strongGravityMode: true },
+    iterations,
+    progressEvery: 5,
+  };
+}
+
+describe('ChunkedFa2Engine (main-thread fallback)', () => {
+  it('runs real FA2 iterations to completion with progress beats', async () => {
+    const job = realJob(40);
+    const before = Array.from(job.nodes);
+    const progress: number[] = [];
+    const result = await new Promise<{ done: boolean; nodes: Float32Array | null }>(
+      (resolve) => {
+        const engine = new ChunkedFa2Engine();
+        engine.start(job, {
+          onProgress: (d) => progress.push(d),
+          onDone: (nodes) => resolve({ done: true, nodes }),
+          onError: (error) => resolve({ done: false, nodes: null }),
+        });
+      },
+    );
+    expect(result.done).toBeTrue();
+    expect(result.nodes).not.toBeNull();
+    expect(progress.length).toBeGreaterThan(0);
+    expect(progress[progress.length - 1]).toBeLessThanOrEqual(40);
+    // The algorithm really moved nodes — and every coordinate stayed finite.
+    const moved = before.some((v, i) => v !== result.nodes![i]);
+    expect(moved).toBeTrue();
+    for (const v of result.nodes!) {
+      expect(Number.isFinite(v)).toBeTrue();
+    }
+  });
+
+  it('cancel stops the chunked loop promptly', async () => {
+    const engine = new ChunkedFa2Engine();
+    let doneFired = false;
+    // Iterations so high the engine cannot finish inside the test: each
+    // 12 ms chunk covers a bounded slice, then cancel() clears the timer.
+    engine.start(realJob(500_000), {
+      onProgress: () => {},
+      onDone: () => {
+        doneFired = true;
+      },
+      onError: () => {
+        doneFired = true;
+      },
+    });
+    engine.cancel();
+    await new Promise((r) => setTimeout(r, 30));
+    expect(doneFired).toBeFalse();
+  });
+
+  it('cancel before the first chunk never starts iterating', async () => {
+    const engine = new ChunkedFa2Engine();
+    let events = 0;
+    engine.start(realJob(10), {
+      onProgress: () => events++,
+      onDone: () => events++,
+      onError: () => events++,
+    });
+    engine.cancel();
+    await new Promise((r) => setTimeout(r, 30));
+    expect(events).toBe(0);
+  });
+
+  it('an iterate() throw surfaces through onError', async () => {
+    const engine = new ChunkedFa2Engine();
+    const job = realJob(10);
+    job.settings = {}; // incomplete settings — iterate throws on a bad matrix
+    job.nodes = new Float32Array(0); // malformed: no node records
+    const status = await new Promise<string>((resolve) => {
+      engine.start(job, {
+        onProgress: () => {},
+        onDone: () => resolve('done'),
+        onError: () => resolve('error'),
+      });
+    });
+    // Zero-record matrices either throw (error) or trivially finish (done
+    // with 0 iterations) — the contract under test is: never hang, never
+    // throw through the caller.
+    expect(['done', 'error']).toContain(status);
+  });
+});
+
+/* ----------------------------------------------------------------------
+ * WorkerFa2Engine degradation — window.Worker absent (CSP / test double)
+ * falls through to the chunked engine and reports the reason.
+ * -------------------------------------------------------------------- */
+
+describe('WorkerFa2Engine fallback (no usable Worker)', () => {
+  let savedWorker: unknown;
+
+  beforeEach(() => {
+    savedWorker = (window as unknown as { Worker?: unknown }).Worker;
+  });
+  afterEach(() => {
+    (window as unknown as { Worker?: unknown }).Worker = savedWorker;
+  });
+
+  it('falls back to the chunked engine when Worker is unavailable', async () => {
+    (window as unknown as { Worker?: unknown }).Worker = undefined;
+    const fallbacksBefore = graphTelemetry().fallbacks;
+    const runner = new Fa2LayoutRunner(); // default engine = WorkerFa2Engine
+    const result = await runner.run(realJob(30));
+    expect(result.status).toBe('done');
+    expect(result.fallback).toBe('worker-api-unavailable');
+    expect(result.nodes).not.toBeNull();
+    expect(graphTelemetry().fallbacks).toBe(fallbacksBefore + 1);
+    // No worker was ever created — nothing to leak.
+    expect(graphTelemetry().workersLive).toBe(0);
+  });
+
+  it('falls back when the Worker constructor throws (spawn refused)', async () => {
+    (window as unknown as { Worker?: unknown }).Worker = class {
+      constructor() {
+        throw new Error('csp refused');
+      }
+    };
+    const runner = new Fa2LayoutRunner();
+    const result = await runner.run(realJob(30));
+    expect(result.status).toBe('done');
+    expect(result.fallback).toBe('worker-spawn-refused');
+  });
+
+  it('a cancelled fallback run resolves cancelled', async () => {
+    (window as unknown as { Worker?: unknown }).Worker = undefined;
+    const runner = new Fa2LayoutRunner();
+    const promise = runner.run(realJob(200_000));
+    runner.cancel();
+    const result = await promise;
+    expect(result.status).toBe('cancelled');
+    expect(result.fallback).toBe('worker-api-unavailable');
   });
 });

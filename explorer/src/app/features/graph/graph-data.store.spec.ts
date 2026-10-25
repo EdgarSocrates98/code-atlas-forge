@@ -534,3 +534,173 @@ describe('GraphDataStore — edge filtering & expansion', () => {
     expect(node?.x).not.toBeNull(); // deterministic spiral placement
   });
 });
+
+/* ----------------------------------------------------------------------
+ * Cycle-8 hardening — concurrent ops against an in-flight async op.
+ * The store's contract is generation discipline: a load/drill bumps
+ * `gen` and invalidates everything older; relayout/cap/filter/selection
+ * do NOT, so an expansion in flight may still commit on top of them.
+ * These specs pin that discipline — a mixed-state commit is a fail.
+ * -------------------------------------------------------------------- */
+describe('GraphDataStore — concurrent ops (cycle-8 hardening)', () => {
+  /** Seed: symbol view with occ:1 + occ:2. Only the neighbors fetch for
+   *  occurrence 2 — the expansion under test — is held by the gate;
+   *  every other call (drill seeds, etc.) resolves immediately. */
+  function gatedExpandApi(gate: Promise<ApiGraphNeighbors>, seed?: ApiGraphNeighbors): ApiService {
+    return makeApi({
+      getSymbolDetail: jasmine
+        .createSpy()
+        .and.resolveTo({ ...nodeDto(1), relations_summary: [] }),
+      getGraphNeighbors: jasmine.createSpy().and.callFake((occId: number) => {
+        if (occId === 2) return gate;
+        if (occId === 1) {
+          return Promise.resolve(
+            seed ??
+              neighbors({
+                snapshot_id: 7,
+                nodes: [nodeDto(1), nodeDto(2)],
+                edges: [
+                  { id: 1, from_id: 1, to_id: 2, type: 'calls', resolution_status: 'verified', resolver: 'r' },
+                ],
+                truncated: false,
+              }),
+          );
+        }
+        return Promise.resolve(
+          neighbors({ snapshot_id: 7, nodes: [], edges: [], truncated: false }),
+        );
+      }),
+    });
+  }
+
+  const expansionPayload = neighbors({
+    snapshot_id: 7,
+    nodes: [nodeDto(3)],
+    edges: [
+      { id: 2, from_id: 2, to_id: 3, type: 'references', resolution_status: 'possible', resolver: 'r' },
+    ],
+    truncated: false,
+  });
+
+  it('expand + requestRelayout mid-flight: merge commits, newest revision wins honestly', async () => {
+    let release!: (v: ApiGraphNeighbors) => void;
+    const gate = new Promise<ApiGraphNeighbors>((r) => (release = r));
+    const store = new GraphDataStore(gatedExpandApi(gate));
+    await store.startAtSymbol('1');
+    const v0 = store.dataVersion().version;
+
+    const expanding = store.expandNode('occ:2');
+    expect(store.expansionBusy().has('occ:2')).toBeTrue();
+
+    // Relayout lands while the neighbors fetch is in flight — it bumps
+    // the data version (needsLayout) but must NOT kill the expansion.
+    store.requestRelayout();
+    expect(store.dataVersion().needsLayout).toBeTrue();
+    expect(store.expansionBusy().has('occ:2')).toBeTrue();
+
+    release(expansionPayload);
+    await expanding;
+
+    // The merge committed on top of the relayout revision — the merged
+    // nodes carry deterministic positions, so the resulting revision
+    // honestly does NOT need a layout (needsLayout is per-revision).
+    expect(store.nodes().map((n) => n.id)).toContain('occ:3');
+    expect(store.nodes().find((n) => n.id === 'occ:3')?.x).not.toBeNull();
+    expect(store.dataVersion().version).toBe(v0 + 2);
+    expect(store.dataVersion().needsLayout).toBeFalse();
+    expect(store.expansionBusy().size).toBe(0);
+  });
+
+  it('expand + loadOverview mid-flight: the stale merge is dropped wholesale', async () => {
+    let release!: (v: ApiGraphNeighbors) => void;
+    const gate = new Promise<ApiGraphNeighbors>((r) => (release = r));
+    const store = new GraphDataStore(gatedExpandApi(gate));
+    await store.startAtSymbol('1');
+
+    const expanding = store.expandNode('occ:2');
+    // A full reload supersedes EVERYTHING in flight (gen bump + reset).
+    const loading = store.loadOverview();
+    release(expansionPayload);
+    await Promise.all([expanding, loading]);
+
+    // The overview replaced the node set; occ:3 from the stale response
+    // must not appear — a mixed commit would leak it in.
+    expect(store.mode()).toBe('architecture');
+    expect(store.nodes().map((n) => n.id)).toEqual(['file:a.py']);
+    expect(store.nodes().some((n) => n.id === 'occ:3')).toBeFalse();
+    expect(store.expansionBusy().size).toBe(0);
+    expect(store.transientError()).toBe('');
+  });
+
+  it('expand + drillFile mid-flight: the drill wins, expansion is dropped', async () => {
+    let release!: (v: ApiGraphNeighbors) => void;
+    const gate = new Promise<ApiGraphNeighbors>((r) => (release = r));
+    const api = gatedExpandApi(gate);
+    api.getFileOccurrences = jasmine
+      .createSpy('getFileOccurrences')
+      .and.resolveTo(occurrencesResponse([occurrence(10)]));
+    const store = new GraphDataStore(api);
+    await store.startAtSymbol('1');
+
+    const expanding = store.expandNode('occ:2');
+    const drilling = store.drillFile('m.py', 1, 42);
+    release(expansionPayload);
+    await Promise.all([expanding, drilling]);
+
+    expect(store.mode()).toBe('symbols');
+    expect(store.nodes().map((n) => n.id)).toEqual(['occ:10']);
+    expect(store.nodes().some((n) => n.id === 'occ:3')).toBeFalse();
+    expect(store.expansionBusy().size).toBe(0);
+  });
+
+  it('cap shrink + filter toggle mid-expand: merge still lands, filters apply', async () => {
+    let release!: (v: ApiGraphNeighbors) => void;
+    const gate = new Promise<ApiGraphNeighbors>((r) => (release = r));
+    const store = new GraphDataStore(gatedExpandApi(gate));
+    await store.startAtSymbol('1');
+
+    const expanding = store.expandNode('occ:2');
+    // View-local ops never invalidate an in-flight fetch — they compose.
+    store.setNodeCap(10);
+    store.toggleEdgeType('references');
+    release(expansionPayload);
+    await expanding;
+
+    expect(store.nodes().map((n) => n.id)).toContain('occ:3');
+    // The merged 'references' edge passes the filter; the older 'calls'
+    // edge is honestly filtered out, not lost.
+    expect(store.edges().length).toBe(2);
+    expect(store.visibleEdges().map((e) => e.type)).toEqual(['references']);
+    expect(store.expansionBusy().size).toBe(0);
+  });
+
+  it('back-to-back requestRelayout bumps generation once each', async () => {
+    const store = new GraphDataStore(gatedExpandApi(new Promise(() => {})));
+    await store.startAtSymbol('1');
+    const v0 = store.dataVersion().version;
+    const r0 = store.relayoutCount();
+
+    store.requestRelayout();
+    store.requestRelayout();
+
+    expect(store.relayoutCount()).toBe(r0 + 2);
+    expect(store.dataVersion().version).toBe(v0 + 2);
+    expect(store.dataVersion().needsLayout).toBeTrue();
+  });
+
+  it('a pin toggled mid-expand survives the merge (pins are read at commit)', async () => {
+    let release!: (v: ApiGraphNeighbors) => void;
+    const gate = new Promise<ApiGraphNeighbors>((r) => (release = r));
+    const store = new GraphDataStore(gatedExpandApi(gate));
+    await store.startAtSymbol('1');
+
+    const expanding = store.expandNode('occ:2');
+    store.togglePin('occ:1'); // user pins while the fetch is in flight
+    release(expansionPayload);
+    await expanding;
+
+    expect(store.pinnedIds().has('occ:1')).toBeTrue();
+    expect(store.nodes().find((n) => n.id === 'occ:1')?.pinned).toBeTrue();
+    expect(store.nodes().map((n) => n.id)).toContain('occ:3');
+  });
+});

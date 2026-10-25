@@ -23,6 +23,13 @@ import { GraphDataStore } from './graph-data.store';
 import { GraphMode, GraphEdgeVM, GraphNodeVM } from './graph.models';
 import { GraphStateService } from './graph-state.service';
 import {
+  recordLayoutError,
+  recordRunFinished,
+  recordRunStarted,
+  trackSigma,
+  untrackSigma,
+} from './graph-telemetry';
+import {
   EVIDENCE_MARKERS,
   hashPosition,
   isFinitePosition,
@@ -151,6 +158,12 @@ export class GraphCanvasComponent implements AfterViewInit, OnDestroy {
   /** Live iteration progress of the in-flight run; null when idle. */
   layoutProgress: { done: number; total: number } | null = null;
   lastLayoutMs: number | null = null;
+  /**
+   * Last layout failure text — cleared when a run commits. The
+   * diagnostics panel surfaces it next to "Último layout" so a dead
+   * worker/watchdog timeout is visible without watching the toast.
+   */
+  lastLayoutError: string | null = null;
   private readonly reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
   private readonly onMotionChange = (): void => this.applyMotionSettings();
   private readonly onContextLost = (event: Event): void => {
@@ -269,8 +282,10 @@ export class GraphCanvasComponent implements AfterViewInit, OnDestroy {
     // sigma.kill() releases the WebGL contexts AND cancels sigma's render
     // RAF; the store's AbortController aborts in-flight requests — no
     // callbacks outlive this component.
-    this.sigma?.kill();
+    const sigma = this.sigma;
     this.sigma = null;
+    sigma?.kill();
+    if (sigma) untrackSigma(sigma);
     this.graph = null;
   }
 
@@ -305,6 +320,7 @@ export class GraphCanvasComponent implements AfterViewInit, OnDestroy {
       zoomDuration: motion ? 0 : 250,
       doubleClickZoomingDuration: motion ? 0 : 200,
     });
+    trackSigma(this.sigma);
 
     this.sigma.on('clickNode', ({ node }) => {
       this.store.setKbdFocus(node);
@@ -541,6 +557,7 @@ export class GraphCanvasComponent implements AfterViewInit, OnDestroy {
     this.layoutBusy = true;
     this.layoutProgress = { done: 0, total: iterations };
     this.stageRef.nativeElement.setAttribute('aria-busy', 'true');
+    recordRunStarted();
     // Store signal writes are deferred out of the sync effect — the flag
     // drives the toolbar's Cancel button, not the render path.
     queueMicrotask(() => this.store.layoutBusy.set(true));
@@ -600,6 +617,9 @@ export class GraphCanvasComponent implements AfterViewInit, OnDestroy {
     runVersion: number,
     saved: ReadonlyMap<string, { x: number; y: number }>,
   ): void {
+    // Count the terminal status even on a stale generation — the run
+    // started under this component and the counter must stay honest.
+    recordRunFinished(result.status);
     if (gen !== this.layoutGen) return; // superseded — a newer run owns the flags
     this.layoutBusy = false;
     this.layoutProgress = null;
@@ -607,13 +627,24 @@ export class GraphCanvasComponent implements AfterViewInit, OnDestroy {
     this.store.layoutBusy.set(false);
 
     if (result.status === 'error') {
-      this.store.reportDiagnostics(
-        'O cálculo de layout falhou — as posições anteriores foram mantidas.',
-      );
+      this.lastLayoutError =
+        'O cálculo de layout falhou — as posições anteriores foram mantidas.';
+      recordLayoutError(this.lastLayoutError);
+      this.store.reportDiagnostics(this.lastLayoutError);
       return;
     }
     // 'cancelled' / 'stale': honest no-op — geometry untouched.
     if (result.status !== 'done' || !result.nodes) return;
+
+    // The pass ran degraded (no usable Web Worker): positions still
+    // commit, but the slower main-thread path is reported, never silent.
+    if (result.fallback !== null) {
+      this.store.reportDiagnostics(
+        `Layout calculado na thread principal — Web Worker indisponível (${result.fallback}).`,
+      );
+    }
+    this.lastLayoutError = null;
+    recordLayoutError(null);
 
     const graph = this.graph;
     const sigma = this.sigma;
@@ -809,7 +840,16 @@ export class GraphCanvasComponent implements AfterViewInit, OnDestroy {
     const edgeVm = new Map(edges.map((e) => [e.id, e]));
     graph.updateEachEdgeAttributes((id, attrs) => {
       const vm = edgeVm.get(id);
-      if (!vm) return attrs;
+      // Edges removed from `visibleEdges` by a filter toggle must stop
+      // rendering too — syncStructure only rebuilds the graph on a data
+      // revision, so without this the canvas kept drawing edges the
+      // aria-label/hiddenEdgeCount said were hidden. `hidden` zero-fills
+      // the program record: undrawn AND unpickable (Cycle 8 fix).
+      attrs['hidden'] = !vm;
+      if (!vm) {
+        attrs['label'] = '';
+        return attrs;
+      }
       const level = toEvidenceLevel(vm.resolutionStatus);
       const selected = id === selectedEdge;
       const touchesSel = selectedNode && (vm.from === selectedNode || vm.to === selectedNode);

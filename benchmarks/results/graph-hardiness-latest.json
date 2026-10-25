@@ -1,0 +1,323 @@
+{
+  "tool": "code-atlas graph-hardiness e2e (Cycle 8 Phases 4+5, lf-0131)",
+  "generated_at": "2026-10-25T14:52:44.637Z",
+  "environment": {
+    "platform": "linux",
+    "os_release": "7.0.0-38-generic",
+    "cpu": "AMD Ryzen 7 5700U with Radeon Graphics",
+    "cpu_cores": 16,
+    "total_mem_gb": 31,
+    "node": "v22.23.2"
+  },
+  "measured": {
+    "fixture": {
+      "dataset": "500 files × 2 calls, hubs 3×150",
+      "generated": false,
+      "indexed": false,
+      "hub_occurrence": 1502,
+      "relations_in_snapshot": 5401
+    },
+    "rapid_navigation": {
+      "cycles": 10,
+      "cycles_left_mid_layout": 10,
+      "rows": [
+        {
+          "cycle": 0,
+          "layout_busy_at_leave": true,
+          "cancel_button_visible": true,
+          "worker_seen_live": true,
+          "ms_to_leave": 138,
+          "sigmaLive_on_search": 0,
+          "workersLive_on_search": 0
+        },
+        {
+          "cycle": 1,
+          "layout_busy_at_leave": true,
+          "cancel_button_visible": true,
+          "worker_seen_live": true,
+          "ms_to_leave": 60,
+          "sigmaLive_on_search": 0,
+          "workersLive_on_search": 0
+        },
+        {
+          "cycle": 2,
+          "layout_busy_at_leave": true,
+          "cancel_button_visible": true,
+          "worker_seen_live": true,
+          "ms_to_leave": 68,
+          "sigmaLive_on_search": 0,
+          "workersLive_on_search": 0
+        },
+        {
+          "cycle": 3,
+          "layout_busy_at_leave": true,
+          "cancel_button_visible": true,
+          "worker_seen_live": true,
+          "ms_to_leave": 66,
+          "sigmaLive_on_search": 0,
+          "workersLive_on_search": 0
+        },
+        {
+          "cycle": 4,
+          "layout_busy_at_leave": true,
+          "cancel_button_visible": true,
+          "worker_seen_live": true,
+          "ms_to_leave": 69,
+          "sigmaLive_on_search": 0,
+          "workersLive_on_search": 0
+        },
+        {
+          "cycle": 5,
+          "layout_busy_at_leave": true,
+          "cancel_button_visible": true,
+          "worker_seen_live": true,
+          "ms_to_leave": 71,
+          "sigmaLive_on_search": 0,
+          "workersLive_on_search": 0
+        },
+        {
+          "cycle": 6,
+          "layout_busy_at_leave": true,
+          "cancel_button_visible": true,
+          "worker_seen_live": true,
+          "ms_to_leave": 62,
+          "sigmaLive_on_search": 0,
+          "workersLive_on_search": 0
+        },
+        {
+          "cycle": 7,
+          "layout_busy_at_leave": true,
+          "cancel_button_visible": true,
+          "worker_seen_live": true,
+          "ms_to_leave": 62,
+          "sigmaLive_on_search": 0,
+          "workersLive_on_search": 0
+        },
+        {
+          "cycle": 8,
+          "layout_busy_at_leave": true,
+          "cancel_button_visible": true,
+          "worker_seen_live": true,
+          "ms_to_leave": 73,
+          "sigmaLive_on_search": 0,
+          "workersLive_on_search": 0
+        },
+        {
+          "cycle": 9,
+          "layout_busy_at_leave": true,
+          "cancel_button_visible": true,
+          "worker_seen_live": true,
+          "ms_to_leave": 69,
+          "sigmaLive_on_search": 0,
+          "workersLive_on_search": 0
+        }
+      ],
+      "heap_mb": {
+        "before": 4.58,
+        "after": 7.26,
+        "delta": 2.68
+      },
+      "telemetry_after": {
+        "sigmaLive": 1,
+        "sigmaTotal": 11,
+        "workersLive": 0,
+        "workersTotal": 21,
+        "fallbacks": 0,
+        "lastLayoutError": null,
+        "runs": {
+          "started": 21,
+          "done": 2,
+          "cancelled": 19,
+          "stale": 0,
+          "error": 0
+        },
+        "workerHandles": 0
+      },
+      "page_errors": []
+    },
+    "worker_crash": {
+      "killed_workers": 1,
+      "watchdog_notice_ms": 29957,
+      "telemetry_at_error": {
+        "sigmaLive": 1,
+        "sigmaTotal": 1,
+        "workersLive": 0,
+        "workersTotal": 2,
+        "fallbacks": 0,
+        "lastLayoutError": "O cálculo de layout falhou — as posições anteriores foram mantidas.",
+        "runs": {
+          "started": 2,
+          "done": 1,
+          "cancelled": 0,
+          "stale": 0,
+          "error": 1
+        },
+        "workerHandles": 0
+      },
+      "telemetry_after_recovery": {
+        "sigmaLive": 1,
+        "sigmaTotal": 1,
+        "workersLive": 0,
+        "workersTotal": 3,
+        "fallbacks": 0,
+        "lastLayoutError": null,
+        "runs": {
+          "started": 3,
+          "done": 2,
+          "cancelled": 0,
+          "stale": 0,
+          "error": 1
+        },
+        "workerHandles": 0
+      },
+      "note": "terminate() is silent by design — the 30 s watchdog is the honest detector"
+    },
+    "worker_unavailable_fallback": {
+      "max_raf_gap_ms_during_chunked_layout": 133.3,
+      "counts_after": {
+        "nodes": 500,
+        "edges": 0
+      },
+      "telemetry": {
+        "sigmaLive": 1,
+        "sigmaTotal": 1,
+        "workersLive": 0,
+        "workersTotal": 0,
+        "fallbacks": 1,
+        "lastLayoutError": null,
+        "runs": {
+          "started": 1,
+          "done": 1,
+          "cancelled": 0,
+          "stale": 0,
+          "error": 0
+        },
+        "workerHandles": 0
+      }
+    },
+    "concurrent_ops": {
+      "ops": [
+        {
+          "op": "relayout",
+          "saw_busy": true
+        },
+        {
+          "op": "cap→60"
+        },
+        {
+          "op": "relayout#2"
+        },
+        {
+          "op": "filter:calls"
+        },
+        {
+          "op": "theme-toggle"
+        },
+        {
+          "op": "kbd-expand"
+        }
+      ],
+      "counts_before": {
+        "nodes": 101,
+        "edges": 100
+      },
+      "counts_after": {
+        "nodes": 60,
+        "edges": 59
+      },
+      "telemetry": {
+        "sigmaLive": 1,
+        "sigmaTotal": 1,
+        "workersLive": 0,
+        "workersTotal": 3,
+        "fallbacks": 0,
+        "lastLayoutError": null,
+        "runs": {
+          "started": 3,
+          "done": 2,
+          "cancelled": 1,
+          "stale": 0,
+          "error": 0
+        },
+        "workerHandles": 0
+      },
+      "page_errors": []
+    },
+    "edge_pick": {
+      "focus": "occ:1502 (mod_0000.hub_0000)",
+      "counts_at_focus": {
+        "nodes": 101,
+        "edges": 100
+      },
+      "expansions_done": 39,
+      "edges_at_click": 259,
+      "relations_in_snapshot": 5401,
+      "candidates_in_bounds": 216,
+      "clicked_edge": "edge:101",
+      "edge_screen_len_px": 513.8212412534974,
+      "click_to_inspector_ms": 71.6,
+      "note": "edge hover affordance does not exist (no enterEdge handler) — click only"
+    },
+    "mount_unmount": {
+      "cycles": 20,
+      "destroys_while_layout_in_flight": 20,
+      "heap_mb": {
+        "before": 6.69,
+        "after": 14.7,
+        "delta": 8.01
+      },
+      "listeners": {
+        "before": {
+          "adds": 4683,
+          "removes": 4604,
+          "globalNet": 22
+        },
+        "after": {
+          "adds": 36903,
+          "removes": 35317,
+          "globalNet": 16
+        },
+        "global_net_delta": -6,
+        "element_bound_net_delta": 1513
+      },
+      "telemetry_after": {
+        "sigmaLive": 0,
+        "sigmaTotal": 24,
+        "workersLive": 0,
+        "workersTotal": 24,
+        "fallbacks": 0,
+        "lastLayoutError": null,
+        "runs": {
+          "started": 24,
+          "done": 14,
+          "cancelled": 10,
+          "stale": 0,
+          "error": 0
+        },
+        "workerHandles": 0
+      },
+      "rows": [
+        {
+          "cycle": 0,
+          "workers_live_after_mount": 1
+        },
+        {
+          "cycle": 1,
+          "workers_live_after_mount": 1
+        },
+        {
+          "cycle": 2,
+          "workers_live_after_mount": 1
+        },
+        {
+          "cycle": 3,
+          "workers_live_after_mount": 1
+        },
+        {
+          "cycle": 4,
+          "workers_live_after_mount": 1
+        }
+      ]
+    }
+  }
+}
