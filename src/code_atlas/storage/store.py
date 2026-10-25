@@ -166,13 +166,35 @@ class Store:
         )
 
     def publish_snapshot(self, repository_id: int, snapshot_id: int) -> None:
-        """Marca o novo READY e torna STALE os anteriores (mesma transação)."""
+        """Marca o novo READY e torna STALE os anteriores (mesma transação).
+
+        lf-0132: também renova ``sqlite_stat1`` das tabelas de domínio —
+        os índices ``(snapshot_id, endpoint)`` de v11 só vencem o
+        range-scan de ``idx_domain_relations_snap`` quando o planner
+        conhece a seletividade real. O ANALYZE roda dentro da tx de
+        publicação: stats commitam atomicamente com os dados que
+        descrevem. Custo é O(tabelas de domínio) por publicação —
+        proporcional e medido em ``benchmarks/bench_sqlite.py``.
+        ``PRAGMA optimize`` foi medido e não re-analisa tabelas
+        crescidas de forma confiável — ANALYZE explícito é o honesto.
+        """
         self._conn.execute(
             "UPDATE snapshots SET status = 'STALE' "
             "WHERE repository_id = ? AND status = 'READY' AND id != ?",
             (repository_id, snapshot_id),
         )
         self.set_snapshot_status(snapshot_id, SnapshotStatus.READY)
+        self._refresh_domain_stats()
+
+    def _refresh_domain_stats(self) -> None:
+        """``ANALYZE`` escopo-domínio — stats fiéis às rows publicadas."""
+        if not self._has_table("domain_relations"):
+            return
+        # SQL literal por tabela — auditoria AST exige execute() com
+        # constante/nome, nunca expressão concatenada.
+        self._conn.execute("ANALYZE domain_relations")
+        self._conn.execute("ANALYZE domain_entity_occurrences")
+        self._conn.execute("ANALYZE domain_entities")
 
     def gc_stale_snapshots(self, repository_id: int, keep: int) -> int:
         """Remove snapshots STALE além dos ``keep`` mais recentes.
@@ -220,6 +242,10 @@ class Store:
         if doomed_ids and self._has_table("fts_occurrences"):
             # filhos caem por CASCADE, mas FTS não é FK — delete manual
             self._delete_fts_occurrences(doomed_ids)
+        if doomed_ids and self._has_table("domain_fts"):
+            # lf-0133: mesmo cuidado — domain_fts é FTS standalone, não
+            # participa do cascade de snapshots.
+            self._delete_domain_fts(doomed_ids)
         cur = self._conn.execute(_sql_del, (repository_id, keep))
         return int(cur.rowcount if cur.rowcount else 0)
 
@@ -502,6 +528,16 @@ class Store:
             (json.dumps(ids),),
         )
 
+    def _delete_domain_fts(self, snapshot_ids: Iterable[int]) -> None:
+        ids = list(snapshot_ids)
+        if not ids:
+            return
+        self._conn.execute(
+            "DELETE FROM domain_fts WHERE snapshot_id IN"
+            " (SELECT value FROM json_each(?))",
+            (json.dumps(ids),),
+        )
+
     def _insert_returning(
         self, sql_prefix: str, rows: list[tuple[object, ...]], ncols: int
     ) -> list[int]:
@@ -675,6 +711,87 @@ class Store:
             list(rows),
         )
         return self._conn.total_changes
+
+    # --- domain_fts (lf-0133, schema v12) ---------------------------------
+
+    def domain_fts_available(self) -> bool:
+        """``domain_fts`` presente **e** build com FTS5 — gate de escrita.
+
+        Bancos migrados por uma build com FTS5 podem ser abertos por uma
+        sem o módulo: o INSERT na vtable falharia. A checagem dupla
+        (tabela + probe de capacidade) é a condição honesta de escrita.
+        """
+        if not self._has_table("domain_fts"):
+            return False
+        from code_atlas.storage.db import fts5_available
+
+        return fts5_available(self._conn)
+
+    def insert_domain_fts_batch(
+        self, rows: Iterable[tuple[object, ...]]
+    ) -> None:
+        """FTS de domínio em lote — rowid = id de ``domain_entity_occurrences``.
+
+        ``rows``: (occ_id, snapshot_id, entity_id, name, qualified_name,
+        terms, path, domain, kind) — campos já normalizados pelo caller
+        (``terms`` sai de ``search.tokenizer.index_terms``).
+        """
+        self._conn.executemany(
+            "INSERT INTO domain_fts (rowid, snapshot_id, entity_id, name,"
+            " qualified_name, terms, path, domain, kind)"
+            " VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            list(rows),
+        )
+
+    def rebuild_domain_fts(self, snapshot_id: int) -> int:
+        """Backfill in-place de ``domain_fts`` para um snapshot existente.
+
+        lf-0133: snapshots persistidos antes da v12 não têm rows de FTS
+        e a faceta cai no LIKE bounded (declarado). Este é o caminho de
+        reconstrução — o equivalente programático de um ``code-atlas
+        reindex``: lê o join ocorrência↔entidade↔arquivo e regrava o
+        índice do snapshot com os mesmos campos do persist (``terms``
+        pré-tokenizado em Python — não é expressível em SQL puro).
+        Idempotente dentro da transação do caller (delete + insert do
+        mesmo escopo). Retorna o número de rows regravadas; 0 quando a
+        tabela não existe ou o snapshot não tem ocorrências de domínio.
+        """
+        if not self.domain_fts_available():
+            return 0
+        rows = self._conn.execute(
+            "SELECT deo.id AS occ_id, deo.snapshot_id, deo.entity_id,"
+            " de.name, de.qualified_name, de.domain, de.kind,"
+            " sf.relative_path AS path"
+            " FROM domain_entity_occurrences deo"
+            " JOIN domain_entities de ON de.id = deo.entity_id"
+            " LEFT JOIN source_files sf ON sf.id = deo.source_file_id"
+            " WHERE deo.snapshot_id = ? ORDER BY deo.id",
+            (snapshot_id,),
+        ).fetchall()
+        self._conn.execute(
+            "DELETE FROM domain_fts WHERE snapshot_id = ?",
+            (snapshot_id,),
+        )
+        if not rows:
+            return 0
+        # import tardio: storage não pode puxar code_atlas.search em
+        # nível de módulo (search/__init__ → engine → domain → store).
+        from code_atlas.search.tokenizer import index_terms
+
+        fts_rows = [
+            (
+                int(r["occ_id"]), int(r["snapshot_id"]), int(r["entity_id"]),
+                str(r["name"] or ""), str(r["qualified_name"]),
+                index_terms(
+                    str(r["name"] or ""), str(r["qualified_name"]),
+                    str(r["path"] or ""),
+                ),
+                str(r["path"] or ""), str(r["domain"]), str(r["kind"]),
+            )
+            for r in rows
+        ]
+        self.insert_domain_fts_batch(fts_rows)
+        return len(fts_rows)
 
     def snapshot_domain_entities(
         self, snapshot_id: int

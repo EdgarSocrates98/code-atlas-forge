@@ -1,12 +1,21 @@
-"""Faceta de busca sobre entidades de domínio (lf-0119, Cycle 7 Ph11).
+"""Faceta de busca sobre entidades de domínio (lf-0119, Cycle 7 Ph11;
+FTS dedicado em lf-0133, Cycle 8 Phase 7).
 
-``domain_entities`` não tem FTS dedicado — ``fts_occurrences`` cobre
-somente símbolos de código — então a correspondência é LIKE escapado
-**bounded** sobre ``domain_entity_occurrences`` ancoradas no snapshot
-(``name``/``qualified_name``/``path``), com teto de candidatos
-declarado. Nunca se funde com hits de símbolo: sai como faceta
-separada ``domain_items`` no envelope, um item por entidade lógica,
-com a contagem de evidência (ocorrências no snapshot).
+A correspondência direta usa ``domain_fts`` (schema v12) quando a
+tabela existe **e** cobre o snapshot consultado — BM25 ordena os
+candidatos dentro do teto de scan. Sem cobertura (banco antigo,
+snapshot pré-v12, build sem FTS5, query não tokenizável) cai no LIKE
+escapado **bounded** de sempre sobre ``domain_entity_occurrences``
+ancoradas no snapshot — nunca resultado vazio silencioso: a queda é
+declarada via diagnóstico. Nunca se funde com hits de símbolo: sai
+como faceta separada ``domain_items`` no envelope, um item por
+entidade lógica, com a contagem de evidência (ocorrências no snapshot).
+
+Semântica honesta de cada caminho (diferenças declaradas, não
+escondidas): LIKE é match de substring case-insensitive ASCII; FTS5
+``unicode61`` casa por token com case-folding e remoção de diacríticos
+(``sao`` casa ``São`` no FTS, não no LIKE) e a coluna ``terms`` cobre
+fragmentos de identificador (``orders`` casa ``v_orders`` por token).
 
 Estados honestos declarados via ``SearchDiagnostic``:
 
@@ -15,6 +24,9 @@ Estados honestos declarados via ``SearchDiagnostic``:
 - filtro ``language`` ativo → entidades de domínio não carregam
   linguagem: faceta omitida + ``domain-facet-skipped`` (nunca um
   narrowing silencioso/falso);
+- ``domain_fts`` existe mas não cobre o snapshot → LIKE bounded +
+  ``domain-fts-fallback``;
+- MATCH FTS inválida → ``domain-fts-error`` + queda para LIKE;
 - mais candidatos que o teto de scan → ``domain-facet-capped`` com o
   total real;
 - expansão ``via_relation`` cortada pelo teto de arestas →
@@ -37,6 +49,7 @@ from code_atlas.search.contracts import (
     SearchDiagnostic,
     SearchRequest,
 )
+from code_atlas.search.tokenizer import fts_escape, split_identifier
 
 # Tetos honestos da faceta — declarados em diagnóstico quando batidos.
 _CANDIDATE_CAP = 200   # entidades candidatas escaneadas (match direto)
@@ -66,18 +79,76 @@ SELECT de.id AS entity_id, de.domain, de.kind, de.identity_key,
   LEFT JOIN source_files sf ON sf.id = deo.source_file_id
 """
 
+# Pesos bm25 por coluna de ``domain_fts`` (ordem do CREATE v12):
+# snapshot_id, entity_id, name, qualified_name, terms, path, domain,
+# kind → 8 posições. ``name``/``qualified_name`` guardam a forma exata
+# (peso maior); ``terms`` cobre fragmentos tokenizados; ``path`` é
+# âncora fraca; escopos UNINDEXED não pontuam.
+_FTS_BM25_WEIGHTS = "0.0, 0.0, 10.0, 8.0, 6.0, 1.0, 0.0, 0.0"
+
+# Mesma projeção agregada de _DIRECT_SELECT, dirigida por MATCH: as
+# rows candidatas vêm do índice FTS (rowid = domain_entity_occurrences.id)
+# e ``de`` hidrata a entidade — o LIKE de path opera sobre a coluna
+# armazenada ``f.path`` (mesma semântica de ``sf.relative_path``).
+# ``bm25`` é função auxiliar do FTS5 e não pode viver dentro de
+# agregado — a subquery com ``LIMIT -1`` (impede flattening) projeta o
+# rank por row e o agregado externo toma ``MIN(f.bm)``.
+_FTS_SELECT = (
+    "SELECT de.id AS entity_id, de.domain, de.kind, de.identity_key,"
+    " de.qualified_name, de.name, de.catalog, de.namespace,"
+    " de.environment,"
+    " COUNT(*) AS occurrences,"
+    " MIN(f.rowid) AS first_occurrence_id,"
+    " MAX(CASE WHEN f.path LIKE ? ESCAPE '\\'"
+    "          THEN 1 ELSE 0 END) AS m_path,"
+    " MAX(de.name = ? OR de.qualified_name = ?) AS m_exact,"
+    " MIN(f.bm) AS m_rank"
+    " FROM (SELECT rowid, entity_id, path,"
+    f" bm25(domain_fts, {_FTS_BM25_WEIGHTS}) AS bm"
+    " FROM domain_fts"
+    " WHERE domain_fts MATCH ? AND snapshot_id = ? LIMIT -1) f"
+    " JOIN domain_entities de ON de.id = f.entity_id "
+)
+
 
 def _esc_like(term: str) -> str:
     """Escapa curingas LIKE — input do usuário nunca vira padrão."""
     return term.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
 
 
+def _fts_match(query: str) -> str | None:
+    """Expressão MATCH para ``domain_fts`` — ``None`` quando não tokenizável.
+
+    Mesmo desenho de ``lexical.fts_query``: fragmentos por
+    ``split_identifier`` em OR nas colunas indexadas + formas exatas em
+    ``name``/``qualified_name``; sufixo ``*`` vira prefixo em ``terms``.
+    """
+    q = query.strip()
+    if not q:
+        return None
+    if q.endswith("*") and len(q) > 1:
+        stem = q[:-1]
+        toks = split_identifier(stem)
+        return f"terms : {fts_escape(toks[-1] if toks else stem)}*"
+    toks = split_identifier(q)
+    if not toks:
+        return None
+    or_terms = " OR ".join(fts_escape(t) for t in toks)
+    return (
+        f"{{name qualified_name terms path}} : ({or_terms})"
+        f" OR name : {fts_escape(q)}"
+        f" OR qualified_name : {fts_escape(q)}"
+    )
+
+
 class DomainEntitySearch:
-    """Faceta bounded-LIKE de entidades de domínio num snapshot."""
+    """Faceta de entidades de domínio — FTS preferido, LIKE bounded."""
 
     def __init__(self, conn: sqlite3.Connection) -> None:
         self._conn = conn
         self._available: bool | None = None
+        self._fts_present: bool | None = None
+        self._fts_covered: dict[int, bool] = {}
 
     def available(self) -> bool:
         """Schema >=v9 presente — cacheada por instância."""
@@ -87,6 +158,26 @@ class DomainEntitySearch:
                 " WHERE name='domain_entity_occurrences'"
             ).fetchone() is not None
         return self._available
+
+    def _fts_usable_for(self, snapshot_id: int) -> bool:
+        """``domain_fts`` presente E cobrindo ``snapshot_id``.
+
+        Cobertura é por snapshot: só o persist pós-v12 grava rows —
+        snapshots antigas seguem no LIKE honesto. Cacheado por
+        instância (uma SearchEngine por request nas superfícies).
+        """
+        if self._fts_present is None:
+            self._fts_present = self._conn.execute(
+                "SELECT 1 FROM sqlite_master WHERE name='domain_fts'"
+            ).fetchone() is not None
+        if not self._fts_present:
+            return False
+        if snapshot_id not in self._fts_covered:
+            self._fts_covered[snapshot_id] = self._conn.execute(
+                "SELECT 1 FROM domain_fts WHERE snapshot_id = ? LIMIT 1",
+                (snapshot_id,),
+            ).fetchone() is not None
+        return self._fts_covered[snapshot_id]
 
     def search(
         self,
@@ -116,8 +207,10 @@ class DomainEntitySearch:
             return (), 0, ()
         limit = max(1, min(req.limit or 20, _MAX_LIMIT))
 
-        rows, total, capped = self._direct_rows(
+        rows, total, capped, fb_diag, used_fts = self._direct_rows(
             req, repository_id, snapshot_id, q)
+        if fb_diag is not None:
+            diags.append(fb_diag)
         if capped:
             diags.append(SearchDiagnostic(
                 code="domain-facet-capped", severity="info",
@@ -127,38 +220,12 @@ class DomainEntitySearch:
         occ_paths = self._representative_occurrences(
             snapshot_id, [int(r["first_occurrence_id"]) for r in rows])
 
-        hits: list[DomainSearchHit] = []
-        for r in rows:
-            occ = occ_paths.get(int(r["first_occurrence_id"]), {})
-            occ_line = occ.get("line")
-            fields: list[str] = []
-            if q.lower() in str(r["name"]).lower():
-                fields.append("name")
-            if q.lower() in str(r["qualified_name"]).lower():
-                fields.append("qualified_name")
-            if int(r["m_path"]):
-                fields.append("path")
-            exact = bool(r["m_exact"])
-            hits.append(DomainSearchHit(
-                entity_id=int(r["entity_id"]),
-                occurrence_id=int(r["first_occurrence_id"]),
-                domain=str(r["domain"]), kind=str(r["kind"]),
-                qualified_name=str(r["qualified_name"]),
-                name=str(r["name"]),
-                identity_key=str(r["identity_key"]),
-                catalog=str(r["catalog"]),
-                namespace=str(r["namespace"]),
-                environment=str(r["environment"]),
-                path=str(occ.get("path") or ""),
-                line=(occ_line if isinstance(occ_line, int) else None),
-                occurrences=int(r["occurrences"]),
-                extraction_status=str(occ.get("status") or ""),
-                repository_id=repository_id,
-                snapshot_id=snapshot_id,
-                score=_EXACT_SCORE if exact else _DIRECT_SCORE,
-                matched_fields=tuple(fields),
-                evidence=(f"de:{int(r['entity_id'])}",),
-            ))
+        hits = [
+            self._direct_hit(
+                r, q, occ_paths.get(int(r["first_occurrence_id"]), {}),
+                repository_id, snapshot_id, used_fts)
+            for r in rows
+        ]
 
         related_total = 0
         if include_related and hits:
@@ -174,9 +241,143 @@ class DomainEntitySearch:
             -h.score, h.domain, h.kind, h.qualified_name, h.entity_id))
         return tuple(hits[:limit]), total + related_total, tuple(diags)
 
+    @staticmethod
+    def _direct_hit(
+        r: sqlite3.Row,
+        q: str,
+        occ: dict[str, object],
+        repository_id: int,
+        snapshot_id: int,
+        used_fts: bool,
+    ) -> DomainSearchHit:
+        """Hit direto — ``matched_fields`` honesto sobre COMO casou."""
+        occ_line = occ.get("line")
+        fields: list[str] = []
+        if q.lower() in str(r["name"]).lower():
+            fields.append("name")
+        if q.lower() in str(r["qualified_name"]).lower():
+            fields.append("qualified_name")
+        if int(r["m_path"]):
+            fields.append("path")
+        if used_fts and not fields:
+            # Match por token no índice (coluna ``terms`` ou forma
+            # normalizada do nome) que o teste de substring não
+            # reproduz — declarado, nunca vazio/ambíguo.
+            fields.append("terms")
+        return DomainSearchHit(
+            entity_id=int(r["entity_id"]),
+            occurrence_id=int(r["first_occurrence_id"]),
+            domain=str(r["domain"]), kind=str(r["kind"]),
+            qualified_name=str(r["qualified_name"]),
+            name=str(r["name"]),
+            identity_key=str(r["identity_key"]),
+            catalog=str(r["catalog"]),
+            namespace=str(r["namespace"]),
+            environment=str(r["environment"]),
+            path=str(occ.get("path") or ""),
+            line=(occ_line if isinstance(occ_line, int) else None),
+            occurrences=int(r["occurrences"]),
+            extraction_status=str(occ.get("status") or ""),
+            repository_id=repository_id,
+            snapshot_id=snapshot_id,
+            score=_EXACT_SCORE if r["m_exact"] else _DIRECT_SCORE,
+            matched_fields=tuple(fields),
+            evidence=(f"de:{int(r['entity_id'])}",),
+        )
+
     # --- match direto -------------------------------------------------
 
     def _direct_rows(
+        self,
+        req: SearchRequest,
+        repository_id: int,
+        snapshot_id: int,
+        q: str,
+    ) -> tuple[
+        list[sqlite3.Row], int, bool, SearchDiagnostic | None, bool
+    ]:
+        """Despacha FTS→LIKE — ``(rows, total, capped, diag, used_fts)``."""
+        if self._fts_usable_for(snapshot_id):
+            try:
+                out = self._direct_rows_fts(
+                    req, repository_id, snapshot_id, q)
+            except sqlite3.OperationalError as exc:
+                return (*self._direct_rows_like(
+                    req, repository_id, snapshot_id, q),
+                    SearchDiagnostic(
+                        code="domain-fts-error", severity="warning",
+                        message=f"MATCH de domínio falhou ({exc}) — "
+                                "LIKE bounded aplicado"), False)
+            if out is not None:
+                return *out, None, True
+            # query não expressível em MATCH (sem tokens): LIKE cobre.
+            return (*self._direct_rows_like(
+                req, repository_id, snapshot_id, q), None, False)
+        if self._fts_present:
+            return (*self._direct_rows_like(
+                req, repository_id, snapshot_id, q),
+                SearchDiagnostic(
+                    code="domain-fts-fallback", severity="info",
+                    message="snapshot sem cobertura domain_fts (pré-v12) "
+                            "— LIKE bounded aplicado"), False)
+        return (*self._direct_rows_like(
+            req, repository_id, snapshot_id, q), None, False)
+
+    def _direct_rows_fts(
+        self,
+        req: SearchRequest,
+        repository_id: int,
+        snapshot_id: int,
+        q: str,
+    ) -> tuple[list[sqlite3.Row], int, bool] | None:
+        """Candidatos via ``domain_fts`` — ``None`` = MATCH não expressível.
+
+        BM25 (``m_rank``) ordena os candidatos dentro do teto de scan —
+        exato primeiro, depois relevância, desempate por identidade. A
+        ordem pública final continua a chave determinística do
+        docstring de ``search`` (score > identidade): o rank decide só
+        quais entidades entram no scan, nunca o contrato do envelope.
+        """
+        match = _fts_match(q)
+        if match is None:
+            return None
+        like = f"%{_esc_like(q)}%"
+        conds: list[str] = []
+        params: list[object] = []
+        if req.domain:
+            conds.append("de.domain = ?")
+            params.append(req.domain)
+        if req.kind:
+            conds.append("de.kind = ?")
+            params.append(req.kind)
+        if req.path:
+            conds.append("f.path LIKE ? ESCAPE '\\'")
+            params.append(f"%{_esc_like(req.path)}%")
+        extra = (" AND " + " AND ".join(conds)) if conds else ""
+        outer = "WHERE de.repository_id = ?" + extra
+        # SELECT params (m_path like, m_exact q,q) precedem a subquery
+        # (match, snapshot) — ordem textual dos placeholders.
+        sel_params = [like, q, q, match, snapshot_id, repository_id, *params]
+        list_sql = (
+            _FTS_SELECT + outer
+            + " GROUP BY de.id"
+            " ORDER BY m_exact DESC, m_rank,"
+            " de.domain, de.kind, de.qualified_name, de.id LIMIT ?"
+        )
+        count_sql = (
+            "SELECT COUNT(DISTINCT f.entity_id) AS n"
+            " FROM (SELECT entity_id FROM domain_fts"
+            " WHERE domain_fts MATCH ? AND snapshot_id = ? LIMIT -1) f"
+            " JOIN domain_entities de ON de.id = f.entity_id " + outer
+        )
+        rows = self._conn.execute(
+            list_sql, [*sel_params, _CANDIDATE_CAP]).fetchall()
+        total = int(self._conn.execute(
+            count_sql, [match, snapshot_id, repository_id, *params]
+        ).fetchone()["n"])
+        return rows, total, total > _CANDIDATE_CAP
+
+    def _direct_rows_like(
         self,
         req: SearchRequest,
         repository_id: int,
@@ -262,19 +463,34 @@ class DomainEntitySearch:
         """
         diags: list[SearchDiagnostic] = []
         ids_json = json.dumps(sorted(direct_ids))
+        # UNION de dois probes indexados em vez de OR entre aliases —
+        # o OR cruzava duas tabelas (fe/te) e impedia multi-index OR,
+        # forçando scan de domain_relations. Cada braço usa os índices
+        # v11 (snapshot_id, from/to_entity_occ_id); UNION já deduplica
+        # arestas com ambos os endpoints no conjunto direto.
         edge_rows = self._conn.execute(
-            "SELECT r.id, r.type, fe.entity_id AS from_entity,"
+            "SELECT r.id AS rel_id, r.type, fe.entity_id AS from_entity,"
             " te.entity_id AS to_entity"
             " FROM domain_relations r"
             " JOIN domain_entity_occurrences fe"
             "   ON fe.id = r.from_entity_occ_id"
             " JOIN domain_entity_occurrences te"
             "   ON te.id = r.to_entity_occ_id"
-            " WHERE r.snapshot_id = ? AND ("
-            " fe.entity_id IN (SELECT value FROM json_each(?))"
-            " OR te.entity_id IN (SELECT value FROM json_each(?)))"
-            " ORDER BY r.id LIMIT ?",
-            (snapshot_id, ids_json, ids_json, _RELATED_EDGE_CAP),
+            " WHERE r.snapshot_id = ?"
+            " AND fe.entity_id IN (SELECT value FROM json_each(?))"
+            " UNION "
+            "SELECT r.id AS rel_id, r.type, fe.entity_id AS from_entity,"
+            " te.entity_id AS to_entity"
+            " FROM domain_relations r"
+            " JOIN domain_entity_occurrences fe"
+            "   ON fe.id = r.from_entity_occ_id"
+            " JOIN domain_entity_occurrences te"
+            "   ON te.id = r.to_entity_occ_id"
+            " WHERE r.snapshot_id = ?"
+            " AND te.entity_id IN (SELECT value FROM json_each(?))"
+            " ORDER BY rel_id LIMIT ?",
+            (snapshot_id, ids_json, snapshot_id, ids_json,
+             _RELATED_EDGE_CAP),
         ).fetchall()
         if len(edge_rows) >= _RELATED_EDGE_CAP:
             diags.append(SearchDiagnostic(
@@ -287,7 +503,7 @@ class DomainEntitySearch:
             other = te if fe in direct_ids else fe
             if other in direct_ids or other in via:
                 continue
-            via[other] = f"via={r['type']}:rel:{int(r['id'])}"
+            via[other] = f"via={r['type']}:rel:{int(r['rel_id'])}"
         if not via:
             return [], tuple(diags)
         extra_conds = ""

@@ -343,8 +343,87 @@ CREATE INDEX idx_federation_members_repo
 """
 
 
+_SCHEMA_V11_DOMAIN_REL_INDEXES = """
+-- lf-0132 (Cycle 8 Phase 6): índices compostos nos quatro endpoints de
+-- ``domain_relations``. O ego (``from_/to_entity_occ_id IN (...)``) e o
+-- BFS de linhagem filtram por endpoint dentro do snapshot; os índices
+-- single-column de v9 lideram pela coluna de endpoint e não cobrem o
+-- predicado ``snapshot_id = ?``, então o planner preferia o range-scan
+-- de ``idx_domain_relations_snap`` (~O(snapshot)) mesmo para INs
+-- pequenos. ``(snapshot_id, endpoint)`` dá probes diretos nos INs de um
+-- termo e habilita MULTI-INDEX OR nas egos **quando há estatísticas**.
+--
+-- ``ANALYZE`` escopo-domínio popula ``sqlite_stat1`` em bancos já
+-- povoados — sem stats o planner mantém o scan de snapshot até para os
+-- INs literais do ego e os probes PK de ``deo.id IN (json_each)`` na
+-- hidratação de endpoints. ANALYZE só escreve a tabela de sistema
+-- ``sqlite_stat1``: nenhuma tabela de aplicação muda de forma. O
+-- refresh contínuo fica em ``Store.publish_snapshot`` (mesma tx da
+-- publicação — stats commitam com os dados que descrevem).
+--
+-- Estritamente aditiva: bancos antigos abrem e ganham os quatro
+-- índices + stats; nada é dropado (os índices single-column de v9
+-- permanecem — ``(endpoint, type)`` cobre formas diferentes).
+
+CREATE INDEX IF NOT EXISTS idx_domain_relations_snap_from_ent
+    ON domain_relations (snapshot_id, from_entity_occ_id);
+CREATE INDEX IF NOT EXISTS idx_domain_relations_snap_to_ent
+    ON domain_relations (snapshot_id, to_entity_occ_id);
+CREATE INDEX IF NOT EXISTS idx_domain_relations_snap_from_sym
+    ON domain_relations (snapshot_id, from_symbol_occ_id);
+CREATE INDEX IF NOT EXISTS idx_domain_relations_snap_to_sym
+    ON domain_relations (snapshot_id, to_symbol_occ_id);
+
+ANALYZE domain_relations;
+ANALYZE domain_entity_occurrences;
+ANALYZE domain_entities;
+"""
+
+
+_SCHEMA_V12_DOMAIN_FTS = """
+-- lf-0133 (Cycle 8 Phase 7): FTS5 dedicado a entidades de domínio.
+--
+-- Standalone, mesmo desenho de ``fts_occurrences`` (v7): rowid = id da
+-- ``domain_entity_occurrences`` — join direto para âncora snapshot/
+-- entidade. ``terms`` carrega identificadores pré-tokenizados
+-- (``search/tokenizer.index_terms``) — snake_case/camelCase/dotted
+-- recuperáveis por fragmento, enquanto ``name``/``qualified_name``
+-- guardam a forma exata. ``snapshot_id``/``entity_id``/``domain``/
+-- ``kind`` são UNINDEXED: filtros de escopo, nunca alvos de MATCH.
+--
+-- ``content=`` externo não serve: as colunas de match moram em
+-- ``domain_entities``/``source_files``, e cascades de FK não disparam
+-- triggers em SQLite — a limpeza é manual em
+-- ``Store.gc_stale_snapshots`` (mesmo mecanismo de fts_occurrences).
+--
+-- Migração separada da v11 por duas razões: (a) FTS5 é opcional de
+-- build — um gate na v11 também removeria os índices dos builds sem
+-- módulo; (b) o checksum por-versão exige SQL determinístico — variantes
+-- condicionais na mesma versão gerariam drift entre builds. Bancos sem
+-- FTS5 ficam na v11 com índices e LIKE bounded intactos.
+--
+-- Populada em ``persist_domain_result``: somente snapshots **novos**
+-- ganham rows — snapshots pré-v12 seguem no LIKE honesto do
+-- ``DomainEntitySearch`` (fallback declarado). Backfill in-place por
+-- snapshot existe em ``Store.rebuild_domain_fts``; um ``code-atlas
+-- reindex`` de superfície é o equivalente operacional (nova snapshot
+-- já sai coberta pelo persist).
+
+CREATE VIRTUAL TABLE domain_fts USING fts5(
+    snapshot_id UNINDEXED,
+    entity_id UNINDEXED,
+    name,
+    qualified_name,
+    terms,
+    path,
+    domain UNINDEXED,
+    kind UNINDEXED
+);
+"""
+
+
 def migrations(*, fts5: bool) -> list[Migration]:
-    """Lista de migrações; a v2 (FTS5) só existe quando a build suporta."""
+    """Lista de migrações; v2/v7/v12 (FTS5) só existem quando a build suporta."""
     m = [Migration(1, "core schema (blueprint §6)", _SCHEMA_V1)]
     if fts5:
         m.append(Migration(2, "fts_symbols virtual table", _SCHEMA_V2_FTS))
@@ -369,6 +448,15 @@ def migrations(*, fts5: bool) -> list[Migration]:
         10, "federation workspaces + members (lf-0118)",
         _SCHEMA_V10_FEDERATION,
     ))
+    m.append(Migration(
+        11, "domain_relations endpoint indexes + stats (lf-0132)",
+        _SCHEMA_V11_DOMAIN_REL_INDEXES,
+    ))
+    if fts5:
+        m.append(Migration(
+            12, "domain_fts dedicated FTS5 (lf-0133)",
+            _SCHEMA_V12_DOMAIN_FTS,
+        ))
     return m
 
 

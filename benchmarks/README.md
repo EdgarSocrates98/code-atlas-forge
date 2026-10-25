@@ -126,3 +126,25 @@ estado do corpus):
   já tratava a chave; nada a produzia) — upgrade do SyntacticResolver
   invalida relações de todos os arquivos corretamente.
 - Nenhum check de integridade/segurança foi removido ou enfraquecido.
+
+---
+
+# SQLite de domínio (lf-0132 + lf-0133, Cycle 8)
+
+`bench_sqlite.py` mede as queries quentes de domínio num banco
+"before" real (schema capado em v10, sem `sqlite_stat1`) vs o mesmo
+arquivo migrado a v12 + `rebuild_domain_fts` ("after" — o caminho de
+upgrade de banco antigo, não um banco novo). Fixture determinística
+(seed `20261208`, 800 artefatos .sql → ~12.5k entidades/~12k arestas).
+Os planos `EXPLAIN QUERY PLAN` de cada query medida ficam embutidos no
+JSON (`_explain_query_plan`).
+
+```bash
+.venv/bin/python benchmarks/bench_sqlite.py --files 800 --repeats 9
+.venv/bin/python benchmarks/bench_sqlite.py --files 800 --json out.json
+```
+
+Resultados: `benchmarks/results/sqlite-latest.json` — ganhos medidos
+de probes (ego ~34-72x, hidratação ~30x, `via_relation` UNION ~290x),
+residuais declarados (BFS de linhagem) e custos honestos (FTS em termo
+ultra-comum). Decisões em `docs/cycle-8-sqlite-domain-search.md`.

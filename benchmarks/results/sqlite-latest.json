@@ -1,0 +1,365 @@
+{
+  "spec": "lf-0132 + lf-0133",
+  "scenario": "mid-size domain fixture — before=v10 (sem índices v11/stats/FTS) x after=v12 (índices + ANALYZE + domain_fts backfill)",
+  "methodology": {
+    "fixture": "synth_repo(seed=20261208, files=800) — só DDL/DML lido por adapters; nada executado",
+    "index": "IndexCoordinator com migrações capadas em v10 (before = banco antigo real)",
+    "after": "cópia do arquivo → migrate → Store.rebuild_domain_fts (backfill declarado)",
+    "timing": "perf_counter, mediana de 9 runs + 1 warm-up; conexões read-only (mode=ro)",
+    "index_s": 2.463
+  },
+  "machine": "x86_64",
+  "python": "3.12.3",
+  "sqlite": "3.45.1",
+  "fts5_build": true,
+  "pragmas": {
+    "journal_mode": "wal",
+    "synchronous": 1,
+    "foreign_keys": 1,
+    "busy_timeout_ms": 5000,
+    "cache_size": -64000
+  },
+  "counts": {
+    "domain_entities": 12455,
+    "domain_entity_occurrences": 12455,
+    "domain_relations": 11990,
+    "symbol_occurrences": 860,
+    "source_files": 820
+  },
+  "upgrade": {
+    "schema_version": 12,
+    "migrate_s": 0.0302,
+    "rebuild_domain_fts_rows": 12455,
+    "rebuild_domain_fts_s": 0.2029,
+    "analyze_publish_s": 0.0109
+  },
+  "results": {
+    "before_v10": {
+      "ego_edges_in": {
+        "median_ms": 2.754,
+        "min_ms": 2.729,
+        "max_ms": 3.504,
+        "rows": 85
+      },
+      "ego_edges_in_tail": {
+        "median_ms": 3.115,
+        "min_ms": 3.095,
+        "max_ms": 3.128,
+        "rows": 30
+      },
+      "hydrate_endpoints": {
+        "median_ms": 1.013,
+        "min_ms": 0.994,
+        "max_ms": 1.029,
+        "rows": 30
+      },
+      "hydrate_endpoints_tail": {
+        "median_ms": 1.139,
+        "min_ms": 1.121,
+        "max_ms": 1.18,
+        "rows": 30
+      },
+      "entity_detail_summary_out": {
+        "median_ms": 1.945,
+        "min_ms": 1.888,
+        "max_ms": 1.957,
+        "rows": 3
+      },
+      "relations_list": {
+        "median_ms": 0.987,
+        "min_ms": 0.973,
+        "max_ms": 1.071,
+        "rows": 100
+      },
+      "relations_type_filter": {
+        "median_ms": 0.068,
+        "min_ms": 0.067,
+        "max_ms": 0.091,
+        "rows": 100
+      },
+      "lineage_bfs_step_or": {
+        "median_ms": 3.195,
+        "min_ms": 3.179,
+        "max_ms": 3.215,
+        "rows": 28
+      },
+      "search_like_candidates": {
+        "median_ms": 7.402,
+        "min_ms": 7.331,
+        "max_ms": 8.547,
+        "rows": 200
+      },
+      "search_like_selective": {
+        "median_ms": 7.255,
+        "min_ms": 7.18,
+        "max_ms": 8.533,
+        "rows": 0
+      },
+      "via_relation_or": {
+        "median_ms": 6.745,
+        "min_ms": 6.695,
+        "max_ms": 8.155,
+        "rows": 3
+      },
+      "search_fts_candidates": "NOT RUN (domain_fts ausente no schema v10)",
+      "search_fts_selective": "NOT RUN (domain_fts ausente no schema v10)",
+      "via_relation_union": "NOT RUN (shape só existe no código after — medido no lado after)",
+      "api_domain_search": {
+        "median_ms": 36.646,
+        "min_ms": 36.067,
+        "max_ms": 38.073,
+        "path": "like"
+      },
+      "api_domain_search_selective": {
+        "median_ms": 14.7,
+        "min_ms": 14.485,
+        "max_ms": 16.929,
+        "path": "like"
+      },
+      "_explain_query_plan": {
+        "ego_edges_in": [
+          "SEARCH domain_relations USING INDEX idx_domain_relations_snap (snapshot_id=?)",
+          "USE TEMP B-TREE FOR ORDER BY"
+        ],
+        "ego_edges_in_tail": [
+          "SEARCH domain_relations USING INDEX idx_domain_relations_snap (snapshot_id=?)",
+          "USE TEMP B-TREE FOR ORDER BY"
+        ],
+        "hydrate_endpoints": [
+          "SEARCH deo USING COVERING INDEX idx_domain_occ_snapshot (snapshot_id=?)",
+          "SEARCH de USING INTEGER PRIMARY KEY (rowid=?)"
+        ],
+        "hydrate_endpoints_tail": [
+          "SEARCH deo USING COVERING INDEX idx_domain_occ_snapshot (snapshot_id=?)",
+          "SEARCH de USING INTEGER PRIMARY KEY (rowid=?)"
+        ],
+        "entity_detail_summary_out": [
+          "SEARCH domain_relations USING INDEX idx_domain_relations_snap (snapshot_id=?)",
+          "USE TEMP B-TREE FOR GROUP BY"
+        ],
+        "relations_list": [
+          "SEARCH domain_relations USING COVERING INDEX idx_domain_relations_snap (snapshot_id=?)",
+          "USE TEMP B-TREE FOR ORDER BY"
+        ],
+        "relations_type_filter": [
+          "SEARCH domain_relations USING COVERING INDEX idx_domain_relations_snap (snapshot_id=? AND type=?)",
+          "USE TEMP B-TREE FOR ORDER BY"
+        ],
+        "lineage_bfs_step_or": [
+          "SEARCH domain_relations USING INDEX idx_domain_relations_snap (snapshot_id=?)",
+          "USE TEMP B-TREE FOR ORDER BY"
+        ],
+        "search_like_candidates": [
+          "SEARCH deo USING INDEX idx_domain_occ_snapshot (snapshot_id=?)",
+          "SEARCH de USING INTEGER PRIMARY KEY (rowid=?)",
+          "SEARCH sf USING INTEGER PRIMARY KEY (rowid=?) LEFT-JOIN",
+          "USE TEMP B-TREE FOR GROUP BY"
+        ],
+        "search_like_selective": [
+          "SEARCH deo USING INDEX idx_domain_occ_snapshot (snapshot_id=?)",
+          "SEARCH de USING INTEGER PRIMARY KEY (rowid=?)",
+          "SEARCH sf USING INTEGER PRIMARY KEY (rowid=?) LEFT-JOIN",
+          "USE TEMP B-TREE FOR GROUP BY"
+        ],
+        "via_relation_or": [
+          "SEARCH r USING INDEX idx_domain_relations_snap (snapshot_id=?)",
+          "SEARCH fe USING INTEGER PRIMARY KEY (rowid=?)",
+          "SEARCH te USING INTEGER PRIMARY KEY (rowid=?)",
+          "USE TEMP B-TREE FOR ORDER BY"
+        ]
+      }
+    },
+    "after_v12": {
+      "ego_edges_in": {
+        "median_ms": 0.083,
+        "min_ms": 0.083,
+        "max_ms": 0.108,
+        "rows": 85
+      },
+      "ego_edges_in_tail": {
+        "median_ms": 0.045,
+        "min_ms": 0.045,
+        "max_ms": 0.066,
+        "rows": 30
+      },
+      "hydrate_endpoints": {
+        "median_ms": 0.032,
+        "min_ms": 0.031,
+        "max_ms": 0.034,
+        "rows": 30
+      },
+      "hydrate_endpoints_tail": {
+        "median_ms": 0.033,
+        "min_ms": 0.033,
+        "max_ms": 0.046,
+        "rows": 30
+      },
+      "entity_detail_summary_out": {
+        "median_ms": 0.029,
+        "min_ms": 0.029,
+        "max_ms": 0.032,
+        "rows": 3
+      },
+      "relations_list": {
+        "median_ms": 0.044,
+        "min_ms": 0.043,
+        "max_ms": 0.05,
+        "rows": 100
+      },
+      "relations_type_filter": {
+        "median_ms": 0.06,
+        "min_ms": 0.06,
+        "max_ms": 0.064,
+        "rows": 100
+      },
+      "lineage_bfs_step_or": {
+        "median_ms": 2.258,
+        "min_ms": 2.247,
+        "max_ms": 2.31,
+        "rows": 28
+      },
+      "search_like_candidates": {
+        "median_ms": 2.192,
+        "min_ms": 2.159,
+        "max_ms": 2.342,
+        "rows": 200
+      },
+      "search_like_selective": {
+        "median_ms": 10.113,
+        "min_ms": 10.009,
+        "max_ms": 11.374,
+        "rows": 0
+      },
+      "via_relation_or": {
+        "median_ms": 4.468,
+        "min_ms": 4.45,
+        "max_ms": 5.098,
+        "rows": 3
+      },
+      "search_fts_candidates": {
+        "median_ms": 9.977,
+        "min_ms": 9.865,
+        "max_ms": 10.702,
+        "rows": 200
+      },
+      "search_fts_selective": {
+        "median_ms": 2.722,
+        "min_ms": 2.685,
+        "max_ms": 2.745,
+        "rows": 200
+      },
+      "via_relation_union": {
+        "median_ms": 0.016,
+        "min_ms": 0.015,
+        "max_ms": 0.019,
+        "rows": 3
+      },
+      "api_domain_search": {
+        "median_ms": 31.12,
+        "min_ms": 30.809,
+        "max_ms": 32.399,
+        "path": "domain_fts"
+      },
+      "api_domain_search_selective": {
+        "median_ms": 16.831,
+        "min_ms": 16.619,
+        "max_ms": 24.475,
+        "path": "domain_fts"
+      },
+      "_explain_query_plan": {
+        "ego_edges_in": [
+          "MULTI-INDEX OR",
+          "INDEX 1",
+          "SEARCH domain_relations USING INDEX idx_domain_relations_snap_from_ent (snapshot_id=? AND from_entity_occ_id=?)",
+          "INDEX 2",
+          "SEARCH domain_relations USING INDEX idx_domain_relations_snap_to_ent (snapshot_id=? AND to_entity_occ_id=?)",
+          "USE TEMP B-TREE FOR ORDER BY"
+        ],
+        "ego_edges_in_tail": [
+          "MULTI-INDEX OR",
+          "INDEX 1",
+          "SEARCH domain_relations USING INDEX idx_domain_relations_snap_from_ent (snapshot_id=? AND from_entity_occ_id=?)",
+          "INDEX 2",
+          "SEARCH domain_relations USING INDEX idx_domain_relations_snap_to_ent (snapshot_id=? AND to_entity_occ_id=?)",
+          "USE TEMP B-TREE FOR ORDER BY"
+        ],
+        "hydrate_endpoints": [
+          "SEARCH deo USING INTEGER PRIMARY KEY (rowid=?)",
+          "SEARCH de USING INTEGER PRIMARY KEY (rowid=?)"
+        ],
+        "hydrate_endpoints_tail": [
+          "SEARCH deo USING INTEGER PRIMARY KEY (rowid=?)",
+          "SEARCH de USING INTEGER PRIMARY KEY (rowid=?)"
+        ],
+        "entity_detail_summary_out": [
+          "SEARCH domain_relations USING INDEX idx_domain_relations_snap_from_ent (snapshot_id=? AND from_entity_occ_id=?)",
+          "USE TEMP B-TREE FOR GROUP BY"
+        ],
+        "relations_list": [
+          "SCAN domain_relations"
+        ],
+        "relations_type_filter": [
+          "SCAN domain_relations"
+        ],
+        "lineage_bfs_step_or": [
+          "SCAN domain_relations"
+        ],
+        "search_like_candidates": [
+          "SCAN de",
+          "SEARCH deo USING INDEX idx_domain_occ_snapshot (snapshot_id=? AND entity_id=?)",
+          "SEARCH sf USING INTEGER PRIMARY KEY (rowid=?) LEFT-JOIN"
+        ],
+        "search_like_selective": [
+          "SCAN de",
+          "SEARCH deo USING INDEX idx_domain_occ_snapshot (snapshot_id=? AND entity_id=?)",
+          "SEARCH sf USING INTEGER PRIMARY KEY (rowid=?) LEFT-JOIN"
+        ],
+        "via_relation_or": [
+          "SCAN r",
+          "SEARCH fe USING INTEGER PRIMARY KEY (rowid=?)",
+          "SEARCH te USING INTEGER PRIMARY KEY (rowid=?)"
+        ],
+        "search_fts_candidates": [
+          "CO-ROUTINE f",
+          "SCAN domain_fts VIRTUAL TABLE INDEX 0:M8",
+          "SCAN f",
+          "SEARCH de USING INTEGER PRIMARY KEY (rowid=?)",
+          "USE TEMP B-TREE FOR GROUP BY",
+          "USE TEMP B-TREE FOR ORDER BY"
+        ],
+        "search_fts_selective": [
+          "CO-ROUTINE f",
+          "SCAN domain_fts VIRTUAL TABLE INDEX 0:M8",
+          "SCAN f",
+          "SEARCH de USING INTEGER PRIMARY KEY (rowid=?)",
+          "USE TEMP B-TREE FOR GROUP BY",
+          "USE TEMP B-TREE FOR ORDER BY"
+        ],
+        "via_relation_union": [
+          "MERGE (UNION)",
+          "LEFT",
+          "SEARCH fe USING COVERING INDEX idx_domain_occ_entity (entity_id=?)",
+          "SEARCH r USING INDEX idx_domain_relations_snap_from_ent (snapshot_id=? AND from_entity_occ_id=?)",
+          "SEARCH te USING INTEGER PRIMARY KEY (rowid=?)",
+          "USE TEMP B-TREE FOR ORDER BY",
+          "RIGHT",
+          "SEARCH te USING COVERING INDEX idx_domain_occ_entity (entity_id=?)",
+          "SEARCH r USING INDEX idx_domain_relations_snap_to_ent (snapshot_id=? AND to_entity_occ_id=?)",
+          "SEARCH fe USING INTEGER PRIMARY KEY (rowid=?)",
+          "USE TEMP B-TREE FOR ORDER BY"
+        ]
+      }
+    }
+  },
+  "n_plus_one_audit": {
+    "_hydrate_domain_endpoints/_domain_edges_dto": "já batch — ≤2 queries por página de arestas (json_each); o IN era range-scan de snapshot e virou probe por rowid com stats, sem mudar código",
+    "_lineage_absorb (api/handlers.py)": "1 probe PK por aresta (occ→entity_id) + 1 domain_occurrences_for por nó novo — N+1 real mas bounded (≤500 arestas/nós); batching exigiria reestruturar o BFS em handlers.py — fora de escopo, registrado como residual",
+    "crossresolve/federation": "leituras batch por snapshot — sem N+1 encontrado"
+  },
+  "residual_known_limits": [
+    "lineage_bfs_step_or: OR sobre 4 json_each não usa índices de endpoint (SCAN de domain_relations ~2.2ms aqui) — rewrite UNION exigiria handlers.py, não feito",
+    "search_fts_candidates em termo ultra-comum ('fact', ~5.5k rows matched): ~10ms — bm25 por row > scan LIKE; em termos seletivos o candidato FTS cai a ~2.7ms (vs ~10ms do LIKE pos-stats). No nível API a diferença dilui: count repetido via MATCH + hidratação + via_relation dominam — FTS não é vitória universal, é seletividade + semântica de token",
+    "LIKE-fallback em snapshot não coberto: planos podem diferir do regime pré-stats (SCAN de vs deo-first) — medido, não escondido",
+    "fixture é single-snapshot/single-repo: ganhos de probes snapshot-scoped crescem com N snapshots no mesmo banco"
+  ]
+}

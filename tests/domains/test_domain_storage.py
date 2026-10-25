@@ -73,7 +73,10 @@ def workspace(tmp_path: Path) -> tuple[sqlite3.Connection, int, int, dict[str, i
 
 
 def test_migration_v9_creates_domain_tables(db: sqlite3.Connection) -> None:
-    assert schema_version(db) == 10
+    # head: v12 com FTS5 (domain_fts), v11 sem — v12 é FTS5-gated
+    from code_atlas.storage.db import fts5_available
+
+    assert schema_version(db) == (12 if fts5_available(db) else 11)
     tables = {
         r["name"]
         for r in db.execute(
@@ -100,7 +103,9 @@ def test_old_db_opens_and_gains_domain_schema(
     conn.close()
 
     conn2 = connect(tmp_path / "old.db")
-    assert mig.migrate(conn2) == 10
+    from code_atlas.storage.db import fts5_available
+
+    assert mig.migrate(conn2) == (12 if fts5_available(conn2) else 11)
     row = conn2.execute(
         "SELECT COUNT(*) AS c FROM domain_entities"
     ).fetchone()
