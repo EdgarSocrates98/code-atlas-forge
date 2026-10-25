@@ -1,5 +1,15 @@
 # Cycle 8 — Explorer Accessibility + Visual QA (Ph.14, lf-0140)
 
+> **Cycle 8.1 re-run (Phase 7, lf-0150, 2026-10-25, branch
+> `cycle-8.1-ga-readiness`): post-migration homologation on Angular
+> 22.2.3.** The cycle-8 baseline below ran on Angular 18.2.13; the
+> 18→19→20→21→22 migration (lf-0147, incl. CSP hardening) rewrote the
+> compiled bundle, so the entire suite was re-verified verbatim.
+> **Result: identical outcome — 48 axe scans, 0 blocking violations,
+> 0 advisory; all manual checks pass; zero new violations, zero
+> explorer-side fixes needed.** Details in the "Cycle 8.1" section at
+> the end of this file.
+
 Branch `cycle-8-production-quality`. Re-audit of the WCAG 2.2 AA baseline
 (cycle 6.1, 24 axe scans / 0 violations) **plus dedicated coverage of the
 five cycle-7 domain views** — closing the declared cycle-7 NOT-RUN
@@ -161,3 +171,113 @@ honest-render + overflow tripwire as the existing suite.
   `.component.ts` — V3 (`overflow-wrap` on descriptions/lists).
 - `docs/screenshots/` — 29 new captures.
 - `docs/explorer-accessibility-report.md` — updated with this run.
+
+---
+
+# Cycle 8.1 — post-migration re-verification (Phase 7, lf-0150)
+
+Branch `cycle-8.1-ga-readiness`. The lf-0147 migration moved the explorer
+from Angular 18.2.13 to **22.2.3** (steps 18→19→20→21→22, deprecated
+`platform-browser-dynamic`/animations removal, CSP hardening,
+`@angular/build` toolchain). The audit target changed — the compiled
+bundle, focus/`:focus-visible` plumbing, and renderer internals are all
+new — so **every** check above was re-run verbatim against the Angular
+22 production `dist/`. This section is the measured delta.
+
+## Re-run results (measured)
+
+| Check | Angular 18 baseline (cycle-8) | Angular 22.2.3 re-run (cycle-8.1) |
+|---|---|---|
+| `npm run build` | green (sigma/graphology CJS warnings) | green — same warnings only, nothing new |
+| `npx ng test --watch=false --browsers=ChromeHeadless` | 238/238 | **238/238** |
+| `npx playwright test e2e/a11y.spec.ts` | 65/65 · 48 scans · 0 blocking · 0 advisory | **66/66** · 48 scans · 0 blocking · 0 advisory (+1 new test, below) |
+| `npx playwright test e2e/screenshots.spec.ts` | 65/65 | **65/65** — all 65 PNGs regenerated on the Angular 22 bundle; every capture still asserts horizontal overflow ≤ 1 px |
+| Keyboard focus rings | PASS (skip link, sidebar nav, lineage select, contracts toggle, federation button) | PASS — same checks all green post-migration **plus** new coverage for the two surfaces the suite previously only touched via the shell: `/search` query input and `/graph` toolbar button |
+| Zoom 200 % reflow (640 CSS px) | PASS, 5 domain routes | PASS, 5 domain routes — overflow ≤ 1 px, h1 visible |
+| `prefers-reduced-motion` | PASS (0 s motion on every rendered element on populated `/contracts`, `/lineage`; shell nav intact) | PASS — identical |
+| Lighthouse | NOT RUN (not part of cycle-8 scope) | **RUN** — scores below |
+
+**Verbatim verification:** `npx playwright test e2e/a11y.spec.ts
+e2e/screenshots.spec.ts` → **131/131 pass** in a single run
+(`A11Y AUDIT SUMMARY — scans: 48, blocking violations: 0, advisory: 0`).
+
+Environment caveat, honestly declared: two sibling agents were running
+`playwright test` concurrently on the default port 8743 and shared
+`explorer/test-results/` during this phase. Four tests across two runs
+failed at `browserContext.close` with a trace-artifact ENOENT — a
+teardown-level flake (the same class noted in cycle-8 on
+`graph-scale.spec.ts`), never an assertion; each failed test passed on
+isolated re-run. The final 131/131 run used the harness's own isolation
+contract (`ATLAS_E2E_PORT=8920` — supported by `global-setup.ts` — and
+`--output=/tmp/atlas-lf0150-test-results`) so no sibling process could
+race the artifacts. No test source was touched to work around this.
+
+## Violations found on Angular 22
+
+**Zero.** The migration introduced no axe-regressions: same 48 scans,
+same 0 blocking / 0 advisory outcome, no `src/` changes required. The
+global `:focus-visible` rule in `styles.css` and all interactive
+surfaces are plain native elements — no CDK/Angular-Material internals
+involved — so the version jump carried no focus-management risk in
+practice; the manual keyboard/focus/motion/zoom tests confirm it.
+
+## Coverage added in 8.1
+
+`e2e/a11y.spec.ts`, `manual checks` describe — one new test, closing the
+"graph + search" focus-ring item from the Phase-7 checklist (the other
+three domain routes' controls were already ring-asserted; infra and
+pipelines share the same global `:focus-visible` + native-element
+contract proven on lineage/contracts/federation):
+
+- Tab order reaches the `/search` query input (`getByLabel('Consulta')`);
+  computed outline non-none, width > 0.
+- `/graph` toolbar button (`Aumentar zoom`) shows the ring on focus and
+  remains operable via Enter with the canvas/table fallback intact.
+
+## Lighthouse (new in 8.1 — cycle-8 never ran it)
+
+`npx lighthouse` was attempted per spec; the npm registry was reachable,
+so it **ran** (lighthouse 13.5.0 fetched via `npx -y`; Chrome =
+Playwright's `chromium-1248`, Chrome for Testing 156, launched with
+`--headless=new --no-sandbox` via `CHROME_PATH`). Target: a real
+`code-atlas explorer` subprocess serving the production `dist/` bundle
+over loopback with a real `sample_repo` index — the same shape the e2e
+suite audits.
+
+| Route | Accessibility | Best-practices | Notes |
+|---|---:|---:|---|
+| `/dashboard` | **100** | **100** | full run: performance 83, seo 91 |
+| `/search` | **100** | **100** | a11y+best-practices categories |
+| `/graph` | **100** | **100** | a11y+best-practices categories |
+| `/settings` | **100** | **100** | a11y+best-practices categories |
+
+Zero failing audits in the accessibility and best-practices categories
+on all four routes. Non-a11y findings are informational only:
+`robots.txt is not valid` + `llms.txt`/`ai-catalog.json` advisories
+(LH13 `agentic-browsing` category) — the explorer is a local tool
+served on loopback, not a crawlable web property; and the performance
+score reflects the FCP/LCP profile of an SPA on a local dev server —
+outside this phase's a11y scope, reported here for completeness.
+
+## Cycle-8.1 NOT RUN / residual caveats
+
+Everything in the cycle-8 honest list still applies (no AT walkthrough,
+zoom is a 640 px proxy, WebGL canvas beyond DOM audit, consumers-expanded
+covers the terminal state the API returns, fixture-shape data,
+`impact-results` region not rendered-verified, canvas keyboard-trap
+assertions unchanged). New for 8.1:
+
+- **Domain routes not Lighthouse-scanned.** Lighthouse ran against the
+  shared-suite server shape (sample_repo — domain views would render
+  only empty states, and booting the domain-fixture harness under
+  Lighthouse was out of proportion for a score already 100 on the
+  surfaces measured). axe covers the populated domain views; Lighthouse
+  corroborates the shell + core views.
+- **Screenshots carry run-to-run render deltas.** 35 of 65 PNGs differ
+  byte-wise from the lf-0147 Angular-22 captures (sub-pixel
+  anti-aliasing, sigma camera positions, chart ticks); all overflow
+  assertions pass and the render is verified by the suite, so the
+  regenerated files are the honest current baseline.
+- Concurrent-agent flake class (trace-artifact ENOENT at
+  `browserContext.close`) is environmental, not a product defect;
+  documented above so GA reviewers do not misread it as a11y debt.
