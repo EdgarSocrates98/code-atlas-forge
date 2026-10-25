@@ -85,9 +85,15 @@ def _impacts_sections(res: ImpactResult) -> list[str]:
         lines += ["", f"## {title}", ""]
         for i in group[:30]:
             hops = i.path.hops if i.path else 0
+            # lf-0120: nós de domínio marcados — qualified_name já
+            # traz ``dominio:ns.qname``; uncertain_deps é incerteza,
+            # nunca silenciada.
+            tag = "domain " if i.node_type == "domain" else ""
+            deps = (f", {len(i.uncertain_deps)} dep(s) incerta(s)"
+                    if i.uncertain_deps else "")
             lines.append(
-                f"- **{i.qualified_name}** ({i.kind}) — "
-                f"{hops} hop(s), {i.strength.value}")
+                f"- **{i.qualified_name}** ({tag}{i.kind}) — "
+                f"{hops} hop(s), {i.strength.value}{deps}")
     return lines
 
 
