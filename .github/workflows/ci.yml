@@ -74,7 +74,8 @@ jobs:
 
   explorer-e2e:
     name: explorer E2E (playwright)
-    runs-on: ubuntu-latest
+    # pin 24.04: playwright nao suporta a imagem ubuntu-latest (26.04)
+    runs-on: ubuntu-24.04
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@v7
