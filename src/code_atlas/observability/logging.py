@@ -136,7 +136,12 @@ def log_if_slow(
     if ms is None:
         return
     elapsed = (time.monotonic() - t0) * 1000
-    if elapsed > ms:
+    # Windows: clock monotônico tem resolução ~15.6ms — elapsed=0 pode
+    # ser "instantâneo" ou "menor que um tick". Somar a resolução torna
+    # o guard conservador: só garante não-slow quando mesmo o pior caso
+    # dentro da granularidade ficaria abaixo do teto.
+    res_ms = time.get_clock_info("monotonic").resolution * 1000
+    if elapsed + res_ms > ms:
         suffix = f" {detail}" if detail else ""
         logger.debug("slow %s elapsed_ms=%.1f threshold_ms=%.0f%s",
                      label, elapsed, ms, suffix)

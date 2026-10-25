@@ -392,6 +392,23 @@ def _git_paths(
         yield root / rel, rel, True
 
 
+def _symlink_targets_secret(path: Path) -> bool:
+    """True se o alvo do symlink tem basename com padrão de segredo.
+
+    Testa o nome resolvido E o basename cru do ``readlink`` —
+    ``resolve()`` pode falhar (ou devolver o nome do próprio link) em
+    alvos relativos POSIX no Windows.
+    """
+    names: set[str] = set()
+    with contextlib.suppress(OSError, RuntimeError):
+        names.add(path.resolve().name)
+    with contextlib.suppress(OSError):
+        names.add(
+            os.readlink(path).rsplit("/", 1)[-1].rsplit("\\", 1)[-1]
+        )
+    return any(is_secret(n) for n in names)
+
+
 def scan(
     root: Path, options: ScanOptions | None = None, git_available: bool | None = None
 ) -> ScanResult:
@@ -438,12 +455,9 @@ def scan(
                 # com nome de segredo (``prod.tfvars -> .env``). Sem isso o
                 # conteúdo entraria em hash/inventário e chegaria aos
                 # adapters (lf-c8 F2).
-                try:
-                    if is_secret(abs_path.resolve().name):
-                        acc.secret_count += 1
-                        continue
-                except (OSError, RuntimeError):
-                    continue  # alvo irrecuperável — exists() abaixo decide
+                if _symlink_targets_secret(abs_path):
+                    acc.secret_count += 1
+                    continue
             if abs_path.is_dir() or not abs_path.exists():
                 continue
             _classify_and_hash(abs_path, rel, ignored, options, acc, budget, root_real)

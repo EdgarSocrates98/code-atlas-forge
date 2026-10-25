@@ -99,9 +99,12 @@ def _emit_progress(progress: ProgressFn | None, event: str,
 
 
 def _files_per_sec(done: int, t0: float) -> float:
-    """Throughput da fase de parse; 0.0 num clock sem resolução."""
+    """Throughput da fase de parse; com elapsed abaixo de um tick do
+    clock (resolução ~15.6ms no Windows) usa a resolução como piso —
+    bound inferior honesto, nunca 0.0 inventado."""
     el = time.monotonic() - t0
-    return round(done / el, 1) if el > 0 else 0.0
+    eff = el if el > 0 else time.get_clock_info("monotonic").resolution
+    return round(done / eff, 1)
 
 
 def _parse_tick(progress: ProgressFn | None, done: int, total: int,
