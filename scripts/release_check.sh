@@ -37,17 +37,41 @@ for arg in "$@"; do
 done
 
 # --- tool resolution: prefer repo venv, else PATH -------------------------
-if [ -x "$ROOT/.venv/bin/python" ]; then PY="$ROOT/.venv/bin/python"; else PY="$(command -v python3 || true)"; fi
+# POSIX venvs keep tools under bin/, Windows venvs under Scripts/ with a
+# .exe suffix; on bare PATH Windows usually ships `python`/`py`, not
+# `python3`. Try every layout before giving up (Git Bash homologation).
+PY=""
+for cand in "$ROOT/.venv/bin/python" "$ROOT/.venv/bin/python3" \
+            "$ROOT/.venv/Scripts/python.exe" "$ROOT/.venv/Scripts/python"; do
+    if [ -x "$cand" ]; then PY="$cand"; break; fi
+done
+if [ -z "$PY" ]; then
+    for cmd in python3 python py; do
+        if command -v "$cmd" >/dev/null 2>&1; then PY="$(command -v "$cmd")"; break; fi
+    done
+fi
 [ -n "$PY" ] || { echo "FATAL: python3/.venv not found" >&2; exit 2; }
 VENV_BIN="$(dirname "$PY")"
-tool() {  # tool NAME — resolve from venv bin first, then PATH
-    if [ -x "$VENV_BIN/$1" ]; then echo "$VENV_BIN/$1"; else command -v "$1" 2>/dev/null || true; fi
+tool() {  # tool NAME — resolve from venv bin first, then PATH.
+          # MSYS/Git Bash resolves `name` → `name.exe` in PATH lookups but
+          # not in `-x` file tests, so check both spellings explicitly.
+    for cand in "$VENV_BIN/$1" "$VENV_BIN/$1.exe"; do
+        if [ -x "$cand" ]; then echo "$cand"; return; fi
+    done
+    command -v "$1" 2>/dev/null || true
+}
+vbin() {  # vbin VENV TOOL — tool path inside an arbitrary venv
+          # (POSIX bin/ or Windows Scripts/ + .exe)
+    for cand in "$1/bin/$2" "$1/bin/$2.exe" "$1/Scripts/$2.exe" "$1/Scripts/$2"; do
+        if [ -x "$cand" ]; then echo "$cand"; return 0; fi
+    done
+    return 1
 }
 
 # --- gate bookkeeping ------------------------------------------------------
 declare -a GATE_NAMES=()
 declare -a GATE_STATUS=()
-LOGDIR="$(mktemp -d /tmp/atlas-release-check.XXXXXX)"
+LOGDIR="$(mktemp -d "${TMPDIR:-/tmp}/atlas-release-check.XXXXXX")"
 trap 'rm -rf "$LOGDIR"' EXIT
 
 record() {  # record NAME PASS|FAIL|SKIP
@@ -142,8 +166,10 @@ else
     TMPVENV="$LOGDIR/smoke-venv"
     {
         "$PY" -m venv "$TMPVENV" &&
-        "$TMPVENV/bin/pip" install --quiet --no-deps "$WHEEL" &&
-        out="$("$TMPVENV/bin/code-atlas" --version)" &&
+        SPIP="$(vbin "$TMPVENV" pip)" &&
+        "$SPIP" install --quiet --no-deps "$WHEEL" &&
+        SATLAS="$(vbin "$TMPVENV" code-atlas)" &&
+        out="$("$SATLAS" --version)" &&
         echo "$out" &&
         [ "$out" = "code-atlas $VER" ]
     } >"$LOGDIR/clean-install-smoke.log" 2>&1
