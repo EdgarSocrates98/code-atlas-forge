@@ -187,6 +187,23 @@ def _graph_overview(server: _AtlasHttpd, conn: Any, p: dict[str, str],
             "truncated": len(rows) < total}
 
 
+def _row_to_edge(row: Any, snapshot_id: int) -> dict[str, Any]:
+    """DTO completo de aresta — prova da relação, nunca só os endpoints."""
+    return {
+        "id": row["id"],
+        "relation_id": row["id"],
+        "snapshot_id": snapshot_id,
+        "from_id": row["from_id"],
+        "to_id": row["to_id"],
+        "to_unresolved": row["to_unresolved"],
+        "type": row["type"],
+        "resolution_status": row["resolution_status"],
+        "confidence_class": row["confidence_class"],
+        "resolver": row["resolver"],
+        "evidence_ids": json.loads(row["evidence_ids"] or "[]"),
+    }
+
+
 def _graph_neighbors(server: _AtlasHttpd, conn: Any, p: dict[str, str],
                      _b: dict[str, Any] | None) -> dict[str, Any]:
     rid = _repo(conn, p)
@@ -199,12 +216,13 @@ def _graph_neighbors(server: _AtlasHttpd, conn: Any, p: dict[str, str],
     if not occ_id:
         raise ApiError("bad-param", "occurrence_id obrigatório")
     edges = conn.execute(
-        "SELECT id, from_id, to_id, type, resolution_status, resolver, evidence_ids "
+        "SELECT id, from_id, to_id, to_unresolved, type, resolution_status, "
+        "confidence_class, resolver, evidence_ids "
         "FROM relations WHERE snapshot_id = ? AND ("
         "  (? = 'out' AND from_id = ?) "
         "  OR (? = 'in' AND to_id = ?) "
         "  OR (? = 'both' AND (from_id = ? OR to_id = ?))"
-        ") LIMIT ?",
+        ") ORDER BY id LIMIT ?",
         (sid, direction, occ_id, direction, occ_id,
          direction, occ_id, occ_id, limit)).fetchall()
     occ_ids = {e["from_id"] for e in edges} | {e["to_id"] for e in edges}
@@ -216,9 +234,57 @@ def _graph_neighbors(server: _AtlasHttpd, conn: Any, p: dict[str, str],
             _NODES_IN_QUERY,
             (sid, json.dumps(sorted(occ_ids)))).fetchall()
     return {"snapshot_id": sid,
-            "edges": [dict(e) for e in edges],
+            "edges": [_row_to_edge(e, sid) for e in edges],
             "nodes": [_row_to_node(n) for n in nodes],
             "truncated": len(edges) == limit}
+
+
+def _file_occurrences(server: _AtlasHttpd, conn: Any, file_id: str,
+                      p: dict[str, str]) -> dict[str, Any]:
+    """Ocorrências de símbolo de um arquivo — escopo snapshot do repo dele."""
+    try:
+        fid = int(file_id)
+    except ValueError as exc:
+        raise ApiError("bad-param", "file_id inválido") from exc
+    frow = conn.execute(
+        "SELECT id, repository_id, relative_path, language FROM source_files "
+        "WHERE id = ?", (fid,)).fetchone()
+    if frow is None:
+        raise ApiError("file-not-found", "arquivo inexistente", 404)
+    rid = int(frow["repository_id"])
+    sid = _snapshot(conn, rid, p)
+    limit = _int(p, "limit", 200, cap=500)
+    offset = _int(p, "offset", 0, cap=10**9)
+    rows = conn.execute(
+        "SELECT o.id AS occurrence_id, o.logical_symbol_id AS symbol_id, "
+        "s.qualified_name AS qname, s.kind AS kind, o.span_start, o.span_end, "
+        "o.line, o.col, o.content_hash, o.parse_status "
+        "FROM symbol_occurrences o "
+        "JOIN symbols s ON s.id = o.logical_symbol_id "
+        "WHERE o.snapshot_id = ? AND o.source_file_id = ? "
+        "ORDER BY o.line, o.col, o.id LIMIT ? OFFSET ?",
+        (sid, fid, limit, offset)).fetchall()
+    total = conn.execute(
+        "SELECT COUNT(*) AS n FROM symbol_occurrences "
+        "WHERE snapshot_id = ? AND source_file_id = ?",
+        (sid, fid)).fetchone()["n"]
+    items = [{
+        "id": f"occ:{r['occurrence_id']}",
+        "occurrence_id": r["occurrence_id"],
+        "symbol_id": r["symbol_id"],
+        "qualified_name": r["qname"],
+        "kind": r["kind"],
+        "span_start": r["span_start"],
+        "span_end": r["span_end"],
+        "line": r["line"],
+        "col": r["col"],
+        "content_hash": r["content_hash"],
+        "parse_status": r["parse_status"],
+    } for r in rows]
+    return {"file_id": fid, "repository_id": rid, "snapshot_id": sid,
+            "path": frow["relative_path"], "language": frow["language"],
+            "items": items, "total": total, "limit": limit, "offset": offset,
+            "truncated": offset + len(items) < total}
 
 
 def _symbol(server: _AtlasHttpd, conn: Any, sym_id: str,
@@ -369,6 +435,9 @@ def handle(server: _AtlasHttpd, method: str, route: str,
             m = re.fullmatch(r"/evidence/(\d+)", route)
             if m:
                 return _evidence(server, conn, m.group(1), p)
+            m = re.fullmatch(r"/files/(\d+)/occurrences", route)
+            if m:
+                return _file_occurrences(server, conn, m.group(1), p)
             simple = {
                 "/health": _health, "/capabilities": _capabilities,
                 "/repositories": _repositories,
