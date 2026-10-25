@@ -36,26 +36,26 @@
     "hub_occurrence_id": 1502,
     "client_limit_100": {
       "samples_ms": [
-        5.817,
-        4.3740000000000006,
-        4.547,
-        5.821,
-        5.802
+        5.819,
+        4.511,
+        4.8919999999999995,
+        4.795,
+        5.684
       ],
-      "median_ms": 5.802,
+      "median_ms": 4.8919999999999995,
       "edges": 100,
       "nodes": 101,
       "truncated": true
     },
     "server_cap_200": {
       "samples_ms": [
-        5.894,
-        5.760000000000001,
-        5.281,
-        5.492999999999999,
-        5.957
+        6.091,
+        5.517,
+        6.22,
+        5.492,
+        6.498
       ],
-      "median_ms": 5.760000000000001,
+      "median_ms": 6.091,
       "edges": 151,
       "nodes": 152,
       "truncated": false
@@ -72,17 +72,17 @@
       "url": "/graph?focus=1502",
       "surface": "canvas",
       "renderer_failed_banner": false,
-      "wall_nav_to_ready_ms": 559,
+      "wall_nav_to_ready_ms": 446,
       "resource": {
-        "navDuration": 196.4,
+        "navDuration": 140.3,
         "neighborsApi": {
-          "start": 342.6,
-          "duration": 46,
-          "responseEnd": 388.6,
+          "start": 280.4,
+          "duration": 45.8,
+          "responseEnd": 326.2,
           "transferSize": 48475,
           "encodedBodySize": 48175
         },
-        "symbolApi": 44
+        "symbolApi": 45
       },
       "counts_initial": {
         "rendered": 101,
@@ -93,24 +93,23 @@
         "mode": "canvas",
         "rendererFailed": false
       },
-      "max_raf_gap_ms": 299.9,
+      "max_raf_gap_ms": 233.3,
       "longtasks": [
-        100,
-        160,
-        149
+        110,
+        138
       ],
       "sigma_errors": [],
       "page_errors": [],
       "heap_mb": {
         "before_load": 1.1,
-        "end": 8.9
+        "end": 9.6
       },
-      "raf_alive_ms": 9.8
+      "raf_alive_ms": 13.9
     },
     "table_expansion_phase": {
       "view": "accessible table (renderer fallback keeps it usable)",
       "hub_self_expand": {
-        "wall_ms": 88,
+        "wall_ms": 97,
         "counts_after": {
           "nodes": 101,
           "edges": 100
@@ -121,14 +120,14 @@
         {
           "index": 0,
           "target": "first-enabled-0",
-          "wall_ms": 79,
+          "wall_ms": 78,
           "nodes_after": 105,
           "edges_after": 106
         },
         {
           "index": 1,
           "target": "first-enabled-1",
-          "wall_ms": 79,
+          "wall_ms": 76,
           "nodes_after": 107,
           "edges_after": 111
         },
@@ -142,14 +141,14 @@
         {
           "index": 3,
           "target": "first-enabled-3",
-          "wall_ms": 73,
+          "wall_ms": 79,
           "nodes_after": 111,
           "edges_after": 119
         },
         {
           "index": 4,
           "target": "first-enabled-4",
-          "wall_ms": 78,
+          "wall_ms": 75,
           "nodes_after": 113,
           "edges_after": 123
         },
@@ -163,7 +162,7 @@
         {
           "index": 6,
           "target": "first-enabled-6",
-          "wall_ms": 77,
+          "wall_ms": 78,
           "nodes_after": 117,
           "edges_after": 131
         },
@@ -184,14 +183,14 @@
         {
           "index": 9,
           "target": "first-enabled-9",
-          "wall_ms": 78,
+          "wall_ms": 77,
           "nodes_after": 123,
           "edges_after": 143
         },
         {
           "index": 10,
           "target": "first-enabled-10",
-          "wall_ms": 76,
+          "wall_ms": 78,
           "nodes_after": 125,
           "edges_after": 147
         },
@@ -205,21 +204,21 @@
         {
           "index": 12,
           "target": "first-enabled-12",
-          "wall_ms": 77,
+          "wall_ms": 79,
           "nodes_after": 129,
           "edges_after": 155
         },
         {
           "index": 13,
           "target": "first-enabled-13",
-          "wall_ms": 78,
+          "wall_ms": 72,
           "nodes_after": 131,
           "edges_after": 159
         },
         {
           "index": 14,
           "target": "first-enabled-14",
-          "wall_ms": 78,
+          "wall_ms": 80,
           "nodes_after": 133,
           "edges_after": 163
         }
@@ -237,7 +236,7 @@
         "collapsed_to": 100,
         "apply": {
           "max_gap_ms": 16.8,
-          "settle_ms": 1614.2
+          "settle_ms": 1609.3
         },
         "counts_collapsed": {
           "rendered": 100,
@@ -250,7 +249,7 @@
         },
         "restore": {
           "max_gap_ms": 16.8,
-          "settle_ms": 1609.2
+          "settle_ms": 1605.7
         },
         "counts_restored": {
           "rendered": 133,
@@ -267,7 +266,7 @@
     "canvas_session": {
       "arch_load": {
         "surface": "canvas",
-        "wall_nav_to_ready_ms": 447,
+        "wall_nav_to_ready_ms": 451,
         "counts": {
           "rendered": 500,
           "edges": 0,
@@ -281,19 +280,19 @@
       },
       "pan_arch": {
         "frames": 198,
-        "fps_mean": 58.1,
-        "delta_mean_ms": 17.21,
+        "fps_mean": 58.2,
+        "delta_mean_ms": 17.2,
         "delta_p95_ms": 16.8,
         "delta_max_ms": 33.4,
         "frames_over_33ms": 0,
-        "draw_calls": 172,
-        "draw_verts": 228060
+        "draw_calls": 174,
+        "draw_verts": 231060
       },
       "drill_attempt": {
         "attempted": true,
         "target": "mod_0000.py",
         "action": "']' ×k + Enter + e — drillFile() in-session",
-        "wall_ms": 628,
+        "wall_ms": 615,
         "outcome": "canvas-edges",
         "page_state": {
           "state": null,
@@ -318,8 +317,8 @@
       "edge_canvas_metrics": {
         "pan_ego": {
           "frames": 205,
-          "fps_mean": 60,
-          "delta_mean_ms": 16.67,
+          "fps_mean": 60.3,
+          "delta_mean_ms": 16.59,
           "delta_p95_ms": 16.8,
           "delta_max_ms": 16.8,
           "frames_over_33ms": 0,
@@ -352,8 +351,8 @@
         "cap_collapse": {
           "collapsed_to": 100,
           "apply": {
-            "max_gap_ms": 50.1,
-            "settle_ms": 1608.3
+            "max_gap_ms": 49.9,
+            "settle_ms": 1609.6
           },
           "counts_collapsed": {
             "rendered": 100,
@@ -366,7 +365,7 @@
           },
           "restore": {
             "max_gap_ms": 33.3,
-            "settle_ms": 1606.1
+            "settle_ms": 1605.3
           },
           "counts_restored": {
             "rendered": 205,
@@ -381,15 +380,15 @@
         "pan_dense": {
           "frames": 205,
           "fps_mean": 60.1,
-          "delta_mean_ms": 16.64,
-          "delta_p95_ms": 16.8,
+          "delta_mean_ms": 16.65,
+          "delta_p95_ms": 16.7,
           "delta_max_ms": 16.8,
           "frames_over_33ms": 0,
           "draw_calls": 121,
           "draw_verts": 73803
         },
         "remount_table_to_graph": {
-          "wall_ms": 1539,
+          "wall_ms": 1519,
           "surface_after": "canvas",
           "renderer_failed": false,
           "sigma_errors_so_far": 0
@@ -398,18 +397,18 @@
       "sigma_errors": [],
       "page_errors": [],
       "longtasks": [
-        75,
-        92,
-        78,
-        170,
-        136,
-        269
+        66,
+        88,
+        76,
+        168,
+        131,
+        257
       ],
       "heap_mb": {
         "before": 0.5,
-        "end": 9.8
+        "end": 9.9
       },
-      "raf_alive_ms": 3.6
+      "raf_alive_ms": 18.4
     }
   }
 }
