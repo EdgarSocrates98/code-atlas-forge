@@ -1,0 +1,19 @@
+name: Reusable Checks
+on:
+  workflow_call:
+    inputs:
+      suite:
+        required: true
+        type: string
+    secrets:
+      api-token:
+        required: true
+jobs:
+  reusable-job:
+    runs-on: ubuntu-latest
+    outputs:
+      result: ${{ steps.check.outputs.result }}
+    steps:
+      - uses: actions/checkout@v4
+      - id: check
+        run: pytest -q tests/smoke
