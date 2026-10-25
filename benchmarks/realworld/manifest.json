@@ -1,0 +1,41 @@
+{
+  "corpus": "realworld",
+  "note": "Repositórios OSS reais, clone shallow (--depth 1). SHAs medidos no clone de 2026-10-25. Números de `search_term` escolhidos para exercitar a estratégia hybrid em cada codebase.",
+  "repos": [
+    {
+      "id": "jaffle_shop",
+      "url": "https://github.com/dbt-labs/jaffle_shop.git",
+      "sha": "fd7bfacae4f497ff044a6a0275268676bf1b64c3",
+      "shape": "dbt/SQL project (.sql + .yml + seeds .csv)",
+      "search_term": "customer"
+    },
+    {
+      "id": "terraform-aws-s3-bucket",
+      "url": "https://github.com/terraform-aws-modules/terraform-aws-s3-bucket.git",
+      "sha": "9afa4fc8c8f1e0b3fd913474c1bef8d0c454b235",
+      "shape": "terraform module (.tf + workflows)",
+      "search_term": "bucket"
+    },
+    {
+      "id": "requests",
+      "url": "https://github.com/psf/requests.git",
+      "sha": "611c6162cbc4ac2020a2f91c7cfa4f3abf9bbb60",
+      "shape": "python library (+ docs rst, test certs .pem/.key)",
+      "search_term": "session"
+    },
+    {
+      "id": "click",
+      "url": "https://github.com/pallets/click.git",
+      "sha": "2247b35ea1c47c727d7a06e51fa280e12a863ff6",
+      "shape": "python library (+ tests, docs)",
+      "search_term": "command"
+    },
+    {
+      "id": "axios",
+      "url": "https://github.com/axios/axios.git",
+      "sha": "aa54a5e1e0e50cd1a2561b854ae5490ff589d065",
+      "shape": "typescript/javascript library (maioria .js, minoria .ts parseável)",
+      "search_term": "request"
+    }
+  ]
+}
