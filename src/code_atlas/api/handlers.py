@@ -1309,9 +1309,8 @@ def handle(server: _AtlasHttpd, method: str, route: str,
 
 
 def server_body(handler: BaseHTTPRequestHandler) -> dict[str, Any]:
-    length = int(handler.headers.get("Content-Length") or 0)
-    if length > 64 * 1024:
-        raise ApiError("payload-too-large", "corpo excede 64 KiB", 413)
+    from code_atlas.api.server import _content_length
+    length = _content_length(handler.headers.get("Content-Length"))
     import json
     raw = handler.rfile.read(length) if length else b"{}"
     try:

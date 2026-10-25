@@ -43,6 +43,10 @@ import hashlib
 from pathlib import Path, PurePosixPath
 
 from code_atlas.contracts.enums import ConfidenceClass
+from code_atlas.discovery.scanner import (
+    artifact_path_confined,
+    read_file_verified,
+)
 from code_atlas.domains.aws import configs, pyfiles
 from code_atlas.domains.aws.emit import ADAPTER_DOMAIN, Sink
 from code_atlas.domains.aws.sqlbridge import extract_sql_fragment
@@ -320,17 +324,40 @@ class AwsDataAdapter:
 
     def _read(self, path: str, sha256: str, sink: Sink) -> tuple[str, str] | None:
         """Lê ``base_path/path``; devolve (texto, sha256) ou None."""
-        fs = Path(path) if self._base is None else self._base / path
-        try:
-            raw = fs.read_bytes()
-        except OSError as exc:
-            sink.diag(
-                "unreadable-artifact",
-                "error",
-                f"cannot read artifact: {exc}",
-                path,
-            )
-            return None
+        if self._base is not None:
+            # path do request é hostil — absoluto, ``..`` e symlink trocado
+            # nunca saem da raiz (lf-c8 F7).
+            base = self._base.resolve()
+            fs = artifact_path_confined(path, base)
+            if fs is None:
+                sink.diag(
+                    "artifact-outside-root",
+                    "error",
+                    f"artifact path escapes repository root: {path}",
+                    path,
+                )
+                return None
+            raw = read_file_verified(fs, base)
+            if raw is None:
+                sink.diag(
+                    "unreadable-artifact",
+                    "error",
+                    "cannot read artifact: unsafe or vanished",
+                    path,
+                )
+                return None
+        else:
+            fs = Path(path)
+            try:
+                raw = fs.read_bytes()
+            except OSError as exc:
+                sink.diag(
+                    "unreadable-artifact",
+                    "error",
+                    f"cannot read artifact: {exc}",
+                    path,
+                )
+                return None
         if len(raw) > _MAX_ARTIFACT:
             sink.diag(
                 "artifact-too-large",

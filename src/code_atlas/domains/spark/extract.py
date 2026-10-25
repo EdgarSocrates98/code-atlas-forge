@@ -16,6 +16,10 @@ from __future__ import annotations
 import hashlib
 from pathlib import Path
 
+from code_atlas.discovery.scanner import (
+    artifact_path_confined,
+    read_file_verified,
+)
 from code_atlas.domains.contracts import (
     DomainExtractionRequest,
     DomainExtractionResult,
@@ -30,26 +34,23 @@ def _read_artifact(
     base_path: Path, rel_path: str, sink: Sink
 ) -> tuple[str, str] | None:
     """Lê o artefato → ``(texto, sha256-bytes)``; ``None`` + diag em falha."""
-    p = base_path / rel_path
-    try:
-        if p.is_symlink():
-            # não segue symlink — honra a lista de artefatos verbatim
-            real = p.resolve()
-            base = base_path.resolve()
-            # containment por pathlib — ``startswith`` em string aceitaria
-            # irmãos com prefixo comum (``/repo-evil`` sob ``/repo``).
-            if not real.is_relative_to(base):
-                sink.diag(
-                    "artifact-outside-root", "warning",
-                    f"{rel_path}: symlink escapes repository root",
-                    rel_path,
-                )
-                return None
-        raw = p.read_bytes()
-    except (OSError, PermissionError) as exc:
+    base = base_path.resolve()
+    # containment por pathlib — ``startswith`` em string aceitaria irmãos
+    # com prefixo comum (``/repo-evil`` sob ``/repo``); absoluto e ``..``
+    # no path do request são igualmente hostis (lf-c8 F7).
+    p = artifact_path_confined(rel_path, base)
+    if p is None:
+        sink.diag(
+            "artifact-outside-root", "warning",
+            f"{rel_path}: artifact path escapes repository root",
+            rel_path,
+        )
+        return None
+    raw = read_file_verified(p, base)
+    if raw is None:
         sink.diag(
             "read-error", "error",
-            f"cannot read artifact: {exc}", rel_path,
+            "cannot read artifact: unsafe or vanished", rel_path,
         )
         return None
     if len(raw) > _MAX_BYTES:

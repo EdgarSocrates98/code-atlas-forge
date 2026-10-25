@@ -35,6 +35,10 @@ from collections.abc import Callable
 from pathlib import Path
 
 from code_atlas.contracts.enums import ConfidenceClass, EdgeKind
+from code_atlas.discovery.scanner import (
+    artifact_path_confined,
+    read_file_verified,
+)
 from code_atlas.domains.api import common, consumers, openapi, routes
 from code_atlas.domains.api.emit import ADAPTER_DOMAIN, Emit
 from code_atlas.domains.api.yaml_subset import parse_yaml_subset
@@ -178,13 +182,21 @@ class ApiContractAdapter:
 
     def _read(self, sink: Emit, path: str, sha256: str) -> tuple[str, str] | None:
         """Lê ``workspace_root/path``; devolve (texto, sha256) ou None."""
-        fs = self._root / path
-        try:
-            raw = fs.read_bytes()
-        except OSError as exc:
+        # path do request é hostil — absoluto, ``..`` e symlink trocado
+        # nunca saem da raiz do workspace (lf-c8 F7).
+        root = self._root.resolve()
+        fs = artifact_path_confined(path, root)
+        if fs is None:
+            sink.diag(
+                "artifact-outside-root", "error",
+                f"artifact path escapes repository root: {path}", path,
+            )
+            return None
+        raw = read_file_verified(fs, root)
+        if raw is None:
             sink.diag(
                 "unreadable-artifact", "error",
-                f"cannot read artifact: {exc}", path,
+                "cannot read artifact: unsafe or vanished", path,
             )
             return None
         if len(raw) > _MAX_ARTIFACT:

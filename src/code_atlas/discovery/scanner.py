@@ -126,6 +126,27 @@ def _open_verified(path: Path, root_real: Path) -> int | None:
     return fd
 
 
+def artifact_path_confined(rel_path: str, root_real: Path) -> Path | None:
+    """Resolve ``rel_path`` sob ``root_real`` com contenção garantida.
+
+    ``None`` quando o path é absoluto, contém ``..`` ou resolve fora da
+    raiz (inclusive symlink trocado entre scan e leitura). Adapters usam
+    isto antes de abrir o artefato declarado em ``request.artifacts`` —
+    o path do request é tão hostil quanto o conteúdo (lf-c8 F7).
+    """
+    p = Path(rel_path)
+    if p.is_absolute() or ".." in p.parts:
+        return None
+    try:
+        base = Path(root_real).resolve()
+        resolved = (base / p).resolve(strict=False)
+    except (OSError, RuntimeError):
+        return None
+    if not resolved.is_relative_to(base):
+        return None
+    return resolved
+
+
 def read_file_verified(path: Path, root_real: Path) -> bytes | None:
     """Lê bytes com a mesma disciplina de ``_hash_file`` (lf-0015).
 
@@ -284,7 +305,9 @@ def _symlink_escapes(path: Path, root_real: Path) -> bool:
     """True se `path` é symlink cujo alvo resolve fora de `root_real`."""
     try:
         return not path.resolve().is_relative_to(root_real)
-    except OSError:
+    except (OSError, RuntimeError):
+        # RuntimeError: ciclos de symlink (``a -> b -> a``) — repo hostil
+        # não deve derrubar o scan; tratado como escape.
         return True
 
 
@@ -403,13 +426,24 @@ def scan(
                 break
             # modo git: symlinks rastreados nunca passaram pelo filtro do
             # walk — checar escape aqui cobre os dois enumeradores.
-            if abs_path.is_symlink() and _symlink_escapes(abs_path, root_real):
-                budget.warnings.append(
-                    ScanWarning(
-                        WarningKind.SYMLINK_ESCAPE, "symlink escapes root", rel
+            if abs_path.is_symlink():
+                if _symlink_escapes(abs_path, root_real):
+                    budget.warnings.append(
+                        ScanWarning(
+                            WarningKind.SYMLINK_ESCAPE, "symlink escapes root", rel
+                        )
                     )
-                )
-                continue
+                    continue
+                # Alias para segredo: nome benigno apontando para arquivo
+                # com nome de segredo (``prod.tfvars -> .env``). Sem isso o
+                # conteúdo entraria em hash/inventário e chegaria aos
+                # adapters (lf-c8 F2).
+                try:
+                    if is_secret(abs_path.resolve().name):
+                        acc.secret_count += 1
+                        continue
+                except (OSError, RuntimeError):
+                    continue  # alvo irrecuperável — exists() abaixo decide
             if abs_path.is_dir() or not abs_path.exists():
                 continue
             _classify_and_hash(abs_path, rel, ignored, options, acc, budget, root_real)

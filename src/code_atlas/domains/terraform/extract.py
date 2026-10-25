@@ -32,6 +32,10 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 from code_atlas.contracts.enums import ConfidenceClass, ResolutionStatus
+from code_atlas.discovery.scanner import (
+    artifact_path_confined,
+    read_file_verified,
+)
 from code_atlas.domains.contracts import (
     DomainDiagnostic,
     DomainExtractionRequest,
@@ -48,6 +52,7 @@ from code_atlas.domains.terraform.hcl import HclBlock, HclFile, parse_hcl
 from code_atlas.domains.terraform.refs import (
     RefMatch,
     is_sensitive_name,
+    looks_like_secret_value,
     sanitize_value,
     scan_refs,
 )
@@ -298,6 +303,44 @@ def _artifact_kind(path: str) -> str:
     return ""
 
 
+def _read_one(
+    b: _Builder, rel_path: str, base_path: Path | None
+) -> bytes | None:
+    """Bytes do artefato — ``None`` + diag em falha/fora-da-raiz.
+
+    Com ``base_path`` o path do request é hostil: absoluto, ``..`` ou
+    symlink trocado nunca sai da raiz (``artifact_path_confined`` +
+    ``read_file_verified``, abertura O_NOFOLLOW — lf-c8 F7).
+    """
+    if base_path is None:
+        try:
+            return Path(rel_path).read_bytes()
+        except OSError as exc:
+            b.diag(
+                "artifact-unreadable", "error",
+                f"cannot read {rel_path}: {exc}", rel_path,
+            )
+            return None
+    base = base_path.resolve()
+    fs = artifact_path_confined(rel_path, base)
+    if fs is None:
+        b.diag(
+            "artifact-outside-root", "error",
+            f"artifact path escapes repository root: {rel_path}",
+            rel_path,
+        )
+        return None
+    raw = read_file_verified(fs, base)
+    if raw is None:
+        b.diag(
+            "artifact-unreadable", "error",
+            f"cannot read {rel_path}: unsafe or vanished",
+            rel_path,
+        )
+        return None
+    return raw
+
+
 def _read_artifacts(
     b: _Builder, base_path: Path | None
 ) -> list[_Parsed]:
@@ -311,15 +354,8 @@ def _read_artifacts(
                 art.path,
             )
             continue
-        src = Path(art.path)
-        fp = src if src.is_absolute() or base_path is None else base_path / src
-        try:
-            raw = fp.read_bytes()
-        except OSError as exc:
-            b.diag(
-                "artifact-unreadable", "error",
-                f"cannot read {art.path}: {exc}", art.path,
-            )
+        raw = _read_one(b, art.path, base_path)
+        if raw is None:
             continue
         sha = hashlib.sha256(raw).hexdigest()
         try:
@@ -493,6 +529,10 @@ def _env_var_default(blk: HclBlock) -> str | None:
     if "${" in raw or not raw or len(raw) > 64:
         return None
     if not all(ch.isalnum() or ch in "._-" for ch in raw):
+        return None
+    # default com formato de credencial (``environment = "AKIA…"``)
+    # não é nome de ambiente — recusado, nunca redigido como env (F5).
+    if looks_like_secret_value(raw):
         return None
     return raw
 
