@@ -37,11 +37,10 @@ const INFRA_EDGE_TYPES = 'PROVISIONS,USES_RESOURCE,ASSUMES_ROLE';
  * edge list — everything verbatim from the snapshot's domain_relations.
  */
 @Component({
-  selector: 'atlas-infra',
-  standalone: true,
-  changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [StateBlockComponent, EvidenceBadgeComponent],
-  template: `
+    selector: 'atlas-infra',
+    changeDetection: ChangeDetectionStrategy.OnPush,
+    imports: [StateBlockComponent, EvidenceBadgeComponent],
+    template: `
     <section class="infra" aria-labelledby="infra-title">
       <header class="infra__header">
         <h1 id="infra-title">Infraestrutura</h1>
@@ -188,8 +187,8 @@ const INFRA_EDGE_TYPES = 'PROVISIONS,USES_RESOURCE,ASSUMES_ROLE';
       }
     </section>
   `,
-  styles: [
-    `
+    styles: [
+        `
       .infra {
         padding: var(--atlas-space-5);
         display: flex;
@@ -281,7 +280,7 @@ const INFRA_EDGE_TYPES = 'PROVISIONS,USES_RESOURCE,ASSUMES_ROLE';
         font-size: var(--atlas-font-size-xs);
       }
     `,
-  ],
+    ]
 })
 export class InfraComponent implements OnInit, OnDestroy {
   readonly phase = signal<InfraPhase>('loading');

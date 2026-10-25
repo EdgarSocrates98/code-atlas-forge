@@ -145,6 +145,10 @@ describe('ContractsComponent', () => {
     const fixture = TestBed.createComponent(ContractsComponent);
     fixture.detectChanges();
     await fixture.whenStable();
+    // Angular 19+: signal-based effects are not flushed by whenStable —
+    // tick() runs them, then whenStable drains the deferred load().
+    TestBed.tick();
+    await fixture.whenStable();
     fixture.detectChanges();
 
     const params = api.getDomainEntities.calls.mostRecent().args[0];
@@ -162,6 +166,8 @@ describe('ContractsComponent', () => {
   it('lazily loads CALLS_ENDPOINT consumers per endpoint', async () => {
     const fixture = TestBed.createComponent(ContractsComponent);
     fixture.detectChanges();
+    await fixture.whenStable();
+    TestBed.tick();
     await fixture.whenStable();
 
     const component = fixture.componentInstance;
@@ -191,6 +197,10 @@ describe('ContractsComponent', () => {
     const fixture = TestBed.createComponent(ContractsComponent);
     fixture.detectChanges();
     await fixture.whenStable();
+    // Angular 19+: signal-based effects are not flushed by whenStable —
+    // tick() runs them, then whenStable drains the deferred load().
+    TestBed.tick();
+    await fixture.whenStable();
     fixture.detectChanges();
 
     expect((fixture.nativeElement as HTMLElement).textContent).toContain(
@@ -204,6 +214,8 @@ describe('ContractsComponent', () => {
     );
     const fixture = TestBed.createComponent(ContractsComponent);
     fixture.detectChanges();
+    await fixture.whenStable();
+    TestBed.tick();
     await fixture.whenStable();
     expect(fixture.componentInstance.phase()).toBe('offline');
   });

@@ -122,6 +122,10 @@ describe('InfraComponent', () => {
     const fixture = TestBed.createComponent(InfraComponent);
     fixture.detectChanges();
     await fixture.whenStable();
+    // Angular 19+: signal-based effects are not flushed by whenStable —
+    // tick() runs them, then whenStable drains the deferred load().
+    TestBed.tick();
+    await fixture.whenStable();
     fixture.detectChanges();
 
     expect(api.getDomainEntities).toHaveBeenCalledWith(
@@ -164,6 +168,10 @@ describe('InfraComponent', () => {
     const fixture = TestBed.createComponent(InfraComponent);
     fixture.detectChanges();
     await fixture.whenStable();
+    // Angular 19+: signal-based effects are not flushed by whenStable —
+    // tick() runs them, then whenStable drains the deferred load().
+    TestBed.tick();
+    await fixture.whenStable();
     fixture.detectChanges();
 
     expect((fixture.nativeElement as HTMLElement).textContent).toContain(
@@ -177,6 +185,8 @@ describe('InfraComponent', () => {
     );
     const fixture = TestBed.createComponent(InfraComponent);
     fixture.detectChanges();
+    await fixture.whenStable();
+    TestBed.tick();
     await fixture.whenStable();
     expect(fixture.componentInstance.phase()).toBe('offline');
   });

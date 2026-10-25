@@ -41,11 +41,10 @@ type LineagePhase = 'idle' | 'loading' | 'ready' | 'error' | 'offline';
  * Table-first, evidence on every edge — no canvas, no invented relations.
  */
 @Component({
-  selector: 'atlas-lineage',
-  standalone: true,
-  changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [FormsModule, StateBlockComponent, EvidenceBadgeComponent],
-  template: `
+    selector: 'atlas-lineage',
+    changeDetection: ChangeDetectionStrategy.OnPush,
+    imports: [FormsModule, StateBlockComponent, EvidenceBadgeComponent],
+    template: `
     <section class="lineage" aria-labelledby="lineage-title">
       <header class="lineage__header">
         <h1 id="lineage-title">Linhagem de dados</h1>
@@ -204,8 +203,8 @@ type LineagePhase = 'idle' | 'loading' | 'ready' | 'error' | 'offline';
       }
     </section>
   `,
-  styles: [
-    `
+    styles: [
+        `
       .lineage {
         padding: var(--atlas-space-5);
         display: flex;
@@ -364,7 +363,7 @@ type LineagePhase = 'idle' | 'loading' | 'ready' | 'error' | 'offline';
         font-size: var(--atlas-font-size-sm);
       }
     `,
-  ],
+    ]
 })
 export class LineageComponent implements OnInit, OnDestroy {
   readonly tables = signal<ApiDomainEntity[]>([]);

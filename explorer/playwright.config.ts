@@ -29,5 +29,24 @@ export default defineConfig({
       name: 'chromium',
       use: { ...devices['Desktop Chrome'] },
     },
+    // Opt-in cross-browser legs (Cycle 8.1 Phase 6, lf-0149): only enabled
+    // with ATLAS_E2E_XBROWSER=1 so CI's chromium-only install (`npx
+    // playwright install --with-deps chromium` + `npm run e2e`) is
+    // unchanged. Scoped to cross-browser.spec.ts — the rest of the suite
+    // stays Chromium-only.
+    ...(process.env['ATLAS_E2E_XBROWSER']
+      ? [
+          {
+            name: 'firefox',
+            use: { ...devices['Desktop Firefox'] },
+            testMatch: /cross-browser\.spec\.ts/,
+          },
+          {
+            name: 'webkit',
+            use: { ...devices['Desktop Safari'] },
+            testMatch: /cross-browser\.spec\.ts/,
+          },
+        ]
+      : []),
   ],
 });

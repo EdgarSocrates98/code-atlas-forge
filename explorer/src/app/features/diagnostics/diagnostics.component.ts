@@ -30,11 +30,10 @@ type DiagPhase = 'loading' | 'ready' | 'error' | 'offline';
  * timings list lives only in a signal for the lifetime of the app shell.
  */
 @Component({
-  selector: 'atlas-diagnostics',
-  standalone: true,
-  changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [StateBlockComponent],
-  template: `
+    selector: 'atlas-diagnostics',
+    changeDetection: ChangeDetectionStrategy.OnPush,
+    imports: [StateBlockComponent],
+    template: `
     <section class="diagnostics" aria-labelledby="diagnostics-title">
       <header class="diagnostics__header">
         <h1 id="diagnostics-title">Diagnósticos</h1>
@@ -236,8 +235,8 @@ type DiagPhase = 'loading' | 'ready' | 'error' | 'offline';
       </section>
     </section>
   `,
-  styles: [
-    `
+    styles: [
+        `
       .diagnostics {
         padding: var(--atlas-space-5);
         display: flex;
@@ -391,7 +390,7 @@ type DiagPhase = 'loading' | 'ready' | 'error' | 'offline';
         font-size: var(--atlas-font-size-sm);
       }
     `,
-  ],
+    ]
 })
 export class DiagnosticsComponent implements OnInit, OnDestroy {
   readonly phase = signal<DiagPhase>('loading');

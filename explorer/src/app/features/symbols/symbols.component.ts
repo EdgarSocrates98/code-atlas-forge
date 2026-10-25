@@ -14,11 +14,10 @@ type Phase = 'loading' | 'ready' | 'empty' | 'error' | 'offline';
  * and links back to the symbol-level graph at this occurrence.
  */
 @Component({
-  selector: 'atlas-symbols',
-  standalone: true,
-  changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [RouterLink, StateBlockComponent, EvidenceBadgeComponent],
-  template: `
+    selector: 'atlas-symbols',
+    changeDetection: ChangeDetectionStrategy.OnPush,
+    imports: [RouterLink, StateBlockComponent, EvidenceBadgeComponent],
+    template: `
     <section class="symbol-detail">
       <header class="symbol-detail__header">
         <h1>Símbolo</h1>
@@ -119,8 +118,8 @@ type Phase = 'loading' | 'ready' | 'empty' | 'error' | 'offline';
       }
     </section>
   `,
-  styles: [
-    `
+    styles: [
+        `
       .symbol-detail {
         padding: var(--atlas-space-5);
         max-width: 72ch;
@@ -218,7 +217,7 @@ type Phase = 'loading' | 'ready' | 'empty' | 'error' | 'offline';
         color: var(--atlas-color-accent-text);
       }
     `,
-  ],
+    ]
 })
 export class SymbolsComponent implements OnInit, OnDestroy {
   readonly phase = signal<Phase>('loading');

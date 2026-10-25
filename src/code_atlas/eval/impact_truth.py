@@ -26,8 +26,9 @@ workspace temporário; nada é executado dos repos indexados):
   snapshot alvo (``dom:N`` → ``domain_relations``, ``rel:N`` →
   ``relations``), ``hops == len(edge_refs) == len(statuses)`` e a
   ocorrência do candidato existe no snapshot;
-- **truncation honesty**: re-run com ``--max-paths 1`` — ``truncated``
-  declarado sse o run completo tem mais candidatos que o limite;
+- **truncation honesty**: re-runs com ``--max-paths`` no limite exato
+  e com folga — ``truncated``/``truncation_reasons`` coerentes com a
+  união dos bounds que cortaram trabalho (lf-0151);
 - ``unknown_coverage`` e ``diagnostics`` reportados verbatim.
 """
 
@@ -55,6 +56,10 @@ _STRENGTH_RANK = {"verified": 0, "supported": 1, "possible": 2,
 #: Folga acima do total de linhas no probe "over-cap" — o traversal
 #: termina naturalmente, ``truncated`` deve ser False.
 TRUNCATION_OVERCAP_SLACK = 3
+
+#: Razões ligadas ao bound variado pelas sondas (``--max-paths``) —
+#: todas as outras independem do cap de emissão.
+_EMISSION_REASONS = frozenset({"max-paths"})
 
 
 @dataclass(frozen=True)
@@ -439,22 +444,35 @@ def _probe_trunc(
 ) -> dict[str, Any]:
     """Uma sonda de truncamento num ``--max-paths`` dado.
 
-    Semântica medida do engine: ``truncated`` é declarado quando a
-    emissão ATINGE o cap (``len(out) >= max_paths``) — o traversal para
-    ali e não pode provar que nada mais existia. Honesto =
-    ``declared == (capped_rows == limit)`` e ``capped_rows <= limit``.
+    Semântica medida do engine (lf-0151): ``truncated`` é a união de
+    ``truncation_reasons``. ``max-paths`` declara o corte de emissão
+    e só pode disparar com a página exatamente no limite (a emissão
+    para ali); os demais bounds — fronteira de depth, scan de
+    vizinhos, seeds, diff, testes — independem de ``--max-paths``.
+    Honesto = envelope coerente (boolean ⟺ razões presentes), razão
+    de emissão ⟺ página no limite e ``capped_rows <= limit``.
     """
     capped_rows = len(capped.get("impacts") or ())
     declared = bool(capped.get("truncated"))
-    expected = capped_rows == limit
+    reasons = {str(r)
+               for r in (capped.get("truncation_reasons") or ())}
+    emission_cut = capped_rows == limit
+    non_emission = bool(reasons - _EMISSION_REASONS)
+    expected = emission_cut or non_emission
+    consistent = declared == bool(reasons)
+    emission_ok = ("max-paths" in reasons) == emission_cut
     return {
         "limit": limit,
         "full_rows": full_rows,
         "capped_rows": capped_rows,
+        "truncation_reasons": sorted(reasons),
         "expected_truncated": expected,
         "declared_truncated": declared,
         "within_limit": capped_rows <= limit,
-        "honest": declared == expected and capped_rows <= limit,
+        "envelope_consistent": consistent,
+        "emission_reason_ok": emission_ok,
+        "honest": (declared == expected and consistent
+                   and emission_ok and capped_rows <= limit),
     }
 
 
@@ -466,13 +484,17 @@ def truncation_check(
     """Honestidade de truncamento — duas sondas por cenário.
 
     ``at_cap`` (``--max-paths = max(1, full_rows)``): a emissão bate no
-    cap — ``truncated=True`` é a resposta honesta mesmo quando o
-    conjunto completo tem exatamente ``full_rows`` linhas (prefixo no
-    limite é declarado, nunca "completo" duvidoso).
+    cap — ``truncated=True`` com ``max-paths`` declarado é a resposta
+    honesta mesmo quando o conjunto completo tem exatamente
+    ``full_rows`` linhas (prefixo no limite é declarado, nunca
+    "completo" duvidoso).
 
-    ``over_cap`` (``--max-paths = full_rows + slack``): o traversal
-    termina naturalmente — ``truncated=False`` é obrigatório e todas
-    as ``full_rows`` linhas têm que sair (cap solto não pode cortar).
+    ``over_cap`` (``--max-paths = full_rows + slack``): a emissão
+    termina naturalmente — ``max-paths`` não pode constar e todas as
+    ``full_rows`` linhas têm que sair (cap solto não pode cortar).
+    ``truncated`` ainda pode ser True por outros bounds
+    (``truncation_reasons`` não-emissão) — lf-0151: bounds reais são
+    declarados, nunca escondidos sob um cap folgado.
     """
     full_rows = len(full.get("impacts") or ())
     cap = max(1, full_rows)

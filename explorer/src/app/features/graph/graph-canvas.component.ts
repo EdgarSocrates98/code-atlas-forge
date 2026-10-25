@@ -136,6 +136,7 @@ export class GraphCanvasComponent implements AfterViewInit, OnDestroy {
   private lastRelayoutCount = -1;
   private pendingSync = true;
   private resizeTimer: ReturnType<typeof setTimeout> | null = null;
+  private destroyed = false;
   private glCanvases: HTMLCanvasElement[] = [];
   private lastMode: GraphMode | null = null;
   /**
@@ -172,6 +173,7 @@ export class GraphCanvasComponent implements AfterViewInit, OnDestroy {
     this.store.markRendererLost(true);
   };
   private readonly onContextRestored = (): void => {
+    if (this.destroyed) return;
     this.store.markRendererLost(false);
     this.sigma?.refresh();
   };
@@ -261,6 +263,7 @@ export class GraphCanvasComponent implements AfterViewInit, OnDestroy {
   }
 
   ngOnDestroy(): void {
+    this.destroyed = true;
     // An in-flight layout can never commit after the view dies — kill it
     // before the renderer so its resolve lands on a dead generation.
     this.cancelLayoutRun();
@@ -296,6 +299,9 @@ export class GraphCanvasComponent implements AfterViewInit, OnDestroy {
     this.graph = new Graph({ multi: false, type: 'directed' });
     const motion = this.motionZero();
     this.sigma = new Sigma(this.graph, container, {
+      // Container can be 0x0 transiently during mount/unmount churn and
+      // view transitions — that is a legit state, not a Sigma error.
+      allowInvalidContainer: true,
       renderEdgeLabels: true,
       edgeLabelSize: 11,
       edgeLabelColor: { attribute: 'color' },
@@ -393,6 +399,7 @@ export class GraphCanvasComponent implements AfterViewInit, OnDestroy {
   /* ------------------------------- sync ------------------------------- */
 
   private sync(): void {
+    if (this.destroyed) return;
     // Track all reactive inputs — Angular records them in this effect.
     const nodes = this.store.nodes();
     const edges = this.store.visibleEdges();
@@ -775,7 +782,7 @@ export class GraphCanvasComponent implements AfterViewInit, OnDestroy {
   private paintAll(): void {
     const graph = this.graph;
     const sigma = this.sigma;
-    if (!graph || !sigma) return;
+    if (this.destroyed || !graph || !sigma) return;
 
     // Track reactive state inside the effect that calls this.
     const nodes = this.store.nodes();

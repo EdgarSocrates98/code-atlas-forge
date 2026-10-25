@@ -20,6 +20,22 @@ with `--domains` — isolated so the shared suite's single-repo
 assertions (`flows2.spec.ts`) are untouched. **Result: 0 blocking
 violations, 0 advisory, 48/48 scans.** Detail: `docs/cycle-8-a11y.md`.
 
+**Cycle-8.1 update (Phase 7, lf-0150, 2026-10-25, branch
+`cycle-8.1-ga-readiness`): post-migration re-verification on Angular
+22.2.3.** Everything above ran on Angular 18.2.13; the 18→22 migration
+(lf-0147) rewrote the bundle, so the whole audit was re-run verbatim on
+the new production build. **Identical result: 48 axe scans, 0 blocking,
+0 advisory — zero new violations, zero `src/` fixes.** The suite gained
+one manual check (focus ring on the `/search` query input and `/graph`
+toolbar — the two surfaces previously only covered via the shell): now
+**66/66 a11y tests pass** and `e2e/screenshots.spec.ts` is **65/65**
+with all 65 PNGs regenerated on the Angular 22 render. New this cycle:
+Lighthouse 13.5.0 ran against a real explorer subprocess — accessibility
+**100** and best-practices **100** on `/dashboard`, `/search`, `/graph`,
+`/settings` (full `/dashboard` run: performance 83, seo 91 — both
+informational for a loopback tool). Detail: `docs/cycle-8-a11y.md`
+cycle-8.1 section.
+
 Violations found and fixed in the cycle-8 pass:
 `aria-valid-attr-value` (critical) on the `/contracts` consumers
 disclosure — `aria-controls` dangled in loading/error/empty phases →
@@ -54,7 +70,8 @@ cycle-8 update above)
 | `axe-core` (bundled) | 4.13.0 |
 | `@playwright/test` | 1.56.1 |
 | Browser | Chrome for Testing 156.0.8078.4 (Playwright `chromium` project, Desktop Chrome) |
-| Angular | 18.2.13 (production build `dist/explorer/browser`, served by `code-atlas explorer`) |
+| Angular | 22.2.3 in the cycle-8.1 re-run (18.2.13 in the original/cycle-8 runs; production build `dist/explorer/browser`, served by `code-atlas explorer`) |
+| Lighthouse | 13.5.0 (cycle-8.1 only; `npx`, real explorer subprocess, `--chrome-flags="--headless=new --no-sandbox"`, `CHROME_PATH` = Playwright chromium-1248) |
 | Node | v22.23.2 |
 
 Suite: `explorer/e2e/a11y.spec.ts` — run with
@@ -126,7 +143,7 @@ rerun reports zero at every impact. A 105 px mobile reflow overflow on
 | Check | Result |
 |---|---|
 | Skip link is first tab stop and moves focus to `<main id="shell-main">` (also verified on a domain route, `/pipelines`) | PASS |
-| `:focus-visible` renders a visible outline (skip link + sidebar nav link + domain view form/table controls — computed `outline-style`/`outline-width` asserted, not screenshotted) | PASS |
+| `:focus-visible` renders a visible outline (skip link + sidebar nav link + domain view form/table controls + cycle-8.1: `/search` query input and `/graph` toolbar button — computed `outline-style`/`outline-width` asserted, not screenshotted) | PASS |
 | Keyboard-only traversal reaches the sidebar nav and activates `/search` via Enter | PASS |
 | Tab order reaches `/lineage` form controls; `/contracts` in-table consumers toggle expands via Enter; `/federation` workspace button toggles via Enter | PASS |
 | Escape on domain views is a consistent no-op (no dialogs/overlays exist to dismiss; same contract as native `<details>`) | PASS |
@@ -165,6 +182,28 @@ rerun reports zero at every impact. A 105 px mobile reflow overflow on
    endpoints — still a valid ARIA tree after the `aria-controls` fix.
 
 ## Verification run
+
+Cycle-8.1 re-run (Angular 22.2.3, branch `cycle-8.1-ga-readiness`):
+
+- `npx playwright test e2e/a11y.spec.ts e2e/screenshots.spec.ts` —
+  **131/131 pass** in a single run: 66 a11y tests (48 axe scans + 17
+  manual checks + summary; `scans: 48, blocking violations: 0,
+  advisory: 0`) + 65 screenshot captures (36 core + 29 domain, all
+  asserting horizontal overflow ≤ 1 px; PNGs regenerated on Angular 22).
+- `npx ng test --watch=false --browsers=ChromeHeadless` — **238/238 pass**.
+- `npm run build` — green (only pre-existing sigma/graphology CommonJS
+  warnings).
+- `npx lighthouse` (13.5.0, real explorer subprocess, headless Chrome
+  for Testing 156) — accessibility **100**, best-practices **100** on
+  `/dashboard`, `/search`, `/graph`, `/settings`; zero failing audits in
+  either category.
+- Environment note: the 131/131 run used `ATLAS_E2E_PORT=8920` and an
+  isolated `--output` dir because two sibling agents held the default
+  port 8743/`test-results/` concurrently; four `browserContext.close`
+  trace-ENOENT teardown flakes observed under contention were all green
+  on isolated re-run. Environmental, not a product defect.
+
+Cycle-8 run (Angular 18.2.13, `cycle-8-production-quality`):
 
 - `npx playwright test e2e/a11y.spec.ts` — **65/65 pass** (48 axe scans +
   16 manual checks + summary; `scans: 48, blocking violations: 0,

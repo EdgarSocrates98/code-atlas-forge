@@ -1,5 +1,5 @@
 import { test, expect, request } from '@playwright/test';
-import type { APIRequestContext, Page } from '@playwright/test';
+import type { APIRequestContext, Locator, Page } from '@playwright/test';
 import { AxeBuilder } from '@axe-core/playwright';
 import type { AxeResults, Result } from 'axe-core';
 import {
@@ -297,6 +297,51 @@ test.describe('manual checks — keyboard, focus, motion', () => {
     });
     expect(linkOutline.style).not.toBe('none');
     expect(parseFloat(linkOutline.width)).toBeGreaterThan(0);
+  });
+
+  // Cycle-8.1 (lf-0150): the Angular 18→22 migration rewrote the compiled
+  // bundle — re-verify the :focus-visible ring on the two interactive
+  // surfaces the original suite only covered via the sidebar/skip-link:
+  // the /search form field and the /graph canvas toolbar controls.
+  test('focus ring is visible on /search input and /graph toolbar controls', async ({
+    page,
+  }) => {
+    const outlineOf = async (loc: Locator) =>
+      loc.evaluate((el) => {
+        const s = getComputedStyle(el);
+        return { style: s.outlineStyle, width: s.outlineWidth };
+      });
+
+    await page.goto('/search');
+    await waitForSettled(page);
+    // The query input is reachable by keyboard — walk the tab order until
+    // focus lands on it (same contract as the lineage form check).
+    const query = page.getByLabel('Consulta');
+    let reached = false;
+    for (let i = 0; i < 60 && !reached; i++) {
+      await page.keyboard.press('Tab');
+      reached = await query.evaluate((el) => document.activeElement === el);
+    }
+    expect(reached, 'tab order never reached the /search query input').toBe(true);
+    const inputOutline = await outlineOf(query);
+    expect(inputOutline.style).not.toBe('none');
+    expect(parseFloat(inputOutline.width)).toBeGreaterThan(0);
+
+    await page.goto('/graph');
+    await waitForSettled(page);
+    // Canvas toolbar is always rendered (seg buttons + caption input);
+    // keyboard focus must paint the visible ring on a real button.
+    const zoomIn = page.getByRole('button', { name: 'Aumentar zoom' });
+    await zoomIn.focus();
+    const btnOutline = await outlineOf(zoomIn);
+    expect(btnOutline.style).not.toBe('none');
+    expect(parseFloat(btnOutline.width)).toBeGreaterThan(0);
+    // And the control is operable: Enter must not error and the canvas
+    // stage (or accessible table fallback) stays attached.
+    await page.keyboard.press('Enter');
+    await expect(
+      page.locator('.graph-stage, .tables__section table').first(),
+    ).toBeAttached({ timeout: 10_000 });
   });
 
   test('keyboard-only navigation traverses the sidebar and activates a route', async ({

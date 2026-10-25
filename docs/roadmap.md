@@ -130,7 +130,26 @@ screen reader/Windows interativo, sem FTS de domínio (LIKE), mutação
 de domínio só via CLI, arestas cross-repo computadas-não-persistidas,
 sem integração AWS real (estático por design).
 
-## Cycle 8 — Production Quality 🔶 em andamento (RC cortado)
+## Cycle 8.1 — GA Readiness ✅ (1.0.0)
+
+> Branch `cycle-8.1-ga-readiness`, specs lf-0146–lf-0161. Versão
+> `1.0.0` (GA — `docs/RELEASING.md`, tag/publish pelo mantenedor via
+> OIDC). Scorecard: `docs/ga-readiness-scorecard.md` (**31/32**).
+
+Escopo realizado (evidência medida commitada por spec): baseline
+(lf-0146), **Angular 18→22.2.3 + CSP estrita** (lf-0147 — audit prod
+8→0), Explorer embutido no wheel + builds byte-idênticos (lf-0148),
+homologação Linux/Windows/Git-Bash + cross-browser 9/9 (lf-0149),
+a11y GA axe 48×0 + Lighthouse 100/100 (lf-0150), truncamento de
+impacto explícito + cadeia de migrações fail-safe (lf-0151), densidade
+de grafo 5k@60FPS + sessão longa sem leak (lf-0152), security final
+6 findings corrigidos (lf-0153), SBOM determinístico + license gate
+(lf-0154), manifesto de superfície pública 63 testes (lf-0155),
+jornadas E2E 8+1 (lf-0156), gates de release (lf-0157), pipeline OIDC
+trusted publishing (lf-0158), versioning GA (lf-0159), docs/DX
+(lf-0160), delivery (lf-0161).
+
+## Cycle 8 — Production Quality ✅ (RC cortado, merged `d5d620a`)
 
 > Branch `cycle-8-production-quality`, specs lf-0127–lf-0145. Versão
 > `1.0.0rc1` (primeiro corte do repo — `docs/RELEASING.md`).

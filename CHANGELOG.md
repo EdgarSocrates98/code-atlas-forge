@@ -6,6 +6,79 @@ versionamento [SemVer](https://semver.org/lang/pt-BR/).
 
 ## [Unreleased]
 
+## [1.0.0] - 2026-10-25
+
+Primeiro release estável (GA) do code-atlas-forge. Promoção de
+`1.0.0rc1` → `1.0.0` após o ciclo 8.1 fechar todos os gates de GA:
+scorecard **31/32** (`docs/ga-readiness-scorecard.md`), zero vulns de
+produção, builds reproduzíveis, pipeline OIDC preparado. Tag e
+publicação PyPI ficam com o mantenedor via
+`.github/workflows/release.yml`.
+
+### Adicionado — Cycle 8.1 (branch `cycle-8.1-ga-readiness`)
+
+- **Explorer embutido no wheel** (lf-0148, Phase 3): o dist Angular é
+  empacotado como dados de pacote em `code_atlas/explorer_dist/`
+  (`[tool.setuptools.package-data]`, gerado por
+  `scripts/build_release.sh` a partir de
+  `explorer/dist/explorer/browser/`). `pip install` →
+  `code-atlas explorer` serve a SPA completa; sem os assets o wheel sai
+  API-only e avisa, como antes. Resolução em runtime:
+  `explorer_static_root()` em `api/server.py` — packaged via
+  `importlib.resources` primeiro, fallback para o checkout em dev.
+  Verificado: `tests/packaging/test_wheel_explorer.py` instala o wheel
+  numa venv limpa e faz smoke HTTP real (`/`, `/graph`, `/domains`,
+  asset hashed, `/api/v1/health` — todos 200).
+- **Builds reproduzíveis** (lf-0148, Phase 4): `scripts/build_release.sh`
+  fixa `SOURCE_DATE_EPOCH` (env ou timestamp do HEAD). Wheel
+  byte-idêntico entre builds; sdist normalizado (mtimes + gzip header)
+  também byte-idêntico. Números medidos em `docs/RELEASING.md`.
+- **Migração Angular 18.2.13 → 22.2.3** (lf-0147, Phase 2): 4 steps
+  sequenciais `ng update`; TypeScript 5.5.4→6.0.3, zone.js
+  0.14.10→0.15.1, builders `@angular/build`; removidos
+  `@angular/animations` e `platform-browser-dynamic` (não usados).
+  `npm audit --omit=dev`: **8 vulns → 0**. `ng test` 238/238,
+  Playwright 179/179. Detalhes: `docs/angular-migration.md`.
+- **CSP endurecida** (lf-0147): removido `script-src-attr
+  'unsafe-inline'`; adicionados `worker-src 'self'`, `object-src
+  'none'`, `base-uri 'self'`, `form-action 'self'`. Produção com
+  `optimization.styles.inlineCritical=false` (Beasties emitia inline
+  `onload=` incompatível com `script-src 'self'`).
+- **Truncamento de impacto explícito** (lf-0151):
+  `ImpactResult.truncation_reasons` + probes `+1` distinguem fit
+  exato de overflow real; Markdown/CLI/JSON/eval concordam.
+- **Integridade de migrações** (lf-0151): versões desconhecidas/futuras
+  agora levantam `MigrationError` (antes aceitas silenciosamente);
+  checksum por migração aplicada; cadeia v1→v12 lossless testada.
+- **Manifesto de superfície pública** (lf-0155): 63 testes fixam 19
+  subcomandos CLI, 15 tools MCP, rotas API e superfícies de versão —
+  drift de contrato falha alto.
+- **Homologação multi-plataforma** (lf-0149): fixes Git Bash
+  (venv `Scripts/`+`.exe`, `python3→python→py`, `mktemp`→`$TMPDIR`,
+  `sha256sum→shasum`); cross-browser Chromium+Firefox+WebKit 9/9
+  (`ATLAS_E2E_XBROWSER=1`); Windows CI 6/6 verde em main.
+- **Revisão de segurança final** (lf-0153): 6 findings novos
+  corrigidos — injeção ANSI/newline em logs, `ValueError`→500 em
+  request-target hostil (agora 400), stat-gate antes de ler assets,
+  fingerprint `Server:` reduzido, flood de traceback em RST,
+  validação de `SOURCE_DATE_EPOCH`/`VER` no build. 7 findings do
+  cycle-8 re-verificados. 147 testes de segurança.
+- **SBOM determinístico** (lf-0154): `scripts/generate_sbom.py`
+  CycloneDX 1.5 stdlib-only (UUID5, sem timestamps, byte-idêntico);
+  564 componentes; gate de licenças PASS (24/24 permissivas);
+  freshness travado por `test_sbom_freshness.py`.
+- **Jornadas E2E de produto** (lf-0156): 8 jornadas Playwright +
+  1 jornada CLI real (`index→search→impact→context→status→doctor`),
+  todas verdes.
+- **Pipeline de release OIDC** (lf-0158): `.github/workflows/release.yml`
+  — PyPI Trusted Publishing, `id-token: write` só no job de publish,
+  build separado, checksums verificados, ambiente protegido, nunca
+  publica a partir de PR. Setup do mantenedor documentado em
+  `docs/release-pipeline-oidc.md`.
+- **A11y GA** (lf-0150): re-verificação pós-Angular 22 — axe 48 scans
+  0 violações, Lighthouse a11y/best-practices 100, focus-ring pinado
+  por teste novo.
+
 ## [1.0.0rc1] - 2026-10-25
 
 Primeiro release candidato do code-atlas-forge. Nenhuma tag anterior

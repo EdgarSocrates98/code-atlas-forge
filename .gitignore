@@ -11,6 +11,10 @@ dist/
 *.whl
 *.tar.gz
 
+# Explorer compilado embutido no wheel — gerado por
+# scripts/build_release.sh a partir de explorer/dist/ (lf-0148)
+src/code_atlas/explorer_dist/
+
 # Virtual environments
 .venv/
 venv/

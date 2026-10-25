@@ -502,7 +502,21 @@ def migrate(conn: sqlite3.Connection, *, fts5: bool | None = None) -> int:
         row["version"]: row["checksum"]
         for row in conn.execute("SELECT version, checksum FROM schema_migrations")
     }
-    for mig in migrations(fts5=fts5):
+    # lf-0155 fail-safe: ``schema_migrations`` com versão fora do
+    # catálogo completo = banco de build mais nova — migrar seria
+    # silencioso e inseguro; recusa honesta, nunca segue adiante.
+    # O catálogo fts5=True é o superset (v2/v7/v12 existem sempre) —
+    # um banco v12 num build sem FTS5 é caminho projetado (fallback
+    # LIKE), não versão desconhecida.
+    catalog = migrations(fts5=True)
+    by_version = {m.version: m for m in catalog}
+    unknown = sorted(v for v in applied if v not in by_version)
+    if unknown:
+        raise MigrationError(
+            f"schema_migrations has unknown versions {unknown} — "
+            "database was written by a newer build; upgrade code-atlas")
+    applicable = {m.version for m in migrations(fts5=fts5)}
+    for mig in catalog:
         digest = _checksum(mig.sql)
         if mig.version in applied:
             if applied[mig.version] != digest:
@@ -511,6 +525,8 @@ def migrate(conn: sqlite3.Connection, *, fts5: bool | None = None) -> int:
                     f"(applied {applied[mig.version][:12]} != current {digest[:12]})"
                 )
             continue
+        if mig.version not in applicable:
+            continue  # migração FTS5-gated — não aplicável nesta build
         try:
             with conn:
                 # sqlite3 legacy só inicia transação implícita em DML —

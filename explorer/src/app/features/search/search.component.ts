@@ -44,17 +44,16 @@ const KINDS = [
 const LIMITS = [10, 20, 50, 100];
 
 @Component({
-  selector: 'atlas-search',
-  standalone: true,
-  changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [
-    FormsModule,
-    RouterLink,
-    DiagnosticsListComponent,
-    EvidenceBadgeComponent,
-    StateBlockComponent,
-  ],
-  template: `
+    selector: 'atlas-search',
+    changeDetection: ChangeDetectionStrategy.OnPush,
+    imports: [
+        FormsModule,
+        RouterLink,
+        DiagnosticsListComponent,
+        EvidenceBadgeComponent,
+        StateBlockComponent,
+    ],
+    template: `
     <section class="search" aria-labelledby="search-title">
       <header class="search__header">
         <h1 id="search-title">Busca</h1>
@@ -311,8 +310,8 @@ const LIMITS = [10, 20, 50, 100];
       }
     </section>
   `,
-  styles: [
-    `
+    styles: [
+        `
       .search {
         padding: var(--atlas-space-5);
         display: flex;
@@ -550,7 +549,7 @@ const LIMITS = [10, 20, 50, 100];
         cursor: pointer;
       }
     `,
-  ],
+    ]
 })
 export class SearchComponent implements OnInit, OnDestroy {
   readonly strategies = STRATEGIES;

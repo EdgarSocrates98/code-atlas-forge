@@ -39,7 +39,11 @@ import { createServer } from 'node:net';
 const REPO_ROOT = join(__dirname, '..', '..');
 const FIXTURE_GEN = join(REPO_ROOT, 'tests', 'fixtures', 'gen_large_repo.py');
 const WORK = process.env['ATLAS_SCALE_DIR'] ?? join(tmpdir(), 'atlas-graph-scale');
-const SIZES = (process.env['ATLAS_SCALE_SIZES'] ?? '100,500,1000,3000,5000')
+/* Cycle 8.1 Phase 9 adds 10000 — the declared "10k nodes" ceiling the
+ * cycle-6.1 homologation left NOT RUN (the API still truncates to 2000
+ * items and the canvas cap to 2000; the dataset exercises the full
+ * 10000-known → 2000-fetched → 500/2000-rendered funnel). */
+const SIZES = (process.env['ATLAS_SCALE_SIZES'] ?? '100,500,1000,3000,5000,10000')
   .split(',')
   .map((s) => Number(s.trim()))
   .filter((n) => Number.isFinite(n) && n > 0);

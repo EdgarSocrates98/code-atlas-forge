@@ -38,6 +38,10 @@ from code_atlas.impact.snapshot_resolver import (
     ResolvedImpactSnapshots,
 )
 
+# cap do lookup de seeds what-if por símbolo — declarado como
+# ``symbol-seed-limit`` quando cheio (lf-0151).
+_SYMBOL_SEED_LIMIT = 64
+
 
 class ImpactEngine:
     def __init__(self, conn: sqlite3.Connection) -> None:
@@ -128,7 +132,8 @@ class ImpactEngine:
         base_sid: int, target_sid: int,
         unknown: tuple[str, ...],
         diags: list[ImpactDiagnostic],
-    ) -> tuple[tuple[ImpactCandidate, ...], bool, tuple[str, ...]]:
+    ) -> tuple[
+            tuple[ImpactCandidate, ...], set[str], tuple[str, ...]]:
         """Passo 6: blast misto (código + domínio) nos dois snapshots.
 
         Origens: ocorrências vivas de símbolos alterados no alvo;
@@ -136,15 +141,26 @@ class ImpactEngine:
         ``entity`` explícito; ``symbol`` também resolve refs de
         entidade (fiação mínima — handlers que já passam
         ``symbol``/``ident`` aceitam seeds de domínio sem mudança de
-        assinatura). Retorna ``(impactos, truncado, unknown_coverage)``.
+        assinatura). Retorna ``(impactos, razões_de_truncamento,
+        unknown_coverage)`` — lf-0151: cada bound que descartou
+        trabalho entra no conjunto de razões, nunca silencioso.
         """
+        reasons: set[str] = set()
         origins_target, origins_base = self._origins(sym_changes)
         # lf-0120: ``symbol`` também é seed de símbolo — "se ESTE
         # símbolo mudar" cobre ocorrências não-alteradas (what-if),
         # não só as que o diff marcou como origens.
         if req.symbol:
-            for key, occ in self._symbol_seeds(
-                    req.symbol, target_sid).items():
+            seeds_sym, seed_capped = self._symbol_seeds(
+                req.symbol, target_sid)
+            if seed_capped:
+                reasons.add("symbol-seed-limit")
+                diags.append(ImpactDiagnostic(
+                    "symbol-seed-limit",
+                    f"lookup de seeds por símbolo atingiu o cap de "
+                    f"{_SYMBOL_SEED_LIMIT} ocorrências — ocorrências "
+                    "além do cap não viraram origem de blast"))
+            for key, occ in seeds_sym.items():
                 origins_target.setdefault(key, occ)
 
         refs: list[tuple[str, bool]] = []
@@ -166,7 +182,7 @@ class ImpactEngine:
             sym_origins=origins_target,
             ent_origins=seeds.target_origins, limits=req.limits)
         impacts = t_out.candidates
-        truncated = t_out.truncated
+        reasons |= set(t_out.reasons)
         unc = dict(t_out.uncertain)
         cross_snap = t_out.cross_snapshot
         removed_impacts: tuple[ImpactCandidate, ...] = ()
@@ -178,7 +194,7 @@ class ImpactEngine:
                 ent_origins=seeds.base_origins, limits=req.limits,
                 reason_suffix=" (base snapshot — símbolo removido)")
             removed_impacts = r_out.candidates
-            truncated = truncated or r_out.truncated
+            reasons |= set(r_out.reasons)
             cross_snap += r_out.cross_snapshot
             for st, n in r_out.uncertain.items():
                 unc[st] = unc.get(st, 0) + n
@@ -190,7 +206,7 @@ class ImpactEngine:
             unknown_list.append(f"domain-{st}-deps:{unc[st]}")
         if cross_snap:
             unknown_list.append(f"domain-cross-snapshot:{cross_snap}")
-        return impacts, truncated, tuple(unknown_list)
+        return impacts, reasons, tuple(unknown_list)
 
     @staticmethod
     def _origins(
@@ -211,24 +227,32 @@ class ImpactEngine:
 
     def _symbol_seeds(
         self, ref: str, target_sid: int,
-    ) -> dict[str, int]:
+    ) -> tuple[dict[str, int], bool]:
         """Ocorrências-alvo cujo ``symbol_key``/``qualified_name``
-        casa ``ref`` — seeds de símbolo para análise what-if."""
+        casa ``ref`` — seeds de símbolo para análise what-if.
+
+        Retorna ``(seeds, atingiu_cap)``: o lookup é bounded por
+        ``_SYMBOL_SEED_LIMIT`` com uma linha de sonda +1 — só overflow
+        real declara o cap (ocorrências além do prefixo
+        ``ORDER BY o.id`` nunca viraram origem, lf-0151)."""
         out: dict[str, int] = {}
-        for r in self._conn.execute(
-                "SELECT o.id AS occ, s.language, s.kind,"
-                " s.qualified_name FROM symbol_occurrences o"
-                " JOIN symbols s ON s.id = o.logical_symbol_id"
-                " WHERE o.snapshot_id = ? AND ("
-                "  s.language || ':' || s.kind || ':'"
-                "   || s.qualified_name = ?"
-                "  OR instr(s.qualified_name, ?) > 0)"
-                " ORDER BY o.id LIMIT 64",
-                (target_sid, ref, ref)):
+        rows = self._conn.execute(
+            "SELECT o.id AS occ, s.language, s.kind,"
+            " s.qualified_name FROM symbol_occurrences o"
+            " JOIN symbols s ON s.id = o.logical_symbol_id"
+            " WHERE o.snapshot_id = ? AND ("
+            "  s.language || ':' || s.kind || ':'"
+            "   || s.qualified_name = ?"
+            "  OR instr(s.qualified_name, ?) > 0)"
+            " ORDER BY o.id LIMIT ?",
+            (target_sid, ref, ref,
+             _SYMBOL_SEED_LIMIT + 1)).fetchall()
+        capped = len(rows) > _SYMBOL_SEED_LIMIT
+        for r in rows[:_SYMBOL_SEED_LIMIT]:
             key = (f"{r['language']}:{r['kind']}:"
                    f"{r['qualified_name']}")
             out.setdefault(key, int(r["occ"]))
-        return out
+        return out, capped
 
     def _domain_flags(self, target_sid: int) -> list[str]:
         """Flag de ausência/parcialidade dos dados de domínio."""
@@ -293,9 +317,10 @@ class ImpactEngine:
                 truncated=False, diagnostics=tuple(diags))
 
         # 3) Symbol diff.
-        sym_changes, unknown, trunc = symbol_diff.diff_snapshots(
+        sym_changes, unknown, diff_trunc = symbol_diff.diff_snapshots(
             self._conn, base_sid, target_sid,
             max_changes=req.limits.max_changes)
+        reasons: set[str] = {"max-changes"} if diff_trunc else set()
 
         # 4) Seleção explícita de símbolo restringe a análise.
         if req.symbol:
@@ -310,21 +335,25 @@ class ImpactEngine:
         # (lf-0074 — a ocorrência atual não existe mais). lf-0120: o
         # blast é misto — relações de código + relações de domínio —
         # e seeds podem ser entidades (``req.entity``/``req.symbol``).
-        impacts, b_trunc, unknown = self._blast(
+        impacts, b_reasons, unknown = self._blast(
             req, pair, sym_changes, base_sid, target_sid, unknown,
             diags)
+        reasons |= b_reasons
         if req.known_only or not req.include_possible:
             impacts = tuple(
                 i for i in impacts
                 if i.strength == EvidenceStrength.VERIFIED)
-        trunc = trunc or b_trunc
 
-        # 7) Testes + risco.
+        # 7) Testes + risco. lf-0151: o cap de candidatos também é
+        # bound declarado — saída cheia não prova que não havia mais.
         tests = test_selector.select(
             self._conn, target_sid, sym_changes, impacts,
             base_snapshot_id=base_sid)
+        if len(tests) >= test_selector.MAX_TEST_CANDIDATES:
+            reasons.add("test-candidates")
         risk = risk_classifier.assess(
             sym_changes, contract_changes, impacts, unknown)
+        truncation_reasons = tuple(sorted(reasons))
 
         return ImpactResult(
             schema_version=IMPACT_SCHEMA_VERSION,
@@ -342,8 +371,9 @@ class ImpactEngine:
             test_candidates=tests,
             risk=risk,
             unknown_coverage=unknown,
-            truncated=trunc,
-            diagnostics=tuple(diags))
+            truncated=bool(truncation_reasons),
+            diagnostics=tuple(diags),
+            truncation_reasons=truncation_reasons)
 
     def _empty(
         self, req: ImpactRequest, diags: list[ImpactDiagnostic],

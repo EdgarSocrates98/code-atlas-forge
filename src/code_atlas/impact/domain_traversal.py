@@ -175,7 +175,15 @@ class SeedResolution:
 
 @dataclass(frozen=True)
 class BlastOutcome:
-    """Saída do blast misto — candidatos + métricas de incerteza."""
+    """Saída do blast misto — candidatos + métricas de incerteza.
+
+    ``truncated`` é a união de ``reasons`` (cycle-8.1/lf-0151):
+    ``max-paths`` (emissão no cap), ``max-nodes-edge-scan`` (varredura
+    de vizinhos de um nó encheu o cap — prefixo ``ORDER BY id``
+    determinístico, rows além dele nunca vistas) e
+    ``max-depth-frontier`` (nó emitido em ``hops == max_depth`` ainda
+    tinha trabalho atravessável e não foi expandido).
+    """
 
     candidates: tuple[ImpactCandidate, ...]
     truncated: bool
@@ -183,6 +191,9 @@ class BlastOutcome:
     uncertain: Mapping[str, int] = field(default_factory=dict)
     # nº de vizinhos pulados por viverem fora do snapshot analisado
     cross_snapshot: int = 0
+    # bounds que cortaram trabalho — vocabulário de
+    # ``ImpactResult.truncation_reasons``
+    reasons: tuple[str, ...] = ()
 
 
 def _sym_hit(conn: sqlite3.Connection, occ_id: int) -> _Hit | None:
@@ -304,6 +315,12 @@ class _Ctx:
     node_deps: dict[_Node, set[str]] = field(default_factory=dict)
     uncertain: dict[str, int] = field(default_factory=dict)
     cross_snap: int = 0
+    # lf-0151: alguma varredura de vizinhos excedeu ``max_nodes``
+    # (sonda +1) — rows além do prefixo ``ORDER BY id`` nunca vistas.
+    edge_scan_capped: bool = False
+    # nós emitidos em ``hops >= max_depth`` e não enfileirados —
+    # sondados no ``_finish`` (trabalho restante = corte de depth).
+    frontier: list[tuple[_Node, str]] = field(default_factory=list)
 
 
 def _emit(
@@ -345,6 +362,10 @@ def _emit(
     if hops < ctx.limits.max_depth:
         ctx.queue.append((hit.node, origin_key, new_rels,
                           new_mid, new_st, new_rf, depth + 1))
+    else:
+        # fronteira de depth: emitido mas nunca expandido — a sonda
+        # pós-BFS decide se havia trabalho atravessável (lf-0151).
+        ctx.frontier.append((hit.node, origin_key))
 
 
 def _expand_code(
@@ -353,9 +374,15 @@ def _expand_code(
     statuses: tuple[str, ...], refs: tuple[str, ...], depth: int,
 ) -> bool:
     """Arestas ``relations`` — consumidores (to→from). ``True`` = corte."""
-    for r in conn.execute(
-            _IN_SQL, (ctx.snapshot_id, node[1],
-                      ctx.limits.max_nodes)).fetchall():
+    # +1 linha de sonda: distingue fit exato (nada cortado) de overflow
+    # real — só o overflow declara ``max-nodes-edge-scan`` (lf-0151).
+    rows = conn.execute(
+        _IN_SQL, (ctx.snapshot_id, node[1],
+                  ctx.limits.max_nodes + 1)).fetchall()
+    if len(rows) > ctx.limits.max_nodes:
+        ctx.edge_scan_capped = True
+        rows = rows[:ctx.limits.max_nodes]
+    for r in rows:
         consumer = int(r["from_id"])
         if (("s", consumer), origin_key) in ctx.visited:
             continue
@@ -396,9 +423,13 @@ def _expand_domain(
 ) -> bool:
     """Arestas ``domain_relations`` — ``True`` = corte por max_paths."""
     node_unc = ctx.node_deps.setdefault(node, set())
-    for r in conn.execute(
-            _DOM_SQL, _dom_params(node, ctx.snapshot_id,
-                                  ctx.limits.max_nodes)).fetchall():
+    rows = conn.execute(
+        _DOM_SQL, _dom_params(node, ctx.snapshot_id,
+                              ctx.limits.max_nodes + 1)).fetchall()
+    if len(rows) > ctx.limits.max_nodes:
+        ctx.edge_scan_capped = True
+        rows = rows[:ctx.limits.max_nodes]
+    for r in rows:
         rtype = str(r["type"])
         status = str(r["resolution_status"])
         from_hit = _from_side(r, node)
@@ -435,13 +466,102 @@ def _expand_domain(
     return False
 
 
-def _finish(ctx: _Ctx, truncated: bool) -> BlastOutcome:
-    """Anexa ``uncertain_deps`` por candidato — pós-BFS.
+def _dom_frontier_pending(
+    conn: sqlite3.Connection, ctx: _Ctx, node: _Node, origin_key: str,
+) -> bool:
+    """Sonda de fronteira sobre ``domain_relations`` — usada por nós
+    símbolo E entidade (``_expand_domain`` expande os dois)."""
+    rows = conn.execute(
+        _DOM_SQL, _dom_params(node, ctx.snapshot_id,
+                              ctx.limits.max_nodes + 1)).fetchall()
+    if len(rows) > ctx.limits.max_nodes:
+        ctx.edge_scan_capped = True
+        return True
+    for r in rows:
+        rtype = str(r["type"])
+        from_hit = _from_side(r, node)
+        to_hit = _to_side(r, node)
+        if (from_hit and r["to_entity_occ_id"] is None
+                and r["to_symbol_occ_id"] is None
+                and r["to_unresolved"]):
+            # dependência não-traversável nunca contada — informação
+            # de incerteza descartada pelo corte de depth.
+            return True
+        for nnode, nsnap in _dom_neighbors(
+                ctx, r, rtype, node, from_hit, to_hit):
+            if nnode == node or (nnode, origin_key) in ctx.visited:
+                continue
+            if nsnap is not None and nsnap != ctx.snapshot_id:
+                # alvo fora do snapshot nunca atravessado, mas a conta
+                # de cross-snapshot também seria descartada — cobertura
+                # desconhecida subestimada.
+                return True
+            hit = _hit_of(conn, nnode)
+            if hit is None or hit.key in ctx.origin_keys:
+                continue
+            return True
+    return False
+
+
+def _frontier_pending(
+    conn: sqlite3.Connection, ctx: _Ctx, node: _Node, origin_key: str,
+) -> bool:
+    """``True`` se o nó de fronteira (``hops >= max_depth``) ainda tem
+    trabalho atravessável para a origem dada: vizinho novo e
+    atravessável (mesmo snapshot, não-origem), dependência
+    ``to_unresolved`` de domínio nunca contada — o nó nunca foi
+    expandido, logo nada disso entrou em ``node_deps``/``uncertain``
+    — ou alvo cross-snapshot nunca contado.
+
+    A sonda repete o bound ``LIMIT max_nodes + 1`` de cada scan:
+    overflow também declara ``edge_scan_capped`` e conta como
+    trabalho pendente (a cauda não-vista pode esconder vizinhos).
+    Nós símbolo sondam as DUAS famílias — ``_expand_code`` e
+    ``_expand_domain`` rodam para todo nó no BFS.
+    """
+    if node[0] == "s":
+        rows = conn.execute(
+            _IN_SQL, (ctx.snapshot_id, node[1],
+                      ctx.limits.max_nodes + 1)).fetchall()
+        if len(rows) > ctx.limits.max_nodes:
+            ctx.edge_scan_capped = True
+            return True
+        for r in rows:
+            consumer = int(r["from_id"])
+            if (("s", consumer), origin_key) in ctx.visited:
+                continue
+            hit = _sym_hit(conn, consumer)
+            if hit is None or hit.key in ctx.origin_keys:
+                continue
+            return True
+        # arestas de domínio do nó símbolo — mesmo scan de
+        # ``_expand_domain`` (from_symbol_occ_id / to_symbol_occ_id).
+        return _dom_frontier_pending(conn, ctx, node, origin_key)
+    return _dom_frontier_pending(conn, ctx, node, origin_key)
+
+
+def _finish(
+    ctx: _Ctx, conn: sqlite3.Connection, paths_cut: bool,
+) -> BlastOutcome:
+    """Anexa ``uncertain_deps`` por candidato e sonda a fronteira —
+    pós-BFS.
 
     As dependências não-traversáveis de um nó só são vistas quando ele
     é expandido, o que pode ocorrer depois de o candidato já ter sido
     emitido: o anexo é sempre um pós-passo, nunca no emit.
+
+    A sonda (lf-0151) fecha o contrato de truncamento: nós emitidos
+    em ``hops >= max_depth`` nunca foram enfileirados — se algum ainda
+    tinha trabalho atravessável, a fronteira cortou análise real e o
+    corte é declarado ``max-depth-frontier``.
     """
+    depth_cut = any(
+        _frontier_pending(conn, ctx, node, origin_key)
+        for node, origin_key in dict.fromkeys(ctx.frontier))
+    reasons = tuple(sorted(
+        ({"max-paths"} if paths_cut else set())
+        | ({"max-nodes-edge-scan"} if ctx.edge_scan_capped else set())
+        | ({"max-depth-frontier"} if depth_cut else set())))
     deps = {n: tuple(sorted(s)) for n, s in ctx.node_deps.items() if s}
     done: list[ImpactCandidate] = []
     for c in ctx.out:
@@ -454,8 +574,8 @@ def _finish(ctx: _Ctx, truncated: bool) -> BlastOutcome:
         done.append(
             replace(c, uncertain_deps=deps.get(node, ())
                     if node is not None else ()))
-    return BlastOutcome(tuple(done), truncated, ctx.uncertain,
-                        ctx.cross_snap)
+    return BlastOutcome(tuple(done), bool(reasons), ctx.uncertain,
+                        ctx.cross_snap, reasons)
 
 
 def blast(
@@ -475,6 +595,12 @@ def blast(
     tipo de relação de domínio, alvos ``to_unresolved`` contados como
     incerteza (``uncertain`` + ``uncertain_deps`` por candidato) e
     endpoints fora do snapshot pulados (``cross_snapshot``).
+
+    Truncamento (lf-0151): ``truncated``/``reasons`` declaram todo
+    bound que descartou trabalho — ``max-paths`` (emissão no cap),
+    ``max-nodes-edge-scan`` (varredura de vizinhos no cap, prefixo
+    ``ORDER BY id`` determinístico) e ``max-depth-frontier`` (nó na
+    fronteira com trabalho atravessável restante, sondado no fim).
     """
     conn.row_factory = sqlite3.Row
     ctx = _Ctx(snapshot_id, limits, reason_suffix,
@@ -494,12 +620,12 @@ def blast(
         if node[0] == "s" and _expand_code(
                 conn, ctx, node, origin_key, rel_ids, mids,
                 statuses, refs, depth):
-            return _finish(ctx, True)
+            return _finish(ctx, conn, True)
         if _expand_domain(conn, ctx, node, origin_key, rel_ids,
                           mids, statuses, refs, depth):
-            return _finish(ctx, True)
+            return _finish(ctx, conn, True)
 
-    return _finish(ctx, False)
+    return _finish(ctx, conn, False)
 
 
 # ---------------------------------------------------------------------

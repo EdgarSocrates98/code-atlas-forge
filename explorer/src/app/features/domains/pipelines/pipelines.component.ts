@@ -32,11 +32,10 @@ const PIPELINE_EDGE_TYPES = 'DEPENDS_ON,DEPLOYS,TRIGGERS';
  * Unresolved `needs` targets are shown as text, never linked.
  */
 @Component({
-  selector: 'atlas-pipelines',
-  standalone: true,
-  changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [StateBlockComponent, EvidenceBadgeComponent],
-  template: `
+    selector: 'atlas-pipelines',
+    changeDetection: ChangeDetectionStrategy.OnPush,
+    imports: [StateBlockComponent, EvidenceBadgeComponent],
+    template: `
     <section class="pipelines" aria-labelledby="pipelines-title">
       <header class="pipelines__header">
         <h1 id="pipelines-title">Pipelines CI/CD</h1>
@@ -145,8 +144,8 @@ const PIPELINE_EDGE_TYPES = 'DEPENDS_ON,DEPLOYS,TRIGGERS';
       }
     </section>
   `,
-  styles: [
-    `
+    styles: [
+        `
       .pipelines {
         padding: var(--atlas-space-5);
         display: flex;
@@ -262,7 +261,7 @@ const PIPELINE_EDGE_TYPES = 'DEPENDS_ON,DEPLOYS,TRIGGERS';
         margin-right: var(--atlas-space-2);
       }
     `,
-  ],
+    ]
 })
 export class PipelinesComponent implements OnInit, OnDestroy {
   readonly phase = signal<PipelinesPhase>('loading');

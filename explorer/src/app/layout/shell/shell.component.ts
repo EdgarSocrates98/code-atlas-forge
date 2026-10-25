@@ -101,12 +101,11 @@ function persistSidebarCollapsed(collapsed: boolean): void {
 }
 
 @Component({
-  selector: 'atlas-shell',
-  standalone: true,
-  changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [RouterLink, RouterLinkActive, RouterOutlet],
-  templateUrl: './shell.component.html',
-  styleUrl: './shell.component.css',
+    selector: 'atlas-shell',
+    changeDetection: ChangeDetectionStrategy.OnPush,
+    imports: [RouterLink, RouterLinkActive, RouterOutlet],
+    templateUrl: './shell.component.html',
+    styleUrl: './shell.component.css'
 })
 export class ShellComponent implements OnInit {
   readonly navItems = NAV_ITEMS;

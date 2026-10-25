@@ -1,4 +1,4 @@
-# Release Checklist — `1.0.0rc1` → GA
+# Release Checklist — `1.0.0` (GA)
 
 Gate reproduzível para cortar uma release do code-atlas-forge. Tudo que
 é automático roda via **`scripts/release_check.sh`** (bateria completa,
@@ -78,26 +78,29 @@ declaradamente ausente — e é impresso em destaque (NOT RUN declarado).
 ## 3. Corte (humano — nunca automatizado)
 
 ```bash
-git tag -a v1.0.0rc1 -m "code-atlas-forge 1.0.0rc1 — release candidate"
-git push origin v1.0.0rc1
+git tag -a v1.0.0 -m "code-atlas-forge 1.0.0 — GA"
+git push origin v1.0.0
 ```
 
-Publicação PyPI: **não configurada** (sem workflow de publish;
-`docs/RELEASING.md` § fluxo). Se publicar manualmente:
+Publicação PyPI: workflow OIDC `.github/workflows/release.yml`
+(Trusted Publishing, sem tokens longos). Tag push roda build+gates;
+o publish é dispatch manual com ambiente protegido:
 
-```bash
-python -m build
-python -m twine check dist/*
-# twine upload dist/code_atlas_forge-1.0.0rc1*   # conta/token do maintainer
+```
+Actions → Release → target: pypi, ref: refs/tags/v1.0.0
 ```
 
-## 4. Conhecidos/deferidos neste RC
+Setup do Trusted Publisher (uma vez, no PyPI) e validação via
+TestPyPI: `docs/release-pipeline-oidc.md`.
 
-- `npm audit --omit=dev` reporta 8 advisories (4 high, 4 moderate) em
-  `@angular/*@18.2.13` — Angular 18 EOL, fix = bump de 3+ majors.
-  **Decisão de produto separada, documentada em `docs/RELEASING.md`;
-  o gate usa `--audit-level=critical` (paridade com CI/PR #10).**
-- Wheel pip não carrega o dist Angular — `code-atlas explorer`
-  instalado via pip serve API-only com aviso honesto.
-- Se a bateria achar regressão → bump `rc2` e repetir este checklist
-  do zero.
+## 4. Conhecidos/deferidos no GA
+
+- ~~`npm audit --omit=dev` reporta 8 advisories~~ — **resolvido em
+  lf-0147**: `@angular/*@22.2.3`, audit prod = 0.
+- ~~Wheel pip sem o dist Angular~~ — **resolvido em lf-0148**:
+  Explorer embutido; smoke de venv limpa verde.
+- NOT RUNs aceitos: `docs/cycle-8.1-limitations.md` (screen readers,
+  Safari nativo, Windows interativo, upload PyPI real — todos
+  declarados, nenhum escondido).
+- Se a bateria achar regressão → bump `rc2`/`1.0.1` conforme
+  `docs/RELEASING.md` e repetir este checklist do zero.

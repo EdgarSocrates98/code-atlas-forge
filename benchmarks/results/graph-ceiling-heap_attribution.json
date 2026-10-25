@@ -1,0 +1,366 @@
+{
+  "dataset": "500-c2-h3x150",
+  "dom_counters": {
+    "before": {
+      "documents": 1,
+      "nodes": 27387,
+      "jsEventListeners": 84
+    },
+    "per_cycle_rows": [
+      {
+        "cycle": 0,
+        "dom_nodes": 36435,
+        "dom_listeners": 3088,
+        "dom_nodes_delta": 9048
+      },
+      {
+        "cycle": 1,
+        "dom_nodes": 45479,
+        "dom_listeners": 3088,
+        "dom_nodes_delta": 9044
+      },
+      {
+        "cycle": 2,
+        "dom_nodes": 54591,
+        "dom_listeners": 6158,
+        "dom_nodes_delta": 9112
+      },
+      {
+        "cycle": 3,
+        "dom_nodes": 63703,
+        "dom_listeners": 9228,
+        "dom_nodes_delta": 9112
+      },
+      {
+        "cycle": 4,
+        "dom_nodes": 72611,
+        "dom_listeners": 3088,
+        "dom_nodes_delta": 8908
+      },
+      {
+        "cycle": 5,
+        "dom_nodes": 81655,
+        "dom_listeners": 3088,
+        "dom_nodes_delta": 9044
+      },
+      {
+        "cycle": 6,
+        "dom_nodes": 90767,
+        "dom_listeners": 6158,
+        "dom_nodes_delta": 9112
+      },
+      {
+        "cycle": 7,
+        "dom_nodes": 99879,
+        "dom_listeners": 9228,
+        "dom_nodes_delta": 9112
+      },
+      {
+        "cycle": 8,
+        "dom_nodes": 108991,
+        "dom_listeners": 12298,
+        "dom_nodes_delta": 9112
+      },
+      {
+        "cycle": 9,
+        "dom_nodes": 117831,
+        "dom_listeners": 3088,
+        "dom_nodes_delta": 8840
+      }
+    ],
+    "after": {
+      "documents": 1,
+      "nodes": 126809,
+      "jsEventListeners": 1551
+    }
+  },
+  "control_inpage_cycles": {
+    "cycles": 4,
+    "instrumentation": "none in the loop — el.click() inside one evaluate; CDP only before/after",
+    "heap_mb": {
+      "before": 11.81,
+      "after": 10.97,
+      "delta": -0.84,
+      "per_cycle_kb": -215
+    },
+    "dom_nodes": {
+      "before": 126809,
+      "after": 126871,
+      "delta": 62
+    },
+    "note": "in-page cycles retain ≈ 1/8th the instrumented heap delta and ≈ 12 DOM nodes/cycle — the instrumented figure is a DevTools remote-handle artifact, not a confirmed app leak"
+  },
+  "cycles": 10,
+  "cycles_mode": "all settled (waitLayoutIdle after every mount)",
+  "heap_mb": {
+    "before": 7.31,
+    "after": 11.81,
+    "delta": 4.5,
+    "per_cycle_kb": 460.8
+  },
+  "snapshot_diff": {
+    "a_total_mb": 15.52,
+    "b_total_mb": 48.33,
+    "delta_mb": 32.82,
+    "detached_mb_after": 0.98,
+    "detached_nodes_after": 9185,
+    "top_retained_classes": [
+      {
+        "key": "native:blink::UniqueElementData",
+        "delta_bytes": 5571328,
+        "delta_count": 49744,
+        "bytes_after": 7105504,
+        "count_after": 63442,
+        "detached_after": 0
+      },
+      {
+        "key": "native:Text",
+        "delta_bytes": 3179056,
+        "delta_count": 33115,
+        "bytes_after": 4052432,
+        "count_after": 42216,
+        "detached_after": 3041
+      },
+      {
+        "key": "native:blink::HeapHashTableBacking<blink::HashTable<std::pair<blink::CollectionType, blink::AtomicString>, blink::KeyValuePair<std::pair<blink::CollectionType, blink::AtomicString>, cppgc::internal::BasicMember<blink::LiveNodeListBase, cppgc::internal::StrongMemberTag, cppgc::internal::DijkstraWriteBarrierPolicy>>, blink::KeyValuePairExtractor, blink::HashMapValueTraits<blink::NodeListsNodeData::NodeListAtomicCacheMapEntryHashTraits, blink::HashTraits<cppgc::internal::BasicMember<blink::LiveNodeListBase, cppgc::internal::StrongMemberTag, cppgc::internal::DijkstraWriteBarrierPolicy>>>, blink::NodeListsNodeData::NodeListAtomicCacheMapEntryHashTraits, blink::HeapAllocator>>",
+        "delta_bytes": 3000000,
+        "delta_count": 15000,
+        "bytes_after": 3900600,
+        "count_after": 19503,
+        "detached_after": 0
+      },
+      {
+        "key": "native:<button _ngcontent-ng-c2139466728=\"\" type=\"button\" class=\"mini\">",
+        "delta_bytes": 1936000,
+        "delta_count": 11000,
+        "bytes_after": 2464000,
+        "count_after": 14000,
+        "detached_after": 1000
+      },
+      {
+        "key": "native:Comment",
+        "delta_bytes": 1588032,
+        "delta_count": 16542,
+        "bytes_after": 2024832,
+        "count_after": 21092,
+        "detached_after": 1540
+      },
+      {
+        "key": "native:NodeList",
+        "delta_bytes": 1200648,
+        "delta_count": 15011,
+        "bytes_after": 1561168,
+        "count_after": 19519,
+        "detached_after": 0
+      },
+      {
+        "key": "native:<td _ngcontent-ng-c2139466728=\"\">",
+        "delta_bytes": 1144000,
+        "delta_count": 11000,
+        "bytes_after": 1456000,
+        "count_after": 14000,
+        "detached_after": 1000
+      },
+      {
+        "key": "native:blink::NodeListsNodeData",
+        "delta_bytes": 1080792,
+        "delta_count": 15011,
+        "bytes_after": 1405224,
+        "count_after": 19517,
+        "detached_after": 0
+      },
+      {
+        "key": "native:blink::HeapVectorBacking<blink::FragmentItem>",
+        "delta_bytes": 998640,
+        "delta_count": 5991,
+        "bytes_after": 1006232,
+        "count_after": 6044,
+        "detached_after": 0
+      },
+      {
+        "key": "native:<button _ngcontent-ng-c2139466728=\"\" type=\"button\" class=\"linklike\">",
+        "delta_bytes": 968000,
+        "delta_count": 5500,
+        "bytes_after": 1232000,
+        "count_after": 7000,
+        "detached_after": 500
+      },
+      {
+        "key": "native:blink::EventTargetData",
+        "delta_bytes": 923272,
+        "delta_count": 16487,
+        "bytes_after": 1177400,
+        "count_after": 21025,
+        "detached_after": 0
+      },
+      {
+        "key": "native:system / PropertyArray",
+        "delta_bytes": 767012,
+        "delta_count": 38971,
+        "bytes_after": 1061512,
+        "count_after": 51965,
+        "detached_after": 0
+      },
+      {
+        "key": "native:blink::PhysicalBoxFragment",
+        "delta_bytes": 758600,
+        "delta_count": 6487,
+        "bytes_after": 771360,
+        "count_after": 6620,
+        "detached_after": 0
+      },
+      {
+        "key": "native:blink::NodeRareData",
+        "delta_bytes": 656248,
+        "delta_count": 20500,
+        "bytes_after": 850040,
+        "count_after": 26553,
+        "detached_after": 0
+      },
+      {
+        "key": "native:blink::ConstraintSpace::RareData",
+        "delta_bytes": 601920,
+        "delta_count": 5016,
+        "bytes_after": 601920,
+        "count_after": 5016,
+        "detached_after": 0
+      },
+      {
+        "key": "array:(object elements)",
+        "delta_bytes": 594208,
+        "delta_count": 6379,
+        "bytes_after": 682204,
+        "count_after": 7371,
+        "detached_after": 0
+      },
+      {
+        "key": "native:<tr _ngcontent-ng-c2139466728=\"\">",
+        "delta_bytes": 574288,
+        "delta_count": 5522,
+        "bytes_after": 730912,
+        "count_after": 7028,
+        "detached_after": 502
+      },
+      {
+        "key": "native:<td _ngcontent-ng-c2139466728=\"\" class=\"cell--mono\">",
+        "delta_bytes": 572000,
+        "delta_count": 5500,
+        "bytes_after": 728000,
+        "count_after": 7000,
+        "detached_after": 500
+      },
+      {
+        "key": "native:<td _ngcontent-ng-c2139466728=\"\" class=\"cell--name\">",
+        "delta_bytes": 572000,
+        "delta_count": 5500,
+        "bytes_after": 728000,
+        "count_after": 7000,
+        "detached_after": 500
+      },
+      {
+        "key": "native:<td _ngcontent-ng-c2139466728=\"\" class=\"cell--actions\">",
+        "delta_bytes": 572000,
+        "delta_count": 5500,
+        "bytes_after": 728000,
+        "count_after": 7000,
+        "detached_after": 500
+      },
+      {
+        "key": "native:blink::LayoutResult",
+        "delta_bytes": 519360,
+        "delta_count": 6492,
+        "bytes_after": 529040,
+        "count_after": 6613,
+        "detached_after": 0
+      },
+      {
+        "key": "native:blink::NodeRareData::DataFieldWrapper<gfx::Vector2dF>",
+        "delta_bytes": 480360,
+        "delta_count": 20015,
+        "bytes_after": 624504,
+        "count_after": 26021,
+        "detached_after": 0
+      },
+      {
+        "key": "native:blink::ShapeResultView",
+        "delta_bytes": 467712,
+        "delta_count": 6496,
+        "bytes_after": 471312,
+        "count_after": 6546,
+        "detached_after": 0
+      },
+      {
+        "key": "object:HTMLTableCellElement",
+        "delta_bytes": 441760,
+        "delta_count": 27610,
+        "bytes_after": 562272,
+        "count_after": 35142,
+        "detached_after": 0
+      },
+      {
+        "key": "native:blink::LayoutTableCell",
+        "delta_bytes": 421680,
+        "delta_count": 2510,
+        "bytes_after": 421680,
+        "count_after": 2510,
+        "detached_after": 0
+      },
+      {
+        "key": "native:blink::PhysicalFragmentRareData",
+        "delta_bytes": 396792,
+        "delta_count": 5511,
+        "bytes_after": 400752,
+        "count_after": 5566,
+        "detached_after": 0
+      },
+      {
+        "key": "native:blink::PhysicalLineBoxFragment",
+        "delta_bytes": 383568,
+        "delta_count": 7991,
+        "bytes_after": 386400,
+        "count_after": 8050,
+        "detached_after": 0
+      },
+      {
+        "key": "native:DOMTokenList",
+        "delta_bytes": 339584,
+        "delta_count": 5494,
+        "bytes_after": 426624,
+        "count_after": 7046,
+        "detached_after": 0
+      },
+      {
+        "key": "native:blink::ComputedStyle",
+        "delta_bytes": 322992,
+        "delta_count": 4486,
+        "bytes_after": 342144,
+        "count_after": 4752,
+        "detached_after": 0
+      },
+      {
+        "key": "native:blink::LayoutText",
+        "delta_bytes": 311584,
+        "delta_count": 2996,
+        "bytes_after": 316472,
+        "count_after": 3043,
+        "detached_after": 0
+      }
+    ]
+  },
+  "telemetry_after": {
+    "sigmaLive": 0,
+    "sigmaTotal": 14,
+    "workersLive": 0,
+    "workersTotal": 14,
+    "fallbacks": 0,
+    "lastLayoutError": null,
+    "runs": {
+      "started": 14,
+      "done": 14,
+      "cancelled": 0,
+      "stale": 0,
+      "error": 0
+    }
+  },
+  "page_errors": []
+}

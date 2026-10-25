@@ -1,0 +1,1250 @@
+{
+  "tool": "code-atlas graph-ceiling e2e (Cycle 8.1 Phase 9, lf-0152)",
+  "generated_at": "2026-10-25T22:20:30.040Z",
+  "environment": {
+    "platform": "linux",
+    "os_release": "7.0.0-38-generic",
+    "cpu": "AMD Ryzen 7 5700U with Radeon Graphics",
+    "cpu_cores": 16,
+    "total_mem_gb": 31,
+    "node": "v22.23.2"
+  },
+  "measured": {
+    "fixtures": {
+      "ceiling": {
+        "dataset": "500 files × 100 calls, 1 hub × 400",
+        "generated": false,
+        "indexed": false,
+        "indexMs": null,
+        "db": {
+          "hub": 1502,
+          "relations": 103201,
+          "occurrences": 2501
+        }
+      },
+      "lifecycle": {
+        "dataset": "500 files × 2 calls, 3 hubs × 150",
+        "generated": false,
+        "indexed": false,
+        "indexMs": null,
+        "db": {
+          "hub": 1502,
+          "relations": 5401,
+          "occurrences": 2503
+        }
+      }
+    },
+    "dense_ceiling": {
+      "dataset": "500-c100-h1x400",
+      "focus": {
+        "occurrence": 1502,
+        "nav_to_ready_ms": 724,
+        "counts_initial": {
+          "nodes": 101,
+          "edges": 100
+        }
+      },
+      "growth": {
+        "edge_target": 5000,
+        "edges_final": 5005,
+        "nodes_final": 102,
+        "productive_expansions": 90,
+        "dud_tries": 1,
+        "tries_total": 91,
+        "wall_ms": 18365,
+        "edges_per_productive_expansion": 54.5,
+        "expansions": [
+          {
+            "try": 2,
+            "wall_ms": 64,
+            "edges_added": 99,
+            "edges_after": 199,
+            "nodes_after": 102
+          },
+          {
+            "try": 3,
+            "wall_ms": 96,
+            "edges_added": 98,
+            "edges_after": 297,
+            "nodes_after": 102
+          },
+          {
+            "try": 4,
+            "wall_ms": 86,
+            "edges_added": 97,
+            "edges_after": 394,
+            "nodes_after": 102
+          },
+          {
+            "try": 5,
+            "wall_ms": 87,
+            "edges_added": 96,
+            "edges_after": 490,
+            "nodes_after": 102
+          },
+          {
+            "try": 6,
+            "wall_ms": 118,
+            "edges_added": 95,
+            "edges_after": 585,
+            "nodes_after": 102
+          },
+          {
+            "try": 7,
+            "wall_ms": 87,
+            "edges_added": 94,
+            "edges_after": 679,
+            "nodes_after": 102
+          },
+          {
+            "try": 8,
+            "wall_ms": 88,
+            "edges_added": 93,
+            "edges_after": 772,
+            "nodes_after": 102
+          },
+          {
+            "try": 9,
+            "wall_ms": 165,
+            "edges_added": 92,
+            "edges_after": 864,
+            "nodes_after": 102
+          },
+          {
+            "try": 10,
+            "wall_ms": 86,
+            "edges_added": 91,
+            "edges_after": 955,
+            "nodes_after": 102
+          },
+          {
+            "try": 11,
+            "wall_ms": 87,
+            "edges_added": 90,
+            "edges_after": 1045,
+            "nodes_after": 102
+          },
+          {
+            "try": 12,
+            "wall_ms": 85,
+            "edges_added": 89,
+            "edges_after": 1134,
+            "nodes_after": 102
+          },
+          {
+            "try": 13,
+            "wall_ms": 88,
+            "edges_added": 88,
+            "edges_after": 1222,
+            "nodes_after": 102
+          },
+          {
+            "try": 14,
+            "wall_ms": 155,
+            "edges_added": 87,
+            "edges_after": 1309,
+            "nodes_after": 102
+          },
+          {
+            "try": 15,
+            "wall_ms": 131,
+            "edges_added": 86,
+            "edges_after": 1395,
+            "nodes_after": 102
+          },
+          {
+            "try": 16,
+            "wall_ms": 175,
+            "edges_added": 85,
+            "edges_after": 1480,
+            "nodes_after": 102
+          },
+          {
+            "try": 17,
+            "wall_ms": 144,
+            "edges_added": 84,
+            "edges_after": 1564,
+            "nodes_after": 102
+          },
+          {
+            "try": 18,
+            "wall_ms": 134,
+            "edges_added": 83,
+            "edges_after": 1647,
+            "nodes_after": 102
+          },
+          {
+            "try": 19,
+            "wall_ms": 89,
+            "edges_added": 82,
+            "edges_after": 1729,
+            "nodes_after": 102
+          },
+          {
+            "try": 20,
+            "wall_ms": 192,
+            "edges_added": 81,
+            "edges_after": 1810,
+            "nodes_after": 102
+          },
+          {
+            "try": 21,
+            "wall_ms": 88,
+            "edges_added": 80,
+            "edges_after": 1890,
+            "nodes_after": 102
+          },
+          {
+            "try": 22,
+            "wall_ms": 97,
+            "edges_added": 79,
+            "edges_after": 1969,
+            "nodes_after": 102
+          },
+          {
+            "try": 23,
+            "wall_ms": 141,
+            "edges_added": 78,
+            "edges_after": 2047,
+            "nodes_after": 102
+          },
+          {
+            "try": 24,
+            "wall_ms": 142,
+            "edges_added": 77,
+            "edges_after": 2124,
+            "nodes_after": 102
+          },
+          {
+            "try": 25,
+            "wall_ms": 186,
+            "edges_added": 76,
+            "edges_after": 2200,
+            "nodes_after": 102
+          },
+          {
+            "try": 26,
+            "wall_ms": 113,
+            "edges_added": 75,
+            "edges_after": 2275,
+            "nodes_after": 102
+          },
+          {
+            "try": 27,
+            "wall_ms": 99,
+            "edges_added": 74,
+            "edges_after": 2349,
+            "nodes_after": 102
+          },
+          {
+            "try": 28,
+            "wall_ms": 65,
+            "edges_added": 73,
+            "edges_after": 2422,
+            "nodes_after": 102
+          },
+          {
+            "try": 29,
+            "wall_ms": 215,
+            "edges_added": 72,
+            "edges_after": 2494,
+            "nodes_after": 102
+          },
+          {
+            "try": 30,
+            "wall_ms": 141,
+            "edges_added": 71,
+            "edges_after": 2565,
+            "nodes_after": 102
+          },
+          {
+            "try": 31,
+            "wall_ms": 83,
+            "edges_added": 70,
+            "edges_after": 2635,
+            "nodes_after": 102
+          },
+          {
+            "try": 32,
+            "wall_ms": 94,
+            "edges_added": 69,
+            "edges_after": 2704,
+            "nodes_after": 102
+          },
+          {
+            "try": 33,
+            "wall_ms": 93,
+            "edges_added": 68,
+            "edges_after": 2772,
+            "nodes_after": 102
+          },
+          {
+            "try": 34,
+            "wall_ms": 106,
+            "edges_added": 67,
+            "edges_after": 2839,
+            "nodes_after": 102
+          },
+          {
+            "try": 35,
+            "wall_ms": 142,
+            "edges_added": 66,
+            "edges_after": 2905,
+            "nodes_after": 102
+          },
+          {
+            "try": 36,
+            "wall_ms": 172,
+            "edges_added": 65,
+            "edges_after": 2970,
+            "nodes_after": 102
+          },
+          {
+            "try": 37,
+            "wall_ms": 79,
+            "edges_added": 64,
+            "edges_after": 3034,
+            "nodes_after": 102
+          },
+          {
+            "try": 38,
+            "wall_ms": 179,
+            "edges_added": 63,
+            "edges_after": 3097,
+            "nodes_after": 102
+          },
+          {
+            "try": 39,
+            "wall_ms": 78,
+            "edges_added": 62,
+            "edges_after": 3159,
+            "nodes_after": 102
+          },
+          {
+            "try": 40,
+            "wall_ms": 140,
+            "edges_added": 61,
+            "edges_after": 3220,
+            "nodes_after": 102
+          },
+          {
+            "try": 41,
+            "wall_ms": 97,
+            "edges_added": 60,
+            "edges_after": 3280,
+            "nodes_after": 102
+          },
+          {
+            "try": 42,
+            "wall_ms": 186,
+            "edges_added": 59,
+            "edges_after": 3339,
+            "nodes_after": 102
+          },
+          {
+            "try": 43,
+            "wall_ms": 84,
+            "edges_added": 58,
+            "edges_after": 3397,
+            "nodes_after": 102
+          },
+          {
+            "try": 44,
+            "wall_ms": 154,
+            "edges_added": 57,
+            "edges_after": 3454,
+            "nodes_after": 102
+          },
+          {
+            "try": 45,
+            "wall_ms": 104,
+            "edges_added": 56,
+            "edges_after": 3510,
+            "nodes_after": 102
+          },
+          {
+            "try": 46,
+            "wall_ms": 161,
+            "edges_added": 55,
+            "edges_after": 3565,
+            "nodes_after": 102
+          },
+          {
+            "try": 47,
+            "wall_ms": 74,
+            "edges_added": 54,
+            "edges_after": 3619,
+            "nodes_after": 102
+          },
+          {
+            "try": 48,
+            "wall_ms": 160,
+            "edges_added": 53,
+            "edges_after": 3672,
+            "nodes_after": 102
+          },
+          {
+            "try": 49,
+            "wall_ms": 161,
+            "edges_added": 52,
+            "edges_after": 3724,
+            "nodes_after": 102
+          },
+          {
+            "try": 50,
+            "wall_ms": 162,
+            "edges_added": 51,
+            "edges_after": 3775,
+            "nodes_after": 102
+          },
+          {
+            "try": 51,
+            "wall_ms": 160,
+            "edges_added": 50,
+            "edges_after": 3825,
+            "nodes_after": 102
+          },
+          {
+            "try": 52,
+            "wall_ms": 83,
+            "edges_added": 49,
+            "edges_after": 3874,
+            "nodes_after": 102
+          },
+          {
+            "try": 53,
+            "wall_ms": 103,
+            "edges_added": 48,
+            "edges_after": 3922,
+            "nodes_after": 102
+          },
+          {
+            "try": 54,
+            "wall_ms": 180,
+            "edges_added": 47,
+            "edges_after": 3969,
+            "nodes_after": 102
+          },
+          {
+            "try": 55,
+            "wall_ms": 210,
+            "edges_added": 46,
+            "edges_after": 4015,
+            "nodes_after": 102
+          },
+          {
+            "try": 56,
+            "wall_ms": 175,
+            "edges_added": 45,
+            "edges_after": 4060,
+            "nodes_after": 102
+          },
+          {
+            "try": 57,
+            "wall_ms": 72,
+            "edges_added": 44,
+            "edges_after": 4104,
+            "nodes_after": 102
+          },
+          {
+            "try": 58,
+            "wall_ms": 173,
+            "edges_added": 43,
+            "edges_after": 4147,
+            "nodes_after": 102
+          },
+          {
+            "try": 59,
+            "wall_ms": 98,
+            "edges_added": 42,
+            "edges_after": 4189,
+            "nodes_after": 102
+          },
+          {
+            "try": 60,
+            "wall_ms": 100,
+            "edges_added": 41,
+            "edges_after": 4230,
+            "nodes_after": 102
+          },
+          {
+            "try": 61,
+            "wall_ms": 140,
+            "edges_added": 40,
+            "edges_after": 4270,
+            "nodes_after": 102
+          },
+          {
+            "try": 62,
+            "wall_ms": 160,
+            "edges_added": 39,
+            "edges_after": 4309,
+            "nodes_after": 102
+          },
+          {
+            "try": 63,
+            "wall_ms": 184,
+            "edges_added": 38,
+            "edges_after": 4347,
+            "nodes_after": 102
+          },
+          {
+            "try": 64,
+            "wall_ms": 170,
+            "edges_added": 37,
+            "edges_after": 4384,
+            "nodes_after": 102
+          },
+          {
+            "try": 65,
+            "wall_ms": 110,
+            "edges_added": 36,
+            "edges_after": 4420,
+            "nodes_after": 102
+          },
+          {
+            "try": 66,
+            "wall_ms": 170,
+            "edges_added": 35,
+            "edges_after": 4455,
+            "nodes_after": 102
+          },
+          {
+            "try": 67,
+            "wall_ms": 174,
+            "edges_added": 34,
+            "edges_after": 4489,
+            "nodes_after": 102
+          },
+          {
+            "try": 68,
+            "wall_ms": 175,
+            "edges_added": 33,
+            "edges_after": 4522,
+            "nodes_after": 102
+          },
+          {
+            "try": 69,
+            "wall_ms": 175,
+            "edges_added": 32,
+            "edges_after": 4554,
+            "nodes_after": 102
+          },
+          {
+            "try": 70,
+            "wall_ms": 68,
+            "edges_added": 31,
+            "edges_after": 4585,
+            "nodes_after": 102
+          },
+          {
+            "try": 71,
+            "wall_ms": 173,
+            "edges_added": 30,
+            "edges_after": 4615,
+            "nodes_after": 102
+          },
+          {
+            "try": 72,
+            "wall_ms": 80,
+            "edges_added": 29,
+            "edges_after": 4644,
+            "nodes_after": 102
+          },
+          {
+            "try": 73,
+            "wall_ms": 159,
+            "edges_added": 28,
+            "edges_after": 4672,
+            "nodes_after": 102
+          },
+          {
+            "try": 74,
+            "wall_ms": 174,
+            "edges_added": 27,
+            "edges_after": 4699,
+            "nodes_after": 102
+          },
+          {
+            "try": 75,
+            "wall_ms": 197,
+            "edges_added": 26,
+            "edges_after": 4725,
+            "nodes_after": 102
+          },
+          {
+            "try": 76,
+            "wall_ms": 144,
+            "edges_added": 25,
+            "edges_after": 4750,
+            "nodes_after": 102
+          },
+          {
+            "try": 77,
+            "wall_ms": 145,
+            "edges_added": 24,
+            "edges_after": 4774,
+            "nodes_after": 102
+          },
+          {
+            "try": 78,
+            "wall_ms": 166,
+            "edges_added": 23,
+            "edges_after": 4797,
+            "nodes_after": 102
+          },
+          {
+            "try": 79,
+            "wall_ms": 87,
+            "edges_added": 22,
+            "edges_after": 4819,
+            "nodes_after": 102
+          },
+          {
+            "try": 80,
+            "wall_ms": 147,
+            "edges_added": 21,
+            "edges_after": 4840,
+            "nodes_after": 102
+          },
+          {
+            "try": 81,
+            "wall_ms": 146,
+            "edges_added": 20,
+            "edges_after": 4860,
+            "nodes_after": 102
+          },
+          {
+            "try": 82,
+            "wall_ms": 92,
+            "edges_added": 19,
+            "edges_after": 4879,
+            "nodes_after": 102
+          },
+          {
+            "try": 83,
+            "wall_ms": 90,
+            "edges_added": 18,
+            "edges_after": 4897,
+            "nodes_after": 102
+          },
+          {
+            "try": 84,
+            "wall_ms": 182,
+            "edges_added": 17,
+            "edges_after": 4914,
+            "nodes_after": 102
+          },
+          {
+            "try": 85,
+            "wall_ms": 142,
+            "edges_added": 16,
+            "edges_after": 4930,
+            "nodes_after": 102
+          },
+          {
+            "try": 86,
+            "wall_ms": 147,
+            "edges_added": 15,
+            "edges_after": 4945,
+            "nodes_after": 102
+          },
+          {
+            "try": 87,
+            "wall_ms": 133,
+            "edges_added": 14,
+            "edges_after": 4959,
+            "nodes_after": 102
+          },
+          {
+            "try": 88,
+            "wall_ms": 109,
+            "edges_added": 13,
+            "edges_after": 4972,
+            "nodes_after": 102
+          },
+          {
+            "try": 89,
+            "wall_ms": 106,
+            "edges_added": 12,
+            "edges_after": 4984,
+            "nodes_after": 102
+          },
+          {
+            "try": 90,
+            "wall_ms": 147,
+            "edges_added": 11,
+            "edges_after": 4995,
+            "nodes_after": 102
+          },
+          {
+            "try": 91,
+            "wall_ms": 143,
+            "edges_added": 10,
+            "edges_after": 5005,
+            "nodes_after": 102
+          }
+        ]
+      },
+      "pan_dense": {
+        "frames": 205,
+        "fps_mean": 60.3,
+        "delta_mean_ms": 16.6,
+        "delta_p95_ms": 16.8,
+        "delta_max_ms": 16.8,
+        "frames_over_33ms": 0,
+        "draw_calls": 130,
+        "draw_verts": 39780
+      },
+      "relayout_dense": {
+        "wall_ms": 524,
+        "main_thread_max_gap_ms": 283.3,
+        "worker_reported": "—"
+      },
+      "heap_mb": {
+        "before_load": 0.46,
+        "after_growth": 9.33,
+        "end": 9.7
+      },
+      "telemetry": {
+        "sigmaLive": 1,
+        "sigmaTotal": 1,
+        "workersLive": 0,
+        "workersTotal": 2,
+        "fallbacks": 0,
+        "lastLayoutError": null,
+        "runs": {
+          "started": 2,
+          "done": 2,
+          "cancelled": 0,
+          "stale": 0,
+          "error": 0
+        }
+      },
+      "probe": {
+        "sigmaErrors": [],
+        "maxRafGap": 283.3,
+        "longtasks": [
+          111,
+          145,
+          120,
+          296
+        ]
+      },
+      "page_errors": []
+    },
+    "heap_attribution": {
+      "dataset": "500-c2-h3x150",
+      "dom_counters": {
+        "before": {
+          "documents": 1,
+          "nodes": 27387,
+          "jsEventListeners": 84
+        },
+        "per_cycle_rows": [
+          {
+            "cycle": 0,
+            "dom_nodes": 36435,
+            "dom_listeners": 3088,
+            "dom_nodes_delta": 9048
+          },
+          {
+            "cycle": 1,
+            "dom_nodes": 45479,
+            "dom_listeners": 3088,
+            "dom_nodes_delta": 9044
+          },
+          {
+            "cycle": 2,
+            "dom_nodes": 54591,
+            "dom_listeners": 6158,
+            "dom_nodes_delta": 9112
+          },
+          {
+            "cycle": 3,
+            "dom_nodes": 63703,
+            "dom_listeners": 9228,
+            "dom_nodes_delta": 9112
+          },
+          {
+            "cycle": 4,
+            "dom_nodes": 72611,
+            "dom_listeners": 3088,
+            "dom_nodes_delta": 8908
+          },
+          {
+            "cycle": 5,
+            "dom_nodes": 81655,
+            "dom_listeners": 3088,
+            "dom_nodes_delta": 9044
+          },
+          {
+            "cycle": 6,
+            "dom_nodes": 90767,
+            "dom_listeners": 6158,
+            "dom_nodes_delta": 9112
+          },
+          {
+            "cycle": 7,
+            "dom_nodes": 99879,
+            "dom_listeners": 9228,
+            "dom_nodes_delta": 9112
+          },
+          {
+            "cycle": 8,
+            "dom_nodes": 108991,
+            "dom_listeners": 12298,
+            "dom_nodes_delta": 9112
+          },
+          {
+            "cycle": 9,
+            "dom_nodes": 117831,
+            "dom_listeners": 3088,
+            "dom_nodes_delta": 8840
+          }
+        ],
+        "after": {
+          "documents": 1,
+          "nodes": 126809,
+          "jsEventListeners": 1551
+        }
+      },
+      "control_inpage_cycles": {
+        "cycles": 4,
+        "instrumentation": "none in the loop — el.click() inside one evaluate; CDP only before/after",
+        "heap_mb": {
+          "before": 11.8,
+          "after": 10.97,
+          "delta": -0.83,
+          "per_cycle_kb": -212.5
+        },
+        "dom_nodes": {
+          "before": 126809,
+          "after": 126871,
+          "delta": 62
+        },
+        "note": "in-page cycles retain ≈ 1/8th the instrumented heap delta and ≈ 12 DOM nodes/cycle — the instrumented figure is a DevTools remote-handle artifact, not a confirmed app leak"
+      },
+      "cycles": 10,
+      "cycles_mode": "all settled (waitLayoutIdle after every mount)",
+      "heap_mb": {
+        "before": 7.31,
+        "after": 11.8,
+        "delta": 4.49,
+        "per_cycle_kb": 459.8
+      },
+      "snapshot_diff": {
+        "a_total_mb": 15.44,
+        "b_total_mb": 48.32,
+        "delta_mb": 32.88,
+        "detached_mb_after": 0.98,
+        "detached_nodes_after": 9185,
+        "top_retained_classes": [
+          {
+            "key": "native:blink::UniqueElementData",
+            "delta_bytes": 5571328,
+            "delta_count": 49744,
+            "bytes_after": 7105504,
+            "count_after": 63442,
+            "detached_after": 0
+          },
+          {
+            "key": "native:Text",
+            "delta_bytes": 3179056,
+            "delta_count": 33115,
+            "bytes_after": 4052432,
+            "count_after": 42216,
+            "detached_after": 3041
+          },
+          {
+            "key": "native:blink::HeapHashTableBacking<blink::HashTable<std::pair<blink::CollectionType, blink::AtomicString>, blink::KeyValuePair<std::pair<blink::CollectionType, blink::AtomicString>, cppgc::internal::BasicMember<blink::LiveNodeListBase, cppgc::internal::StrongMemberTag, cppgc::internal::DijkstraWriteBarrierPolicy>>, blink::KeyValuePairExtractor, blink::HashMapValueTraits<blink::NodeListsNodeData::NodeListAtomicCacheMapEntryHashTraits, blink::HashTraits<cppgc::internal::BasicMember<blink::LiveNodeListBase, cppgc::internal::StrongMemberTag, cppgc::internal::DijkstraWriteBarrierPolicy>>>, blink::NodeListsNodeData::NodeListAtomicCacheMapEntryHashTraits, blink::HeapAllocator>>",
+            "delta_bytes": 3000000,
+            "delta_count": 15000,
+            "bytes_after": 3900600,
+            "count_after": 19503,
+            "detached_after": 0
+          },
+          {
+            "key": "native:<button _ngcontent-ng-c2139466728=\"\" type=\"button\" class=\"mini\">",
+            "delta_bytes": 1936000,
+            "delta_count": 11000,
+            "bytes_after": 2464000,
+            "count_after": 14000,
+            "detached_after": 1000
+          },
+          {
+            "key": "native:Comment",
+            "delta_bytes": 1588032,
+            "delta_count": 16542,
+            "bytes_after": 2024832,
+            "count_after": 21092,
+            "detached_after": 1540
+          },
+          {
+            "key": "native:NodeList",
+            "delta_bytes": 1200648,
+            "delta_count": 15011,
+            "bytes_after": 1561168,
+            "count_after": 19519,
+            "detached_after": 0
+          },
+          {
+            "key": "native:<td _ngcontent-ng-c2139466728=\"\">",
+            "delta_bytes": 1144000,
+            "delta_count": 11000,
+            "bytes_after": 1456000,
+            "count_after": 14000,
+            "detached_after": 1000
+          },
+          {
+            "key": "native:blink::NodeListsNodeData",
+            "delta_bytes": 1080792,
+            "delta_count": 15011,
+            "bytes_after": 1405224,
+            "count_after": 19517,
+            "detached_after": 0
+          },
+          {
+            "key": "native:blink::HeapVectorBacking<blink::FragmentItem>",
+            "delta_bytes": 998640,
+            "delta_count": 5991,
+            "bytes_after": 1006232,
+            "count_after": 6044,
+            "detached_after": 0
+          },
+          {
+            "key": "native:<button _ngcontent-ng-c2139466728=\"\" type=\"button\" class=\"linklike\">",
+            "delta_bytes": 968000,
+            "delta_count": 5500,
+            "bytes_after": 1232000,
+            "count_after": 7000,
+            "detached_after": 500
+          },
+          {
+            "key": "native:blink::EventTargetData",
+            "delta_bytes": 923272,
+            "delta_count": 16487,
+            "bytes_after": 1177400,
+            "count_after": 21025,
+            "detached_after": 0
+          },
+          {
+            "key": "native:system / PropertyArray",
+            "delta_bytes": 767012,
+            "delta_count": 38971,
+            "bytes_after": 1061512,
+            "count_after": 51965,
+            "detached_after": 0
+          },
+          {
+            "key": "native:blink::PhysicalBoxFragment",
+            "delta_bytes": 758600,
+            "delta_count": 6487,
+            "bytes_after": 771360,
+            "count_after": 6620,
+            "detached_after": 0
+          },
+          {
+            "key": "native:blink::NodeRareData",
+            "delta_bytes": 656248,
+            "delta_count": 20500,
+            "bytes_after": 850040,
+            "count_after": 26553,
+            "detached_after": 0
+          },
+          {
+            "key": "native:blink::ConstraintSpace::RareData",
+            "delta_bytes": 601920,
+            "delta_count": 5016,
+            "bytes_after": 601920,
+            "count_after": 5016,
+            "detached_after": 0
+          },
+          {
+            "key": "array:(object elements)",
+            "delta_bytes": 594208,
+            "delta_count": 6379,
+            "bytes_after": 682204,
+            "count_after": 7371,
+            "detached_after": 0
+          },
+          {
+            "key": "native:<tr _ngcontent-ng-c2139466728=\"\">",
+            "delta_bytes": 574288,
+            "delta_count": 5522,
+            "bytes_after": 730912,
+            "count_after": 7028,
+            "detached_after": 502
+          },
+          {
+            "key": "native:<td _ngcontent-ng-c2139466728=\"\" class=\"cell--mono\">",
+            "delta_bytes": 572000,
+            "delta_count": 5500,
+            "bytes_after": 728000,
+            "count_after": 7000,
+            "detached_after": 500
+          },
+          {
+            "key": "native:<td _ngcontent-ng-c2139466728=\"\" class=\"cell--name\">",
+            "delta_bytes": 572000,
+            "delta_count": 5500,
+            "bytes_after": 728000,
+            "count_after": 7000,
+            "detached_after": 500
+          },
+          {
+            "key": "native:<td _ngcontent-ng-c2139466728=\"\" class=\"cell--actions\">",
+            "delta_bytes": 572000,
+            "delta_count": 5500,
+            "bytes_after": 728000,
+            "count_after": 7000,
+            "detached_after": 500
+          },
+          {
+            "key": "native:blink::LayoutResult",
+            "delta_bytes": 519360,
+            "delta_count": 6492,
+            "bytes_after": 529040,
+            "count_after": 6613,
+            "detached_after": 0
+          },
+          {
+            "key": "native:blink::NodeRareData::DataFieldWrapper<gfx::Vector2dF>",
+            "delta_bytes": 480360,
+            "delta_count": 20015,
+            "bytes_after": 624504,
+            "count_after": 26021,
+            "detached_after": 0
+          },
+          {
+            "key": "native:blink::ShapeResultView",
+            "delta_bytes": 467712,
+            "delta_count": 6496,
+            "bytes_after": 471312,
+            "count_after": 6546,
+            "detached_after": 0
+          },
+          {
+            "key": "object:HTMLTableCellElement",
+            "delta_bytes": 441760,
+            "delta_count": 27610,
+            "bytes_after": 562272,
+            "count_after": 35142,
+            "detached_after": 0
+          },
+          {
+            "key": "native:blink::LayoutTableCell",
+            "delta_bytes": 421680,
+            "delta_count": 2510,
+            "bytes_after": 421680,
+            "count_after": 2510,
+            "detached_after": 0
+          },
+          {
+            "key": "native:blink::PhysicalFragmentRareData",
+            "delta_bytes": 396792,
+            "delta_count": 5511,
+            "bytes_after": 400752,
+            "count_after": 5566,
+            "detached_after": 0
+          },
+          {
+            "key": "native:blink::PhysicalLineBoxFragment",
+            "delta_bytes": 383568,
+            "delta_count": 7991,
+            "bytes_after": 386400,
+            "count_after": 8050,
+            "detached_after": 0
+          },
+          {
+            "key": "native:DOMTokenList",
+            "delta_bytes": 339584,
+            "delta_count": 5494,
+            "bytes_after": 426624,
+            "count_after": 7046,
+            "detached_after": 0
+          },
+          {
+            "key": "native:blink::ComputedStyle",
+            "delta_bytes": 322992,
+            "delta_count": 4486,
+            "bytes_after": 342144,
+            "count_after": 4752,
+            "detached_after": 0
+          },
+          {
+            "key": "native:blink::LayoutText",
+            "delta_bytes": 311584,
+            "delta_count": 2996,
+            "bytes_after": 316472,
+            "count_after": 3043,
+            "detached_after": 0
+          }
+        ]
+      },
+      "telemetry_after": {
+        "sigmaLive": 0,
+        "sigmaTotal": 14,
+        "workersLive": 0,
+        "workersTotal": 14,
+        "fallbacks": 0,
+        "lastLayoutError": null,
+        "runs": {
+          "started": 14,
+          "done": 14,
+          "cancelled": 0,
+          "stale": 0,
+          "error": 0
+        }
+      },
+      "page_errors": []
+    },
+    "long_session": {
+      "rounds": 40,
+      "mix": "pan+wheel-zoom+kbd-cycle+select per round; real /search round-trip every 8",
+      "heap_baseline_mb": 5.76,
+      "samples": [
+        {
+          "round": 4,
+          "heap_mb": 6.18,
+          "dom": {
+            "documents": 1,
+            "nodes": 285,
+            "jsEventListeners": 88
+          }
+        },
+        {
+          "round": 9,
+          "heap_mb": 7.37,
+          "dom": {
+            "documents": 1,
+            "nodes": 260,
+            "jsEventListeners": 84
+          }
+        },
+        {
+          "round": 14,
+          "heap_mb": 8.13,
+          "dom": {
+            "documents": 1,
+            "nodes": 260,
+            "jsEventListeners": 84
+          }
+        },
+        {
+          "round": 19,
+          "heap_mb": 7.73,
+          "dom": {
+            "documents": 1,
+            "nodes": 261,
+            "jsEventListeners": 84
+          }
+        },
+        {
+          "round": 24,
+          "heap_mb": 8.08,
+          "dom": {
+            "documents": 1,
+            "nodes": 261,
+            "jsEventListeners": 84
+          }
+        },
+        {
+          "round": 29,
+          "heap_mb": 8.17,
+          "dom": {
+            "documents": 1,
+            "nodes": 261,
+            "jsEventListeners": 84
+          }
+        },
+        {
+          "round": 34,
+          "heap_mb": 8.33,
+          "dom": {
+            "documents": 1,
+            "nodes": 261,
+            "jsEventListeners": 84
+          }
+        },
+        {
+          "round": 39,
+          "heap_mb": 8.4,
+          "dom": {
+            "documents": 1,
+            "nodes": 261,
+            "jsEventListeners": 84
+          }
+        }
+      ],
+      "heap_end_mb": 9.53,
+      "trend": {
+        "slope_kb_per_round": 50.7,
+        "first_sample_mb": 6.18,
+        "last_sample_mb": 8.4
+      },
+      "telemetry_end": {
+        "sigmaLive": 0,
+        "sigmaTotal": 5,
+        "workersLive": 0,
+        "workersTotal": 5,
+        "fallbacks": 0,
+        "lastLayoutError": null,
+        "runs": {
+          "started": 5,
+          "done": 5,
+          "cancelled": 0,
+          "stale": 0,
+          "error": 0
+        }
+      },
+      "probe": {
+        "sigmaErrors": [],
+        "maxRafGap": 166.7,
+        "longtasks": [
+          56,
+          119,
+          71,
+          58,
+          60,
+          56,
+          59,
+          56,
+          56,
+          58,
+          57,
+          72,
+          59,
+          55,
+          52,
+          55,
+          60,
+          62,
+          59,
+          56,
+          76,
+          58,
+          57,
+          59,
+          54,
+          54,
+          55,
+          54,
+          58,
+          55,
+          56,
+          93,
+          61,
+          60,
+          63,
+          60,
+          60,
+          61,
+          58,
+          79
+        ]
+      },
+      "page_errors": []
+    }
+  }
+}

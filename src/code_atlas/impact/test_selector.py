@@ -25,6 +25,10 @@ _TEST_SUFFIXES = (
     ".test.ts", ".spec.ts", ".test.tsx", ".spec.tsx",
 )
 
+# cap default de candidatos — declarado em ``truncation_reasons``
+# quando a saída chega ao limite (lf-0151, convenção at-cap).
+MAX_TEST_CANDIDATES = 50
+
 
 def is_test_path(path: str) -> bool:
     p = path.replace("\\", "/").lower()
@@ -91,7 +95,7 @@ def select(
     impacts: tuple[ImpactCandidate, ...],
     *,
     base_snapshot_id: int | None = None,
-    max_candidates: int = 50,
+    max_candidates: int = MAX_TEST_CANDIDATES,
 ) -> tuple[TestCandidate, ...]:
     conn.row_factory = sqlite3.Row
     out: list[TestCandidate] = []

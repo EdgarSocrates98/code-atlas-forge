@@ -1,0 +1,146 @@
+{
+  "rounds": 40,
+  "mix": "pan+wheel-zoom+kbd-cycle+select per round; real /search round-trip every 8",
+  "heap_baseline_mb": 5.96,
+  "samples": [
+    {
+      "round": 4,
+      "heap_mb": 6.14,
+      "dom": {
+        "documents": 1,
+        "nodes": 285,
+        "jsEventListeners": 88
+      }
+    },
+    {
+      "round": 9,
+      "heap_mb": 7.37,
+      "dom": {
+        "documents": 1,
+        "nodes": 260,
+        "jsEventListeners": 84
+      }
+    },
+    {
+      "round": 14,
+      "heap_mb": 8.08,
+      "dom": {
+        "documents": 1,
+        "nodes": 260,
+        "jsEventListeners": 84
+      }
+    },
+    {
+      "round": 19,
+      "heap_mb": 7.71,
+      "dom": {
+        "documents": 1,
+        "nodes": 261,
+        "jsEventListeners": 84
+      }
+    },
+    {
+      "round": 24,
+      "heap_mb": 8.05,
+      "dom": {
+        "documents": 1,
+        "nodes": 261,
+        "jsEventListeners": 84
+      }
+    },
+    {
+      "round": 29,
+      "heap_mb": 8.13,
+      "dom": {
+        "documents": 1,
+        "nodes": 261,
+        "jsEventListeners": 84
+      }
+    },
+    {
+      "round": 34,
+      "heap_mb": 9.14,
+      "dom": {
+        "documents": 1,
+        "nodes": 261,
+        "jsEventListeners": 84
+      }
+    },
+    {
+      "round": 39,
+      "heap_mb": 9.24,
+      "dom": {
+        "documents": 1,
+        "nodes": 261,
+        "jsEventListeners": 84
+      }
+    }
+  ],
+  "heap_end_mb": 9.48,
+  "trend": {
+    "slope_kb_per_round": 75.7,
+    "first_sample_mb": 6.14,
+    "last_sample_mb": 9.24
+  },
+  "telemetry_end": {
+    "sigmaLive": 0,
+    "sigmaTotal": 5,
+    "workersLive": 0,
+    "workersTotal": 5,
+    "fallbacks": 0,
+    "lastLayoutError": null,
+    "runs": {
+      "started": 5,
+      "done": 5,
+      "cancelled": 0,
+      "stale": 0,
+      "error": 0
+    }
+  },
+  "probe": {
+    "sigmaErrors": [],
+    "maxRafGap": 183.3,
+    "longtasks": [
+      58,
+      121,
+      74,
+      61,
+      61,
+      62,
+      56,
+      55,
+      56,
+      57,
+      58,
+      78,
+      59,
+      53,
+      57,
+      60,
+      55,
+      57,
+      55,
+      72,
+      54,
+      59,
+      56,
+      56,
+      58,
+      56,
+      57,
+      57,
+      57,
+      70,
+      57,
+      59,
+      57,
+      57,
+      56,
+      55,
+      56,
+      57,
+      93
+    ]
+  },
+  "page_errors": []
+}

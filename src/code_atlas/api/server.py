@@ -26,6 +26,7 @@ import contextlib
 import json
 import re
 import sqlite3
+import sys
 import threading
 import time
 from collections import deque
@@ -102,9 +103,10 @@ def _security_headers(h: BaseHTTPRequestHandler, *, cors: bool) -> None:
     h.send_header(
         "Content-Security-Policy",
         "default-src 'self'; script-src 'self'; "
-        "script-src-attr 'unsafe-inline'; "
         "style-src 'self' 'unsafe-inline'; img-src 'self' data:; "
-        "connect-src 'self'; font-src 'self'; frame-ancestors 'none'")
+        "connect-src 'self'; font-src 'self'; worker-src 'self'; "
+        "object-src 'none'; base-uri 'self'; form-action 'self'; "
+        "frame-ancestors 'none'")
     if cors:
         h.send_header("Access-Control-Allow-Origin", "http://127.0.0.1")
         h.send_header("Vary", "Origin")
@@ -113,6 +115,10 @@ def _security_headers(h: BaseHTTPRequestHandler, *, cors: bool) -> None:
 class _AtlasHandler(BaseHTTPRequestHandler):
     server: _AtlasHttpd
     protocol_version = "HTTP/1.1"
+    # lf-0153: ``Server: BaseHTTP/0.6 Python/3.12.3`` fingerprintava a
+    # stack em toda resposta — versão do produto só, sem a do runtime.
+    server_version = "code-atlas-api"
+    sys_version = ""
 
     def setup(self) -> None:
         super().setup()
@@ -197,6 +203,11 @@ class _AtlasHandler(BaseHTTPRequestHandler):
                    ".woff", ".woff2", ".txt", ".map"}
         if target.suffix.lower() not in allowed:
             raise ApiError("not-found", "tipo de asset não permitido", 404)
+        # lf-0153: stat ANTES do read — um asset gigante plantado na
+        # dist não pode ser carregado inteiro em memória só para ser
+        # rejeitado depois (o check era pós-leitura).
+        if target.stat().st_size > MAX_RESPONSE:
+            raise ApiError("response-too-large", "asset excede o limite", 500)
         body = target.read_bytes()
         if len(body) > MAX_RESPONSE:
             raise ApiError("response-too-large", "asset excede o limite", 500)
@@ -231,6 +242,13 @@ class _AtlasHandler(BaseHTTPRequestHandler):
     def _dispatch(self, method: str) -> None:
         try:
             self._guard()
+            # RFC 9110: o request-target nunca carrega controles C0/DEL.
+            # Rejeita cedo — depender do ``resolve()`` estourar em NUL é
+            # não-determinístico entre plataformas/versões (Win py3.13
+            # retorna 200 via SPA fallback onde POSIX/py3.12 dava 400).
+            if any(ord(c) < 0x20 or ord(c) == 0x7F for c in self.path):
+                raise ApiError(
+                    "bad-request", "request-target malformado", 400)
             path = urlparse(self.path).path
             if not path.startswith(API_PREFIX):
                 if method == "GET" and self.server.static_root:
@@ -249,6 +267,13 @@ class _AtlasHandler(BaseHTTPRequestHandler):
             self._json(handle(self.server, method, route, self))
         except ApiError as e:
             self._error(e)
+        except ValueError:
+            # lf-0153: request-target hostil que estoura no parse —
+            # NUL em ``resolve()`` (``GET /a\x00b``), IPv6 malformado
+            # em absolute-URI (``GET http://[``) — era 500 ``internal``
+            # para o que é erro do cliente; agora 400 tipado.
+            self._error(ApiError(
+                "bad-request", "request-target malformado", 400))
         except TimeoutError:
             with contextlib.suppress(OSError):
                 self._error(ApiError(
@@ -276,7 +301,21 @@ class _AtlasHttpd(ThreadingHTTPServer):
         self.rate_limiter = _RateLimiter(rate_limit)
 
     def log(self, msg: str) -> None:
-        print(f"[atlas-api] {msg}", flush=True)
+        # lf-0153: a request line crua carrega bytes de controle do
+        # cliente (``GET /\x1b[31m``) — escape antes de tocar o stderr,
+        # senão ``--verbose`` vira canal de ANSI/forged-line injection.
+        from code_atlas.observability.logging import escape_control
+        print(f"[atlas-api] {escape_control(msg)}", flush=True)
+
+    def handle_error(self, request: Any, client_address: Any) -> None:
+        # lf-0153: ``socketserver`` despejava um traceback por conexão
+        # RST — um cliente loopback hostil inundava stderr à vontade
+        # (log-flood). Erros de transporte são rotina e calam; bugs
+        # reais de handler continuam com o traceback default.
+        exc = sys.exc_info()[1]
+        if isinstance(exc, (ConnectionError, TimeoutError)):
+            return
+        super().handle_error(request, client_address)
 
     def connect(self) -> sqlite3.Connection:
         conn = connect(Path(self.db_path), read_only=True)
@@ -311,6 +350,37 @@ class AtlasApiServer:
     def shutdown(self) -> None:
         self._httpd.shutdown()
         self._httpd.server_close()
+
+
+def explorer_static_root(repo_hint: Path | None = None) -> Path | None:
+    """Resolve a dist compilada do Explorer para ``static_root``.
+
+    Ordem (lf-0148, cycle-8.1 Phase 3): ``code_atlas/explorer_dist``
+    empacotado no wheel via ``importlib.resources`` → checkout do repo
+    em modo dev (``explorer/dist/explorer/browser`` ou
+    ``explorer/dist`` relativo a ``repo_hint``). Retorna ``None``
+    quando nenhum candidato tem ``index.html`` — o servidor sobe
+    API-only nesse caso.
+
+    Wheels são sempre instaladas descompactadas, então o traversable é
+    um ``Path`` real; loaders exóticos (zipimport) caem no fallback em
+    vez de quebrar.
+    """
+    try:
+        from importlib.resources import files
+        packaged = files("code_atlas").joinpath("explorer_dist")
+        if (isinstance(packaged, Path)
+                and (packaged / "index.html").is_file()):
+            return packaged
+    except (ModuleNotFoundError, TypeError, OSError):
+        pass
+    if repo_hint is not None:
+        for candidate in (
+                repo_hint / "explorer" / "dist" / "explorer" / "browser",
+                repo_hint / "explorer" / "dist"):
+            if (candidate / "index.html").is_file():
+                return candidate
+    return None
 
 
 def serve(db_path: str, host: str = "127.0.0.1", port: int = 8741,

@@ -3,4 +3,4 @@
 Cycle 1: foundation & contracts. Nenhuma dependência de runtime além da stdlib.
 """
 
-__version__ = "1.0.0rc1"
+__version__ = "1.0.0"
