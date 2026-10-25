@@ -28,7 +28,7 @@ from code_atlas.mcp import _TOOLS, AtlasMcpServer
 from code_atlas.storage.db import fts5_available
 from code_atlas.storage.migrations import migrate, migrations, schema_version
 
-EXPECTED_VERSION = "1.0.0rc1"
+EXPECTED_VERSION = "1.0.0"
 
 #: Subcomandos top-level do CLI — todos devem continuar existindo.
 CLI_COMMANDS = frozenset({

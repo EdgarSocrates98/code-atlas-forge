@@ -33,15 +33,15 @@
       },
       {
         "cycle": 4,
-        "dom_nodes": 72611,
+        "dom_nodes": 72809,
         "dom_listeners": 3088,
-        "dom_nodes_delta": 8908
+        "dom_nodes_delta": 9106
       },
       {
         "cycle": 5,
         "dom_nodes": 81655,
         "dom_listeners": 3088,
-        "dom_nodes_delta": 9044
+        "dom_nodes_delta": 8846
       },
       {
         "cycle": 6,
@@ -78,8 +78,8 @@
     "cycles": 4,
     "instrumentation": "none in the loop — el.click() inside one evaluate; CDP only before/after",
     "heap_mb": {
-      "before": 11.81,
-      "after": 10.98,
+      "before": 11.84,
+      "after": 11.01,
       "delta": -0.83,
       "per_cycle_kb": -212.5
     },
@@ -94,14 +94,14 @@
   "cycles_mode": "all settled (waitLayoutIdle after every mount)",
   "heap_mb": {
     "before": 7.31,
-    "after": 11.81,
-    "delta": 4.5,
-    "per_cycle_kb": 460.8
+    "after": 11.84,
+    "delta": 4.53,
+    "per_cycle_kb": 463.9
   },
   "snapshot_diff": {
-    "a_total_mb": 15.45,
-    "b_total_mb": 48.4,
-    "delta_mb": 32.95,
+    "a_total_mb": 15.44,
+    "b_total_mb": 48.36,
+    "delta_mb": 32.92,
     "detached_mb_after": 0.98,
     "detached_nodes_after": 9185,
     "top_retained_classes": [
@@ -147,9 +147,9 @@
       },
       {
         "key": "native:NodeList",
-        "delta_bytes": 1200648,
+        "delta_bytes": 1200680,
         "delta_count": 15011,
-        "bytes_after": 1561168,
+        "bytes_after": 1561200,
         "count_after": 19519,
         "detached_after": 0
       },
@@ -213,8 +213,8 @@
         "key": "native:blink::NodeRareData",
         "delta_bytes": 656248,
         "delta_count": 20500,
-        "bytes_after": 850104,
-        "count_after": 26555,
+        "bytes_after": 850040,
+        "count_after": 26553,
         "detached_after": 0
       },
       {
@@ -227,7 +227,7 @@
       },
       {
         "key": "array:(object elements)",
-        "delta_bytes": 592380,
+        "delta_bytes": 594208,
         "delta_count": 6379,
         "bytes_after": 682204,
         "count_after": 7371,
@@ -277,8 +277,8 @@
         "key": "native:blink::NodeRareData::DataFieldWrapper<gfx::Vector2dF>",
         "delta_bytes": 480360,
         "delta_count": 20015,
-        "bytes_after": 624552,
-        "count_after": 26023,
+        "bytes_after": 624504,
+        "count_after": 26021,
         "detached_after": 0
       },
       {

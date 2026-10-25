@@ -70,9 +70,11 @@ DONE se persistirem falhas P0/P1").
 1. Bump `__version__` → seção datada no CHANGELOG → este gate verde.
 2. Tag anotada `v<versão>` **somente após** o checklist completo —
    passo humano, nunca automatizado.
-3. Publicação PyPI: **não configurada** neste repositório (sem
-   workflow de publish; Blueprint §9 prevê "release OIDC quando
-   aplicável" — permanece pendente e declarada).
+3. Publicação PyPI: `.github/workflows/release.yml` (cycle-8.1,
+   lf-0158) — PyPI Trusted Publishing via OIDC, sem tokens de longa
+   duração. Build separado de publish, `id-token: write` só no job de
+   publish, ambiente protegido, tag↔versão validada, checksums
+   verificados. Setup do mantenedor: `docs/release-pipeline-oidc.md`.
 
 ## Decisões de produto deferidas (documentadas, não executadas)
 
@@ -88,10 +90,8 @@ DONE se persistirem falhas P0/P1").
   `code_atlas/explorer_dist/` (package-data) gerado por
   `scripts/build_release.sh`. `pip install` → `code-atlas explorer`
   serve a SPA completa; ver seção "Empacotamento e reprodutibilidade".
-- **Classifier PyPI** — `pyproject.toml` declara
-  `Development Status :: 3 - Alpha`. Para GA (`1.0.0`) deve ir a
-  `5 - Production/Stable`; para a linha RC `4 - Beta` seria o
-  correto. Item do checklist de GA.
+- ~~**Classifier PyPI**~~ — **resolvido no GA `1.0.0`**:
+  `Development Status :: 5 - Production/Stable`.
 - **Tag/publish/push** — nunca executados por automação neste repo;
   `scripts/release_check.sh` verifica e reporta, o corte de tag é
   humano.

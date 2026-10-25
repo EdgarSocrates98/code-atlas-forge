@@ -36,26 +36,26 @@
     "hub_occurrence_id": 3002,
     "client_limit_100": {
       "samples_ms": [
-        16.279999999999998,
-        14.641,
-        14.76,
-        13.869,
-        14.475
+        9.155999999999999,
+        7.7010000000000005,
+        7.9430000000000005,
+        7.988,
+        8.848999999999998
       ],
-      "median_ms": 14.641,
+      "median_ms": 7.988,
       "edges": 100,
       "nodes": 101,
       "truncated": true
     },
     "server_cap_200": {
       "samples_ms": [
-        15.318999999999999,
-        16.502,
-        15.862000000000002,
-        15.229,
-        14.638
+        8.485,
+        8.456,
+        8.920000000000002,
+        8.449,
+        8.956000000000001
       ],
-      "median_ms": 15.318999999999999,
+      "median_ms": 8.485,
       "edges": 151,
       "nodes": 152,
       "truncated": false
@@ -72,17 +72,17 @@
       "url": "/graph?focus=3002",
       "surface": "canvas",
       "renderer_failed_banner": false,
-      "wall_nav_to_ready_ms": 550,
+      "wall_nav_to_ready_ms": 402,
       "resource": {
-        "navDuration": 181.4,
+        "navDuration": 129.5,
         "neighborsApi": {
-          "start": 372.4,
-          "duration": 58.7,
-          "responseEnd": 431.1,
+          "start": 288.8,
+          "duration": 48.5,
+          "responseEnd": 337.3,
           "transferSize": 48588,
           "encodedBodySize": 48288
         },
-        "symbolApi": 51
+        "symbolApi": 45.7
       },
       "counts_initial": {
         "rendered": 101,
@@ -93,11 +93,10 @@
         "mode": "canvas",
         "rendererFailed": false
       },
-      "max_raf_gap_ms": 300.1,
+      "max_raf_gap_ms": 166.7,
       "longtasks": [
-        77,
-        108,
-        206
+        57,
+        120
       ],
       "sigma_errors": [],
       "page_errors": [],
@@ -105,12 +104,12 @@
         "before_load": 1.1,
         "end": 9.8
       },
-      "raf_alive_ms": 11.4
+      "raf_alive_ms": 8.7
     },
     "table_expansion_phase": {
       "view": "accessible table (renderer fallback keeps it usable)",
       "hub_self_expand": {
-        "wall_ms": 96,
+        "wall_ms": 80,
         "counts_after": {
           "nodes": 101,
           "edges": 100
@@ -121,105 +120,105 @@
         {
           "index": 0,
           "target": "first-enabled-0",
-          "wall_ms": 82,
+          "wall_ms": 74,
           "nodes_after": 108,
           "edges_after": 112
         },
         {
           "index": 1,
           "target": "first-enabled-1",
-          "wall_ms": 91,
+          "wall_ms": 75,
           "nodes_after": 110,
           "edges_after": 123
         },
         {
           "index": 2,
           "target": "first-enabled-2",
-          "wall_ms": 93,
+          "wall_ms": 77,
           "nodes_after": 112,
           "edges_after": 133
         },
         {
           "index": 3,
           "target": "first-enabled-3",
-          "wall_ms": 92,
+          "wall_ms": 78,
           "nodes_after": 114,
           "edges_after": 142
         },
         {
           "index": 4,
           "target": "first-enabled-4",
-          "wall_ms": 89,
+          "wall_ms": 78,
           "nodes_after": 116,
           "edges_after": 150
         },
         {
           "index": 5,
           "target": "first-enabled-5",
-          "wall_ms": 93,
+          "wall_ms": 79,
           "nodes_after": 118,
           "edges_after": 157
         },
         {
           "index": 6,
           "target": "first-enabled-6",
-          "wall_ms": 88,
+          "wall_ms": 77,
           "nodes_after": 120,
           "edges_after": 164
         },
         {
           "index": 7,
           "target": "first-enabled-7",
-          "wall_ms": 89,
+          "wall_ms": 77,
           "nodes_after": 122,
           "edges_after": 171
         },
         {
           "index": 8,
           "target": "first-enabled-8",
-          "wall_ms": 89,
+          "wall_ms": 78,
           "nodes_after": 124,
           "edges_after": 178
         },
         {
           "index": 9,
           "target": "first-enabled-9",
-          "wall_ms": 91,
+          "wall_ms": 77,
           "nodes_after": 126,
           "edges_after": 185
         },
         {
           "index": 10,
           "target": "first-enabled-10",
-          "wall_ms": 92,
+          "wall_ms": 79,
           "nodes_after": 128,
           "edges_after": 192
         },
         {
           "index": 11,
           "target": "first-enabled-11",
-          "wall_ms": 88,
+          "wall_ms": 76,
           "nodes_after": 130,
           "edges_after": 199
         },
         {
           "index": 12,
           "target": "first-enabled-12",
-          "wall_ms": 94,
+          "wall_ms": 77,
           "nodes_after": 132,
           "edges_after": 206
         },
         {
           "index": 13,
           "target": "first-enabled-13",
-          "wall_ms": 93,
+          "wall_ms": 77,
           "nodes_after": 134,
           "edges_after": 213
         },
         {
           "index": 14,
           "target": "first-enabled-14",
-          "wall_ms": 84,
+          "wall_ms": 74,
           "nodes_after": 136,
           "edges_after": 220
         }
@@ -237,7 +236,7 @@
         "collapsed_to": 100,
         "apply": {
           "max_gap_ms": 16.8,
-          "settle_ms": 1609.4
+          "settle_ms": 1600
         },
         "counts_collapsed": {
           "rendered": 100,
@@ -250,7 +249,7 @@
         },
         "restore": {
           "max_gap_ms": 16.8,
-          "settle_ms": 1607.6
+          "settle_ms": 1607
         },
         "counts_restored": {
           "rendered": 136,
@@ -267,7 +266,7 @@
     "canvas_session": {
       "arch_load": {
         "surface": "canvas",
-        "wall_nav_to_ready_ms": 557,
+        "wall_nav_to_ready_ms": 373,
         "counts": {
           "rendered": 500,
           "edges": 0,
@@ -280,32 +279,32 @@
         "note": "overview carries 0 edges — canvas mounts cleanly"
       },
       "pan_arch": {
-        "frames": 189,
-        "fps_mean": 55.5,
-        "delta_mean_ms": 18.02,
-        "delta_p95_ms": 33.4,
-        "delta_max_ms": 50,
-        "frames_over_33ms": 6,
-        "draw_calls": 170,
-        "draw_verts": 216078
+        "frames": 197,
+        "fps_mean": 57.8,
+        "delta_mean_ms": 17.29,
+        "delta_p95_ms": 16.8,
+        "delta_max_ms": 33.4,
+        "frames_over_33ms": 0,
+        "draw_calls": 175,
+        "draw_verts": 231063
       },
       "drill_attempt": {
         "attempted": true,
         "target": "mod_0000.py",
         "action": "']' ×k + Enter + e — drillFile() in-session",
-        "wall_ms": 678,
+        "wall_ms": 591,
         "outcome": "canvas-edges",
         "page_state": {
           "state": null,
           "stateText": "",
-          "breadcrumb": "Arquitetura / mod_0999.py ← Voltar sem perder o contexto"
+          "breadcrumb": "Arquitetura / mod_0000.py ← Voltar sem perder o contexto"
         },
         "counts_after": {
-          "rendered": 26,
-          "edges": 26,
+          "rendered": 208,
+          "edges": 213,
           "hidden": 0,
-          "known": null,
-          "noticeText": null,
+          "known": 208,
+          "noticeText": "Visualização limitada: exibindo 208 de 208 nós conhecidos — o servidor também truncou resultados . Expanda nós sob demanda ou ajuste o limite.",
           "mode": "canvas",
           "rendererFailed": false
         },
@@ -317,14 +316,14 @@
       },
       "edge_canvas_metrics": {
         "pan_ego": {
-          "frames": 204,
-          "fps_mean": 59.9,
-          "delta_mean_ms": 16.7,
-          "delta_p95_ms": 16.8,
-          "delta_max_ms": 33.4,
+          "frames": 205,
+          "fps_mean": 60.2,
+          "delta_mean_ms": 16.6,
+          "delta_p95_ms": 16.7,
+          "delta_max_ms": 16.8,
           "frames_over_33ms": 0,
-          "draw_calls": 124,
-          "draw_verts": 9522
+          "draw_calls": 168,
+          "draw_verts": 99864
         },
         "canvas_expand": {
           "attempts": 4,
@@ -336,60 +335,60 @@
               "grew": false
             },
             {
-              "node_label": "mod_0999",
+              "node_label": "mod_0000",
               "grew": false
             },
             {
-              "node_label": "K0999",
+              "node_label": "K0000",
               "grew": false
             },
             {
-              "node_label": "m0999",
+              "node_label": "m0000",
               "grew": false
             }
           ]
         },
         "cap_collapse": {
-          "collapsed_to": 25,
+          "collapsed_to": 100,
           "apply": {
-            "max_gap_ms": 16.8,
-            "settle_ms": 1609.1
+            "max_gap_ms": 33.3,
+            "settle_ms": 1609.6
           },
           "counts_collapsed": {
-            "rendered": 25,
-            "edges": 25,
-            "hidden": 1,
-            "known": 26,
-            "noticeText": "Visualização limitada: exibindo 25 de 26 nós conhecidos (1 ocultos pelo limite de 25) . Expanda nós sob demanda ou ajuste o limite.",
+            "rendered": 100,
+            "edges": 99,
+            "hidden": 108,
+            "known": 208,
+            "noticeText": "Visualização limitada: exibindo 100 de 208 nós conhecidos (108 ocultos pelo limite de 100) — o servidor também truncou resultados . Expanda nós sob demanda ou ajuste o limite.",
             "mode": "canvas",
             "rendererFailed": false
           },
           "restore": {
-            "max_gap_ms": 16.8,
-            "settle_ms": 1605.6
+            "max_gap_ms": 33.3,
+            "settle_ms": 1607.3
           },
           "counts_restored": {
-            "rendered": 26,
-            "edges": 26,
+            "rendered": 208,
+            "edges": 213,
             "hidden": 0,
-            "known": null,
-            "noticeText": null,
+            "known": 208,
+            "noticeText": "Visualização limitada: exibindo 208 de 208 nós conhecidos — o servidor também truncou resultados . Expanda nós sob demanda ou ajuste o limite.",
             "mode": "canvas",
             "rendererFailed": false
           }
         },
         "pan_dense": {
           "frames": 205,
-          "fps_mean": 60.1,
-          "delta_mean_ms": 16.65,
+          "fps_mean": 60,
+          "delta_mean_ms": 16.66,
           "delta_p95_ms": 16.7,
           "delta_max_ms": 16.8,
           "frames_over_33ms": 0,
-          "draw_calls": 122,
-          "draw_verts": 9516
+          "draw_calls": 124,
+          "draw_verts": 74898
         },
         "remount_table_to_graph": {
-          "wall_ms": 1378,
+          "wall_ms": 1525,
           "surface_after": "canvas",
           "renderer_failed": false,
           "sigma_errors_so_far": 0
@@ -398,25 +397,18 @@
       "sigma_errors": [],
       "page_errors": [],
       "longtasks": [
-        79,
-        95,
-        118,
-        59,
-        80,
-        71,
-        74,
         73,
-        50,
-        73,
-        52,
-        167,
-        266
+        54,
+        58,
+        131,
+        114,
+        199
       ],
       "heap_mb": {
         "before": 0.5,
-        "end": 7.4
+        "end": 8.1
       },
-      "raf_alive_ms": 8.5
+      "raf_alive_ms": 2.2
     }
   }
 }

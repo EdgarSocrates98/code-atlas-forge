@@ -6,6 +6,15 @@ versionamento [SemVer](https://semver.org/lang/pt-BR/).
 
 ## [Unreleased]
 
+## [1.0.0] - 2026-10-25
+
+Primeiro release estável (GA) do code-atlas-forge. Promoção de
+`1.0.0rc1` → `1.0.0` após o ciclo 8.1 fechar todos os gates de GA:
+scorecard **31/32** (`docs/ga-readiness-scorecard.md`), zero vulns de
+produção, builds reproduzíveis, pipeline OIDC preparado. Tag e
+publicação PyPI ficam com o mantenedor via
+`.github/workflows/release.yml`.
+
 ### Adicionado — Cycle 8.1 (branch `cycle-8.1-ga-readiness`)
 
 - **Explorer embutido no wheel** (lf-0148, Phase 3): o dist Angular é
