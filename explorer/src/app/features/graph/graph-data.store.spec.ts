@@ -1,15 +1,15 @@
 import type {
+  ApiFileOccurrence,
+  ApiFileOccurrences,
   ApiGraphNeighbors,
   ApiGraphNode,
   ApiGraphOverview,
-  ApiSearchHit,
-  ApiSearchResponse,
   ApiService,
   ApiSymbolDetail,
 } from '../../core/api/api.service';
-import { ApiUnreachableError } from '../../core/api/api.errors';
+import { ApiHttpError, ApiUnreachableError } from '../../core/api/api.errors';
 import { GraphDataStore } from './graph-data.store';
-import { DEFAULT_NODE_CAP } from './graph.models';
+import { DEFAULT_NODE_CAP, DRILL_PAGE_LIMIT } from './graph.models';
 
 /* ---------------------------------------------------------------------
  * Mock ApiService — hand-typed against the live contract, never fakes.
@@ -54,52 +54,35 @@ function makeApi(overrides: Partial<Record<keyof ApiService, unknown>> = {}): Ap
         ...nodeDto(1),
         relations_summary: [{ type: 'calls', resolution_status: 'verified', n: 2 }],
       } satisfies ApiSymbolDetail),
-    searchCode: jasmine.createSpy('searchCode').and.resolveTo({
-      schema_version: 1,
-      repository: '/repo',
-      snapshot_id: 7,
-      query: 'x',
-      strategy: 'structural',
-      ranking_version: 'v',
-      items: [],
-      limit: 200,
-      truncated: false,
-      next_cursor: null,
-      diagnostics: [],
-    } satisfies ApiSearchResponse),
+    getFileOccurrences: jasmine
+      .createSpy('getFileOccurrences')
+      .and.resolveTo({ items: [], total: 0 } satisfies ApiFileOccurrences),
   };
   return { ...base, ...overrides } as unknown as ApiService;
 }
 
-function searchHit(id: number, path: string): ApiSearchHit {
+/** One occurrence item in the GET /files/{id}/occurrences contract. */
+function occurrence(id: number, path = 'm.py'): ApiFileOccurrence {
   return {
-    occurrence_id: id,
+    id,
     qualified_name: `mod.fn${id}`,
     kind: 'function',
+    span_start: id,
+    span_end: id + 2,
+    line: id,
+    col: 1,
     language: 'python',
     path,
-    span: { start: id, end: id + 2 },
-    score: 1,
-    strategy: 'structural',
-    matched_fields: ['qualified_name'],
-    evidence: [`occ:${id}`],
+    symbol_id: id * 10,
+    parse_status: 'ok',
   };
 }
 
-function searchResponse(items: ApiSearchHit[]): ApiSearchResponse {
-  return {
-    schema_version: 1,
-    repository: '/repo',
-    snapshot_id: 7,
-    query: 'q',
-    strategy: 'structural',
-    ranking_version: 'v',
-    items,
-    limit: 200,
-    truncated: false,
-    next_cursor: null,
-    diagnostics: [],
-  };
+function occurrencesResponse(
+  items: ApiFileOccurrence[],
+  total = items.length,
+): ApiFileOccurrences {
+  return { items, total };
 }
 
 /* --------------------------------------------------------------------- */
@@ -290,7 +273,9 @@ describe('GraphDataStore — layout freeze flag', () => {
           truncated: true,
         }),
       ),
-      searchCode: jasmine.createSpy().and.resolveTo(searchResponse([searchHit(10, 'm.py'), searchHit(11, 'm.py')])),
+      getFileOccurrences: jasmine
+        .createSpy('getFileOccurrences')
+        .and.resolveTo(occurrencesResponse([occurrence(10), occurrence(11)])),
     });
     const store = new GraphDataStore(api);
     await store.loadInitial();
@@ -332,11 +317,9 @@ describe('GraphDataStore — layout freeze flag', () => {
 });
 
 describe('GraphDataStore — drill-down', () => {
-  function drillApi(): ApiService {
+  function drillApi(occurrences: ApiFileOccurrences = occurrencesResponse([occurrence(10), occurrence(11)])): ApiService {
     return makeApi({
-      searchCode: jasmine.createSpy('searchCode').and.resolveTo(
-        searchResponse([searchHit(10, 'm.py'), searchHit(11, 'm.py'), searchHit(12, 'other.py')]),
-      ),
+      getFileOccurrences: jasmine.createSpy('getFileOccurrences').and.resolveTo(occurrences),
       getGraphNeighbors: jasmine.createSpy('getGraphNeighbors').and.callFake((occId: number) => {
         if (occId === 10) {
           return Promise.resolve(
@@ -355,18 +338,98 @@ describe('GraphDataStore — drill-down', () => {
     });
   }
 
-  it('drills a file into its symbol occurrences (exact-path hits only)', async () => {
-    const store = new GraphDataStore(drillApi());
+  it('drills a file via the occurrences endpoint — never name search', async () => {
+    const api = drillApi();
+    const store = new GraphDataStore(api);
     await store.loadInitial();
-    await store.drillFile('m.py', 2);
+    await store.drillFile('m.py', 2, 42);
 
+    expect(api.getFileOccurrences).toHaveBeenCalledWith(
+      42,
+      jasmine.objectContaining({ limit: DRILL_PAGE_LIMIT }),
+      jasmine.anything(),
+    );
     expect(store.mode()).toBe('symbols');
     expect(store.breadcrumb().length).toBe(2);
     expect(store.breadcrumb()[1].path).toBe('m.py');
-    // occ:12 belongs to another file — substring path match must not leak it
     expect(store.nodes().map((n) => n.id).sort()).toEqual(['occ:10', 'occ:11']);
     expect(store.edges().length).toBe(1);
-    expect(store.fileContext()?.expectedSymbols).toBe(2);
+    const ctx = store.fileContext();
+    expect(ctx?.expectedSymbols).toBe(2);
+    expect(ctx?.occurrencesTotal).toBe(2);
+    // node carries the real index fields the endpoint returned
+    const fn10 = store.nodes().find((n) => n.id === 'occ:10');
+    expect(fn10?.line).toBe(10);
+    expect(fn10?.span).toEqual({ start: 10, end: 12 });
+    expect(fn10?.symbolId).toBe(100);
+  });
+
+  it('falls back to the path ref (with path param) when file_id is absent', async () => {
+    const api = drillApi();
+    const store = new GraphDataStore(api);
+    await store.loadInitial();
+    await store.drillFile('m.py', 2); // no fileId — overview item lacked it
+
+    expect(api.getFileOccurrences).toHaveBeenCalledWith(
+      'm.py',
+      jasmine.objectContaining({ path: 'm.py' }),
+      jasmine.anything(),
+    );
+    expect(store.phase()).toBe('ready');
+  });
+
+  it('paginates occurrences until total is covered', async () => {
+    const page1 = Array.from({ length: 3 }, (_, i) => occurrence(i + 1));
+    const page2 = [occurrence(4), occurrence(5)];
+    const api = makeApi({
+      getFileOccurrences: jasmine
+        .createSpy('getFileOccurrences')
+        .and.callFake((_ref: unknown, scope?: { offset?: number }) =>
+          Promise.resolve(
+            (scope?.offset ?? 0) === 0
+              ? occurrencesResponse(page1, 5)
+              : occurrencesResponse(page2, 5),
+          ),
+        ),
+    });
+    const store = new GraphDataStore(api);
+    await store.loadInitial();
+    await store.drillFile('m.py', 5, 7);
+
+    expect((api.getFileOccurrences as jasmine.Spy).calls.count()).toBe(2);
+    expect(store.fileContext()?.occurrencesTotal).toBe(5);
+    expect(store.nodes().length).toBe(5);
+  });
+
+  it('maps a 404 from the occurrences endpoint to an honest empty state', async () => {
+    const api = makeApi({
+      getFileOccurrences: jasmine
+        .createSpy('getFileOccurrences')
+        .and.rejectWith(new ApiHttpError(404, 'Not Found', { error: { code: 'not-found' } })),
+      searchCode: jasmine.createSpy('searchCode'), // must never be consulted
+    });
+    const store = new GraphDataStore(api);
+    await store.loadInitial();
+    await store.drillFile('ghost.py', 3);
+
+    expect(store.phase()).toBe('empty');
+    expect(store.mode()).toBe('symbols');
+    expect(store.nodes().length).toBe(0);
+    expect(store.emptyMessage()).toContain('/files/{id}/occurrences');
+    // no name-search heuristic survives — searchCode is never called
+    expect((api as unknown as { searchCode: jasmine.Spy }).searchCode).not.toHaveBeenCalled();
+  });
+
+  it('keeps non-404 failures on the error phase', async () => {
+    const api = makeApi({
+      getFileOccurrences: jasmine
+        .createSpy('getFileOccurrences')
+        .and.rejectWith(new ApiHttpError(500, 'Internal', null)),
+    });
+    const store = new GraphDataStore(api);
+    await store.loadInitial();
+    await store.drillFile('boom.py', 3);
+    expect(store.phase()).toBe('error');
   });
 
   it('exits drill restoring the architecture view verbatim', async () => {
@@ -388,16 +451,14 @@ describe('GraphDataStore — drill-down', () => {
     expect(store.dataVersion().needsLayout).toBeFalse();
   });
 
-  it('reports empty when no occurrences resolve for the file', async () => {
-    const api = makeApi({
-      searchCode: jasmine.createSpy().and.resolveTo(searchResponse([])),
-    });
-    const store = new GraphDataStore(api);
+  it('reports empty when the file has no indexed occurrences', async () => {
+    const store = new GraphDataStore(drillApi(occurrencesResponse([], 0)));
     await store.loadInitial();
-    await store.drillFile('ghost.py', 3);
+    await store.drillFile('ghost.py', 3, 9);
     expect(store.phase()).toBe('empty');
     expect(store.mode()).toBe('symbols');
     expect(store.nodes().length).toBe(0);
+    expect(store.fileContext()?.occurrencesTotal).toBe(0);
   });
 });
 

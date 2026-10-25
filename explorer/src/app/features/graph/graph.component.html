@@ -107,12 +107,16 @@
   }
 
   @if (store.fileContext(); as ctx) {
-    @if (ctx.expectedSymbols > 0) {
-      <p class="notice" role="status">
-        Arquivo <code>{{ ctx.path }}</code>: {{ store.totalKnownNodes() }} ocorrências
-        localizadas{{ ctx.expectedSymbols > store.totalKnownNodes() ? ' de ~' + ctx.expectedSymbols + ' símbolos (cobertura limitada pela busca)' : '' }}.
-      </p>
-    }
+    <p class="notice" role="status">
+      Arquivo <code>{{ ctx.path }}</code>:
+      @if (ctx.occurrencesTotal !== null) {
+        {{ ctx.occurrencesTotal }} ocorrências indexadas no snapshot;
+        {{ store.totalKnownNodes() }} nós no grafo.
+      } @else {
+        {{ store.totalKnownNodes() }} nós no grafo
+        {{ ctx.expectedSymbols > 0 ? ' (agregado reporta ~' + ctx.expectedSymbols + ' símbolos)' : '' }}.
+      }
+    </p>
   }
 
   @if (store.hiddenNodeCount() > 0 || store.serverTruncated() || store.neighborsTruncated()) {
@@ -133,6 +137,13 @@
   @if (store.rendererFailed()) {
     <p class="notice notice--warning" role="alert">
       Renderização WebGL indisponível neste ambiente — usando a lista acessível.
+    </p>
+  }
+
+  @if (store.rendererLost()) {
+    <p class="notice notice--warning" role="alert">
+      Contexto WebGL perdido — o navegador tentará restaurar a renderização;
+      se persistir, alterne para a lista acessível.
     </p>
   }
 

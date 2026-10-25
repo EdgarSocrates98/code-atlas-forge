@@ -12,6 +12,18 @@ export interface DrillLevel {
   expectedSymbols?: number;
 }
 
+/** Context banner shown while a file drill is active. */
+export interface FileDrillContext {
+  path: string;
+  /** Aggregate-reported symbol count (may exceed the occurrences total). */
+  expectedSymbols: number;
+  /**
+   * Total occurrences reported by GET /files/{id}/occurrences — null while
+   * the endpoint has not answered (or answered 404).
+   */
+  occurrencesTotal: number | null;
+}
+
 /**
  * Stable node view-model. `id` is always either the backend-provided
  * `occ:{occurrence_id}` (symbol nodes) or `file:{path}` (architecture
@@ -30,9 +42,14 @@ export interface GraphNodeVM {
   occurrenceId: number | null;
   symbolId: number | null;
   span: { start: number; end: number } | null;
+  /** Source line/column when the backend reports them (occurrences endpoint). */
+  line: number | null;
+  col: number | null;
   parseStatus: string;
   /** Aggregate count for file nodes. */
   symbolCount: number | null;
+  /** `source_files.id` for file nodes — null when the backend omits it. */
+  fileId: number | null;
   /** Position in graph coordinates; absent until layout ran. */
   x: number | null;
   y: number | null;
@@ -45,9 +62,14 @@ export interface GraphEdgeVM {
   id: string;
   /** Node ids (`occ:{n}` / `file:{path}`). */
   from: string;
+  /** Target node id — '' when the relation target never resolved. */
   to: string;
+  /** Free-text unresolved target name (relations.to_unresolved), if any. */
+  toUnresolved: string | null;
   type: string;
   resolutionStatus: string;
+  /** relations.confidence_class — '' when the backend omits the field. */
+  confidenceClass: string;
   resolver: string;
   evidenceIds: number[];
 }
@@ -72,7 +94,9 @@ export const OVERVIEW_LIMIT = 2000;
 export const NEIGHBOR_LIMIT = 100;
 /** How many seed occurrences get a neighbors fetch during file drill. */
 export const DRILL_NEIGHBOR_BUDGET = 12;
-export const DRILL_SEARCH_LIMIT = 200;
+/** Page size for GET /files/{id}/occurrences. */
+export const DRILL_PAGE_LIMIT = 500;
+/** Hard cap on occurrences pages fetched per drill (5 × 500 = 2500 max). */
 export const DRILL_MAX_PAGES = 5;
 
 export const ALL_RESOLUTION_STATUSES: ResolutionStatus[] = [

@@ -248,6 +248,6 @@ export class GraphTableComponent {
   }
 
   drill(node: GraphNodeVM): void {
-    void this.store.drillFile(node.path, node.symbolCount ?? 0);
+    void this.store.drillFile(node.path, node.symbolCount ?? 0, node.fileId);
   }
 }

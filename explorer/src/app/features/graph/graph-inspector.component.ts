@@ -49,6 +49,12 @@ import { parseOccurrenceId, toEvidenceLevel } from './graph.utils';
               <dd class="field--mono">{{ n.span.start }} – {{ n.span.end }}</dd>
             </div>
           }
+          @if (n.line !== null) {
+            <div class="field">
+              <dt>Linha</dt>
+              <dd class="field--mono">{{ n.line }}{{ n.col !== null ? ':' + n.col : '' }}</dd>
+            </div>
+          }
           @if (n.symbolCount !== null) {
             <div class="field">
               <dt>Símbolos</dt>
@@ -125,6 +131,10 @@ import { parseOccurrenceId, toEvidenceLevel } from './graph.utils';
 
           <dl class="inspector__fields">
             <div class="field">
+              <dt>ID</dt>
+              <dd class="field--mono">{{ e.id }}</dd>
+            </div>
+            <div class="field">
               <dt>De</dt>
               <dd>
                 <button type="button" class="linklike" (click)="goNode(e.from)">
@@ -135,15 +145,28 @@ import { parseOccurrenceId, toEvidenceLevel } from './graph.utils';
             <div class="field">
               <dt>Para</dt>
               <dd>
-                <button type="button" class="linklike" (click)="goNode(e.to)">
-                  {{ nodeLabel(e.to) }}
-                </button>
+                @if (e.to) {
+                  <button type="button" class="linklike" (click)="goNode(e.to)">
+                    {{ nodeLabel(e.to) }}
+                  </button>
+                } @else {
+                  <span>Alvo não resolvido{{ e.toUnresolved ? ': ' + e.toUnresolved : '' }}</span>
+                }
               </dd>
             </div>
             <div class="field">
               <dt>Estado de evidência</dt>
-              <dd><atlas-evidence-badge [level]="levelOf(e.resolutionStatus)" /></dd>
+              <dd>
+                <atlas-evidence-badge [level]="levelOf(e.resolutionStatus)" />
+                <span class="field__raw">{{ e.resolutionStatus }}</span>
+              </dd>
             </div>
+            @if (e.confidenceClass) {
+              <div class="field">
+                <dt>Classe de confiança</dt>
+                <dd class="field--mono">{{ e.confidenceClass }}</dd>
+              </div>
+            }
             <div class="field">
               <dt>Resolver</dt>
               <dd class="field--mono">{{ e.resolver }}</dd>
@@ -151,7 +174,11 @@ import { parseOccurrenceId, toEvidenceLevel } from './graph.utils';
             <div class="field">
               <dt>Evidências</dt>
               <dd class="field--mono">
-                {{ e.evidenceIds.length ? e.evidenceIds.join(', ') : '—' }}
+                @if (e.evidenceIds.length) {
+                  {{ e.evidenceIds.join(', ') }}
+                } @else {
+                  <span class="field__empty">Sem evidência registrada</span>
+                }
               </dd>
             </div>
           </dl>
@@ -214,6 +241,16 @@ import { parseOccurrenceId, toEvidenceLevel } from './graph.utils';
       .field--mono {
         font-family: var(--atlas-font-family-mono);
         font-size: var(--atlas-font-size-xs);
+      }
+      .field__raw {
+        margin-left: var(--atlas-space-2);
+        font-family: var(--atlas-font-family-mono);
+        font-size: var(--atlas-font-size-xs);
+        color: var(--atlas-color-text-muted);
+      }
+      .field__empty {
+        font-family: var(--atlas-font-family-sans, inherit);
+        color: var(--atlas-color-text-muted);
       }
       .copy {
         margin-left: var(--atlas-space-2);
@@ -327,7 +364,7 @@ export class GraphInspectorComponent {
   }
 
   drill(node: GraphNodeVM): void {
-    void this.store.drillFile(node.path, node.symbolCount ?? 0);
+    void this.store.drillFile(node.path, node.symbolCount ?? 0, node.fileId);
   }
 
   async copyQname(qname: string): Promise<void> {
