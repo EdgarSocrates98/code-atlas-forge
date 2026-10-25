@@ -190,6 +190,8 @@ const QUICK_LINKS: QuickLink[] = [
         border-radius: var(--atlas-radius-md);
         padding: var(--atlas-space-4);
         background: var(--atlas-color-bg-raised);
+        /* Contained horizontal scroll for wide tables — never page overflow. */
+        overflow-x: auto;
       }
 
       .dashboard__panel h2 {
@@ -208,6 +210,12 @@ const QUICK_LINKS: QuickLink[] = [
         text-align: left;
         padding: var(--atlas-space-1) var(--atlas-space-2);
         border-bottom: 1px solid var(--atlas-color-border);
+      }
+
+      /* Long root_handle paths are unbreakable <code> — let them wrap
+       * before forcing the table past its panel. */
+      .dashboard__table td {
+        overflow-wrap: anywhere;
       }
 
       .dashboard__empty {

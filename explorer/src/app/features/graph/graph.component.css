@@ -69,6 +69,22 @@
   font: inherit;
 }
 
+.diag-toggle {
+  border: 1px solid var(--atlas-color-border);
+  border-radius: var(--atlas-radius-md);
+  background: var(--atlas-color-bg);
+  color: var(--atlas-color-text);
+  padding: var(--atlas-space-1) var(--atlas-space-3);
+  font-size: var(--atlas-font-size-sm);
+  cursor: pointer;
+}
+
+.diag-toggle--active {
+  background: var(--atlas-color-accent);
+  border-color: var(--atlas-color-accent);
+  color: var(--atlas-color-accent-text);
+}
+
 .graph-feature__filters {
   display: flex;
   flex-wrap: wrap;

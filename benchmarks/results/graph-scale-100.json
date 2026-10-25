@@ -7,13 +7,13 @@
   },
   "api": {
     "samples_ms": [
-      3.7,
-      2.572,
-      3.4250000000000003,
-      2.009,
-      3.005
+      4.05,
+      3.431,
+      2.494,
+      3.471,
+      2.9979999999999998
     ],
-    "median_ms": 3.005,
+    "median_ms": 3.431,
     "body": {
       "items": 100,
       "total_files": 100,
@@ -27,23 +27,23 @@
       "hardwareConcurrency": 16,
       "devicePixelRatio": 1
     },
-    "wall_nav_to_ready_ms": 511,
-    "ready_ms_page_clock": 505.2,
+    "wall_nav_to_ready_ms": 465,
+    "ready_ms_page_clock": 459,
     "resource": {
-      "navDuration": 199.6,
+      "navDuration": 199.1,
       "overviewApi": {
-        "start": 305.3,
-        "duration": 43.8,
-        "responseEnd": 349.1,
+        "start": 262.3,
+        "duration": 44,
+        "responseEnd": 306.3,
         "transferSize": 7381,
         "encodedBodySize": 7081
       },
-      "reposApi": 43,
-      "maxRafGap": 100,
+      "reposApi": 43.7,
+      "maxRafGap": 116.5,
       "longtasks": [
-        104,
-        154,
-        67
+        124,
+        151,
+        65
       ]
     },
     "counts": {
@@ -56,13 +56,13 @@
     },
     "heap_mb": {
       "before_load": 1.1,
-      "after_render": 6.8,
-      "after_pan": 6.8
+      "after_render": 5.1,
+      "after_pan": 8
     },
     "pan_at_default_cap": {
       "frames": 205,
-      "fps_mean": 60.1,
-      "delta_mean_ms": 16.63,
+      "fps_mean": 60,
+      "delta_mean_ms": 16.67,
       "delta_p95_ms": 16.8,
       "delta_max_ms": 16.8,
       "frames_over_33ms": 0,
@@ -71,12 +71,12 @@
     },
     "relayout": {
       "max_gap_ms": 50,
-      "settle_ms": 1616.2
+      "settle_ms": 1616.3
     },
     "cap_experiment": null,
     "second_relayout_probe": {
       "max_gap_ms": 33.3,
-      "settle_ms": 1207.8,
+      "settle_ms": 1210.5,
       "draw_calls_in_window": 6,
       "canvas_frozen_after_first_relayout": false
     }

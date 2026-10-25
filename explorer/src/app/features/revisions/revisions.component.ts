@@ -217,6 +217,9 @@ type RevisionsPhase = 'idle' | 'loading' | 'ready' | 'error' | 'offline';
 
       .revisions__field input,
       .revisions__field select {
+        min-width: 0; /* shrink below intrinsic width — long option text */
+        max-width: 100%;
+        text-overflow: ellipsis;
         padding: var(--atlas-space-2);
         border: 1px solid var(--atlas-color-border-strong);
         border-radius: var(--atlas-radius-sm);
@@ -233,6 +236,9 @@ type RevisionsPhase = 'idle' | 'loading' | 'ready' | 'error' | 'offline';
 
       .revisions__side {
         flex: 1;
+        /* fieldset UA min-width:min-content pins it to the widest select
+         * option — min-width:0 lets the pair fit the viewport. */
+        min-width: 0;
         display: flex;
         flex-direction: column;
         gap: var(--atlas-space-2);
@@ -300,6 +306,18 @@ type RevisionsPhase = 'idle' | 'loading' | 'ready' | 'error' | 'offline';
       .revisions__exact-tag {
         color: var(--atlas-evidence-verified);
         font-weight: var(--atlas-font-weight-medium);
+      }
+
+      /* Narrow screens: stack base/target vertically — two fieldsets plus
+       * an arrow cannot fit a phone width honestly. */
+      @media (max-width: 700px) {
+        .revisions__pair {
+          flex-direction: column;
+        }
+
+        .revisions__arrow {
+          transform: rotate(90deg);
+        }
       }
     `,
   ],

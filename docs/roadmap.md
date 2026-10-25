@@ -65,25 +65,38 @@ evidência em `docs/cycle-5-impact-engine.md`,
 `docs/cycle-5.1-impact-integrity.md`, `docs/cycle-5.1-evidence.md`;
 limitações em `docs/cycle-5.1-limitations.md`.
 
-## Cycle 6 — Explorer 🔶 implementado, homologação parcial
+## Cycle 6 — Explorer ✅ entregue (6.1 com hardening)
 
-Escopo realizado (branch `cycle-6-angular-explorer`): API HTTP
-loopback `/api/v1` em stdlib read-only (ADR-0009,
-`src/code_atlas/api/`), workbench Angular 18 com 10 rotas lazy
-(`explorer/`), grafo Sigma/WebGL bounded com layout congelado
-(`docs/graph-layout-stability.md`), busca híbrida, impacto e diff de
-revisões com banners de análise parcial, context packs, central de
-diagnósticos, `code-atlas explorer` empacotando API + dist. Docs:
-`docs/cycle-6-architecture.md`, `docs/interactive-impact.md`,
-`docs/visual-diff.md`, `docs/explorer-installation.md`,
-`docs/explorer-security.md`.
+Escopo realizado (branches `cycle-6-angular-explorer` +
+`cycle-6.1-explorer-hardening`): API HTTP loopback `/api/v1` em stdlib
+read-only (ADR-0009, `src/code_atlas/api/`), workbench Angular 18 com
+10 rotas lazy (`explorer/`), grafo Sigma/WebGL bounded com layout
+congelado (`docs/graph-layout-stability.md`), busca híbrida, impacto e
+diff de revisões com banners de análise parcial, context packs, central
+de diagnósticos, `code-atlas explorer` empacotando API + dist.
+
+Hardening 6.1 entregue: control center de repositórios
+(`docs/repository-control-center.md`), contexto global com deep links
+`?repo=&snapshot=` (`docs/global-context-navigation.md`), DTO de aresta
+com prova (`evidence_ids`, `confidence_class`, `resolver`,
+`to_unresolved` — `docs/graph-evidence-contracts.md`), endpoint real de
+drill-down `GET /files/{id}/occurrences`, rate limit 300/min + timeout
+30 s + CSP/XFO (`docs/explorer-security-v2.md`), câmera/seleção que
+sobrevive à navegação (`GraphStateService`) e correção medida do canvas
+congelado pós-relayout. Docs: `docs/cycle-6.1-architecture.md`,
+`docs/cycle-6.1-evidence.md`, `docs/cycle-6.1-benchmarks.md`,
+`docs/cycle-6.1-limitations.md`, `docs/cycle-6.1-dependency-audit.md`,
+`docs/explorer-cross-platform.md`, `docs/explorer-ux-review-v2.md`.
 
 **Gate:** testes acessibilidade/E2E/performance, sem câmera que
-desaparece — **PARCIAL** (`docs/cycle-6-homologation.md`, G0–G20):
-contrato de câmera/layout verificado em código, mas benchmark de
-10k nós, E2E Playwright (18 testes escritos, **não executados** —
-lf-0094) e auditoria WCAG permanecem **NOT RUN**; gaps abertos em
-`docs/cycle-6-limitations.md`.
+desaparece — **PASS com ressalvas**: 102 testes Playwright verdes
+(flows + security + a11y + scale + screenshots, job CI `explorer-e2e`),
+axe WCAG 2.2 AA 0 violações em 24 scans
+(`docs/explorer-accessibility-report.md`), benchmarks reais 100–5000
+arquivos (`docs/cycle-6.1-benchmarks.md`). Ressalvas honestas: sem 10k
+nós, sem arestas medidas, mobile overflow fixado com re-verificação
+pendente, Windows/macOS interativo NOT RUN — inventário em
+`docs/cycle-6.1-limitations.md`.
 
 ## Cycle 7 — Domain Adapters / Federation
 

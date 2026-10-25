@@ -104,3 +104,31 @@ antes de declarar o ciclo encerrado.
   `docs/explorer-security.md`, `docs/cycle-6-ux-review.md`.
 - Código: `src/code_atlas/api/`, `src/code_atlas/cli.py`,
   `explorer/src/app/**`.
+
+## 7. Reconciliação Cycle 6.1 (adendo — não reescreve a matriz acima)
+
+A matriz G0–G20 registra o estado **no fechamento do ciclo 6** e fica
+como estava. O que o 6.1 mediu de fato, atualizando os pontos que eram
+NOT RUN ou PARTIAL por falta de execução:
+
+| Gate/Item | Estado no ciclo 6 | Medição 6.1 | Evidência |
+|---|---|---|---|
+| G15 — budgets medidos | NOT RUN | **EXECUTADO** — benchmarks reais 100–5000 arquivos (API, TTFN, pan, cap→2000, FA2, heap); 10k nós continua NÃO reivindicado (API trunca a 2000, canvas capa a 500/2000) | `docs/cycle-6.1-benchmarks.md`, `benchmarks/results/graph-scale-latest.json` |
+| G16 — WCAG 2.2 AA | PARTIAL (auditoria NOT RUN) | **AUDITADO** — axe-core 24 scans em 12 superfícies ×2 temas (9 rotas + `/symbols/{id}` + busca com resultados + pack gerado): **0 violações**; 6 `aria-prohibited-attr` corrigidos no ciclo | `docs/explorer-accessibility-report.md`, `explorer/e2e/a11y.spec.ts` |
+| G18 — E2E Playwright | NOT RUN (18 escritos) | **EXECUTADO** — suíte hoje tem **102 testes** em 6 specs (flows 10 + flows2 14 + security 8 + a11y 29 + graph-scale 5 + screenshots 36); job CI `explorer-e2e` verde. 18 mobile-shots falharam no overflow e o fix CSS aguarda re-run | `npx playwright test --list`, `docs/explorer-ux-review-v2.md` |
+| H1 (`npm run e2e`) | pendente | fechado (acima) | — |
+| H3 (benchmark real) | pendente | fechado parcialmente — medido até 2000 renderizados; "10k no canvas" substituído por evidência de mecanismo (truncated/ocultos/cap) | `docs/graph-performance-homologation.md` |
+| H4 (axe/Lighthouse) | pendente | axe fechado; **Lighthouse segue NOT RUN** | `docs/explorer-accessibility-report.md` |
+| H5 (`npm ci` reproduzível) | pendente | fechado — `npm ci` instala lock exato (1001 pacotes); lock L14 sanado | `docs/cycle-6.1-dependency-audit.md` |
+| H6 (`/repositories`,`/revisions` no NAV) | aberto (F1) | **fechado** — NAV_ITEMS tem 9 itens | `shell.component.ts:31-41` |
+| H7 (`code-atlas serve` na UI) | aberto | **fechado** — textos apontam `code-atlas explorer`; endereço da API derivado, não hardcoded | `state-block.component.ts` (`apiOrigin()`) |
+| H8 (`evidence_ids` no neighbors) | aberto (L5) | **fechado** — DTO completo: `relation_id`, `snapshot_id`, `to_unresolved`, `confidence_class`, `resolver`, `evidence_ids` decodificado | `handlers.py:190-239`, `docs/cycle-6.1-evidence.md` |
+| H9 (Windows smoke) | NOT RUN | **continua NOT RUN** — wheel+CLI cobertos por `test (windows-latest)`, Explorer interativo sem evidência | `docs/explorer-cross-platform.md` |
+| L6 (drill via busca) | degradação | **fechado** — `GET /files/{id}/occurrences` real; fallback por busca removido (404 → empty honesto) | `handlers.py:242-288`, `docs/graph-evidence-contracts.md` |
+| L8 (sem rate limit) | gap | **fechado** — 300 req/min por IP em `/api/v1`, 429+`Retry-After` | `server.py:42-43,60-79`, `docs/explorer-security-v2.md` |
+| L10 (sem CSP/XFO) | gap | **fechado** — CSP com `script-src-attr 'unsafe-inline'` (racional documentado) + `X-Frame-Options: DENY` | `server.py:82-95`, `docs/explorer-security-v2.md` |
+| L20 (seletor só-leitura) | gap | **fechado** — `<select>` funcional + contexto global | `shell.component.html`, `docs/global-context-navigation.md` |
+| L23 (deep-linking de forms) | gap | **fechado parcialmente** — `/search`, `/impact`, `/graph`, `/symbols/:id`, `?repo=&snapshot=` restauram; `/context` segue sem | `docs/global-context-navigation.md`, L22 |
+| L24 (export de impacto) | gap | **fechado** — Export JSON/Markdown client-side | `impact.component.ts` |
+| L25 (`expansion_refs`) | gap | **fechado parcialmente** — chips acionáveis → `/search?q=`; re-run nível+1 não implementado | `context.component.ts`, L18 |
+| câmera/canvas congelado | bug medido | **corrigido e re-medido** — `relayoutCount` força fit; `canvas_frozen=false`, 6 draw calls em todos os tamanhos | `graph-canvas.component.ts:506-522`, `docs/cycle-6.1-benchmarks.md` §7 |

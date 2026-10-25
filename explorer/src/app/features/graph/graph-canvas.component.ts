@@ -110,6 +110,14 @@ export class GraphCanvasComponent implements AfterViewInit, OnDestroy {
   private resizeTimer: ReturnType<typeof setTimeout> | null = null;
   private glCanvases: HTMLCanvasElement[] = [];
   private lastMode: GraphMode | null = null;
+  /**
+   * Diagnostics read these live (plain fields, not signals — runLayout runs
+   * inside the sync effect where signal writes are deferred in Angular 18).
+   * `layoutBusy` is true only during the synchronous ForceAtlas2 pass, so a
+   * sampler may legitimately never observe it — that is the honest state.
+   */
+  layoutBusy = false;
+  lastLayoutMs: number | null = null;
   private readonly reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
   private readonly onMotionChange = (): void => this.applyMotionSettings();
   private readonly onContextLost = (event: Event): void => {
@@ -170,6 +178,17 @@ export class GraphCanvasComponent implements AfterViewInit, OnDestroy {
     const pos = this.sigma.getNodeDisplayData(nodeId);
     if (!pos) return;
     this.goTo({ x: pos.x, y: pos.y, ratio: Math.min(camera.getState().ratio, 0.4) });
+  }
+
+  /**
+   * Live sigma camera ratio (fraction of the framed graph on screen).
+   * Returns null when no renderer exists (table view / WebGL failed) —
+   * diagnostics surface that as "—", never an invented number.
+   */
+  cameraRatio(): number | null {
+    const state = this.sigma?.getCamera().getState();
+    if (!state || !Number.isFinite(state.ratio) || state.ratio <= 0) return null;
+    return state.ratio;
   }
 
   /** Animate — or snap instantly under prefers-reduced-motion. */
@@ -444,14 +463,21 @@ export class GraphCanvasComponent implements AfterViewInit, OnDestroy {
       });
     }
 
-    forceAtlas2.assign(graph, {
-      iterations: layoutIterations(graph.order),
-      settings: {
-        ...forceAtlas2.inferSettings(graph),
-        adjustSizes: true,
-        strongGravityMode: true,
-      },
-    });
+    this.layoutBusy = true;
+    const layoutStart = performance.now();
+    try {
+      forceAtlas2.assign(graph, {
+        iterations: layoutIterations(graph.order),
+        settings: {
+          ...forceAtlas2.inferSettings(graph),
+          adjustSizes: true,
+          strongGravityMode: true,
+        },
+      });
+    } finally {
+      this.layoutBusy = false;
+      this.lastLayoutMs = performance.now() - layoutStart;
+    }
 
     // Post-layout sanitize: a node FA2 leaves at NaN/Infinity is dropped
     // (edges cascade) — a diagnostic reports it; rendering continues.

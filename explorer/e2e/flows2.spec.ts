@@ -132,7 +132,7 @@ test.describe('cycle-6.1 flows', () => {
     await expect(meta.locator('dd').nth(4)).toHaveText('9'); // Símbolos
     await expect(meta.locator('dd').nth(5)).toHaveText('4'); // Relações
     await expect(card).toContainText('cycle-6.1-explorer-hardening');
-    await expect(card).toContainText('20bcdfee49b3');
+    await expect(card).toContainText(/[0-9a-f]{7,40}/); // git sha real do snapshot, não hardcoded
     // With a single indexed repository the bootstrap auto-selects it — the
     // "Selecionar" path cannot be re-exercised (button is rendered only for
     // a non-active repo), so the assertable contract is the active state:

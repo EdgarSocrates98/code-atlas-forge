@@ -47,6 +47,17 @@
           aria-label="Limite máximo de nós renderizados"
         />
       </label>
+
+      <button
+        type="button"
+        class="diag-toggle"
+        [class.diag-toggle--active]="showDiagnostics()"
+        [attr.aria-expanded]="showDiagnostics()"
+        aria-controls="graph-diagnostics"
+        (click)="toggleDiagnostics()"
+      >
+        Diagnósticos
+      </button>
     </div>
 
     @if (store.availableEdgeTypes().length || store.availableStatuses().length) {
@@ -87,6 +98,10 @@
       </div>
     }
   </header>
+
+  @if (showDiagnostics()) {
+    <atlas-graph-diagnostics [canvas]="canvas()" />
+  }
 
   @if (store.breadcrumb().length > 1) {
     <nav class="breadcrumb" aria-label="Navegação estrutural">

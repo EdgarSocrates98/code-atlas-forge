@@ -16,7 +16,9 @@
 
 .shell {
   display: grid;
-  grid-template-columns: 220px 1fr;
+  /* minmax(0, 1fr): toolbar/main min-content can never blow the track past
+   * the viewport (was a real 217px page overflow at 375px). */
+  grid-template-columns: 220px minmax(0, 1fr);
   grid-template-rows: auto 1fr;
   grid-template-areas:
     'toolbar toolbar'
@@ -25,7 +27,7 @@
 }
 
 .shell--collapsed {
-  grid-template-columns: 0 1fr;
+  grid-template-columns: 0 minmax(0, 1fr);
 }
 
 .shell--collapsed .shell__sidebar {
@@ -76,6 +78,9 @@
 
 .shell__repo-select {
   max-width: 22rem;
+  min-width: 0; /* flex/grid shrink below intrinsic width — long root_handle */
+  overflow: hidden;
+  text-overflow: ellipsis;
   padding: var(--atlas-space-1) var(--atlas-space-2);
   border: 1px solid var(--atlas-color-border-strong);
   border-radius: var(--atlas-radius-sm);
@@ -160,6 +165,7 @@
 .shell__main {
   grid-area: main;
   outline: none;
+  min-width: 0; /* grid item may shrink to its (now bounded) track */
 }
 
 .shell__breadcrumbs {
@@ -190,4 +196,63 @@
 
 .shell__breadcrumbs a:hover {
   text-decoration: underline;
+}
+
+/* Narrow screens — MUST be the last block: media queries add no cascade
+ * priority, so these rules only win over the equal-specificity base rules
+ * above by coming later in source order.
+ *
+ * The sidebar drops out of the column flow and becomes a horizontal nav
+ * band under the toolbar — a 220px rail leaves ~155px of usable main area
+ * on phones. The toolbar wraps and the repository context gets its own
+ * full-width row below menu + brand + theme toggle. */
+@media (max-width: 700px) {
+  .shell,
+  .shell--collapsed {
+    grid-template-columns: minmax(0, 1fr);
+    /* 3 explicit rows: sidebar must be auto-height or the leftover 1fr
+     * track pushes main content below the fold. */
+    grid-template-rows: auto auto minmax(0, 1fr);
+    grid-template-areas:
+      'toolbar'
+      'sidebar'
+      'main';
+  }
+
+  .shell__toolbar {
+    flex-wrap: wrap;
+    gap: var(--atlas-space-2) var(--atlas-space-3);
+  }
+
+  .shell__context {
+    flex: 1 1 100%;
+    order: 5;
+  }
+
+  .shell__repo-select {
+    flex: 1;
+    max-width: none;
+  }
+
+  .shell__sidebar {
+    border-right: none;
+    border-bottom: 1px solid var(--atlas-color-border);
+    padding: var(--atlas-space-1) var(--atlas-space-2);
+  }
+
+  .shell__sidebar ul {
+    flex-direction: row;
+    flex-wrap: wrap;
+  }
+
+  .shell__sidebar a {
+    border-left: none;
+    border-bottom: 3px solid transparent;
+    padding: var(--atlas-space-2) var(--atlas-space-3);
+  }
+
+  .shell__sidebar a.is-active {
+    border-left-color: transparent;
+    border-bottom-color: var(--atlas-color-accent);
+  }
 }
