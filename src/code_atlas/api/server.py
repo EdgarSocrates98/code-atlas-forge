@@ -39,7 +39,7 @@ from code_atlas.storage.db import connect
 API_PREFIX = "/api/v1"
 MAX_BODY = 64 * 1024  # 64 KiB — payloads de context/impact são pequenos
 MAX_RESPONSE = 4 * 1024 * 1024  # 4 MiB
-RATE_LIMIT = 120  # req/min por cliente, rotas /api/v1 apenas
+RATE_LIMIT = 300  # req/min por cliente, rotas /api/v1 apenas
 RATE_WINDOW = 60.0
 REQUEST_TIMEOUT = 30.0  # s — teto de ociosidade por conexão
 _ALLOWED_HOSTS = re.compile(r"^(127\.0\.0\.1|localhost|\[::1\])(:\d+)?$")
@@ -86,9 +86,10 @@ def _security_headers(h: BaseHTTPRequestHandler, *, cors: bool) -> None:
     h.send_header("X-Frame-Options", "DENY")
     h.send_header(
         "Content-Security-Policy",
-        "default-src 'self'; script-src 'self'; style-src 'self' "
-        "'unsafe-inline'; img-src 'self' data:; connect-src 'self'; "
-        "font-src 'self'; frame-ancestors 'none'")
+        "default-src 'self'; script-src 'self'; "
+        "script-src-attr 'unsafe-inline'; "
+        "style-src 'self' 'unsafe-inline'; img-src 'self' data:; "
+        "connect-src 'self'; font-src 'self'; frame-ancestors 'none'")
     if cors:
         h.send_header("Access-Control-Allow-Origin", "http://127.0.0.1")
         h.send_header("Vary", "Origin")

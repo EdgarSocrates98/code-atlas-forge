@@ -246,5 +246,8 @@ describe('graph.utils — evidence levels', () => {
     expect(toEvidenceLevel('external')).toBe('external');
     expect(toEvidenceLevel('whatever')).toBe('unknown');
     expect(toEvidenceLevel('')).toBe('unknown');
+    expect(toEvidenceLevel('resolved')).toBe('verified');
+    expect(toEvidenceLevel('ambiguous')).toBe('possible');
+    expect(toEvidenceLevel('unresolved')).toBe('unresolved');
   });
 });

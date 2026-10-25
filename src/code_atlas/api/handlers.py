@@ -171,13 +171,13 @@ def _graph_overview(server: _AtlasHttpd, conn: Any, p: dict[str, str],
     sid = _snapshot(conn, rid, p)
     limit = _int(p, "limit", 500, cap=2000)
     rows = conn.execute(
-        "SELECT f.relative_path AS path, COUNT(*) AS symbols, "
-        "MIN(s.language) AS language "
+        "SELECT f.id AS file_id, f.relative_path AS path, "
+        "COUNT(*) AS symbols, MIN(s.language) AS language "
         "FROM symbol_occurrences o "
         "JOIN symbols s ON s.id = o.logical_symbol_id "
         "JOIN source_files f ON f.id = o.source_file_id "
         "WHERE o.snapshot_id = ? "
-        "GROUP BY f.relative_path ORDER BY symbols DESC LIMIT ?",
+        "GROUP BY f.id ORDER BY symbols DESC LIMIT ?",
         (sid, limit)).fetchall()
     total = conn.execute(
         "SELECT COUNT(DISTINCT source_file_id) AS n FROM symbol_occurrences "

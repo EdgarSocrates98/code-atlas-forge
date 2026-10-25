@@ -253,9 +253,24 @@ const KNOWN_STATUSES = new Set<string>([
   'external',
 ]);
 
+/**
+ * Vocabulário real do backend (migrations: resolution_status CHECK):
+ * resolved → aresta provada por evidência registrada;
+ * ambiguous → resolução ambígua, incerteza honesta;
+ * unresolved/external → mapeamento direto.
+ * Nunca promove: ausência de status conhecido → 'unknown'.
+ */
+const STATUS_MAP: Record<string, ResolutionStatus | 'unknown'> = {
+  resolved: 'verified',
+  ambiguous: 'possible',
+};
+
 /** Maps a raw resolution_status to a badge level, never inventing one. */
 export function toEvidenceLevel(status: string): ResolutionStatus | 'unknown' {
-  return KNOWN_STATUSES.has(status) ? (status as ResolutionStatus) : 'unknown';
+  if (KNOWN_STATUSES.has(status)) {
+    return status as ResolutionStatus;
+  }
+  return STATUS_MAP[status] ?? 'unknown';
 }
 
 /** Marker glyph per evidence level — mirrors --atlas-evidence-*-marker. */
