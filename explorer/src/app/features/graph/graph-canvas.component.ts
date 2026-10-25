@@ -1,0 +1,595 @@
+import {
+  AfterViewInit,
+  ChangeDetectionStrategy,
+  Component,
+  ElementRef,
+  NgZone,
+  OnDestroy,
+  ViewChild,
+  effect,
+} from '@angular/core';
+import Graph from 'graphology';
+import forceAtlas2 from 'graphology-layout-forceatlas2';
+import Sigma from 'sigma';
+import { GraphDataStore } from './graph-data.store';
+import { GraphEdgeVM, GraphNodeVM } from './graph.models';
+import { EVIDENCE_MARKERS, hashPosition, toEvidenceLevel } from './graph.utils';
+
+/* Camera bounds: ratio = fraction of the framed graph visible on screen. */
+const MIN_CAMERA_RATIO = 0.02;
+const MAX_CAMERA_RATIO = 10;
+/** Node must be at least this many px on screen before its label draws. */
+const LABEL_ZOOM_THRESHOLD = 8;
+const PAN_STEP = 0.08;
+const ZOOM_FACTOR = 1.5;
+
+interface Palette {
+  text: string;
+  node: string;
+  nodeFile: string;
+  nodeSelected: string;
+  nodePinned: string;
+  nodeFocused: string;
+  edgeDim: string;
+  statuses: Record<string, string>;
+}
+
+/**
+ * sigma.js (WebGL) renderer bound to GraphDataStore.
+ *
+ * Contract with the store:
+ * - structure syncs only when `dataVersion` changes;
+ * - a layout pass runs only when `dataVersion.needsLayout` is true —
+ *   selection, filters and incremental merges never move a node;
+ * - computed positions are reported back via `reportPositions` so drill
+ *   back/restore keeps the same geometry;
+ * - when WebGL is unavailable the store is flagged and the host falls
+ *   back to the accessible table view.
+ */
+@Component({
+  selector: 'atlas-graph-canvas',
+  standalone: true,
+  changeDetection: ChangeDetectionStrategy.OnPush,
+  template: `
+    <div
+      #stage
+      class="graph-stage"
+      tabindex="0"
+      role="application"
+      aria-roledescription="grafo interativo"
+      [attr.aria-label]="stageLabel()"
+      (keydown)="onKeydown($event)"
+    ></div>
+    <p id="graph-kbd-help" class="visually-hidden">
+      Navegação por teclado: setas movem a câmera; mais e menos controlam o zoom;
+      F ajusta a visão; colchetes percorrem os nós; Enter seleciona; E expande o
+      nó selecionado; P fixa ou solta o nó; Escape limpa a seleção.
+    </p>
+  `,
+  styles: [
+    `
+      :host {
+        display: block;
+        height: 100%;
+        min-height: 0;
+      }
+      .graph-stage {
+        width: 100%;
+        height: 100%;
+        min-height: 320px;
+        position: relative;
+        background: var(--atlas-color-bg-subtle);
+        border-radius: var(--atlas-radius-md);
+        outline-offset: -2px;
+      }
+      .graph-stage:focus-visible {
+        outline: 2px solid var(--atlas-color-focus-ring);
+      }
+    `,
+  ],
+})
+export class GraphCanvasComponent implements AfterViewInit, OnDestroy {
+  @ViewChild('stage', { static: true }) private readonly stageRef!: ElementRef<HTMLDivElement>;
+
+  private graph: Graph | null = null;
+  private sigma: Sigma | null = null;
+  private resizeObserver: ResizeObserver | null = null;
+  private themeObserver: MutationObserver | null = null;
+  private lastDataVersion = -1;
+  private pendingSync = true;
+  private readonly reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
+  private readonly onMotionChange = (): void => this.applyMotionSettings();
+
+  constructor(
+    readonly store: GraphDataStore,
+    private readonly zone: NgZone,
+  ) {
+    effect(() => this.sync());
+  }
+
+  /* ------------------------------- public ----------------------------- */
+
+  stageLabel(): string {
+    const n = this.store.nodes().length;
+    const e = this.store.visibleEdges().length;
+    return `Grafo com ${n} nós visíveis e ${e} relações. Use colchetes para percorrer os nós.`;
+  }
+
+  zoomIn(): void {
+    const camera = this.sigma?.getCamera();
+    if (!camera) return;
+    if (this.motionZero()) {
+      camera.setState({ ratio: camera.getState().ratio / ZOOM_FACTOR });
+    } else {
+      void camera.animatedZoom(ZOOM_FACTOR);
+    }
+  }
+
+  zoomOut(): void {
+    const camera = this.sigma?.getCamera();
+    if (!camera) return;
+    if (this.motionZero()) {
+      camera.setState({ ratio: camera.getState().ratio * ZOOM_FACTOR });
+    } else {
+      void camera.animatedUnzoom(ZOOM_FACTOR);
+    }
+  }
+
+  /** Fit the whole graph (camera origin + full extent) — also "reset". */
+  fitView(): void {
+    this.goTo({ x: 0.5, y: 0.5, ratio: 1, angle: 0 });
+  }
+
+  /** Center on one node keeping the current zoom (or zooming in a bit). */
+  focusNode(nodeId: string): void {
+    if (!this.sigma || !this.graph?.hasNode(nodeId)) return;
+    const camera = this.sigma.getCamera();
+    const pos = this.sigma.getNodeDisplayData(nodeId);
+    if (!pos) return;
+    this.goTo({ x: pos.x, y: pos.y, ratio: Math.min(camera.getState().ratio, 0.4) });
+  }
+
+  /** Animate — or snap instantly under prefers-reduced-motion. */
+  private goTo(state: { x: number; y: number; ratio: number; angle?: number }): void {
+    const camera = this.sigma?.getCamera();
+    if (!camera) return;
+    if (this.motionZero()) {
+      camera.setState(state);
+    } else {
+      void camera.animate(state, { easing: 'quadraticInOut', duration: 350 });
+    }
+  }
+
+  /* ------------------------------ lifecycle --------------------------- */
+
+  ngAfterViewInit(): void {
+    this.zone.runOutsideAngular(() => {
+      try {
+        this.initRenderer();
+      } catch {
+        this.store.markRendererFailed();
+      }
+    });
+  }
+
+  ngOnDestroy(): void {
+    this.reducedMotion.removeEventListener('change', this.onMotionChange);
+    this.themeObserver?.disconnect();
+    this.resizeObserver?.disconnect();
+    this.sigma?.kill();
+    this.sigma = null;
+    this.graph = null;
+  }
+
+  /* ------------------------------ renderer ---------------------------- */
+
+  private initRenderer(): void {
+    const container = this.stageRef.nativeElement;
+    this.graph = new Graph({ multi: false, type: 'directed' });
+    const motion = this.motionZero();
+    this.sigma = new Sigma(this.graph, container, {
+      renderEdgeLabels: true,
+      edgeLabelSize: 11,
+      edgeLabelColor: { attribute: 'color' },
+      enableEdgeEvents: true,
+      hideEdgesOnMove: true,
+      hideLabelsOnMove: true,
+      labelRenderedSizeThreshold: LABEL_ZOOM_THRESHOLD,
+      labelFont: 'ui-sans-serif, system-ui, sans-serif',
+      labelSize: 12,
+      labelWeight: '500',
+      labelColor: { color: this.palette().text },
+      edgeLabelFont: 'ui-sans-serif, system-ui, sans-serif',
+      defaultEdgeType: 'arrow',
+      zIndex: true,
+      minCameraRatio: MIN_CAMERA_RATIO,
+      maxCameraRatio: MAX_CAMERA_RATIO,
+      autoRescale: false,
+      autoCenter: false,
+      stagePadding: 40,
+      enableCameraRotation: false,
+      inertiaDuration: motion ? 0 : 200,
+      zoomDuration: motion ? 0 : 250,
+      doubleClickZoomingDuration: motion ? 0 : 200,
+    });
+
+    this.sigma.on('clickNode', ({ node }) => {
+      this.store.setKbdFocus(node);
+      this.store.selectNode(node);
+    });
+    this.sigma.on('clickEdge', ({ edge }) => this.store.selectEdge(edge));
+    this.sigma.on('clickStage', () => this.store.clearSelection());
+    this.sigma.on('doubleClickNode', ({ node, event }) => {
+      event.preventSigmaDefault();
+      const vm = this.store.nodes().find((n) => n.id === node);
+      if (vm?.kind === 'file') {
+        void this.store.drillFile(vm.path, vm.symbolCount ?? 0);
+      } else {
+        void this.store.expandNode(node);
+      }
+    });
+
+    this.resizeObserver = new ResizeObserver(() => this.sigma?.resize());
+    this.resizeObserver.observe(container);
+
+    // Theme toggle changes the CSS vars — re-paint when data-theme flips.
+    this.themeObserver = new MutationObserver(() => {
+      this.sigma?.setSetting('labelColor', { color: this.palette().text });
+      this.paintAll();
+    });
+    this.themeObserver.observe(document.documentElement, {
+      attributes: true,
+      attributeFilter: ['data-theme'],
+    });
+
+    this.reducedMotion.addEventListener('change', this.onMotionChange);
+
+    if (this.pendingSync) {
+      this.pendingSync = false;
+      this.sync();
+    }
+  }
+
+  private applyMotionSettings(): void {
+    if (!this.sigma) return;
+    const zero = this.motionZero();
+    this.sigma.setSetting('inertiaDuration', zero ? 0 : 200);
+    this.sigma.setSetting('zoomDuration', zero ? 0 : 250);
+    this.sigma.setSetting('doubleClickZoomingDuration', zero ? 0 : 200);
+  }
+
+  private motionZero(): boolean {
+    return this.reducedMotion.matches;
+  }
+
+  /* ------------------------------- sync ------------------------------- */
+
+  private sync(): void {
+    // Track all reactive inputs — Angular records them in this effect.
+    const nodes = this.store.nodes();
+    const edges = this.store.visibleEdges();
+    const dv = this.store.dataVersion();
+
+    if (!this.graph || !this.sigma) {
+      this.pendingSync = true;
+      return;
+    }
+
+    if (dv.version !== this.lastDataVersion) {
+      this.lastDataVersion = dv.version;
+      this.syncStructure(nodes, edges, dv.needsLayout);
+    }
+    this.paintAll();
+  }
+
+  /**
+   * Reconciles the graphology graph with the store. Runs the layout pass
+   * at most once per data version (needsLayout flag), then freezes
+   * positions forever after.
+   */
+  private syncStructure(nodes: GraphNodeVM[], edges: GraphEdgeVM[], needsLayout: boolean): void {
+    const graph = this.graph;
+    const sigma = this.sigma;
+    if (!graph || !sigma) return;
+
+    const wantedNodes = new Set(nodes.map((n) => n.id));
+    const wantedEdges = new Set(edges.map((e) => e.id));
+
+    for (const id of [...graph.nodes()]) {
+      if (!wantedNodes.has(id)) graph.dropNode(id);
+    }
+    for (const id of [...graph.edges()]) {
+      if (!wantedEdges.has(id)) graph.dropEdge(id);
+    }
+
+    nodes.forEach((vm, i) => {
+      if (!graph.hasNode(vm.id)) {
+        const pos =
+          vm.x !== null && vm.y !== null ? { x: vm.x, y: vm.y } : hashPosition(vm.id, i, nodes.length);
+        graph.addNode(vm.id, { x: pos.x, y: pos.y });
+      } else if (vm.x !== null && vm.y !== null) {
+        // Keep authored positions authoritative (e.g. drill-back restore).
+        graph.setNodeAttribute(vm.id, 'x', vm.x);
+        graph.setNodeAttribute(vm.id, 'y', vm.y);
+      }
+    });
+
+    for (const e of edges) {
+      if (graph.hasEdge(e.id)) continue;
+      if (!graph.hasNode(e.from) || !graph.hasNode(e.to)) continue;
+      try {
+        graph.addDirectedEdgeWithKey(e.id, e.from, e.to);
+      } catch {
+        /* multi-edges/loops are dropped — never fabricate geometry */
+      }
+    }
+
+    if (needsLayout) {
+      this.runLayout();
+    }
+    sigma.refresh();
+  }
+
+  /** One bounded ForceAtlas2 pass; pinned positions are restored verbatim. */
+  private runLayout(): void {
+    const graph = this.graph;
+    const sigma = this.sigma;
+    if (!graph || !sigma || graph.order === 0) return;
+
+    const pinned = this.store.pinnedIds();
+    const saved = new Map<string, { x: number; y: number }>();
+    if (pinned.size) {
+      graph.forEachNode((id, attrs) => {
+        if (pinned.has(id)) saved.set(id, { x: attrs['x'] as number, y: attrs['y'] as number });
+      });
+    }
+
+    const order = graph.order;
+    const iterations = Math.min(400, Math.max(80, Math.round(60000 / Math.max(order, 1))));
+    forceAtlas2.assign(graph, {
+      iterations,
+      settings: {
+        ...forceAtlas2.inferSettings(graph),
+        adjustSizes: true,
+        strongGravityMode: true,
+      },
+    });
+
+    for (const [id, pos] of saved) {
+      graph.setNodeAttribute(id, 'x', pos.x);
+      graph.setNodeAttribute(id, 'y', pos.y);
+    }
+
+    // Freeze normalization around the laid-out extent (+40% headroom so
+    // later expansions don't shift the frame). Graph-space bbox computed
+    // straight from attributes.
+    let minX = Infinity;
+    let maxX = -Infinity;
+    let minY = Infinity;
+    let maxY = -Infinity;
+    graph.forEachNode((_id, attrs) => {
+      const x = attrs['x'] as number;
+      const y = attrs['y'] as number;
+      if (x < minX) minX = x;
+      if (x > maxX) maxX = x;
+      if (y < minY) minY = y;
+      if (y > maxY) maxY = y;
+    });
+    if (Number.isFinite(minX)) {
+      const cx = (minX + maxX) / 2;
+      const cy = (minY + maxY) / 2;
+      const w = Math.max((maxX - minX) * 1.4, 1);
+      const h = Math.max((maxY - minY) * 1.4, 1);
+      sigma.setCustomBBox({ x: [cx - w / 2, cx + w / 2], y: [cy - h / 2, cy + h / 2] });
+    }
+
+    const positions = new Map<string, { x: number; y: number }>();
+    graph.forEachNode((id, attrs) => {
+      positions.set(id, { x: attrs['x'] as number, y: attrs['y'] as number });
+    });
+    this.store.reportPositions(positions);
+    this.fitView();
+  }
+
+  /* ------------------------------ painting ---------------------------- */
+
+  /** Recompute display attributes (colors/sizes/labels) on the fly. */
+  private paintAll(): void {
+    const graph = this.graph;
+    const sigma = this.sigma;
+    if (!graph || !sigma) return;
+
+    // Track reactive state inside the effect that calls this.
+    const nodes = this.store.nodes();
+    const edges = this.store.visibleEdges();
+    const selectedNode = this.store.selectedNodeId();
+    const selectedEdge = this.store.selectedEdgeId();
+    const kbdFocus = this.store.kbdFocusId();
+    const pinned = this.store.pinnedIds();
+    const busy = this.store.expansionBusy();
+
+    const palette = this.palette();
+    const degree = new Map<string, number>();
+    for (const e of edges) {
+      degree.set(e.from, (degree.get(e.from) ?? 0) + 1);
+      degree.set(e.to, (degree.get(e.to) ?? 0) + 1);
+    }
+    const incident = new Set<string>();
+    if (selectedNode) {
+      for (const e of edges) {
+        if (e.from === selectedNode) incident.add(e.to);
+        if (e.to === selectedNode) incident.add(e.from);
+      }
+    }
+
+    const vmById = new Map(nodes.map((n) => [n.id, n]));
+    graph.forEachNode((id) => {
+      const vm = vmById.get(id);
+      if (!vm) return;
+      const isSelected = id === selectedNode;
+      const isFocused = id === kbdFocus;
+      const isPinned = pinned.has(id);
+      const isNeighbor = incident.has(id);
+      const isBusy = busy.has(id);
+      graph.setNodeAttribute(id, 'label', vm.label);
+      graph.setNodeAttribute(id, 'size', this.nodeSize(vm, degree.get(id) ?? 0));
+      graph.setNodeAttribute(
+        id,
+        'color',
+        isSelected
+          ? palette.nodeSelected
+          : isFocused
+            ? palette.nodeFocused
+            : isPinned
+              ? palette.nodePinned
+              : vm.kind === 'file'
+                ? palette.nodeFile
+                : isNeighbor || !selectedNode
+                  ? palette.node
+                  : palette.edgeDim,
+      );
+      graph.setNodeAttribute(id, 'zIndex', isSelected ? 4 : isFocused || isPinned ? 3 : 1);
+      graph.setNodeAttribute(id, 'highlighted', isSelected || isFocused);
+      graph.setNodeAttribute(
+        id,
+        'forceLabel',
+        isSelected || isFocused || isPinned || isBusy,
+      );
+      // Selected node's neighbors get a subtle halo via zIndex bump.
+      if (isNeighbor && !isSelected) graph.setNodeAttribute(id, 'zIndex', 2);
+    });
+
+    const edgeVm = new Map(edges.map((e) => [e.id, e]));
+    graph.forEachEdge((id) => {
+      const vm = edgeVm.get(id);
+      if (!vm) return;
+      const level = toEvidenceLevel(vm.resolutionStatus);
+      const selected = id === selectedEdge;
+      const touchesSel = selectedNode && (vm.from === selectedNode || vm.to === selectedNode);
+      graph.setEdgeAttribute(id, 'color', selected ? palette.nodeSelected : palette.statuses[level]);
+      graph.setEdgeAttribute(
+        id,
+        'size',
+        (selected ? 2.5 : level === 'verified' ? 1.8 : level === 'supported' ? 1.4 : 1) *
+          (touchesSel ? 1.6 : 1),
+      );
+      // Non-color marker: the evidence glyph is drawn at the edge midpoint.
+      graph.setEdgeAttribute(id, 'label', EVIDENCE_MARKERS[level] ?? '');
+      graph.setEdgeAttribute(id, 'zIndex', selected || touchesSel ? 3 : 1);
+      graph.setEdgeAttribute(id, 'type', 'arrow');
+    });
+
+    sigma.refresh();
+  }
+
+  private nodeSize(vm: GraphNodeVM, degree: number): number {
+    if (vm.kind === 'file') {
+      return Math.min(26, 8 + 2.4 * Math.sqrt(Math.max(1, vm.symbolCount ?? 1)));
+    }
+    return Math.min(16, 5 + 0.8 * Math.min(degree, 14));
+  }
+
+  /* ----------------------------- keyboard ----------------------------- */
+
+  onKeydown(event: KeyboardEvent): void {
+    const camera = this.sigma?.getCamera();
+    const key = event.key;
+    const move = (dx: number, dy: number): void => {
+      if (!camera) return;
+      const s = camera.getState();
+      camera.setState({ x: s.x + dx * s.ratio, y: s.y + dy * s.ratio });
+    };
+    switch (key) {
+      case 'ArrowLeft':
+        move(-PAN_STEP, 0);
+        break;
+      case 'ArrowRight':
+        move(PAN_STEP, 0);
+        break;
+      case 'ArrowUp':
+        move(0, -PAN_STEP);
+        break;
+      case 'ArrowDown':
+        move(0, PAN_STEP);
+        break;
+      case '+':
+      case '=':
+        this.zoomIn();
+        break;
+      case '-':
+      case '_':
+        this.zoomOut();
+        break;
+      case 'f':
+      case 'F':
+        this.fitView();
+        break;
+      case 'r':
+      case 'R':
+        this.fitView();
+        break;
+      case '[':
+      case ']': {
+        const id = this.store.cycleKbdFocus(key === ']' ? 1 : -1);
+        if (id) this.focusNode(id);
+        break;
+      }
+      case 'Enter':
+      case ' ': {
+        const id = this.store.kbdFocusId();
+        if (id) this.store.selectNode(id);
+        break;
+      }
+      case 'e':
+      case 'E': {
+        const id = this.store.selectedNodeId() ?? this.store.kbdFocusId();
+        if (id) {
+          const vm = this.store.nodes().find((n) => n.id === id);
+          if (vm?.kind === 'file') void this.store.drillFile(vm.path, vm.symbolCount ?? 0);
+          else void this.store.expandNode(id);
+        }
+        break;
+      }
+      case 'p':
+      case 'P': {
+        const id = this.store.selectedNodeId() ?? this.store.kbdFocusId();
+        if (id) this.store.togglePin(id);
+        break;
+      }
+      case 'Escape':
+        this.store.clearSelection();
+        break;
+      default:
+        return;
+    }
+    event.preventDefault();
+    event.stopPropagation();
+  }
+
+  /* ------------------------------ palette ----------------------------- */
+
+  private palette(): Palette {
+    const css = getComputedStyle(document.documentElement);
+    const v = (name: string, fallback: string): string => {
+      const val = css.getPropertyValue(name).trim();
+      return val || fallback;
+    };
+    return {
+      text: v('--atlas-color-text', '#1a1d23'),
+      node: v('--atlas-color-accent', '#2855d6'),
+      nodeFile: v('--atlas-evidence-supported', '#2855d6'),
+      nodeSelected: v('--atlas-color-danger', '#b3261e'),
+      nodePinned: v('--atlas-color-warning', '#8a5a00'),
+      nodeFocused: v('--atlas-color-focus-ring', '#1b4bd6'),
+      edgeDim: v('--atlas-color-border-strong', '#aeb4bf'),
+      statuses: {
+        verified: v('--atlas-evidence-verified', '#1e6b45'),
+        supported: v('--atlas-evidence-supported', '#2855d6'),
+        possible: v('--atlas-evidence-possible', '#8a5a00'),
+        unresolved: v('--atlas-evidence-unresolved', '#b3261e'),
+        external: v('--atlas-evidence-external', '#5a3ea8'),
+        unknown: v('--atlas-color-text-muted', '#545b68'),
+      },
+    };
+  }
+}

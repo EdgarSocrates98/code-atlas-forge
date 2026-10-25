@@ -1,0 +1,194 @@
+<section class="graph-feature">
+  <header class="graph-feature__header">
+    <div>
+      <h1>Grafo</h1>
+      <p class="notice">
+        Relações entre símbolos com estados de evidência — o grafo cresce sob
+        demanda, nunca o snapshot inteiro de uma vez.
+      </p>
+    </div>
+
+    <div class="graph-feature__toolbar" role="toolbar" aria-label="Controles do grafo">
+      <div class="seg" role="group" aria-label="Modo de visualização">
+        @for (m of viewModes; track m.id) {
+          <button
+            type="button"
+            class="seg__btn"
+            [class.seg__btn--active]="viewMode === m.id"
+            [attr.aria-pressed]="viewMode === m.id"
+            (click)="setView(m.id)"
+          >
+            {{ m.label }}
+          </button>
+        }
+      </div>
+
+      @if (viewMode === 'graph') {
+        <div class="seg" role="group" aria-label="Câmera">
+          <button type="button" class="seg__btn" (click)="canvas()?.zoomOut()" aria-label="Reduzir zoom">−</button>
+          <button type="button" class="seg__btn" (click)="canvas()?.zoomIn()" aria-label="Aumentar zoom">+</button>
+          <button type="button" class="seg__btn" (click)="canvas()?.fitView()">Ajustar</button>
+          <button type="button" class="seg__btn" (click)="store.requestRelayout()" title="Recalcular posições (respeita nós fixados)">
+            Reorganizar
+          </button>
+        </div>
+      }
+
+      <label class="cap">
+        Limite de nós
+        <input
+          type="number"
+          class="cap__input"
+          min="10"
+          max="2000"
+          step="50"
+          [value]="store.nodeCap()"
+          (change)="onCapChange($event)"
+          aria-label="Limite máximo de nós renderizados"
+        />
+      </label>
+    </div>
+
+    @if (store.availableEdgeTypes().length || store.availableStatuses().length) {
+      <div class="graph-feature__filters" aria-label="Filtros de relações">
+        @if (store.availableEdgeTypes().length) {
+          <span class="filters__label">Tipos:</span>
+          @for (t of store.availableEdgeTypes(); track t) {
+            <button
+              type="button"
+              class="chip"
+              [class.chip--off]="!isTypeFiltered(t) && store.edgeTypeFilter().size > 0"
+              [attr.aria-pressed]="store.edgeTypeFilter().size === 0 || isTypeFiltered(t)"
+              (click)="store.toggleEdgeType(t)"
+            >
+              {{ t }}
+            </button>
+          }
+        }
+        @if (store.availableStatuses().length) {
+          <span class="filters__label">Evidência:</span>
+          @for (s of store.availableStatuses(); track s) {
+            <button
+              type="button"
+              class="chip"
+              [class.chip--off]="!isFiltered(s) && store.statusFilter().size > 0"
+              [attr.aria-pressed]="store.statusFilter().size === 0 || isFiltered(s)"
+              (click)="store.toggleStatus(s)"
+            >
+              {{ s }}
+            </button>
+          }
+        }
+        @if (store.edgeTypeFilter().size > 0 || store.statusFilter().size > 0) {
+          <button type="button" class="chip chip--clear" (click)="store.clearFilters()">
+            Limpar filtros
+          </button>
+        }
+      </div>
+    }
+  </header>
+
+  @if (store.breadcrumb().length > 1) {
+    <nav class="breadcrumb" aria-label="Navegação estrutural">
+      <ol>
+        <li>
+          <button type="button" class="breadcrumb__link" (click)="store.exitDrill()">
+            Arquitetura
+          </button>
+        </li>
+        @for (level of store.breadcrumb().slice(1); track level.path) {
+          <li aria-current="location">/ {{ level.path }}</li>
+        }
+      </ol>
+      <button type="button" class="breadcrumb__back" (click)="store.exitDrill()">
+        ← Voltar sem perder o contexto
+      </button>
+    </nav>
+  }
+
+  @if (store.fileContext(); as ctx) {
+    @if (ctx.expectedSymbols > 0) {
+      <p class="notice" role="status">
+        Arquivo <code>{{ ctx.path }}</code>: {{ store.totalKnownNodes() }} ocorrências
+        localizadas{{ ctx.expectedSymbols > store.totalKnownNodes() ? ' de ~' + ctx.expectedSymbols + ' símbolos (cobertura limitada pela busca)' : '' }}.
+      </p>
+    }
+  }
+
+  @if (store.hiddenNodeCount() > 0 || store.serverTruncated() || store.neighborsTruncated()) {
+    <p class="notice notice--warning" role="status">
+      <strong>Visualização limitada:</strong>
+      exibindo {{ store.nodes().length }} de
+      {{ store.totalKnownNodes() }} nós conhecidos
+      @if (store.hiddenNodeCount() > 0) {
+        ({{ store.hiddenNodeCount() }} ocultos pelo limite de {{ store.nodeCap() }})
+      }
+      @if (store.serverTruncated() || store.neighborsTruncated()) {
+        — o servidor também truncou resultados
+      }
+      . Expanda nós sob demanda ou ajuste o limite.
+    </p>
+  }
+
+  @if (store.rendererFailed()) {
+    <p class="notice notice--warning" role="alert">
+      Renderização WebGL indisponível neste ambiente — usando a lista acessível.
+    </p>
+  }
+
+  @if (store.transientError()) {
+    <p class="notice notice--warning" role="alert">
+      {{ store.transientError() }}
+      <button type="button" class="chip chip--clear" (click)="store.transientError.set('')">
+        dispensar
+      </button>
+    </p>
+  }
+
+  @switch (store.phase()) {
+    @case ('loading') {
+      <atlas-state-block state="loading" loadingMessage="Carregando grafo…" />
+    }
+    @case ('offline') {
+      <atlas-state-block state="offline" [detail]="store.errorDetail()" />
+      <button type="button" class="retry" (click)="retry()">Tentar novamente</button>
+    }
+    @case ('error') {
+      <atlas-state-block
+        state="error"
+        [errorMessage]="store.errorMessage()"
+        [detail]="store.errorDetail()"
+      />
+      <button type="button" class="retry" (click)="retry()">Tentar novamente</button>
+    }
+    @case ('empty') {
+      <atlas-state-block state="empty" [emptyMessage]="store.emptyMessage()" />
+      @if (store.breadcrumb().length > 1) {
+        <button type="button" class="retry" (click)="store.exitDrill()">
+          Voltar à arquitetura
+        </button>
+      }
+    }
+    @case ('ready') {
+      <div class="graph-feature__body" [class.graph-feature__body--table]="viewMode === 'table' || store.rendererFailed()">
+        <div class="graph-feature__main">
+          @if (viewMode === 'graph' && !store.rendererFailed()) {
+            <atlas-graph-canvas />
+            <ul class="legend" aria-label="Legenda de evidência">
+              @for (s of statuses; track s) {
+                <li><atlas-evidence-badge [level]="levelOf(s)" /></li>
+              }
+              <li class="legend__hint">Rótulos aparecem conforme o zoom · [ ] percorre nós</li>
+            </ul>
+          } @else {
+            <atlas-graph-table />
+          }
+        </div>
+        <atlas-graph-inspector class="graph-feature__inspector" />
+      </div>
+    }
+    @default {
+      <atlas-state-block state="loading" loadingMessage="Iniciando…" />
+    }
+  }
+</section>
