@@ -47,11 +47,6 @@ from unittest import mock
 
 import pytest
 
-POSIX_ONLY = pytest.mark.skipif(
-    sys.platform == "win32",
-    reason="POSIX-only surface: bash build script / control-char filenames",
-)
-
 import code_atlas.api.server as server_mod
 from code_atlas.api.server import serve
 from code_atlas.indexing import IndexCoordinator
@@ -60,6 +55,11 @@ from code_atlas.observability.logging import (
     escape_control,
 )
 from code_atlas.storage import connect, migrate
+
+POSIX_ONLY = pytest.mark.skipif(
+    sys.platform == "win32",
+    reason="POSIX-only surface: bash build script / control-char filenames",
+)
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 BUILD_SCRIPT = REPO_ROOT / "scripts" / "build_release.sh"
