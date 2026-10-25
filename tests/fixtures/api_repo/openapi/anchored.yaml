@@ -1,0 +1,16 @@
+openapi: 3.0.1
+info:
+  title: Anchored API
+  version: 0.1.0
+servers:
+  - url: https://a.example/api
+defaults: &defaults
+  description: reused description
+paths:
+  /x:
+    get:
+      <<: *defaults
+      operationId: getX
+      responses:
+        '200':
+          description: ok

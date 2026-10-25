@@ -1,0 +1,7 @@
+name: just-config
+debug: true
+values:
+  - 1
+  - 2
+nested:
+  key: value

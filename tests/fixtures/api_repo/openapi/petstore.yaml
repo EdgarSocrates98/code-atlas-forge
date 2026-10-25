@@ -1,0 +1,55 @@
+openapi: 3.0.0
+info:
+  title: Pet Store
+  version: 1.0.0
+  description: Minimal petstore-style spec for adapter tests
+servers:
+  - url: https://api.pets.example/v1
+    description: primary
+paths:
+  /pets:
+    get:
+      operationId: listPets
+      tags: [pets, listing]
+      responses:
+        '200':
+          description: all pets
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Pets'
+    post:
+      operationId: createPet
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Pet'
+      responses:
+        '201':
+          description: created
+  /pets/{petId}:
+    get:
+      operationId: showPet
+      responses:
+        200:
+          description: one pet
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Pet'
+        '404':
+          description: not found
+components:
+  schemas:
+    Pet:
+      type: object
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+    Pets:
+      type: array
+      items:
+        $ref: '#/components/schemas/Pet'

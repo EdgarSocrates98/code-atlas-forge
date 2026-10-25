@@ -1,0 +1,16 @@
+openapi: 3.0.0
+info:
+  title: Broken Spec
+  version: 1.0.0
+servers:
+  - url: https://broken.example/v9
+paths:
+  /ok:
+    get:
+      operationId: getOk
+      responses:
+        '200':
+          description: fine
+  /bad:
+    get: [unterminated flow
+  garbage line here
