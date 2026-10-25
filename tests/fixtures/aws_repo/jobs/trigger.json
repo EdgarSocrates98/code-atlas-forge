@@ -1,0 +1,9 @@
+{
+  "Name": "nightly-trigger",
+  "Type": "SCHEDULED",
+  "Schedule": "cron(0 3 * * ? *)",
+  "Actions": [{"JobName": "nightly-etl"}],
+  "Predicate": {
+    "Conditions": [{"JobName": "upstream-loader", "State": "SUCCEEDED"}]
+  }
+}

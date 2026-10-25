@@ -1,0 +1,36 @@
+{
+  "JobFlowId": "j-2AXXXXXXGAPLF",
+  "Steps": [
+    {
+      "Name": "ingest-orders",
+      "ActionOnFailure": "CONTINUE",
+      "HadoopJarStep": {
+        "Jar": "command-runner.jar",
+        "Args": [
+          "spark-submit",
+          "--deploy-mode", "cluster",
+          "--conf", "spark.sql.catalog.lake=org.apache.iceberg.spark.SparkCatalog",
+          "--conf", "spark.sql.catalog.lake.warehouse=s3://lake-wh/warehouse",
+          "s3://jobs-bucket/scripts/ingest.py"
+        ]
+      }
+    },
+    {
+      "Name": "compact-orders",
+      "HadoopJarStep": {
+        "Jar": "command-runner.jar",
+        "Args": [
+          "spark-submit",
+          "s3://jobs-bucket/scripts/compact.py"
+        ]
+      }
+    },
+    {
+      "Name": "notify",
+      "HadoopJarStep": {
+        "Jar": "s3://emr-bucket/jars/notify.jar",
+        "Args": ["s3://emr-bucket/state/done"]
+      }
+    }
+  ]
+}
