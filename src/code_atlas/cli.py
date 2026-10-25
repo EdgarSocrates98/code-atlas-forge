@@ -39,6 +39,7 @@ from code_atlas.config import (
 from code_atlas.discovery.identity import identity_key_for_root
 from code_atlas.discovery.scanner import probe_git
 from code_atlas.indexing import IndexCoordinator, IndexOutcome
+from code_atlas.observability.logging import escape_control
 from code_atlas.search.structural import (
     DEFAULT_LIMIT,
     MAX_DEPTH,
@@ -229,7 +230,8 @@ def run_doctor(args: argparse.Namespace) -> int:
         for c in checks:
             mark = "ok" if c.ok else "FAIL"
             suffix = f"  {c.detail}" if c.detail else ""
-            print(f"{c.name:<{width}}  {mark:<4}  {c.value}{suffix}")
+            print(escape_control(
+                f"{c.name:<{width}}  {mark:<4}  {c.value}{suffix}"))
         if failed:
             print(f"\n{len(failed)} check(s) failed", file=sys.stderr)
     return EXIT_ERROR if failed else EXIT_OK
@@ -244,7 +246,7 @@ def run_init(args: argparse.Namespace) -> int:
     try:
         cfg = write_config(root, force=args.force)
     except ConfigError as exc:
-        print(f"error: {exc}", file=sys.stderr)
+        print(f"error: {escape_control(str(exc))}", file=sys.stderr)
         return EXIT_ERROR
     conn = _open_db()
     try:
@@ -266,7 +268,7 @@ def run_init(args: argparse.Namespace) -> int:
         print(json.dumps(payload))
     else:
         for k, v in payload.items():
-            print(f"{k}: {v}")
+            print(f"{k}: {escape_control(str(v))}")
     return EXIT_OK
 
 
@@ -378,7 +380,8 @@ def run_index(args: argparse.Namespace) -> int:
         print("error: refusing to index filesystem root", file=sys.stderr)
         return EXIT_UNSAFE
     if not target.is_dir():
-        print(f"error: {target} is not a directory", file=sys.stderr)
+        print(f"error: {escape_control(str(target))} is not a directory",
+              file=sys.stderr)
         return EXIT_UNSAFE
     conn = _open_db()
     try:
@@ -452,10 +455,14 @@ def _index_progress(event: str, fields: Mapping[str, Any]) -> None:
     """``index --verbose``: uma linha ``[index] <evento> k=v …`` em stderr.
 
     stdout fica reservado ao payload — ``--json`` continua parseável
-    com o progresso ligado. Nenhum campo carrega paths nem segredos.
+    com o progresso ligado. Nenhum campo carrega paths nem segredos —
+    e o escape de controles (lf-0153) garante que isso continue
+    verdade mesmo se um campo futuro carregar texto não-confiável:
+    ``\\n``/ANSI nunca forjam linhas ou sequências de terminal.
     """
     parts = " ".join(f"{k}={v}" for k, v in fields.items())
-    print(f"[index] {event} {parts}".rstrip(), file=sys.stderr)
+    line = escape_control(f"[index] {event} {parts}").rstrip()
+    print(line, file=sys.stderr)
 
 
 def _index_domains(
@@ -505,7 +512,8 @@ def _print_index_human(outcome: IndexOutcome) -> None:
     elif outcome.status == "noop":
         print(f"snapshot #{outcome.snapshot_id} unchanged — no-op index")
     else:
-        print(f"index failed: {outcome.error}", file=sys.stderr)
+        print(f"index failed: {escape_control(outcome.error)}",
+              file=sys.stderr)
     if outcome.secrets_skipped:
         print(f"secrets excluded: {outcome.secrets_skipped}")
     for w in outcome.warnings:
@@ -705,7 +713,7 @@ def _emit_error(args: argparse.Namespace, msg: str) -> int:
         print(json.dumps({"tool": "code-atlas", "version": __version__,
                           "error": msg, "schema_version": SCHEMA_VERSION}))
     else:
-        print(f"error: {msg}", file=sys.stderr)
+        print(f"error: {escape_control(msg)}", file=sys.stderr)
     return EXIT_ERROR
 
 
@@ -716,7 +724,7 @@ def _emit_page(args: argparse.Namespace, payload: dict[str, Any]) -> int:
         print(json.dumps(payload))
     else:
         for line in payload.pop("_human", []):
-            print(line)
+            print(escape_control(line))
         if "total" in payload:
             print(
                 f"-- total={payload['total']} "
@@ -852,8 +860,9 @@ def run_context(args: argparse.Namespace) -> int:
           f"selected={m.selected} omitted={m.omitted} "
           f"truncated={str(m.truncated).lower()}")
     for i in pack.items:
-        print(f"  [{i.priority}] {i.kind:<10} {i.title} "
-              f"(~{i.est_tokens} tok)")
+        print(escape_control(
+            f"  [{i.priority}] {i.kind:<10} {i.title} "
+            f"(~{i.est_tokens} tok)"))
     if pack.diagnostics.codes:
         print(f"diagnostics: {', '.join(pack.diagnostics.codes)}")
     return EXIT_OK
@@ -881,9 +890,10 @@ def run_context_expand(args: argparse.Namespace) -> int:
         print(expansion_to_json(res))
     else:
         for i in res.added:
-            print(f"  + {i.symbol_key} (~{i.est_tokens} tok) {i.path}")
+            print(escape_control(
+                f"  + {i.symbol_key} (~{i.est_tokens} tok) {i.path}"))
         for r in res.remaining_refs:
-            print(f"  … {r.ref_id} ({r.reason})")
+            print(escape_control(f"  … {r.ref_id} ({r.reason})"))
     return EXIT_OK
 
 
@@ -940,7 +950,8 @@ def run_explorer(args: argparse.Namespace) -> int:
         server = serve(str(db_file), host=args.host, port=args.port,
                        verbose=args.verbose, static_root=static)
     except OSError as e:
-        print(f"porta indisponível: {e}", file=sys.stderr)
+        print(f"porta indisponível: {escape_control(str(e))}",
+              file=sys.stderr)
         return EXIT_ERROR
     url = f"http://{server.host}:{server.port}/"
     print(f"Explorer em {url} — API em {server.url}")
@@ -1001,7 +1012,7 @@ def _mcp_doctor(args: argparse.Namespace) -> int:
                           "command": "mcp doctor", **checks}))
     else:
         for k, v in checks.items():
-            print(f"{k:<16} {v}")
+            print(f"{k:<16} {escape_control(str(v))}")
     return EXIT_OK
 
 
@@ -1116,7 +1127,8 @@ def run_index_plan(args: argparse.Namespace) -> int:
         else resolve_root(args.root)
     )
     if not target.is_dir():
-        print(f"error: {target} is not a directory", file=sys.stderr)
+        print(f"error: {escape_control(str(target))} is not a directory",
+              file=sys.stderr)
         return EXIT_UNSAFE
     conn = _open_db()
     try:
@@ -1139,9 +1151,10 @@ def run_index_plan(args: argparse.Namespace) -> int:
         ))
         if diag:
             for d in diag.values():
-                print(f"note: {d}")
+                print(f"note: {escape_control(str(d))}")
         for f in plan.files:
-            print(f"  {f.action:<22} {f.path}  ({f.reason})")
+            print(escape_control(
+                f"  {f.action:<22} {f.path}  ({f.reason})"))
     return EXIT_OK
 
 
@@ -1220,7 +1233,8 @@ def run_impact(args: argparse.Namespace) -> int:
             print(to_markdown(res))
             return 0
         # humano: resumo determinístico
-        print(f"impact: {res.base_revision} → {res.target_revision}")
+        print("impact: "
+              + escape_control(f"{res.base_revision} → {res.target_revision}"))
         print(f"  snapshots: {res.base_snapshot_id} → "
               f"{res.target_snapshot_id}")
         print(f"  changes: {len(res.symbol_changes)} símbolo(s), "
@@ -1231,14 +1245,14 @@ def run_impact(args: argparse.Namespace) -> int:
         print(f"  risk: {res.risk.category.value} "
               f"(uncertainty={res.risk.uncertainty})")
         for r in res.risk.reasons:
-            print(f"    - {r}")
+            print(escape_control(f"    - {r}"))
         for d in res.diagnostics:
-            print(f"  diagnostic {d.code}: {d.message}",
+            print(escape_control(f"  diagnostic {d.code}: {d.message}"),
                   file=sys.stderr)
         if res.truncated:
             # lf-0151: paridade com JSON/Markdown — as razões do
             # corte fazem parte do estado reportado.
-            why = ", ".join(res.truncation_reasons)
+            why = escape_control(", ".join(res.truncation_reasons))
             print("  TRUNCATED — limites atingidos"
                   + (f" ({why})" if why else ""))
         return 0
@@ -1344,7 +1358,7 @@ def run_federation(args: argparse.Namespace) -> int:
     if args.json:
         print(json.dumps(payload))
     elif cmd == "view":
-        print(f"view {payload['view_id']}")
+        print(f"view {escape_control(str(payload['view_id']))}")
         for m in payload["members"]:
             print(
                 f"  repo={m['repository_id']} "
@@ -1355,7 +1369,7 @@ def run_federation(args: argparse.Namespace) -> int:
         for k, v in payload.items():
             if not k.startswith("_") and k not in ("tool", "version",
                                                    "command"):
-                print(f"{k}: {v}")
+                print(f"{k}: {escape_control(str(v))}")
     return EXIT_OK
 
 

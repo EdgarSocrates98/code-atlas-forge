@@ -54,6 +54,25 @@ if [ -z "$PY" ]; then
 fi
 [ -n "$PY" ] || { echo "FATAL: python3/.venv not found" >&2; exit 2; }
 
+# SOURCE_DATE_EPOCH: ambiente > HEAD commit — fixo por commit ⇒ builds
+# byte-idênticos. Sem git e sem env: aborta (release sem epoch não é
+# reproduzível — melhor falhar que emitir artefato não-verificável).
+# lf-0153: o valor vem do AMBIENTE e é validado ANTES de qualquer
+# etapa cara (npm/build) — um SDE hostil ou malformado nunca viaja
+# até `date`, `int()` ou os zips.
+if [ -z "${SOURCE_DATE_EPOCH:-}" ]; then
+    SOURCE_DATE_EPOCH="$(git -C "$ROOT" log -1 --format=%ct 2>/dev/null || true)"
+fi
+[ -n "${SOURCE_DATE_EPOCH:-}" ] || {
+    echo "FATAL: SOURCE_DATE_EPOCH indeterminado (sem env, sem git)" >&2; exit 2; }
+case "$SOURCE_DATE_EPOCH" in
+    *[!0-9]*|"")
+        echo "FATAL: SOURCE_DATE_EPOCH não-numérico: '$SOURCE_DATE_EPOCH'" >&2
+        exit 2 ;;
+esac
+export SOURCE_DATE_EPOCH
+echo "== SOURCE_DATE_EPOCH=$SOURCE_DATE_EPOCH ($(date -u -d "@$SOURCE_DATE_EPOCH" +%Y-%m-%dT%H:%M:%SZ 2>/dev/null || date -u -r "$SOURCE_DATE_EPOCH" +%Y-%m-%dT%H:%M:%SZ))"
+
 PKG_DIST="$ROOT/src/code_atlas/explorer_dist"
 ANGULAR_DIST="$ROOT/explorer/dist/explorer/browser"
 
@@ -74,17 +93,6 @@ else
     echo "== explorer: --api-only (skip npm; explorer_dist usado como está)"
 fi
 
-# SOURCE_DATE_EPOCH: ambiente > HEAD commit — fixo por commit ⇒ builds
-# byte-idênticos. Sem git e sem env: aborta (release sem epoch não é
-# reproduzível — melhor falhar que emitir artefato não-verificável).
-if [ -z "${SOURCE_DATE_EPOCH:-}" ]; then
-    SOURCE_DATE_EPOCH="$(git -C "$ROOT" log -1 --format=%ct 2>/dev/null || true)"
-fi
-[ -n "${SOURCE_DATE_EPOCH:-}" ] || {
-    echo "FATAL: SOURCE_DATE_EPOCH indeterminado (sem env, sem git)" >&2; exit 2; }
-export SOURCE_DATE_EPOCH
-echo "== SOURCE_DATE_EPOCH=$SOURCE_DATE_EPOCH ($(date -u -d "@$SOURCE_DATE_EPOCH" +%Y-%m-%dT%H:%M:%SZ 2>/dev/null || date -u -r "$SOURCE_DATE_EPOCH" +%Y-%m-%dT%H:%M:%SZ))"
-
 # Artefatos do release ficam em dist/<name>-<ver>; limpa os da versão
 # atual para o inventário não misturar cortes antigos.
 VER="$("$PY" - <<'EOF'
@@ -95,6 +103,13 @@ print(m.group(1) if m else "")
 EOF
 )"
 [ -n "$VER" ] || { echo "FATAL: __version__ indeterminado" >&2; exit 1; }
+# lf-0153: VER entra em nomes de artefato — charset PEP 440 only
+# (qualquer coisa fora disso é bug no __init__.py, não release).
+case "$VER" in
+    *[!0-9A-Za-z.!+_-]*)
+        echo "FATAL: __version__ com caracteres ilegais: '$VER'" >&2
+        exit 1 ;;
+esac
 rm -f "dist/code_atlas_forge-${VER}-py3-none-any.whl" "dist/code_atlas_forge-${VER}.tar.gz"
 
 echo "== python -m build (sdist → wheel a partir do sdist)"

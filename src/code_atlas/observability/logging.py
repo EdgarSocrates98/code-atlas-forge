@@ -37,10 +37,21 @@ _TOKEN_RE = re.compile(
 _LONG_SECRET_RE = re.compile(r"\b[A-Za-z0-9+/=_\-]{40,}\b")
 _PEM_RE = re.compile(r"-----BEGIN [A-Z ]+PRIVATE KEY-----.*?-----END [A-Z ]+PRIVATE KEY-----",
                      re.DOTALL)
+# Controles C0/C1/DEL → escape ``\xNN`` (lf-0153, cycle-8.1 Phase 10):
+# linha de request hostil (``GET /\x1b[31m``) ou filename com ``\n``
+# podiam forjar linhas/sequências ANSI no stderr — logs são single-line
+# por contrato, então TODO caractere de controle vira escape visível.
+_CONTROL_RE = re.compile(r"[\x00-\x1f\x7f-\x9f]")
+
+
+def escape_control(text: str) -> str:
+    """Caracteres de controle viram ``\\xNN`` — anti log-injection."""
+    return _CONTROL_RE.sub(lambda m: f"\\x{ord(m.group(0)):02x}", text)
 
 
 def _redact_text(text: str, home: str) -> str:
     """Aplica as regras de mascaramento a uma string."""
+    text = escape_control(text)
     if home and home in text:
         text = text.replace(home, "~")
     text = _PEM_RE.sub("<REDACTED:pem>", text)
@@ -65,6 +76,12 @@ class RedactionFilter(logging.Filter):
                 _redact_text(str(a), self._home) if isinstance(a, (str, Path)) else a
                 for a in record.args
             ) if isinstance(record.args, tuple) else record.args
+        if record.exc_info and record.exc_text is None:
+            # lf-0153: traceback text contorna msg/args — pré-renderiza
+            # escapado para que o Formatter não emita controles crus
+            # (filename ``a\nb.py`` numa exceção forjaria linhas).
+            record.exc_text = escape_control(
+                logging.Formatter().formatException(record.exc_info))
         return True
 
 
@@ -174,6 +191,7 @@ def timed(label: str) -> Callable[[Callable[_P, _R]], Callable[_P, _R]]:
 __all__ = [
     "JsonFormatter",
     "RedactionFilter",
+    "escape_control",
     "get_logger",
     "log_if_slow",
     "slow_ms",
