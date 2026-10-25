@@ -36,26 +36,26 @@
     "hub_occurrence_id": 3002,
     "client_limit_100": {
       "samples_ms": [
-        9.934,
-        8.876999999999999,
-        8.85,
-        8.897,
-        9.847
+        9.144,
+        9.572000000000001,
+        8.713000000000001,
+        9.022,
+        9.373
       ],
-      "median_ms": 8.897,
+      "median_ms": 9.144,
       "edges": 100,
       "nodes": 101,
       "truncated": true
     },
     "server_cap_200": {
       "samples_ms": [
-        9.058,
-        9.629999999999999,
-        11.663,
-        10.89,
-        9.312000000000001
+        9.616,
+        10.424,
+        8.327,
+        9.952,
+        9.931000000000001
       ],
-      "median_ms": 9.629999999999999,
+      "median_ms": 9.931000000000001,
       "edges": 151,
       "nodes": 152,
       "truncated": false
@@ -72,17 +72,17 @@
       "url": "/graph?focus=3002",
       "surface": "canvas",
       "renderer_failed_banner": false,
-      "wall_nav_to_ready_ms": 475,
+      "wall_nav_to_ready_ms": 463,
       "resource": {
-        "navDuration": 137.4,
+        "navDuration": 139.4,
         "neighborsApi": {
-          "start": 301.8,
-          "duration": 49.5,
-          "responseEnd": 351.3,
+          "start": 293.9,
+          "duration": 48.9,
+          "responseEnd": 342.8,
           "transferSize": 48588,
           "encodedBodySize": 48288
         },
-        "symbolApi": 47.4
+        "symbolApi": 47.3
       },
       "counts_initial": {
         "rendered": 101,
@@ -93,23 +93,23 @@
         "mode": "canvas",
         "rendererFailed": false
       },
-      "max_raf_gap_ms": 250,
+      "max_raf_gap_ms": 250.1,
       "longtasks": [
-        115,
-        152
+        112,
+        146
       ],
       "sigma_errors": [],
       "page_errors": [],
       "heap_mb": {
         "before_load": 1.1,
-        "end": 8.6
+        "end": 16.2
       },
-      "raf_alive_ms": 11
+      "raf_alive_ms": 13.2
     },
     "table_expansion_phase": {
       "view": "accessible table (renderer fallback keeps it usable)",
       "hub_self_expand": {
-        "wall_ms": 91,
+        "wall_ms": 94,
         "counts_after": {
           "nodes": 101,
           "edges": 100
@@ -120,7 +120,7 @@
         {
           "index": 0,
           "target": "first-enabled-0",
-          "wall_ms": 76,
+          "wall_ms": 80,
           "nodes_after": 108,
           "edges_after": 112
         },
@@ -134,35 +134,35 @@
         {
           "index": 2,
           "target": "first-enabled-2",
-          "wall_ms": 72,
+          "wall_ms": 77,
           "nodes_after": 112,
           "edges_after": 133
         },
         {
           "index": 3,
           "target": "first-enabled-3",
-          "wall_ms": 75,
+          "wall_ms": 78,
           "nodes_after": 114,
           "edges_after": 142
         },
         {
           "index": 4,
           "target": "first-enabled-4",
-          "wall_ms": 77,
+          "wall_ms": 75,
           "nodes_after": 116,
           "edges_after": 150
         },
         {
           "index": 5,
           "target": "first-enabled-5",
-          "wall_ms": 76,
+          "wall_ms": 78,
           "nodes_after": 118,
           "edges_after": 157
         },
         {
           "index": 6,
           "target": "first-enabled-6",
-          "wall_ms": 78,
+          "wall_ms": 77,
           "nodes_after": 120,
           "edges_after": 164
         },
@@ -176,49 +176,49 @@
         {
           "index": 8,
           "target": "first-enabled-8",
-          "wall_ms": 75,
+          "wall_ms": 73,
           "nodes_after": 124,
           "edges_after": 178
         },
         {
           "index": 9,
           "target": "first-enabled-9",
-          "wall_ms": 75,
+          "wall_ms": 73,
           "nodes_after": 126,
           "edges_after": 185
         },
         {
           "index": 10,
           "target": "first-enabled-10",
-          "wall_ms": 91,
+          "wall_ms": 74,
           "nodes_after": 128,
           "edges_after": 192
         },
         {
           "index": 11,
           "target": "first-enabled-11",
-          "wall_ms": 76,
+          "wall_ms": 92,
           "nodes_after": 130,
           "edges_after": 199
         },
         {
           "index": 12,
           "target": "first-enabled-12",
-          "wall_ms": 77,
+          "wall_ms": 75,
           "nodes_after": 132,
           "edges_after": 206
         },
         {
           "index": 13,
           "target": "first-enabled-13",
-          "wall_ms": 74,
+          "wall_ms": 76,
           "nodes_after": 134,
           "edges_after": 213
         },
         {
           "index": 14,
           "target": "first-enabled-14",
-          "wall_ms": 77,
+          "wall_ms": 76,
           "nodes_after": 136,
           "edges_after": 220
         }
@@ -236,7 +236,7 @@
         "collapsed_to": 100,
         "apply": {
           "max_gap_ms": 16.8,
-          "settle_ms": 1611.7
+          "settle_ms": 1613.5
         },
         "counts_collapsed": {
           "rendered": 100,
@@ -249,7 +249,7 @@
         },
         "restore": {
           "max_gap_ms": 16.8,
-          "settle_ms": 1608.4
+          "settle_ms": 1609.1
         },
         "counts_restored": {
           "rendered": 136,
@@ -266,7 +266,7 @@
     "canvas_session": {
       "arch_load": {
         "surface": "canvas",
-        "wall_nav_to_ready_ms": 429,
+        "wall_nav_to_ready_ms": 383,
         "counts": {
           "rendered": 500,
           "edges": 0,
@@ -279,20 +279,20 @@
         "note": "overview carries 0 edges — canvas mounts cleanly"
       },
       "pan_arch": {
-        "frames": 197,
-        "fps_mean": 57.7,
-        "delta_mean_ms": 17.34,
+        "frames": 196,
+        "fps_mean": 57.4,
+        "delta_mean_ms": 17.43,
         "delta_p95_ms": 16.8,
         "delta_max_ms": 33.4,
-        "frames_over_33ms": 1,
-        "draw_calls": 170,
-        "draw_verts": 225060
+        "frames_over_33ms": 0,
+        "draw_calls": 171,
+        "draw_verts": 225063
       },
       "drill_attempt": {
         "attempted": true,
         "target": "mod_0000.py",
         "action": "']' ×k + Enter + e — drillFile() in-session",
-        "wall_ms": 670,
+        "wall_ms": 665,
         "outcome": "canvas-edges",
         "page_state": {
           "state": null,
@@ -316,11 +316,11 @@
       },
       "edge_canvas_metrics": {
         "pan_ego": {
-          "frames": 205,
-          "fps_mean": 60.1,
-          "delta_mean_ms": 16.64,
-          "delta_p95_ms": 16.7,
-          "delta_max_ms": 16.8,
+          "frames": 204,
+          "fps_mean": 59.7,
+          "delta_mean_ms": 16.74,
+          "delta_p95_ms": 16.8,
+          "delta_max_ms": 33.3,
           "frames_over_33ms": 0,
           "draw_calls": 168,
           "draw_verts": 99864
@@ -351,8 +351,8 @@
         "cap_collapse": {
           "collapsed_to": 100,
           "apply": {
-            "max_gap_ms": 49.9,
-            "settle_ms": 1611.5
+            "max_gap_ms": 50,
+            "settle_ms": 1610.3
           },
           "counts_collapsed": {
             "rendered": 100,
@@ -365,7 +365,7 @@
           },
           "restore": {
             "max_gap_ms": 33.4,
-            "settle_ms": 1608.6
+            "settle_ms": 1606.8
           },
           "counts_restored": {
             "rendered": 208,
@@ -379,8 +379,8 @@
         },
         "pan_dense": {
           "frames": 205,
-          "fps_mean": 60.1,
-          "delta_mean_ms": 16.65,
+          "fps_mean": 60,
+          "delta_mean_ms": 16.66,
           "delta_p95_ms": 16.7,
           "delta_max_ms": 16.8,
           "frames_over_33ms": 0,
@@ -388,7 +388,7 @@
           "draw_verts": 74898
         },
         "remount_table_to_graph": {
-          "wall_ms": 1555,
+          "wall_ms": 1539,
           "surface_after": "canvas",
           "renderer_failed": false,
           "sigma_errors_so_far": 0
@@ -397,19 +397,20 @@
       "sigma_errors": [],
       "page_errors": [],
       "longtasks": [
-        82,
-        93,
-        82,
-        52,
-        187,
-        154,
-        292
+        55,
+        69,
+        98,
+        89,
+        53,
+        189,
+        150,
+        287
       ],
       "heap_mb": {
         "before": 0.5,
         "end": 10
       },
-      "raf_alive_ms": 2.9
+      "raf_alive_ms": 18.4
     }
   }
 }
