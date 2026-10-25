@@ -84,7 +84,9 @@ def _workspace_reader(root: Path) -> ContentReader:
         if rel.startswith("/") or ".." in PurePosixPath(rel).parts:
             return None
         target = (base / rel).resolve()
-        if not str(target).startswith(str(base) + "/") and target != base:
+        # pathlib puro — separador portátil (Windows usa "\\"); o check
+        # exige containment real, não prefixo de string.
+        if not target.is_relative_to(base):
             return None
         if not target.is_file():
             return None

@@ -36,7 +36,9 @@ def _read_artifact(
             # não segue symlink — honra a lista de artefatos verbatim
             real = p.resolve()
             base = base_path.resolve()
-            if not str(real).startswith(str(base)):
+            # containment por pathlib — ``startswith`` em string aceitaria
+            # irmãos com prefixo comum (``/repo-evil`` sob ``/repo``).
+            if not real.is_relative_to(base):
                 sink.diag(
                     "artifact-outside-root", "warning",
                     f"{rel_path}: symlink escapes repository root",
