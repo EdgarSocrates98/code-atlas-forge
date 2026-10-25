@@ -64,7 +64,8 @@ function makeApi(overrides: Partial<Record<keyof ApiService, unknown>> = {}): Ap
 /** One occurrence item in the GET /files/{id}/occurrences contract. */
 function occurrence(id: number, path = 'm.py'): ApiFileOccurrence {
   return {
-    id,
+    id: `occ:${id}`,
+    occurrence_id: id,
     qualified_name: `mod.fn${id}`,
     kind: 'function',
     span_start: id,

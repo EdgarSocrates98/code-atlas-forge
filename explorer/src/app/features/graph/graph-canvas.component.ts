@@ -802,6 +802,10 @@ export class GraphCanvasComponent implements AfterViewInit, OnDestroy {
       return attrs;
     });
 
+    // Index edges added since the last render before per-edge updates:
+    // sigma's edge-attributes handler calls refresh({skipIndexation:true})
+    // and throws on edges that were never processed.
+    sigma.refresh();
     const edgeVm = new Map(edges.map((e) => [e.id, e]));
     graph.updateEachEdgeAttributes((id, attrs) => {
       const vm = edgeVm.get(id);

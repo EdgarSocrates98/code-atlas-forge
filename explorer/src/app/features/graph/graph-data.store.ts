@@ -306,7 +306,7 @@ export class GraphDataStore implements OnDestroy {
       this.mergeNodes(result.items.map((item) => occurrenceToVM(item, path)));
 
       // Bounded neighbor expansion around the first seeds.
-      const seeds = result.items.map((o) => o.id).slice(0, DRILL_NEIGHBOR_BUDGET);
+      const seeds = result.items.map((o) => o.occurrence_id).slice(0, DRILL_NEIGHBOR_BUDGET);
       let truncated = false;
       for (const seed of seeds) {
         const res = await this.api.getGraphNeighbors(

@@ -437,8 +437,10 @@ export interface ApiGraphNeighbors {
  * declared optional — the explorer renders what arrives, never invents.
  */
 export interface ApiFileOccurrence {
-  /** occurrence id — the numeric part of `occ:{id}` node keys. */
-  id: number;
+  /** formatted node key `occ:{occurrence_id}` — use verbatim, never parse. */
+  id: string;
+  /** the numeric part of `occ:{id}` — required by neighbors/symbol routes. */
+  occurrence_id: number;
   qualified_name: string;
   kind: string;
   span_start: number | null;

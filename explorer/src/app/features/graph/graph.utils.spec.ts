@@ -132,7 +132,8 @@ describe('graph.utils — DTO mapping', () => {
 
   it('maps a file-occurrence row into a symbol VM (occurrences endpoint)', () => {
     const item: ApiFileOccurrence = {
-      id: 21,
+      id: 'occ:21',
+      occurrence_id: 21,
       qualified_name: 'mod.sub.fn',
       kind: 'function',
       span_start: 120,
@@ -160,7 +161,7 @@ describe('graph.utils — DTO mapping', () => {
 
   it('maps occurrences with null spans/optional fields honestly', () => {
     const vm = occurrenceToVM(
-      { id: 3, qualified_name: 'top', kind: 'module', span_start: null, span_end: null, line: null, col: null },
+      { id: 'occ:3', occurrence_id: 3, qualified_name: 'top', kind: 'module', span_start: null, span_end: null, line: null, col: null },
       'top.py',
     );
     expect(vm.span).toBeNull();

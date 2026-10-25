@@ -141,14 +141,14 @@ export function searchHitToVM(hit: ApiSearchHit): GraphNodeVM {
  */
 export function occurrenceToVM(item: ApiFileOccurrence, path: string): GraphNodeVM {
   return {
-    id: occNodeId(item.id),
+    id: occNodeId(item.occurrence_id),
     kind: 'symbol',
     label: shortName(item.qualified_name),
     qname: item.qualified_name,
     symbolKind: item.kind,
     language: item.language ?? '',
     path: item.path ?? path,
-    occurrenceId: item.id,
+    occurrenceId: item.occurrence_id,
     symbolId: item.symbol_id ?? null,
     span:
       item.span_start !== null && item.span_end !== null
