@@ -134,7 +134,7 @@ const LEVELS: { value: ApiContextLevel; label: string; hint: string }[] = [
       }
 
       @if (pack(); as view) {
-        <div class="context__pack" aria-live="polite" aria-label="Context pack gerado">
+        <div class="context__pack" role="region" aria-live="polite" aria-label="Context pack gerado">
           @if (view.insufficientBudget || view.mandatoryContextOmitted) {
             <div class="context__banner" role="alert">
               <strong>Orçamento insuficiente.</strong>

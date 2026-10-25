@@ -74,7 +74,7 @@ const QUICK_LINKS: QuickLink[] = [
           [errorMessage]="errorText()"
         />
       } @else {
-        <div class="dashboard__cards" aria-label="Resumo do índice">
+        <div class="dashboard__cards" role="group" aria-label="Resumo do índice">
           <div class="dashboard__card">
             <h2>API local</h2>
             <p class="dashboard__metric dashboard__metric--ok">online</p>

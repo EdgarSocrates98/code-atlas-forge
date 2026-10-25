@@ -222,7 +222,7 @@ const LIMITS = [10, 20, 50, 100];
       }
 
       @if (result(); as res) {
-        <div class="search__results" aria-live="polite" aria-label="Resultados da busca">
+        <div class="search__results" role="region" aria-live="polite" aria-label="Resultados da busca">
           <p class="search__summary" role="status">
             {{ items().length }} resultado(s) — estratégia “{{ res.strategy }}”,
             snapshot #{{ res.snapshotId }}@if (res.repository) {

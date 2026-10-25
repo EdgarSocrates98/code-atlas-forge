@@ -22,7 +22,7 @@ import type { ImpactView } from './impact.vm';
   imports: [RouterLink, DiagnosticsListComponent, EvidenceBadgeComponent],
   template: `
     @if (view(); as v) {
-      <div class="impact-result" aria-live="polite" aria-label="Resultado da análise de impacto">
+      <div class="impact-result" role="region" aria-live="polite" aria-label="Resultado da análise de impacto">
         @if (v.partial) {
           <div class="impact-result__banner impact-result__banner--partial" role="alert">
             <strong>Análise parcial.</strong>

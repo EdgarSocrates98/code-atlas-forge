@@ -34,6 +34,7 @@
     "@angular-devkit/build-angular": "18.2.13",
     "@angular/cli": "18.2.13",
     "@angular/compiler-cli": "18.2.13",
+    "@axe-core/playwright": "^4.13.0",
     "@playwright/test": "^1.56.1",
     "@types/jasmine": "5.1.4",
     "jasmine-core": "5.2.0",

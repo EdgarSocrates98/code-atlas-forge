@@ -50,7 +50,7 @@
     </div>
 
     @if (store.availableEdgeTypes().length || store.availableStatuses().length) {
-      <div class="graph-feature__filters" aria-label="Filtros de relações">
+      <div class="graph-feature__filters" role="group" aria-label="Filtros de relações">
         @if (store.availableEdgeTypes().length) {
           <span class="filters__label">Tipos:</span>
           @for (t of store.availableEdgeTypes(); track t) {
