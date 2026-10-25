@@ -18,7 +18,7 @@ cannot touch another member's selected snapshot or data.
 | File | Role |
 |---|---|
 | `src/code_atlas/storage/migrations.py` | Additive **schema v10**: `federation_workspaces(name UNIQUE, created_at)` + `federation_members(workspace_id, repository_id, pinned_snapshot_id NULLABLE, added_at)` with FKs, `UNIQUE(workspace_id, repository_id)`, membership indexes. No earlier migration touched |
-| `src/code_atlas/federation/model.py` | Dataclasses + typed errors; `compute_view_id` = `fedview:<sha256>` of sorted `(repo_id, snapshot_id|None)` pairs |
+| `src/code_atlas/federation/model.py` | Dataclasses + typed errors; `compute_view_id` = `fedview:<sha256>` — format 1 (this doc) hashed sorted `(repo_id, snapshot_id|None)` pairs; **format 2 (lf-0134, `docs/cycle-8-federation-scale.md`) widened the key** to repo `identity_key` + `analyzer_versions` digests + resolver format + `schema_version` |
 | `src/code_atlas/federation/store.py` | `FederationStore` — parameterized CRUD on the two v10 tables + `snapshot_entity_occurrences(snapshot_id)` (occurrence+entity+path join, always snapshot-scoped) |
 | `src/code_atlas/federation/federation.py` | `Federation` engine — workspace CRUD, member/pin validation, view resolution, `entity_occurrences`, bounded `graph`; `shared_key_of`/`normalize_lookup_key` |
 | `src/code_atlas/api/handlers.py` | GET-only routes under `/federation/workspaces*`; typed `ApiError` mapping; `_route_federation` dispatcher; `_parse_pins` bounded parser |
@@ -46,7 +46,10 @@ serving its own latest READY — tested end to end.
 precedence per member: request pin-override → persisted pin → latest
 READY; `resolution` records which source produced the snapshot, and
 members without a readable snapshot surface as `snapshot_id=null`
-(`no-ready-snapshot` / `pin-invalid`).
+(`no-ready-snapshot` / `pin-invalid`). Cycle 8 (lf-0134) widened this
+identity into the full cache key — membership, repo `identity_key`,
+snapshot pins, analyzer/adapter version digests and `schema_version`;
+see `docs/cycle-8-federation-scale.md`.
 
 **Federated edges are computed, never persisted.** `shared_entity`
 edges join entities sharing a `shared_key` across *different* member

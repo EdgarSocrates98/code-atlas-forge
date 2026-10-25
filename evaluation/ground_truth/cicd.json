@@ -1,0 +1,85 @@
+{
+  "schema": 1,
+  "domain": "cicd",
+  "fixture": "tests/fixtures/cicd_repo",
+  "labeled_by": "hand-read of all 5 workflow/ci files (lf-0129); independent of adapter output",
+  "entities": {
+    "complete": true,
+    "expected": [
+      {"name": "cicd:.github/workflows.ci.yml#CI", "kind": "cicd_workflow"},
+      {"name": "cicd:.github/workflows.ci.yml#CI/jobs/lint", "kind": "cicd_job"},
+      {"name": "cicd:.github/workflows.ci.yml#CI/jobs/test", "kind": "cicd_job"},
+      {"name": "cicd:.github/workflows.ci.yml#CI/jobs/build", "kind": "cicd_job"},
+      {"name": "cicd:.github/workflows.release.yml#Release", "kind": "cicd_workflow"},
+      {"name": "cicd:.github/workflows.release.yml#Release/jobs/call-reusable", "kind": "cicd_job", "note": "uses: local reusable workflow"},
+      {"name": "cicd:.github/workflows.release.yml#Release/jobs/call-external", "kind": "cicd_job", "note": "uses: external reusable workflow"},
+      {"name": "cicd:.github/workflows.release.yml#Release/jobs/release", "kind": "cicd_job"},
+      {"name": "cicd:.github/workflows.release.yml#Release/jobs/deploy", "kind": "cicd_job"},
+      {"name": "cicd:.github/workflows.reusable.yml#Reusable Checks", "kind": "cicd_workflow"},
+      {"name": "cicd:.github/workflows.reusable.yml#Reusable Checks/jobs/reusable-job", "kind": "cicd_job"},
+      {"name": "cicd:.github/workflows.broken.yml#Broken", "kind": "cicd_workflow", "note": "malformed yaml — workflow still salvaged"},
+      {"name": "cicd:.github/workflows.broken.yml#Broken/jobs/bad-tab", "kind": "cicd_job", "note": "job survives tab-indent error"}
+    ],
+    "forbidden": [
+      {"name_contains": ".gitlab", "note": "gitlab-ci.yml is not GitHub Actions — adapter must not claim it"},
+      {"name_contains": "[", "note": "matrix never expands — no test[ubuntu-latest] variants"},
+      {"name_contains": "odd-indent", "note": "garbage key in broken.yml is not a job"}
+    ]
+  },
+  "relations": {
+    "complete": true,
+    "expected": [
+      {"type": "CONTAINS", "from": "cicd:.github/workflows.ci.yml#CI", "to": "cicd:.github/workflows.ci.yml#CI/jobs/lint", "status": "resolved"},
+      {"type": "CONTAINS", "from": "cicd:.github/workflows.ci.yml#CI", "to": "cicd:.github/workflows.ci.yml#CI/jobs/test", "status": "resolved"},
+      {"type": "CONTAINS", "from": "cicd:.github/workflows.ci.yml#CI", "to": "cicd:.github/workflows.ci.yml#CI/jobs/build", "status": "resolved"},
+      {"type": "CONTAINS", "from": "cicd:.github/workflows.release.yml#Release", "to": "cicd:.github/workflows.release.yml#Release/jobs/call-reusable", "status": "resolved"},
+      {"type": "CONTAINS", "from": "cicd:.github/workflows.release.yml#Release", "to": "cicd:.github/workflows.release.yml#Release/jobs/call-external", "status": "resolved"},
+      {"type": "CONTAINS", "from": "cicd:.github/workflows.release.yml#Release", "to": "cicd:.github/workflows.release.yml#Release/jobs/release", "status": "resolved"},
+      {"type": "CONTAINS", "from": "cicd:.github/workflows.release.yml#Release", "to": "cicd:.github/workflows.release.yml#Release/jobs/deploy", "status": "resolved"},
+      {"type": "CONTAINS", "from": "cicd:.github/workflows.reusable.yml#Reusable Checks", "to": "cicd:.github/workflows.reusable.yml#Reusable Checks/jobs/reusable-job", "status": "resolved"},
+      {"type": "CONTAINS", "from": "cicd:.github/workflows.broken.yml#Broken", "to": "cicd:.github/workflows.broken.yml#Broken/jobs/bad-tab", "status": "resolved"},
+      {"type": "DEPENDS_ON", "from": "cicd:.github/workflows.ci.yml#CI/jobs/test", "to": "cicd:.github/workflows.ci.yml#CI/jobs/lint", "status": "resolved", "note": "needs: [lint]"},
+      {"type": "DEPENDS_ON", "from": "cicd:.github/workflows.ci.yml#CI/jobs/build", "to": "cicd:.github/workflows.ci.yml#CI/jobs/test", "status": "resolved", "note": "needs: test"},
+      {"type": "DEPENDS_ON", "from": "cicd:.github/workflows.release.yml#Release/jobs/release", "to": "cicd:.github/workflows.release.yml#Release/jobs/call-reusable", "status": "resolved", "note": "needs: [call-reusable]"},
+      {"type": "DEPENDS_ON", "from": "cicd:.github/workflows.release.yml#Release/jobs/deploy", "to": "cicd:.github/workflows.release.yml#Release/jobs/release", "status": "resolved", "note": "needs: release"},
+      {"type": "TRIGGERS", "from": "cicd:.github/workflows.ci.yml#CI", "to_contains": "push", "status": "external", "note": "on: push"},
+      {"type": "TRIGGERS", "from": "cicd:.github/workflows.ci.yml#CI", "to_contains": "pull_request", "status": "external", "note": "on: pull_request"},
+      {"type": "TRIGGERS", "from": "cicd:.github/workflows.release.yml#Release", "to_contains": "schedule", "status": "external", "note": "cron 17 3 * * 1"},
+      {"type": "TRIGGERS", "from": "cicd:.github/workflows.release.yml#Release", "to_contains": "workflow_dispatch", "status": "external"},
+      {"type": "TRIGGERS", "from": "cicd:.github/workflows.reusable.yml#Reusable Checks", "to_contains": "workflow_call", "status": "external"},
+      {"type": "TRIGGERS", "from": "cicd:.github/workflows.broken.yml#Broken", "to_contains": "push", "status": "external", "note": "trigger survives malformed jobs block"},
+      {"type": "REFERENCES", "from": "cicd:.github/workflows.ci.yml#CI/jobs/lint", "to_contains": "actions/checkout@v4", "status": "external"},
+      {"type": "REFERENCES", "from": "cicd:.github/workflows.ci.yml#CI/jobs/test", "to_contains": "actions/checkout@v4", "status": "external"},
+      {"type": "REFERENCES", "from": "cicd:.github/workflows.ci.yml#CI/jobs/test", "to_contains": "actions/upload-artifact@v4", "status": "external"},
+      {"type": "REFERENCES", "from": "cicd:.github/workflows.ci.yml#CI/jobs/build", "to_contains": "actions/checkout@v4", "status": "external"},
+      {"type": "REFERENCES", "from": "cicd:.github/workflows.ci.yml#CI/jobs/build", "to_contains": "actions/download-artifact@v4", "status": "external"},
+      {"type": "REFERENCES", "from": "cicd:.github/workflows.release.yml#Release/jobs/release", "to_contains": "actions/checkout@v4", "status": "external"},
+      {"type": "REFERENCES", "from": "cicd:.github/workflows.release.yml#Release/jobs/release", "to_contains": "docker/build-push-action@v6", "status": "external"},
+      {"type": "REFERENCES", "from": "cicd:.github/workflows.reusable.yml#Reusable Checks/jobs/reusable-job", "to_contains": "actions/checkout@v4", "status": "external"},
+      {"type": "REFERENCES", "from": "cicd:.github/workflows.release.yml#Release/jobs/call-external", "to_contains": "octocat/hello-world/.github/workflows/reusable.yml@v1", "status": "external", "note": "external reusable workflow — never resolved to an entity"},
+      {"type": "REFERENCES", "from": "cicd:.github/workflows.release.yml#Release/jobs/call-reusable", "to": "cicd:.github/workflows.reusable.yml#Reusable Checks", "status": "resolved", "note": "local reusable workflow resolves to its entity"},
+      {"type": "TESTS", "from": "cicd:.github/workflows.ci.yml#CI/jobs/test", "to_contains": "Test", "status": "unresolved", "note": "run: pytest step — test activity flagged unresolved"},
+      {"type": "TESTS", "from": "cicd:.github/workflows.reusable.yml#Reusable Checks/jobs/reusable-job", "to_contains": "pytest", "status": "unresolved", "note": "run: pytest -q tests/smoke"},
+      {"type": "DEPLOYS", "from": "cicd:.github/workflows.release.yml#Release/jobs/release", "to_contains": "environment:production", "status": "external", "note": "environment: production"},
+      {"type": "DEPLOYS", "from": "cicd:.github/workflows.release.yml#Release/jobs/deploy", "to_contains": "environment:staging", "status": "external", "note": "environment.name: staging"},
+      {"type": "DEPLOYS", "from": "cicd:.github/workflows.release.yml#Release/jobs/deploy", "to_contains": "Roll out", "status": "unresolved", "note": "kubectl apply step — deploy activity flagged unresolved"}
+    ],
+    "forbidden": [
+      {"status": "ambiguous", "note": "no ambiguous case exists in this fixture"},
+      {"type": "DEPENDS_ON", "from_contains": "jobs/lint", "note": "lint has no needs — any dep from it is fabricated"},
+      {"type": "DEPENDS_ON", "from_contains": "jobs/call-external", "note": "call-external has no needs"},
+      {"type": "TRIGGERS", "from_contains": "reusable.yml", "to_contains": "push", "note": "reusable workflow only fires on workflow_call"},
+      {"type": "REFERENCES", "from_contains": "jobs/call-reusable", "to_contains": "octocat", "note": "local call never points at external repo"},
+      {"to_contains": "secrets.", "note": "secret references never become edge targets"},
+      {"to_contains": "${{", "note": "expression syntax never leaks into an edge target"},
+      {"type": "DEPLOYS", "from_contains": "jobs/test", "note": "test job deploys nothing"}
+    ]
+  },
+  "diagnostics_expected": [
+    {"code": "yaml-tab-indent", "path": ".github/workflows/broken.yml", "min_count": 1, "note": "tab character in jobs block"},
+    {"code": "yaml-unexpected-indent", "path": ".github/workflows/broken.yml", "min_count": 1, "note": "odd-indent key"}
+  ],
+  "patterns_forbidden": [
+    {"substr": "CI_TOKEN", "note": "secret name under env: is pipeline config — not extracted content"}
+  ]
+}

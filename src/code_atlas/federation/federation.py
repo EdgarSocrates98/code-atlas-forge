@@ -21,20 +21,29 @@ Regras inegociáveis:
   entidades de repos distintos com a mesma ``shared_key`` — derivadas
   da view, nunca persistidas; ``computed=True`` + ``resolver=
   federation-view`` declaram a proveniência;
-- **view honesta**: ``view_id`` é o hash dos pares
-  ``(repo_id, snapshot_id|None)`` — pin, override ou READY novo mudam a
-  identidade da view.
+- **view honesta / cache key completa** (lf-0134): ``view_id`` é o
+  hash do contrato inteiro de identidade — pares
+  ``(repo_id, identity_key, snapshot_id|None, digest de
+  analyzer_versions)`` + ``FEDERATION_RESOLVER_ID``/``VIEW_ID_FORMAT``
+  + ``schema_version``. Pin, override, READY novo, mudança de
+  membership, re-bind de identidade, upgrade de adapter/resolver ou
+  migração de schema mudam a identidade da view — qualquer cache
+  chaveado em ``view_id`` invalida sem servir rows de outra identidade.
 """
 
 from __future__ import annotations
 
+import hashlib
+import json
 import sqlite3
 from collections.abc import Mapping
 from pathlib import Path
 
 from code_atlas.contracts.enums import SnapshotStatus
+from code_atlas.contracts.models import Snapshot
 from code_atlas.discovery.identity import identity_key_for_root
 from code_atlas.federation.model import (
+    FEDERATION_RESOLVER_ID,
     MAX_GRAPH_DEPTH,
     MIN_FEDERATION_MEMBERS,
     EntityNode,
@@ -57,9 +66,9 @@ from code_atlas.federation.model import (
     compute_view_id,
 )
 from code_atlas.federation.store import FederationStore
+from code_atlas.storage.migrations import schema_version
 from code_atlas.storage.store import Store
 
-FEDERATION_RESOLVER_ID = "federation-view"
 MAX_WORKSPACE_NAME = 120
 
 # Snapshots que uma view pode ler: READY (publicado) ou STALE (pin
@@ -292,20 +301,38 @@ class Federation:
             )
         view_members: list[ViewMember] = []
         resolved: dict[int, int | None] = {}
+        resolved_snaps: dict[int, Snapshot | None] = {}
         for m in members:
-            vm = self._resolve_member(m, overrides.get(m.repository_id))
+            vm, snap = self._resolve_member(
+                m, overrides.get(m.repository_id))
             view_members.append(vm)
             resolved[m.repository_id] = vm.snapshot_id
+            resolved_snaps[m.repository_id] = snap
         return FederatedView(
             workspace_id=ws.id,
             workspace_name=ws.name,
-            view_id=compute_view_id(resolved),
+            view_id=compute_view_id(
+                resolved,
+                identities=self._fstore.repo_identities(resolved),
+                member_versions={
+                    rid: _analyzer_digest(resolved_snaps.get(rid))
+                    for rid in resolved
+                },
+                schema=schema_version(self._conn),
+            ),
             members=tuple(view_members),
         )
 
     def _resolve_member(
         self, member: FederationMember, override: int | None
-    ) -> ViewMember:
+    ) -> tuple[ViewMember, Snapshot | None]:
+        """Resolve o membro — ``(ViewMember, snapshot escolhido|None)``.
+
+        O ``Snapshot`` acompanha o retorno para que a identidade da view
+        carregue o digest das ``analyzer_versions`` **sem re-query** —
+        a versão dos adapters/resolvers que produziram os dados é parte
+        da cache key (lf-0134).
+        """
         if override is not None:
             snap = self._store.snapshot_by_id(override)
             if snap is None or snap.repository_id != member.repository_id:
@@ -324,7 +351,7 @@ class Federation:
                 pinned=True,
                 resolution="pin-override",
                 snapshot_status=str(snap.status),
-            )
+            ), snap
         if member.pinned_snapshot_id is not None:
             snap = self._store.snapshot_by_id(member.pinned_snapshot_id)
             if snap is not None and snap.repository_id == member.repository_id:
@@ -334,7 +361,7 @@ class Federation:
                     pinned=True,
                     resolution="pinned",
                     snapshot_status=str(snap.status),
-                )
+                ), snap
             # pin apontando para snapshot inexistente/alheio só é
             # possível via adulteração manual — reporta, não adivinha.
             return ViewMember(
@@ -343,7 +370,7 @@ class Federation:
                 pinned=True,
                 resolution="pin-invalid",
                 snapshot_status="",
-            )
+            ), None
         snap = self._store.latest_ready_snapshot(member.repository_id)
         if snap is None:
             return ViewMember(
@@ -352,14 +379,14 @@ class Federation:
                 pinned=False,
                 resolution="no-ready-snapshot",
                 snapshot_status="",
-            )
+            ), None
         return ViewMember(
             repository_id=member.repository_id,
             snapshot_id=snap.id,
             pinned=False,
             resolution="latest-ready",
             snapshot_status=str(snap.status),
-        )
+        ), snap
 
     # --- leitura federada -------------------------------------------------
 
@@ -536,6 +563,21 @@ class Federation:
                 adjacency.setdefault(src[1], set()).add(dst[1])
                 adjacency.setdefault(dst[1], set()).add(src[1])
         return intra
+
+
+def _analyzer_digest(snap: Snapshot | None) -> str:
+    """sha256 das ``analyzer_versions`` do snapshot resolvido.
+
+    Componente "resolver/adapter versions" da cache key da view
+    (lf-0134): o digest das versões de parser/extrator/resolver/adapter
+    que produziram os rows daquele snapshot. ``None`` (membro sem
+    snapshot legível) → ``""`` — ausência declarada, nunca fabricada.
+    """
+    if snap is None:
+        return ""
+    return hashlib.sha256(
+        json.dumps(snap.analyzer_versions, sort_keys=True).encode("utf-8")
+    ).hexdigest()
 
 
 def _collect_entities(

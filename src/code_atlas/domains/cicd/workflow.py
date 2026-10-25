@@ -161,8 +161,8 @@ def _map_summary(node: YNode | None) -> str:
             continue
         val = v.scalar_text()
         parts.append(
-            f"{k.value}:{sanitize(val)}" if val is not None
-            else f"{k.value}:<{v.kind}>"
+            f"{sanitize(k.value)}:{sanitize(val)}" if val is not None
+            else f"{sanitize(k.value)}:<{v.kind}>"
         )
     return ",".join(parts)
 
@@ -170,7 +170,9 @@ def _map_summary(node: YNode | None) -> str:
 def _csv_keys(node: YNode | None) -> tuple[str, ...]:
     if node is None or node.kind != "map":
         return ()
-    return tuple(k.value for k, _ in node.pairs if k.kind == "scalar")
+    # chaves também são texto hostil — ``${{ secrets.X }}`` como nome
+    # de env vazaria cru sem o sanitize (lf-c8 F4).
+    return tuple(sanitize(k.value) for k, _ in node.pairs if k.kind == "scalar")
 
 
 def _step_descriptor(step: StepObs) -> str:
@@ -196,15 +198,15 @@ def _trigger_details(node: YNode | None) -> tuple[tuple[str, str], ...]:
             continue
         texts = v.scalar_list()
         if texts:
-            out.append((k.value, ",".join(sanitize(t) for t in texts)))
+            out.append((sanitize(k.value), ",".join(sanitize(t) for t in texts)))
         elif v.kind == "map":
             keys = _csv_keys(v)
             if keys:
-                out.append((k.value, ",".join(keys)))
+                out.append((sanitize(k.value), ",".join(keys)))
         else:
             s = _scalar(v)
             if s:
-                out.append((k.value, s))
+                out.append((sanitize(k.value), s))
     return tuple(out)
 
 
@@ -242,11 +244,11 @@ def _triggers(on_node: YNode | None, diags: list[YamlDiagnostic]) -> tuple[Trigg
         return ()
     out: list[TriggerObs] = []
     if on_node.kind == "scalar":
-        out.extend(_mk_trigger(on_node.value, None, on_node.span))
+        out.extend(_mk_trigger(sanitize(on_node.value), None, on_node.span))
     elif on_node.kind == "seq":
         for it in on_node.items:
             if it.kind == "scalar":
-                out.extend(_mk_trigger(it.value, None, it.span))
+                out.extend(_mk_trigger(sanitize(it.value), None, it.span))
             else:
                 diags.append(
                     YamlDiagnostic(
@@ -258,7 +260,7 @@ def _triggers(on_node: YNode | None, diags: list[YamlDiagnostic]) -> tuple[Trigg
     elif on_node.kind == "map":
         for k, v in on_node.pairs:
             if k.kind == "scalar":
-                out.extend(_mk_trigger(k.value, v, v.span))
+                out.extend(_mk_trigger(sanitize(k.value), v, v.span))
     else:
         diags.append(
             YamlDiagnostic(
@@ -286,13 +288,14 @@ def _matrix(job: YNode) -> tuple[tuple[str, ...], bool, tuple[str, ...], str, st
             if k.value in ("include", "exclude"):
                 extras.append(k.value)
                 continue
+            kname = sanitize(k.value)
             if v.kind == "seq":
-                axes.append(f"{k.value}={len(v.items)}")
+                axes.append(f"{kname}={len(v.items)}")
             elif has_interpolation(_raw_scalar(v)):
                 dynamic = True
-                axes.append(f"{k.value}={DYNAMIC}")
+                axes.append(f"{kname}={DYNAMIC}")
             else:
-                axes.append(f"{k.value}=?")
+                axes.append(f"{kname}=?")
     elif matrix is not None:
         dynamic = True
         axes.append(f"<{matrix.kind}>")
@@ -406,7 +409,7 @@ def _jobs(jobs_node: YNode | None, diags: list[YamlDiagnostic]) -> tuple[JobObs,
             diags.append(
                 YamlDiagnostic(
                     "job-not-map", "warning",
-                    f"job {k.value!r} is not a mapping — skipped",
+                    f"job {sanitize(k.value)!r} is not a mapping — skipped",
                     job.span.start_line,
                 )
             )
@@ -423,7 +426,7 @@ def _jobs(jobs_node: YNode | None, diags: list[YamlDiagnostic]) -> tuple[JobObs,
         outputs = job.get("outputs")
         out.append(
             JobObs(
-                job_id=k.value,
+                job_id=sanitize(k.value),
                 display_name=_scalar(job.get("name")),
                 uses=_scalar(job.get("uses")),
                 needs=needs,

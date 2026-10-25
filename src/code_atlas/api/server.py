@@ -45,6 +45,21 @@ REQUEST_TIMEOUT = 30.0  # s — teto de ociosidade por conexão
 _ALLOWED_HOSTS = re.compile(r"^(127\.0\.0\.1|localhost|\[::1\])(:\d+)?$")
 
 
+def _content_length(raw: str | None) -> int:
+    """``Content-Length`` validado — negativo/não-inteiro nunca chega
+    ao ``read()`` (``read(-1)`` bloquearia até o timeout e um header
+    malformado virava 500 ``internal`` em vez de 400 tipado)."""
+    try:
+        length = int(raw or 0)
+    except (TypeError, ValueError) as exc:
+        raise ApiError("bad-content-length",
+                       "Content-Length inválido", 400) from exc
+    if length < 0 or length > MAX_BODY:
+        raise ApiError("payload-too-large",
+                       "corpo fora do limite (0..64 KiB)", 413)
+    return length
+
+
 class ApiError(Exception):
     """Erro tipado retornado ao cliente."""
 
@@ -153,9 +168,7 @@ class _AtlasHandler(BaseHTTPRequestHandler):
             raise ApiError("bad-origin", "Origin não permitida", 403)
 
     def _body(self) -> dict[str, Any]:
-        length = int(self.headers.get("Content-Length") or 0)
-        if length > MAX_BODY:
-            raise ApiError("payload-too-large", "corpo excede 64 KiB", 413)
+        length = _content_length(self.headers.get("Content-Length"))
         raw = self.rfile.read(length) if length else b"{}"
         try:
             data = json.loads(raw)
@@ -172,7 +185,10 @@ class _AtlasHandler(BaseHTTPRequestHandler):
         root = self.server.static_root.resolve()
         rel = "index.html" if path in ("", "/") else path.lstrip("/")
         target = (root / rel).resolve()
-        if not str(target).startswith(str(root)) or not target.is_file():
+        # Contenção real via pathlib — ``startswith`` em string aceita
+        # irmãos com prefixo comum (``static-evil`` sob ``static``) e
+        # permitia servir arquivos fora do root via ``..`` (lf-c8 F1).
+        if not target.is_relative_to(root) or not target.is_file():
             # SPA fallback — rotas do Angular caem no index.html
             target = root / "index.html"
             if not target.is_file():
@@ -253,6 +269,8 @@ class _AtlasHttpd(ThreadingHTTPServer):
         super().__init__(addr, _AtlasHandler)
         self.db_path = db_path
         self.verbose = verbose
+        # lf-0141: instante de subida para o uptime do ``/diagnostics``.
+        self.started_at = time.monotonic()
         self.static_root = static_root
         self.request_timeout = request_timeout
         self.rate_limiter = _RateLimiter(rate_limit)

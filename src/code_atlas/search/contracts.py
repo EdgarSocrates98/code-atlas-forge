@@ -75,7 +75,9 @@ class DomainSearchHit:
     é a contagem de evidência (ocorrências da entidade no snapshot);
     ``occurrence_id`` aponta para a primeira ocorrência (row âncora,
     determinística). ``matched_fields`` declara COMO casou:
-    ``name``/``qualified_name``/``path`` (match direto LIKE) ou
+    ``name``/``qualified_name``/``path`` (match direto por substring),
+    ``terms`` (match por token no índice ``domain_fts`` que substring
+    não reproduz — fragmento de identificador ou forma normalizada) ou
     ``via_relation`` (endpoint entity↔entity resolvido de
     ``domain_relations`` adjacente a um match direto — a aresta real é
     citada em ``evidence`` como ``via=TYPE:rel:<id>``).

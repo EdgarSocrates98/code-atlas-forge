@@ -30,6 +30,10 @@ import re
 from pathlib import Path
 
 from code_atlas.contracts.enums import ConfidenceClass
+from code_atlas.discovery.scanner import (
+    artifact_path_confined,
+    read_file_verified,
+)
 from code_atlas.domains.contracts import (
     ArtifactSupport,
     ConfidenceModel,
@@ -171,18 +175,41 @@ class SqlDomainAdapter:
         self, path: str, sha256: str, diags: list[DomainDiagnostic]
     ) -> tuple[str, str] | None:
         """Lê ``base_path/path``; devolve (texto, sha256) ou None."""
-        fs = Path(path) if self._base is None else self._base / path
-        try:
-            raw = fs.read_bytes()
-        except OSError as exc:
-            diags.append(
-                DomainDiagnostic(
-                    code="unreadable-artifact", severity="error",
-                    message=f"cannot read artifact: {exc}",
-                    path=path, adapter_id=DOMAIN_ID,
+        if self._base is not None:
+            base = self._base.resolve()
+            fs = artifact_path_confined(path, base)
+            if fs is None:
+                diags.append(
+                    DomainDiagnostic(
+                        code="artifact-outside-root", severity="error",
+                        message=f"artifact path escapes repository root: {path}",
+                        path=path, adapter_id=DOMAIN_ID,
+                    )
                 )
-            )
-            return None
+                return None
+            raw = read_file_verified(fs, base)
+            if raw is None:
+                diags.append(
+                    DomainDiagnostic(
+                        code="unreadable-artifact", severity="error",
+                        message="cannot read artifact: unsafe or vanished",
+                        path=path, adapter_id=DOMAIN_ID,
+                    )
+                )
+                return None
+        else:
+            fs = Path(path)
+            try:
+                raw = fs.read_bytes()
+            except OSError as exc:
+                diags.append(
+                    DomainDiagnostic(
+                        code="unreadable-artifact", severity="error",
+                        message=f"cannot read artifact: {exc}",
+                        path=path, adapter_id=DOMAIN_ID,
+                    )
+                )
+                return None
         if len(raw) > _MAX_ARTIFACT:
             diags.append(
                 DomainDiagnostic(

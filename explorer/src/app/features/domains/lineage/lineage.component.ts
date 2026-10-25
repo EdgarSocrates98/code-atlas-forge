@@ -222,6 +222,10 @@ type LineagePhase = 'idle' | 'loading' | 'ready' | 'error' | 'offline';
         margin: 0;
         color: var(--atlas-color-text-muted);
         max-width: 72ch;
+        /* Relation tokens like READS_FROM/WRITES_TO/TRANSFORMS/DERIVES_FROM
+           are one unbreakable word — without this they push the page past
+           the viewport at mobile widths / high zoom (SC 1.4.10). */
+        overflow-wrap: anywhere;
       }
 
       .lineage__form {
@@ -318,6 +322,7 @@ type LineagePhase = 'idle' | 'loading' | 'ready' | 'error' | 'offline';
         align-items: baseline;
         gap: var(--atlas-space-2);
         flex-wrap: wrap;
+        overflow-wrap: anywhere;
       }
 
       .lineage__distance {

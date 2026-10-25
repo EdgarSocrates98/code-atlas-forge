@@ -16,6 +16,7 @@ from code_atlas.domains.terraform.hcl import HclDiagnostic, parse_hcl
 from code_atlas.domains.terraform.refs import (
     REDACTED,
     is_sensitive_name,
+    looks_like_secret_value,
     sanitize_value,
 )
 
@@ -45,6 +46,10 @@ def _unquote(value: str) -> str:
 
 def _assignment(name: str, raw: str, line: int) -> TfvarsAssignment:
     if is_sensitive_name(name):
+        return TfvarsAssignment(name, REDACTED, True, line)
+    # valor com formato de credencial sob chave benigna — mesma redação
+    # que chave sensível; nunca entra em env-hints nem atributos (F5).
+    if looks_like_secret_value(_unquote(raw)):
         return TfvarsAssignment(name, REDACTED, True, line)
     return TfvarsAssignment(name, sanitize_value(_unquote(raw)), False, line)
 

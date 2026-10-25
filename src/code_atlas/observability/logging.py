@@ -6,18 +6,29 @@ Nível: ``CODE_ATLAS_LOG_LEVEL`` (default WARNING).
 
 O filtro de redaction mascara: (a) caminhos absolutos dentro de $HOME,
 (b) padrões de segredo (tokens, chaves, assignments sensíveis).
+
+Slow-query guard (lf-0141, Cycle 8 Phase 15): ``CODE_ATLAS_SLOW_MS``
+define um teto de latência em milissegundos; chamadas instrumentadas
+que o excedem emitem ``DEBUG`` via :func:`log_if_slow` / :func:`timed`.
+Ausente, inválido ou ``<=0`` = guard desligado com custo zero (um
+``os.environ.get`` por chamada, nenhum clock extra além do já medido).
 """
 
 from __future__ import annotations
 
+import functools
 import json
 import logging
 import os
 import re
+import time
+from collections.abc import Callable
 from pathlib import Path
+from typing import ParamSpec, TypeVar
 
 ENV_FORMAT = "CODE_ATLAS_LOG_FORMAT"
 ENV_LEVEL = "CODE_ATLAS_LOG_LEVEL"
+ENV_SLOW_MS = "CODE_ATLAS_SLOW_MS"
 
 _TOKEN_RE = re.compile(
     r"(?i)(api[_-]?key|token|secret|password|passwd|authorization|bearer|"
@@ -90,4 +101,81 @@ def get_logger(name: str) -> logging.Logger:
     return logger
 
 
-__all__ = ["JsonFormatter", "RedactionFilter", "get_logger"]
+# --- slow-query guard (lf-0141) -----------------------------------------
+#
+# Guard opt-in por env: ``CODE_ATLAS_SLOW_MS`` é o teto em ms. As
+# fronteiras instrumentadas (despacho HTTP em ``api.handlers.handle``,
+# ``SearchEngine.search_scoped``) medem com ``time.monotonic`` — o
+# guard só decide se o valor já medido vira uma linha DEBUG.
+
+def slow_ms(env: dict[str, str] | None = None) -> float | None:
+    """Teto do slow-query guard em ms; ``None`` = desligado.
+
+    ``CODE_ATLAS_SLOW_MS`` ausente/vazio, não-numérico ou ``<= 0``
+    desliga o guard — opt-in explícito, default de custo zero.
+    """
+    raw = (env if env is not None else os.environ).get(ENV_SLOW_MS, "")
+    if not raw:
+        return None
+    try:
+        ms = float(raw)
+    except ValueError:
+        return None
+    return ms if ms > 0 else None
+
+
+def log_if_slow(
+    logger: logging.Logger, label: str, t0: float, detail: str = ""
+) -> None:
+    """Emite ``DEBUG`` quando ``time.monotonic() - t0`` excede o teto.
+
+    ``detail`` é contexto da chamada (rota, estratégia) — passa pelo
+    ``RedactionFilter`` do logger como qualquer mensagem.
+    """
+    ms = slow_ms()
+    if ms is None:
+        return
+    elapsed = (time.monotonic() - t0) * 1000
+    # Windows: clock monotônico tem resolução ~15.6ms — elapsed=0 pode
+    # ser "instantâneo" ou "menor que um tick". Somar a resolução torna
+    # o guard conservador: só garante não-slow quando mesmo o pior caso
+    # dentro da granularidade ficaria abaixo do teto.
+    res_ms = time.get_clock_info("monotonic").resolution * 1000
+    if elapsed + res_ms > ms:
+        suffix = f" {detail}" if detail else ""
+        logger.debug("slow %s elapsed_ms=%.1f threshold_ms=%.0f%s",
+                     label, elapsed, ms, suffix)
+
+
+_P = ParamSpec("_P")
+_R = TypeVar("_R")
+
+
+def timed(label: str) -> Callable[[Callable[_P, _R]], Callable[_P, _R]]:
+    """Decorator do slow-query guard — mede a chamada e delega a
+    ``log_if_slow``. O logger é ``code_atlas.<label>`` (mesmo filtro
+    de redaction de qualquer ``get_logger``)."""
+    logger = get_logger(f"code_atlas.{label}")
+
+    def deco(fn: Callable[_P, _R]) -> Callable[_P, _R]:
+        @functools.wraps(fn)
+        def wrapper(*args: _P.args, **kwargs: _P.kwargs) -> _R:
+            t0 = time.monotonic()
+            try:
+                return fn(*args, **kwargs)
+            finally:
+                log_if_slow(logger, label, t0)
+
+        return wrapper
+
+    return deco
+
+
+__all__ = [
+    "JsonFormatter",
+    "RedactionFilter",
+    "get_logger",
+    "log_if_slow",
+    "slow_ms",
+    "timed",
+]

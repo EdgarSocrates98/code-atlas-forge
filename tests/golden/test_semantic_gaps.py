@@ -84,21 +84,26 @@ def test_dynamic_import_python_no_invented_edge(tmp_path: Path) -> None:
 
 
 def test_dynamic_import_ts_no_invented_edge(tmp_path: Path) -> None:
-    """TS `await import("./x")` não é `import_statement` — parser não
-    inventa aresta IMPORTS; o call `import` fica unresolved."""
+    """TS `await import("./mod")` com literal é dependência real —
+    IMPORTS extraída e resolvida (lf-0130). `import(expr)` não-literal
+    continua sem aresta inventada (diagnóstico honesto, nenhum CALLS
+    espúrio para `import`)."""
     repo = tmp_path / "dynts"
     repo.mkdir()
     (repo / "mod.ts").write_text("export function f(): number {\n  return 1;\n}\n")
     (repo / "use.ts").write_text(
-        'export async function go(): Promise<number> {\n'
-        '  const m = await import("./mod");\n  return 1;\n}\n'
+        'export async function go(name: string): Promise<number> {\n'
+        '  const m = await import("./mod");\n'
+        '  const v = await import(name);\n  return 1;\n}\n'
     )
     rels = _rels(tmp_path / "t.db", repo)
-    assert not any(
-        r[0] == "IMPORTS" for r in rels
-    )
     assert any(
-        r[0] == "CALLS" and "import" in r[2] and r[3] == "unresolved"
+        r[0] == "IMPORTS" and r[1] == "use" and r[2] == "mod"
+        and r[3] == "resolved"
+        for r in rels
+    )
+    assert not any(
+        r[0] == "CALLS" and "import" in r[2]
         for r in rels
     )
 

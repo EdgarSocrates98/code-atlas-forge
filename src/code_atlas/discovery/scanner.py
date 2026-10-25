@@ -126,6 +126,27 @@ def _open_verified(path: Path, root_real: Path) -> int | None:
     return fd
 
 
+def artifact_path_confined(rel_path: str, root_real: Path) -> Path | None:
+    """Resolve ``rel_path`` sob ``root_real`` com contenção garantida.
+
+    ``None`` quando o path é absoluto, contém ``..`` ou resolve fora da
+    raiz (inclusive symlink trocado entre scan e leitura). Adapters usam
+    isto antes de abrir o artefato declarado em ``request.artifacts`` —
+    o path do request é tão hostil quanto o conteúdo (lf-c8 F7).
+    """
+    p = Path(rel_path)
+    if p.is_absolute() or ".." in p.parts:
+        return None
+    try:
+        base = Path(root_real).resolve()
+        resolved = (base / p).resolve(strict=False)
+    except (OSError, RuntimeError):
+        return None
+    if not resolved.is_relative_to(base):
+        return None
+    return resolved
+
+
 def read_file_verified(path: Path, root_real: Path) -> bytes | None:
     """Lê bytes com a mesma disciplina de ``_hash_file`` (lf-0015).
 
@@ -258,7 +279,7 @@ def _classify_and_hash(
     try:
         size = abs_path.stat().st_size
     except OSError as exc:
-        budget.warnings.append(ScanWarning(WarningKind.READ_ERROR, str(exc), rel))
+        _on_stat_failure(abs_path, rel, exc, acc, budget)
         return
     acc.count += 1
     if ignored:
@@ -284,7 +305,9 @@ def _symlink_escapes(path: Path, root_real: Path) -> bool:
     """True se `path` é symlink cujo alvo resolve fora de `root_real`."""
     try:
         return not path.resolve().is_relative_to(root_real)
-    except OSError:
+    except (OSError, RuntimeError):
+        # RuntimeError: ciclos de symlink (``a -> b -> a``) — repo hostil
+        # não deve derrubar o scan; tratado como escape.
         return True
 
 
@@ -332,16 +355,17 @@ def _walk_paths(
         for name in sorted(filenames):
             f = d / name
             rel = f"{rel_dir}/{name}" if rel_dir else name
-            if f.is_symlink():
-                if _symlink_escapes(f, root_real):
-                    budget.warnings.append(
-                        ScanWarning(
-                            WarningKind.SYMLINK_ESCAPE, "file symlink escapes root", rel
-                        )
+            if f.is_symlink() and _symlink_escapes(f, root_real):
+                budget.warnings.append(
+                    ScanWarning(
+                        WarningKind.SYMLINK_ESCAPE, "file symlink escapes root", rel
                     )
-                    continue
-                if not f.exists():
-                    continue  # symlink quebrado ou alvo ausente
+                )
+                continue
+            # symlink quebrado/ausente não é descartado aqui — scan()
+            # decide: checa alias-de-segredo pelo readlink cru ANTES
+            # do exists() (Windows: alvo POSIX relativo pode falhar
+            # exists() mas ainda é alias de .env).
             ignored = stack.is_ignored(rel, is_dir=False)
             yield f, rel, ignored
 
@@ -367,6 +391,36 @@ def _git_paths(
         yield root / rel, rel, rel in ignored
     for rel in sorted(ignored):
         yield root / rel, rel, True
+
+
+def _on_stat_failure(
+    abs_path: Path, rel: str, exc: OSError,
+    acc: _Accumulator, budget: _Budget,
+) -> None:
+    """Stat falhou — última chance de alias-de-segredo (Windows:
+    symlink com alvo relativo POSIX cujo stat falha mas o readlink
+    ainda revela o alvo ``.env``); senão READ_ERROR honesto."""
+    if _symlink_targets_secret(abs_path):
+        acc.secret_count += 1
+        return
+    budget.warnings.append(ScanWarning(WarningKind.READ_ERROR, str(exc), rel))
+
+
+def _symlink_targets_secret(path: Path) -> bool:
+    """True se o alvo do symlink tem basename com padrão de segredo.
+
+    Testa o nome resolvido E o basename cru do ``readlink`` —
+    ``resolve()`` pode falhar (ou devolver o nome do próprio link) em
+    alvos relativos POSIX no Windows.
+    """
+    names: set[str] = set()
+    with contextlib.suppress(OSError, RuntimeError):
+        names.add(path.resolve().name)
+    with contextlib.suppress(OSError):
+        names.add(
+            os.readlink(path).rsplit("/", 1)[-1].rsplit("\\", 1)[-1]
+        )
+    return any(is_secret(n) for n in names)
 
 
 def scan(
@@ -403,13 +457,21 @@ def scan(
                 break
             # modo git: symlinks rastreados nunca passaram pelo filtro do
             # walk — checar escape aqui cobre os dois enumeradores.
-            if abs_path.is_symlink() and _symlink_escapes(abs_path, root_real):
-                budget.warnings.append(
-                    ScanWarning(
-                        WarningKind.SYMLINK_ESCAPE, "symlink escapes root", rel
+            if abs_path.is_symlink():
+                if _symlink_escapes(abs_path, root_real):
+                    budget.warnings.append(
+                        ScanWarning(
+                            WarningKind.SYMLINK_ESCAPE, "symlink escapes root", rel
+                        )
                     )
-                )
-                continue
+                    continue
+                # Alias para segredo: nome benigno apontando para arquivo
+                # com nome de segredo (``prod.tfvars -> .env``). Sem isso o
+                # conteúdo entraria em hash/inventário e chegaria aos
+                # adapters (lf-c8 F2).
+                if _symlink_targets_secret(abs_path):
+                    acc.secret_count += 1
+                    continue
             if abs_path.is_dir() or not abs_path.exists():
                 continue
             _classify_and_hash(abs_path, rel, ignored, options, acc, budget, root_real)

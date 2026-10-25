@@ -18,6 +18,7 @@ from collections.abc import Mapping
 from code_atlas.contracts.enums import NodeKind
 from code_atlas.domains.contracts import (
     DomainExtractionResult,
+    ExtractedDomainEntity,
     ExtractedDomainRelation,
 )
 from code_atlas.domains.model import DomainEntity
@@ -328,6 +329,35 @@ def persist_domain_result(
     ):
         occ_by_key[key] = rid
     counts["occurrences"] = len(occ_by_key)
+
+    # 2b. FTS de domínio (lf-0133, schema v12) — rowid = id da
+    # ocorrência, mesmo desenho de ``fts_occurrences``. ``terms``
+    # pré-tokenizado cobre snake/camel/dotted por fragmento; ``path``
+    # só entra quando a ocorrência ancorou num arquivo do inventário —
+    # mesma semântica do LIKE sobre ``sf.relative_path`` (LEFT JOIN
+    # NULL nunca casava). Snapshots anteriores à v12 não são
+    # retroalimentados aqui — ``Store.rebuild_domain_fts`` é o backfill.
+    if occ_by_key and store.domain_fts_available():
+        # mesma regra de ``seen_occ``: primeira entidade por
+        # logical_key — a que gerou a ocorrência persistida.
+        entity_by_key: dict[str, ExtractedDomainEntity] = {}
+        for e in result.entities:
+            entity_by_key.setdefault(e.identity.logical_key(), e)
+        fts_rows: list[tuple[object, ...]] = []
+        for key, occ_id in sorted(occ_by_key.items(), key=lambda kv: kv[1]):
+            e = entity_by_key[key]
+            path = e.path if e.path in file_ids else ""
+            fts_rows.append(
+                (
+                    occ_id, snapshot_id, ent_ids[key],
+                    e.name or "", e.identity.qualified_name,
+                    index_terms(
+                        e.name or "", e.identity.qualified_name, path
+                    ),
+                    path, e.identity.domain, str(e.kind),
+                )
+            )
+        store.insert_domain_fts_batch(fts_rows)
 
     # 3. relações — endpoints podem ser entidade OU símbolo de código.
     rel_rows: list[tuple[object, ...]] = []

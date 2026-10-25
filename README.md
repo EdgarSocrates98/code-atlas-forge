@@ -8,8 +8,9 @@ Plataforma **open source, local-first e offline-first** de inteligência estrutu
 semântica e arquitetural de software — grafos tipados, proveniência verificável,
 indexação incremental e contexto econômico para agentes.
 
-> **Status atual: Cycle 7 — inteligência de domínio + federação
-> (branch `cycle-7-domain-intelligence-federation`).**
+> **Status atual: Cycle 8 — production quality em andamento
+> (branch `cycle-8-production-quality`); Cycle 7 (inteligência de
+> domínio + federação) entregue e arquivado.**
 > O Code Atlas indexa repositórios com parsing real (Tree-sitter), extrai
 > símbolos e constrói um grafo tipado persistido em SQLite, consultável via
 > CLI, servidor MCP stdio, **API HTTP loopback `/api/v1`** e o
@@ -81,7 +82,7 @@ code-atlas graph --json                  # dump de nós+arestas do snapshot
 
 # retrieval híbrido + contexto (Cycle 4)
 code-atlas search "q" --strategy lexical|structural|graph|hybrid --limit 10 --json
-code-atlas context --task "create_order" --level focus --budget 4000 --format markdown
+code-atlas context "create_order" --level focus --budget 4000 --format markdown
 code-atlas context-expand --symbol pkg.orders.validate_total --snapshot 1 --delivered sym:pkg.orders
 code-atlas mcp                            # servidor MCP stdio (JSON-RPC ndjson)
 code-atlas mcp doctor --json              # executável, DB, schema, sqlite_vec

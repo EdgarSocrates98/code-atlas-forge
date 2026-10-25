@@ -7,13 +7,13 @@
   },
   "api": {
     "samples_ms": [
-      5.6049999999999995,
-      5.085,
-      5.45,
-      5.969,
-      4.727
+      6.431,
+      5.524,
+      5.15,
+      5.2090000000000005,
+      5.124
     ],
-    "median_ms": 5.45,
+    "median_ms": 5.2090000000000005,
     "body": {
       "items": 500,
       "total_files": 500,
@@ -27,22 +27,22 @@
       "hardwareConcurrency": 16,
       "devicePixelRatio": 1
     },
-    "wall_nav_to_ready_ms": 353,
-    "ready_ms_page_clock": 349.7,
+    "wall_nav_to_ready_ms": 370,
+    "ready_ms_page_clock": 366.9,
     "resource": {
-      "navDuration": 131.6,
+      "navDuration": 128.8,
       "overviewApi": {
-        "start": 233.3,
+        "start": 242.6,
         "duration": 46.3,
-        "responseEnd": 279.6,
+        "responseEnd": 288.9,
         "transferSize": 35781,
         "encodedBodySize": 35481
       },
-      "reposApi": 42.6,
-      "maxRafGap": 16.8,
+      "reposApi": 3,
+      "maxRafGap": 16.7,
       "longtasks": [
-        68,
-        98
+        75,
+        101
       ]
     },
     "counts": {
@@ -55,27 +55,27 @@
     },
     "heap_mb": {
       "before_load": 1.1,
-      "after_render": 4.8,
-      "after_pan": 7.3
+      "after_render": 6.3,
+      "after_pan": 8.5
     },
     "pan_at_default_cap": {
-      "frames": 197,
-      "fps_mean": 57.7,
-      "delta_mean_ms": 17.34,
-      "delta_p95_ms": 16.8,
-      "delta_max_ms": 66.6,
+      "frames": 195,
+      "fps_mean": 57.3,
+      "delta_mean_ms": 17.46,
+      "delta_p95_ms": 33.2,
+      "delta_max_ms": 33.4,
       "frames_over_33ms": 2,
-      "draw_calls": 167,
-      "draw_verts": 219063
+      "draw_calls": 164,
+      "draw_verts": 219054
     },
     "relayout": {
-      "max_gap_ms": 49.9,
-      "settle_ms": 1607.8
+      "max_gap_ms": 66.6,
+      "settle_ms": 1607.7
     },
     "cap_experiment": null,
     "second_relayout_probe": {
       "max_gap_ms": 33.4,
-      "settle_ms": 1207.6,
+      "settle_ms": 1207.5,
       "draw_calls_in_window": 10,
       "canvas_frozen_after_first_relayout": false
     }

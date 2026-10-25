@@ -54,6 +54,10 @@ class SqliteEmbeddingCache:
              pack_vector(vector)),
         )
 
+    def commit(self) -> None:
+        """Persiste as writes pendentes do cache (lote, não por linha)."""
+        self._conn.commit()
+
 
 def embed_texts_cached(
     provider: EmbeddingProvider,
@@ -78,6 +82,11 @@ def embed_texts_cached(
         for i, vec in zip(miss_idx, fresh, strict=True):
             cache.put(model, content_hash(texts[i]), vec)
             out[i] = vec
+        # Cache de embeddings é append-only e semanticamente
+        # independente do estado transacional do snapshot — commita o
+        # lote para que CLI/processos one-shot não percam o cache no
+        # rollback do close (lf-0142 finding).
+        cache.commit()
     return [v if v is not None else [] for v in out], hits, len(miss_idx)
 
 

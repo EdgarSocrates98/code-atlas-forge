@@ -65,6 +65,10 @@ const SAMPLE_WINDOW_MS = 500;
           <dd class="diag__value">{{ lastLayoutText() }}</dd>
         </div>
         <div class="diag__item">
+          <dt>Erro de layout</dt>
+          <dd class="diag__value diag__value--error">{{ layoutError() ?? '—' }}</dd>
+        </div>
+        <div class="diag__item">
           <dt>Limite de renderização</dt>
           <dd class="diag__value">{{ store.nodeCap() }}</dd>
         </div>
@@ -108,6 +112,11 @@ const SAMPLE_WINDOW_MS = 500;
         font-family: var(--atlas-font-family-mono);
         font-size: var(--atlas-font-size-sm);
       }
+      .diag__value--error {
+        font-family: var(--atlas-font-family-sans, inherit);
+        color: var(--atlas-color-danger);
+        overflow-wrap: anywhere;
+      }
       .diag__note {
         margin: var(--atlas-space-2) 0 0;
         font-size: var(--atlas-font-size-xs);
@@ -128,6 +137,8 @@ export class GraphDiagnosticsComponent implements OnInit, OnDestroy {
   readonly layoutBusy = signal(false);
   readonly layoutProgress = signal<{ done: number; total: number } | null>(null);
   readonly lastLayoutMs = signal<number | null>(null);
+  /** Last layout failure read off the canvas — "—" while none. */
+  readonly layoutError = signal<string | null>(null);
 
   private rafId: number | null = null;
   private frames = 0;
@@ -193,6 +204,7 @@ export class GraphDiagnosticsComponent implements OnInit, OnDestroy {
           this.layoutBusy.set(canvas?.layoutBusy ?? false);
           this.layoutProgress.set(canvas?.layoutProgress ?? null);
           this.lastLayoutMs.set(canvas?.lastLayoutMs ?? null);
+          this.layoutError.set(canvas?.lastLayoutError ?? null);
         }
         this.rafId = requestAnimationFrame(tick);
       };

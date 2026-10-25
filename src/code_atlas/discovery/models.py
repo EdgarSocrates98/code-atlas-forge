@@ -166,7 +166,8 @@ ATLAS_DEFAULT_IGNORES: tuple[str, ...] = (
 # Padrões de segredo (Blueprint ADR-014): excluídos de hash e inventário,
 # contabilizados apenas em `secret_count`.
 SECRET_PATTERNS: tuple[str, ...] = (
-    ".env", ".env.*", "*.pem", "*.key", "*.p12", "*.pfx", "*.keystore",
+    ".env", ".env.*", "*.env", ".envrc", ".envrc.*",
+    "*.pem", "*.key", "*.p12", "*.pfx", "*.keystore",
     "*.jks", "id_rsa", "id_rsa.*", "id_dsa", "id_dsa.*", "id_ed25519",
     "id_ed25519.*", "credentials", "credentials.*", "*.credentials",
     ".netrc", ".npmrc", ".pypirc", "*.secret", "secrets.*",

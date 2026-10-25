@@ -9,11 +9,17 @@ from __future__ import annotations
 
 import dataclasses
 import json
+import os
 import re
+import sqlite3
+import sys
+import time
 from collections.abc import Callable
+from pathlib import Path
 from typing import TYPE_CHECKING, Any
 from urllib.parse import parse_qs, unquote, urlparse
 
+from code_atlas import __version__
 from code_atlas.api.server import ApiError
 from code_atlas.federation import (
     Federation,
@@ -27,6 +33,11 @@ from code_atlas.federation import (
     WorkspaceExistsError,
     WorkspaceNotFoundError,
     WorkspaceSizeError,
+)
+from code_atlas.observability.logging import (
+    get_logger,
+    log_if_slow,
+    slow_ms,
 )
 from code_atlas.storage.store import Store
 
@@ -478,6 +489,180 @@ def _index_status(server: _AtlasHttpd, conn: Any, _p: dict[str, str],
     return {"items": items}
 
 
+# --- diagnósticos operacionais (lf-0141, Cycle 8 Phase 15) --------------
+#
+# ``/diagnostics`` é o painel do operador: versão, uptime, schema,
+# contagens por repositório, inventário de adapters, FTS, tamanho do
+# índice em disco. Estritamente read-only e barato — metadados
+# persistidos + ``stat()`` do arquivo, nunca scan de workspace nem
+# re-execução de adapter/resolver. Bancos pré-v9/v10 podem não ter as
+# tabelas de domínio/federação — presença é conferida em
+# ``sqlite_master`` antes de contar.
+
+_LOG = get_logger("code_atlas.api")
+
+_DIAG_COUNT_QUERIES = {
+    "domain_entity_occurrences":
+        "SELECT COUNT(*) AS n FROM domain_entity_occurrences "
+        "WHERE snapshot_id = ?",
+    "domain_relations":
+        "SELECT COUNT(*) AS n FROM domain_relations WHERE snapshot_id = ?",
+}
+
+
+def _fts5_build_probe() -> bool:
+    """Capacidade FTS5 desta build do SQLite — ``True``/``False`` honesto.
+
+    A conexão da API é ``query_only`` — nem vtable temporária pode ser
+    criada nela (``attempt to write a readonly database``). A probe roda
+    num ``:memory:`` descartável — mesmo teste do ``doctor`` da CLI.
+    """
+    try:
+        probe = sqlite3.connect(":memory:")
+        try:
+            probe.execute("CREATE VIRTUAL TABLE t USING fts5(x)")
+        finally:
+            probe.close()
+        return True
+    except sqlite3.Error:
+        return False
+
+
+def _diag_repo_job(conn: Any, repo_id: int) -> dict[str, Any] | None:
+    """Último ``index_jobs`` do repo — com ``stage_ms_*`` decodificados.
+
+    ``stage_ms`` é persistido desde o Cycle 2 dentro de ``counts``;
+    aqui ele sai do envelope genérico e vira campo próprio inspecionável.
+    """
+    job = conn.execute(
+        "SELECT id, status, started_at, finished_at, counts "
+        "FROM index_jobs WHERE repository_id = ? "
+        "ORDER BY id DESC LIMIT 1", (repo_id,)).fetchone()
+    if job is None:
+        return None
+    jcounts = json.loads(job["counts"] or "{}")
+    return {
+        "id": job["id"], "status": job["status"],
+        "started_at": job["started_at"],
+        "finished_at": job["finished_at"],
+        "stage_ms": {
+            k.removeprefix("stage_ms_"): v
+            for k, v in jcounts.items() if k.startswith("stage_ms_")
+        },
+    }
+
+
+def _diagnostics(server: _AtlasHttpd, conn: Any, _p: dict[str, str],
+                 _b: dict[str, Any] | None) -> dict[str, Any]:
+    from code_atlas.search.engine import SearchEngine
+    from code_atlas.storage.migrations import schema_version
+
+    tables = {
+        str(r["name"]) for r in conn.execute(
+            "SELECT name FROM sqlite_master WHERE type IN ('table','view')")
+    }
+    db_file = Path(server.db_path)
+    wal_file = db_file.with_name(db_file.name + "-wal")
+    repos: list[dict[str, Any]] = []
+    for r in conn.execute(
+        "SELECT r.id, r.identity_key, r.root_handle, "
+        "(SELECT COUNT(*) FROM snapshots s WHERE s.repository_id = r.id "
+        " AND s.status = 'READY') AS ready, "
+        "(SELECT COUNT(*) FROM snapshots s WHERE s.repository_id = r.id "
+        " AND s.status = 'FAILED') AS failed, "
+        "(SELECT COUNT(*) FROM snapshots s WHERE s.repository_id = r.id "
+        " AND s.status = 'STALE') AS stale, "
+        "(SELECT COUNT(*) FROM snapshots s WHERE s.repository_id = r.id "
+        " AND s.status = 'BUILDING') AS building, "
+        "(SELECT MAX(id) FROM snapshots s WHERE s.repository_id = r.id "
+        " AND s.status = 'READY') AS latest_ready "
+        "FROM repositories r ORDER BY r.id").fetchall():
+        sid = r["latest_ready"]
+        counts: dict[str, int] = {}
+        analyzers: dict[str, str] = {}
+        created_at = None
+        if sid:
+            for tbl, sql in _COUNT_QUERIES.items():
+                counts[tbl] = conn.execute(sql, (sid,)).fetchone()["n"]
+            for tbl, sql in _DIAG_COUNT_QUERIES.items():
+                if tbl in tables:
+                    counts[tbl] = conn.execute(
+                        sql, (sid,)).fetchone()["n"]
+            srow = conn.execute(
+                "SELECT analyzer_versions, created_at FROM snapshots "
+                "WHERE id = ?", (sid,)).fetchone()
+            if srow is not None:
+                analyzers = json.loads(srow["analyzer_versions"] or "{}")
+                created_at = srow["created_at"]
+        repos.append({
+            "repository_id": r["id"],
+            "identity_key": r["identity_key"],
+            "root_handle": r["root_handle"],
+            "snapshots": {"ready": r["ready"], "failed": r["failed"],
+                          "stale": r["stale"], "building": r["building"]},
+            "latest_ready": sid,
+            "latest_ready_created_at": created_at,
+            "counts": counts,
+            # versões reais que produziram o READY — fonte autoritativa
+            # de "quais parsers/resolvers/domínios construíram isto".
+            "analyzer_versions": analyzers,
+            "last_job": _diag_repo_job(conn, r["id"]),
+        })
+    adapters: list[dict[str, Any]] = []
+    adapters_error = ""
+    try:
+        from code_atlas.domains.cli_surface import adapters_report
+        adapters = adapters_report()
+    except Exception as exc:
+        # inventário é metadado de adapters built-in — uma falha de
+        # importação nunca derruba o endpoint; vira campo honesto.
+        adapters_error = str(exc)[:200]
+    started = getattr(server, "started_at", None)
+    return {
+        "status": "ok",
+        "service": "code-atlas-api",
+        "api_version": 1,
+        "version": __version__,
+        "readonly": True,
+        "uptime_s": (round(time.monotonic() - started, 3)
+                     if isinstance(started, (int, float)) else None),
+        "runtime": {"python": sys.version.split()[0],
+                    "sqlite": sqlite3.sqlite_version},
+        "schema_version": schema_version(conn),
+        "database": {
+            "path": str(db_file),
+            "size_bytes": (db_file.stat().st_size
+                           if db_file.is_file() else 0),
+            "wal_bytes": (wal_file.stat().st_size
+                          if wal_file.is_file() else 0),
+            "journal_mode": str(conn.execute(
+                "PRAGMA journal_mode").fetchone()[0]),
+            "page_count": int(conn.execute(
+                "PRAGMA page_count").fetchone()[0]),
+        },
+        "fts": {
+            "fts5_build": _fts5_build_probe(),
+            "fts_symbols": "fts_symbols" in tables,
+            "fts_occurrences": "fts_occurrences" in tables,
+            "domain_fts": "domain_fts" in tables,
+        },
+        "search": dataclasses.asdict(SearchEngine(conn).capabilities()),
+        "repositories": repos,
+        "federation": {
+            "workspaces": (
+                conn.execute("SELECT COUNT(*) AS n "
+                             "FROM federation_workspaces").fetchone()["n"]
+                if "federation_workspaces" in tables else 0),
+        },
+        "adapters": {"domain": adapters, "error": adapters_error},
+        "observability": {
+            "log_level": os.environ.get("CODE_ATLAS_LOG_LEVEL", "WARNING"),
+            "log_format": os.environ.get("CODE_ATLAS_LOG_FORMAT", "text"),
+            "slow_ms": slow_ms(),
+        },
+    }
+
+
 # --- federação multi-repo (lf-0118, Phase 10 — somente leitura) -------
 #
 # Views/lookups/graphs são GET sobre conexão ``query_only``; criar/
@@ -799,11 +984,11 @@ def _hydrate_domain_endpoints(
 ) -> tuple[dict[int, dict[str, Any]], dict[int, dict[str, Any]]]:
     """Resolve os endpoints de um lote de arestas — 2 queries no máximo."""
     ent_ids = sorted(
-        {r["from_entity_occ_id"] for r in rows}
-        | {r["to_entity_occ_id"] for r in rows} - {None})
+        ({r["from_entity_occ_id"] for r in rows}
+         | {r["to_entity_occ_id"] for r in rows}) - {None})
     sym_ids = sorted(
-        {r["from_symbol_occ_id"] for r in rows}
-        | {r["to_symbol_occ_id"] for r in rows} - {None})
+        ({r["from_symbol_occ_id"] for r in rows}
+         | {r["to_symbol_occ_id"] for r in rows}) - {None})
     ents: dict[int, dict[str, Any]] = {}
     if ent_ids:
         occ_by_ids_sql = (
@@ -1269,6 +1454,7 @@ def _route_federation(server: _AtlasHttpd, conn: Any, route: str,
 def handle(server: _AtlasHttpd, method: str, route: str,
            handler: BaseHTTPRequestHandler) -> Any:
     conn = server.connect()
+    t0 = time.monotonic()
     try:
         p = _qs(handler)
         body = server_body(handler) if method == "POST" else None
@@ -1286,6 +1472,7 @@ def handle(server: _AtlasHttpd, method: str, route: str,
                 return dom_result
             simple = {
                 "/health": _health, "/capabilities": _capabilities,
+                "/diagnostics": _diagnostics,
                 "/repositories": _repositories,
                 "/graph/overview": _graph_overview,
                 "/graph/neighbors": _graph_neighbors,
@@ -1306,12 +1493,16 @@ def handle(server: _AtlasHttpd, method: str, route: str,
         raise ApiError("not-found", f"{method} {route} inexistente", 404)
     finally:
         conn.close()
+        # lf-0141: slow-query guard — o request inteiro é "a query" para
+        # o operador; acima de CODE_ATLAS_SLOW_MS vira linha DEBUG com a
+        # rota crua (query string passa pelo RedactionFilter do logger).
+        log_if_slow(_LOG, "request", t0,
+                    f"{method} {getattr(handler, 'path', route)}")
 
 
 def server_body(handler: BaseHTTPRequestHandler) -> dict[str, Any]:
-    length = int(handler.headers.get("Content-Length") or 0)
-    if length > 64 * 1024:
-        raise ApiError("payload-too-large", "corpo excede 64 KiB", 413)
+    from code_atlas.api.server import _content_length
+    length = _content_length(handler.headers.get("Content-Length"))
     import json
     raw = handler.rfile.read(length) if length else b"{}"
     try:

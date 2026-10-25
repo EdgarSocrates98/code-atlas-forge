@@ -6,7 +6,45 @@ real index of `tests/fixtures/sample_repo`. Supersedes the static-only
 review in `docs/explorer-accessibility.md` (Phase 16), which had no
 browser/process execution available.
 
-Date: 2026-10-24 · Branch: `cycle-6.1-explorer-hardening`
+**Cycle-8 update (Phase 14, lf-0140, 2026-10-25, branch
+`cycle-8-production-quality`):** coverage extended to the five cycle-7
+domain views — `/lineage`, `/contracts`, `/infra`, `/pipelines`,
+`/federation` — closing the cycle-7 NOT-RUN "new domain screens lacked
+dedicated axe scans". Suite is now **48 axe scans** (24 prior + 24 new):
+each domain route audited in both themes across populated *and* empty
+states, plus post-interaction states (`/lineage` selected entity,
+`/contracts` consumers disclosure, `/federation` no-workspace). Domain
+views run against a dedicated second explorer instance
+(`e2e/domain-fixture-server.ts`) that indexes the real domain fixtures
+with `--domains` — isolated so the shared suite's single-repo
+assertions (`flows2.spec.ts`) are untouched. **Result: 0 blocking
+violations, 0 advisory, 48/48 scans.** Detail: `docs/cycle-8-a11y.md`.
+
+Violations found and fixed in the cycle-8 pass:
+`aria-valid-attr-value` (critical) on the `/contracts` consumers
+disclosure — `aria-controls` dangled in loading/error/empty phases →
+fixed with a `.contracts__consumers-region` wrapper that owns the id in
+every phase; `landmark-unique` (moderate) — duplicate service names
+(`app` ×3, `pets_router` ×2) → fixed by appending `qualified_name` to
+service headings; a 105 px mobile-reflow overflow on `/lineage`
+(unbreakable `READS_FROM/WRITES_TO/TRANSFORMS/DERIVES_FROM` token) →
+fixed with `overflow-wrap: anywhere` on all five domain `__description`
+blocks + identifier lists, and the overflow probe now names
+content-escape offenders. One backend bug reported, not fixed
+(out-of-scope `src/code_atlas/`): `GET /domains/entities/{id}/neighbors`
+500s for some entities (`'<' not supported between 'int' and 'NoneType'`).
+
+New manual checks on domain views (all PASS): skip link on a domain
+route; tab order reaches `/lineage` form and in-table
+`/contracts` consumers toggle (Enter expands); `/federation` workspace
+button keyboard-operable; Escape is a consistent no-op (no dialogs);
+`prefers-reduced-motion` zeroes all motion on populated domain views;
+200 % zoom (640 CSS px proxy) reflow without page overflow on all five
+routes. 29 new populated/empty/zoom screenshots under
+`docs/screenshots/` via `e2e/screenshots.spec.ts` (65/65 pass).
+
+Date: 2026-10-24 · Branch: `cycle-6.1-explorer-hardening` (original run;
+cycle-8 update above)
 
 ## Tool versions
 
@@ -30,7 +68,7 @@ Every scan asserts **zero blocking violations**; advisory impacts
 (moderate/minor/best-practice) are collected and printed — and were also
 **zero** in this run.
 
-## Routes and surfaces tested (24 scans)
+## Routes and surfaces tested (48 scans — 24 original + 24 domain)
 
 Each surface was scanned in **both themes** (light and dark, driven by
 the `atlas-theme` localStorage key that `ThemeService` persists; the
@@ -43,6 +81,12 @@ under the wrong palette):
 `GET /api/v1/search?q=hello`), plus two post-interaction states that only
 mount after a real API round-trip: `/search` with live results and
 `/context` with a generated pack.
+
+Cycle-8 additions (24 scans, dedicated populated fixture server —
+`e2e/domain-fixture-server.ts`): `/lineage` (populated, selected entity,
+empty), `/contracts` (populated, consumers expanded, empty), `/infra`
+(populated, empty), `/pipelines` (populated, empty), `/federation`
+(populated workspace; no-workspace on the shared server) — all ×2 themes.
 
 ## Violations found and fixed
 
@@ -66,17 +110,29 @@ The `role="region"` choices were deliberate: these are the page's
 results landmarks — a named region both fixes the prohibited attribute
 and gives AT users a navigable destination for the live-updating output.
 
-**Final axe results: 0 violations of any impact across all 24 scans**
+**Final axe results: 0 violations of any impact across all 48 scans**
 (critical 0, serious 0, moderate 0, minor 0, best-practice advisories 0).
+The cycle-8 pass additionally found and fixed `aria-valid-attr-value`
+(critical, `/contracts` consumers `aria-controls` dangling in
+non-ready phases) and `landmark-unique` (moderate, duplicate service
+names) — both fixed in
+`features/domains/contracts/contracts.component.ts`, so the 48-scan
+rerun reports zero at every impact. A 105 px mobile reflow overflow on
+`/lineage` (unbreakable relation-token text) was also fixed via
+`overflow-wrap: anywhere` on the domain description/list classes.
 
 ## Manual checks (automated where axe cannot reach)
 
 | Check | Result |
 |---|---|
-| Skip link is first tab stop and moves focus to `<main id="shell-main">` | PASS |
-| `:focus-visible` renders a visible outline (skip link + sidebar nav link — computed `outline-style`/`outline-width` asserted, not screenshotted) | PASS |
+| Skip link is first tab stop and moves focus to `<main id="shell-main">` (also verified on a domain route, `/pipelines`) | PASS |
+| `:focus-visible` renders a visible outline (skip link + sidebar nav link + domain view form/table controls — computed `outline-style`/`outline-width` asserted, not screenshotted) | PASS |
 | Keyboard-only traversal reaches the sidebar nav and activates `/search` via Enter | PASS |
+| Tab order reaches `/lineage` form controls; `/contracts` in-table consumers toggle expands via Enter; `/federation` workspace button toggles via Enter | PASS |
+| Escape on domain views is a consistent no-op (no dialogs/overlays exist to dismiss; same contract as native `<details>`) | PASS |
 | `prefers-reduced-motion: reduce` emulated: matchMedia true, body `transition-duration` computes to `0s` (motion tokens collapse), app still navigates and `/graph` renders its stage or accessible table | PASS |
+| `prefers-reduced-motion` on populated `/contracts` and `/lineage`: **every rendered element computes 0s transition/animation duration** | PASS |
+| 200 % zoom (640 CSS px reflow proxy) on all five domain routes: page-level horizontal overflow ≤ 1 px, h1 visible | PASS |
 
 ## Remaining known issues (honest list)
 
@@ -100,18 +156,29 @@ and gives AT users a navigable destination for the live-updating output.
    table.
 5. **axe cannot prove absence of keyboard traps** inside the canvas
    beyond what the focus/tab-order tests assert.
+6. **Backend `/domains/entities/{id}/neighbors` bug (reported, not
+   fixed — `src/code_atlas/` out of scope):** some entities return
+   `500 internal: '<' not supported between instances of 'int' and
+   'NoneType'` — deterministic per entity (probe-verified on api_repo
+   entity ids 102/90; 93/99/100 return 200). Product impact: `/contracts`
+   consumers disclosure renders the typed error alert for affected
+   endpoints — still a valid ARIA tree after the `aria-controls` fix.
 
 ## Verification run
 
-- `npx playwright test e2e/a11y.spec.ts` — **29/29 pass** (24 axe scans +
-  summary + 4 manual checks).
-- `npm test -- --watch=false --browsers=ChromeHeadless` — **160/160 pass**.
+- `npx playwright test e2e/a11y.spec.ts` — **65/65 pass** (48 axe scans +
+  16 manual checks + summary; `scans: 48, blocking violations: 0,
+  advisory: 0`).
+- `npx playwright test e2e/screenshots.spec.ts` — **65/65 pass** (36
+  baseline captures + 29 new domain captures, all asserting horizontal
+  overflow ≤ 1 px).
+- `npx ng test --watch=false --browsers=ChromeHeadless` — **238/238 pass**.
 - `npm run build` — green (only pre-existing sigma/graphology CommonJS
   warnings).
 - Full suite note: `e2e/graph-scale.spec.ts` is an unrelated parallel-work
   benchmark; its `@5000 nodes` case timed out at the 30 s Playwright limit
   with a trace-artifact ENOENT during teardown — observed independently of
-  this change set (a11y spec itself is 29/29 green).
+  this change set (a11y and screenshots specs are 65/65 green).
 
 ## Dependencies added
 

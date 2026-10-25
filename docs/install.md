@@ -11,7 +11,7 @@ cd code-atlas-forge
 python3 -m venv .venv
 source .venv/bin/activate
 pip install .
-code-atlas --version   # code-atlas 0.1.0
+code-atlas --version   # code-atlas 1.0.0rc1
 code-atlas doctor      # probes reais: python, sqlite, fts5, git, config
 ```
 

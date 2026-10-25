@@ -9,6 +9,7 @@ import dataclasses
 import json
 import sqlite3
 
+from code_atlas.observability.logging import timed
 from code_atlas.search.contracts import (
     RANKING_VERSION,
     SEARCH_SCHEMA_VERSION,
@@ -87,6 +88,10 @@ class SearchEngine:
             return self._empty(req, diags)
         return self.search_scoped(req, repo_id, int(snap.id or 0))
 
+    # lf-0141: slow-query guard — cada busca (incl. membro federado, que
+    # chama este método por repo) mede e vira linha DEBUG acima de
+    # ``CODE_ATLAS_SLOW_MS``. Fora do env, custo = um monotonic extra.
+    @timed("search")
     def search_scoped(
         self, req: SearchRequest, repository_id: int, snapshot_id: int
     ) -> SearchResult:

@@ -80,21 +80,16 @@ def test_older_schema_db_opens_and_migrates(
     monkeypatch.undo()
     conn.close()
 
-    conn2 = connect(tmp_path / "ws" / "atlas.db")  # reabre e aplica v2..v10
-    assert mig.migrate(conn2) == 10
-    assert mig.migrate(conn2) == 10  # idempotente
+    conn2 = connect(tmp_path / "ws" / "atlas.db")  # reabre e aplica v2..vN
+    from code_atlas.storage.db import fts5_available
+
+    has_fts5 = fts5_available(conn2)
+    expected = 12 if has_fts5 else 11  # v12 é FTS5-gated (lf-0133)
+    assert mig.migrate(conn2) == expected
+    assert mig.migrate(conn2) == expected  # idempotente
     names = {r[0] for r in conn2.execute(
         "SELECT name FROM schema_migrations ORDER BY version")}
-    assert names == {"core schema (blueprint §6)",
-                     "fts_symbols virtual table",
-                     "snapshot-scoped indexes",
-                     "parse result cache (lf-0020)",
-                     "logical repo identity + dirty flag (lf-0021)",
-                     "evidence resolver provenance (lf-0035)",
-                     "fts_occurrences snapshot-scoped lexical index (lf-0036)",
-                     "vector embeddings + content cache (lf-0039)",
-                     "domain entities + relations (lf-0110)",
-                     "federation workspaces + members (lf-0118)"}
+    assert names == {m.name for m in mig.migrations(fts5=has_fts5)}
 
 
 def test_split_statements_handles_comments_and_multiline() -> None:

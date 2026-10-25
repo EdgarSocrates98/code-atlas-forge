@@ -214,6 +214,7 @@ const INFRA_EDGE_TYPES = 'PROVISIONS,USES_RESOURCE,ASSUMES_ROLE';
         color: var(--atlas-color-text-muted);
         flex: 1;
         min-width: 16rem;
+        overflow-wrap: anywhere;
       }
 
       .infra__header button {

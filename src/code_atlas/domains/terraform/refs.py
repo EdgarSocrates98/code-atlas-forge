@@ -54,10 +54,37 @@ ARN_RE = re.compile(r"arn:[a-z0-9-]+:[a-z0-9-]+:[a-z0-9-]*:[0-9]*:[^\s\"'\\)]+")
 # ``${…}`` superficial — sanitização de valores antes de armazenar.
 _INTERP_START_RE = re.compile(r"\$\{")
 
+# Formatos de credencial de alta precisão — um valor que *parece* segredo
+# vaza mesmo sob chave benigna (``description = "AKIA…"``, env-var
+# ``stage = "ghp_…"``). O trecho casa só marcadores inequívocos de
+# provedores conhecidos; nunca classifica texto comum (lf-c8 F5).
+SECRET_VALUE_RE = re.compile(
+    r"AKIA[0-9A-Z]{16}"            # AWS access key id
+    r"|ASIA[0-9A-Z]{16}"           # AWS temporary access key id
+    r"|-----BEGIN [A-Z0-9 ]{0,32}PRIVATE KEY-----"
+    r"|github_pat_[A-Za-z0-9_]{22,}"
+    r"|gh[pousr]_[A-Za-z0-9]{36,}"  # ghp_/gho_/ghu_/ghs_/ghr_
+    r"|xox[baprs]-[A-Za-z0-9-]{10,}"  # Slack tokens
+    r"|AIza[0-9A-Za-z_-]{35}"      # GCP API key
+    r"|sk_live_[A-Za-z0-9]{16,}"   # Stripe live secret
+    r"|eyJ[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}"  # JWT
+)
+
 
 def is_sensitive_name(name: str) -> bool:
     """True se a chave/nome casa o padrão de segredos (spec)."""
     return bool(SECRET_KEY_RE.search(name))
+
+
+def looks_like_secret_value(text: str) -> bool:
+    """True se ``text`` contém trecho com formato de credencial conhecida."""
+    return bool(SECRET_VALUE_RE.search(text))
+
+
+def mask_secret_values(text: str) -> str:
+    """Redige trechos com formato de credencial — defesa em profundidade
+    para valores sob chaves benignas."""
+    return SECRET_VALUE_RE.sub(REDACTED, text)
 
 
 def sanitize_value(text: str, *, max_len: int = 200) -> str:
@@ -86,7 +113,7 @@ def sanitize_value(text: str, *, max_len: int = 200) -> str:
         out.append(DYNAMIC)
         i = j
     s = "".join(out).strip()
-    return s[:max_len]
+    return mask_secret_values(s[:max_len])
 
 
 def redact_if_sensitive(key: str, value: str) -> str:

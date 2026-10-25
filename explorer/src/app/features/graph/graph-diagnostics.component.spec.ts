@@ -25,10 +25,11 @@ function makeApi(): ApiService {
 }
 
 /** Fake canvas exposing exactly what the panel samples. */
-function makeCanvas(ratio: number | null): GraphCanvasComponent {
+function makeCanvas(ratio: number | null, layoutError: string | null = null): GraphCanvasComponent {
   return {
     layoutBusy: false,
     lastLayoutMs: 42.4,
+    lastLayoutError: layoutError,
     cameraRatio: () => ratio,
   } as GraphCanvasComponent;
 }
@@ -78,6 +79,26 @@ describe('GraphDiagnosticsComponent', () => {
     expect(fixture.componentInstance.lastLayoutText()).toBe('42 ms');
     expect(fixture.componentInstance.layoutBusy()).toBeFalse();
     expect(fixture.componentInstance.fps()).not.toBeNull();
+    fixture.destroy();
+  }));
+
+  it('surfaces the canvas layout error verbatim — "—" while none', fakeAsync(() => {
+    fixture.componentRef.setInput('canvas', makeCanvas(0.5));
+    fixture.detectChanges();
+    tick(600);
+    fixture.detectChanges();
+    expect(fixture.componentInstance.layoutError()).toBeNull();
+    expect((fixture.nativeElement as HTMLElement).textContent ?? '').toContain('Erro de layout');
+
+    // A failed run (dead worker / watchdog) publishes its text verbatim.
+    fixture.componentRef.setInput('canvas', makeCanvas(0.5, 'O cálculo de layout falhou — posições mantidas.'));
+    fixture.detectChanges();
+    tick(600);
+    fixture.detectChanges();
+    expect(fixture.componentInstance.layoutError()).toContain('falhou');
+    expect((fixture.nativeElement as HTMLElement).textContent ?? '').toContain(
+      'O cálculo de layout falhou — posições mantidas.',
+    );
     fixture.destroy();
   }));
 
