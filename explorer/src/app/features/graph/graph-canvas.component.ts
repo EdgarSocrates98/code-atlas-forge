@@ -12,8 +12,15 @@ import Graph from 'graphology';
 import forceAtlas2 from 'graphology-layout-forceatlas2';
 import Sigma from 'sigma';
 import { GraphDataStore } from './graph-data.store';
-import { GraphEdgeVM, GraphNodeVM } from './graph.models';
-import { EVIDENCE_MARKERS, hashPosition, toEvidenceLevel } from './graph.utils';
+import { GraphMode, GraphEdgeVM, GraphNodeVM } from './graph.models';
+import { GraphStateService } from './graph-state.service';
+import {
+  EVIDENCE_MARKERS,
+  hashPosition,
+  isFinitePosition,
+  layoutIterations,
+  toEvidenceLevel,
+} from './graph.utils';
 
 /* Camera bounds: ratio = fraction of the framed graph visible on screen. */
 const MIN_CAMERA_RATIO = 0.02;
@@ -22,6 +29,8 @@ const MAX_CAMERA_RATIO = 10;
 const LABEL_ZOOM_THRESHOLD = 8;
 const PAN_STEP = 0.08;
 const ZOOM_FACTOR = 1.5;
+/** Container resize → renderer refresh debounce (ms). */
+const RESIZE_DEBOUNCE_MS = 120;
 
 interface Palette {
   text: string;
@@ -96,13 +105,35 @@ export class GraphCanvasComponent implements AfterViewInit, OnDestroy {
   private resizeObserver: ResizeObserver | null = null;
   private themeObserver: MutationObserver | null = null;
   private lastDataVersion = -1;
+  private lastRelayoutCount = -1;
   private pendingSync = true;
+  private resizeTimer: ReturnType<typeof setTimeout> | null = null;
+  private glCanvases: HTMLCanvasElement[] = [];
+  private lastMode: GraphMode | null = null;
+  /**
+   * Diagnostics read these live (plain fields, not signals — runLayout runs
+   * inside the sync effect where signal writes are deferred in Angular 18).
+   * `layoutBusy` is true only during the synchronous ForceAtlas2 pass, so a
+   * sampler may legitimately never observe it — that is the honest state.
+   */
+  layoutBusy = false;
+  lastLayoutMs: number | null = null;
   private readonly reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
   private readonly onMotionChange = (): void => this.applyMotionSettings();
+  private readonly onContextLost = (event: Event): void => {
+    // preventDefault() lets the browser try to restore the context.
+    event.preventDefault();
+    this.store.markRendererLost(true);
+  };
+  private readonly onContextRestored = (): void => {
+    this.store.markRendererLost(false);
+    this.sigma?.refresh();
+  };
 
   constructor(
     readonly store: GraphDataStore,
     private readonly zone: NgZone,
+    private readonly viewStates: GraphStateService,
   ) {
     effect(() => this.sync());
   }
@@ -149,6 +180,17 @@ export class GraphCanvasComponent implements AfterViewInit, OnDestroy {
     this.goTo({ x: pos.x, y: pos.y, ratio: Math.min(camera.getState().ratio, 0.4) });
   }
 
+  /**
+   * Live sigma camera ratio (fraction of the framed graph on screen).
+   * Returns null when no renderer exists (table view / WebGL failed) —
+   * diagnostics surface that as "—", never an invented number.
+   */
+  cameraRatio(): number | null {
+    const state = this.sigma?.getCamera().getState();
+    if (!state || !Number.isFinite(state.ratio) || state.ratio <= 0) return null;
+    return state.ratio;
+  }
+
   /** Animate — or snap instantly under prefers-reduced-motion. */
   private goTo(state: { x: number; y: number; ratio: number; angle?: number }): void {
     const camera = this.sigma?.getCamera();
@@ -173,9 +215,24 @@ export class GraphCanvasComponent implements AfterViewInit, OnDestroy {
   }
 
   ngOnDestroy(): void {
+    // Capture the view BEFORE killing the renderer so "navigate away and
+    // back" restores the exact camera + selection (see GraphStateService).
+    this.persistViewState();
+    if (this.resizeTimer !== null) {
+      clearTimeout(this.resizeTimer);
+      this.resizeTimer = null;
+    }
+    for (const canvas of this.glCanvases) {
+      canvas.removeEventListener('webglcontextlost', this.onContextLost);
+      canvas.removeEventListener('webglcontextrestored', this.onContextRestored);
+    }
+    this.glCanvases = [];
     this.reducedMotion.removeEventListener('change', this.onMotionChange);
     this.themeObserver?.disconnect();
     this.resizeObserver?.disconnect();
+    // sigma.kill() releases the WebGL contexts AND cancels sigma's render
+    // RAF; the store's AbortController aborts in-flight requests — no
+    // callbacks outlive this component.
     this.sigma?.kill();
     this.sigma = null;
     this.graph = null;
@@ -223,13 +280,32 @@ export class GraphCanvasComponent implements AfterViewInit, OnDestroy {
       event.preventSigmaDefault();
       const vm = this.store.nodes().find((n) => n.id === node);
       if (vm?.kind === 'file') {
-        void this.store.drillFile(vm.path, vm.symbolCount ?? 0);
+        void this.store.drillFile(vm.path, vm.symbolCount ?? 0, vm.fileId);
       } else {
         void this.store.expandNode(node);
       }
     });
 
-    this.resizeObserver = new ResizeObserver(() => this.sigma?.resize());
+    // WebGL context loss: GPU resets kill every sigma canvas at once.
+    // preventDefault() keeps the context restorable; the store flag drives
+    // a visible warning so a black canvas is never silent.
+    this.glCanvases = Object.values(this.sigma.getCanvases());
+    for (const canvas of this.glCanvases) {
+      canvas.addEventListener('webglcontextlost', this.onContextLost);
+      canvas.addEventListener('webglcontextrestored', this.onContextRestored);
+    }
+
+    // Debounced: a burst of resizes (split drag, sidebar toggle) triggers
+    // one renderer refresh instead of one per ResizeObserver tick.
+    this.resizeObserver = new ResizeObserver(() => {
+      if (this.resizeTimer !== null) clearTimeout(this.resizeTimer);
+      this.resizeTimer = setTimeout(() => {
+        this.resizeTimer = null;
+        if (!this.sigma) return;
+        this.sigma.resize();
+        this.sigma.refresh();
+      }, RESIZE_DEBOUNCE_MS);
+    });
     this.resizeObserver.observe(container);
 
     // Theme toggle changes the CSS vars — re-paint when data-theme flips.
@@ -269,10 +345,19 @@ export class GraphCanvasComponent implements AfterViewInit, OnDestroy {
     const nodes = this.store.nodes();
     const edges = this.store.visibleEdges();
     const dv = this.store.dataVersion();
+    const mode = this.store.mode();
 
     if (!this.graph || !this.sigma) {
       this.pendingSync = true;
       return;
+    }
+
+    // Mode switch (arch → file drill): snapshot the outgoing view's camera
+    // so leaving mid-drill still preserves the architecture viewport.
+    if (this.lastMode !== mode) {
+      const outgoing = this.lastMode;
+      this.lastMode = mode;
+      if (outgoing !== null) this.persistViewState(outgoing);
     }
 
     if (dv.version !== this.lastDataVersion) {
@@ -302,20 +387,49 @@ export class GraphCanvasComponent implements AfterViewInit, OnDestroy {
       if (!wantedEdges.has(id)) graph.dropEdge(id);
     }
 
+    // Sanitize before render: NaN/Infinity coordinates corrupt sigma's
+    // spatial index for the whole frame. An invalid authored position is
+    // replaced by the deterministic hash spot; a node that still cannot
+    // be placed is dropped from the canvas (never from the store). Both
+    // surface as diagnostics — corrupt geometry is never silent.
+    const sanitized: string[] = [];
+    const dropped: string[] = [];
     nodes.forEach((vm, i) => {
+      const authored = isFinitePosition(vm.x, vm.y);
+      if (!authored && (vm.x !== null || vm.y !== null)) sanitized.push(vm.id);
+      const pos = authored
+        ? { x: vm.x as number, y: vm.y as number }
+        : hashPosition(vm.id, i, nodes.length);
+      if (!isFinitePosition(pos.x, pos.y)) {
+        dropped.push(vm.id);
+        return;
+      }
       if (!graph.hasNode(vm.id)) {
-        const pos =
-          vm.x !== null && vm.y !== null ? { x: vm.x, y: vm.y } : hashPosition(vm.id, i, nodes.length);
         graph.addNode(vm.id, { x: pos.x, y: pos.y });
-      } else if (vm.x !== null && vm.y !== null) {
+      } else if (authored) {
         // Keep authored positions authoritative (e.g. drill-back restore).
-        graph.setNodeAttribute(vm.id, 'x', vm.x);
-        graph.setNodeAttribute(vm.id, 'y', vm.y);
+        graph.setNodeAttribute(vm.id, 'x', pos.x);
+        graph.setNodeAttribute(vm.id, 'y', pos.y);
       }
     });
+    const formatIds = (ids: string[]): string =>
+      `${ids.slice(0, 5).join(', ')}${ids.length > 5 ? '…' : ''}`;
+    if (sanitized.length) {
+      this.store.reportDiagnostics(
+        `${sanitized.length} nó(s) com coordenadas inválidas — ` +
+          `reposicionados deterministicamente: ${formatIds(sanitized)}`,
+      );
+    }
+    if (dropped.length) {
+      this.store.reportDiagnostics(
+        `${dropped.length} nó(s) descartados do canvas por coordenadas ` +
+          `inválidas: ${formatIds(dropped)}`,
+      );
+    }
 
     for (const e of edges) {
       if (graph.hasEdge(e.id)) continue;
+      if (!e.from || !e.to) continue; // unresolved target — nothing to draw
       if (!graph.hasNode(e.from) || !graph.hasNode(e.to)) continue;
       try {
         graph.addDirectedEdgeWithKey(e.id, e.from, e.to);
@@ -330,7 +444,12 @@ export class GraphCanvasComponent implements AfterViewInit, OnDestroy {
     sigma.refresh();
   }
 
-  /** One bounded ForceAtlas2 pass; pinned positions are restored verbatim. */
+  /**
+   * One bounded ForceAtlas2 pass; pinned positions are restored verbatim.
+   * Afterwards positions are frozen forever (needsLayout stays the only
+   * trigger); the camera either restores the persisted view state from
+   * the last visit or does a consistent fit.
+   */
   private runLayout(): void {
     const graph = this.graph;
     const sigma = this.sigma;
@@ -344,20 +463,41 @@ export class GraphCanvasComponent implements AfterViewInit, OnDestroy {
       });
     }
 
-    const order = graph.order;
-    const iterations = Math.min(400, Math.max(80, Math.round(60000 / Math.max(order, 1))));
-    forceAtlas2.assign(graph, {
-      iterations,
-      settings: {
-        ...forceAtlas2.inferSettings(graph),
-        adjustSizes: true,
-        strongGravityMode: true,
-      },
+    this.layoutBusy = true;
+    const layoutStart = performance.now();
+    try {
+      forceAtlas2.assign(graph, {
+        iterations: layoutIterations(graph.order),
+        settings: {
+          ...forceAtlas2.inferSettings(graph),
+          adjustSizes: true,
+          strongGravityMode: true,
+        },
+      });
+    } finally {
+      this.layoutBusy = false;
+      this.lastLayoutMs = performance.now() - layoutStart;
+    }
+
+    // Post-layout sanitize: a node FA2 leaves at NaN/Infinity is dropped
+    // (edges cascade) — a diagnostic reports it; rendering continues.
+    const dropped: string[] = [];
+    graph.forEachNode((id, attrs) => {
+      if (!isFinitePosition(attrs['x'] as number, attrs['y'] as number)) dropped.push(id);
     });
+    for (const id of dropped) graph.dropNode(id);
+    if (dropped.length) {
+      this.store.reportDiagnostics(
+        `${dropped.length} nó(s) removidos após o layout por coordenadas ` +
+          `inválidas: ${dropped.slice(0, 5).join(', ')}${dropped.length > 5 ? '…' : ''}`,
+      );
+    }
 
     for (const [id, pos] of saved) {
-      graph.setNodeAttribute(id, 'x', pos.x);
-      graph.setNodeAttribute(id, 'y', pos.y);
+      if (graph.hasNode(id)) {
+        graph.setNodeAttribute(id, 'x', pos.x);
+        graph.setNodeAttribute(id, 'y', pos.y);
+      }
     }
 
     // Freeze normalization around the laid-out extent (+40% headroom so
@@ -387,8 +527,47 @@ export class GraphCanvasComponent implements AfterViewInit, OnDestroy {
     graph.forEachNode((id, attrs) => {
       positions.set(id, { x: attrs['x'] as number, y: attrs['y'] as number });
     });
-    this.store.reportPositions(positions);
-    this.fitView();
+    // Deferido para fora do effect de sync — reportPositions → commitData
+    // escreve `nodes`, que este effect lê.
+    queueMicrotask(() => this.store.reportPositions(positions));
+
+    // Relayout explícito invalida a câmera persistida (foi medida sobre o
+    // layout anterior — restaurá-la joga todos os nós para fora do frustum).
+    const isRelayout = this.store.relayoutCount() !== this.lastRelayoutCount;
+    this.lastRelayoutCount = this.store.relayoutCount();
+    const restored = this.viewStates.consume(this.store.viewKey());
+    const cam =
+      !isRelayout && restored && restored.mode === this.store.mode()
+        ? restored.camera
+        : null;
+    if (cam && isFinitePosition(cam.x, cam.y) && Number.isFinite(cam.ratio) && cam.ratio > 0) {
+      sigma.getCamera().setState({ x: cam.x, y: cam.y, ratio: cam.ratio, angle: 0 });
+    } else {
+      this.fitView();
+    }
+    if (restored) this.store.applyViewState(restored);
+  }
+
+  /**
+   * Writes the live camera + selection into GraphStateService for the
+   * given mode (defaults to current). Called on mode switch and destroy —
+   * the only writers, so a record is always internally consistent.
+   */
+  private persistViewState(mode: GraphMode = this.store.mode()): void {
+    const sigma = this.sigma;
+    if (!sigma || this.store.repositoryId() === null) return;
+    const cam = sigma.getCamera().getState();
+    const camera =
+      isFinitePosition(cam.x, cam.y) && Number.isFinite(cam.ratio) && cam.ratio > 0
+        ? { x: cam.x, y: cam.y, ratio: cam.ratio }
+        : null;
+    this.viewStates.save(this.store.viewKey(mode), {
+      mode,
+      camera,
+      selectedNodeId: this.store.selectedNodeId(),
+      selectedEdgeId: this.store.selectedEdgeId(),
+      pinnedIds: [...this.store.pinnedIds()],
+    });
   }
 
   /* ------------------------------ painting ---------------------------- */
@@ -545,7 +724,7 @@ export class GraphCanvasComponent implements AfterViewInit, OnDestroy {
         const id = this.store.selectedNodeId() ?? this.store.kbdFocusId();
         if (id) {
           const vm = this.store.nodes().find((n) => n.id === id);
-          if (vm?.kind === 'file') void this.store.drillFile(vm.path, vm.symbolCount ?? 0);
+          if (vm?.kind === 'file') void this.store.drillFile(vm.path, vm.symbolCount ?? 0, vm.fileId);
           else void this.store.expandNode(id);
         }
         break;

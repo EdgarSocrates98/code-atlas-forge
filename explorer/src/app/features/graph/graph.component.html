@@ -47,10 +47,21 @@
           aria-label="Limite máximo de nós renderizados"
         />
       </label>
+
+      <button
+        type="button"
+        class="diag-toggle"
+        [class.diag-toggle--active]="showDiagnostics()"
+        [attr.aria-expanded]="showDiagnostics()"
+        aria-controls="graph-diagnostics"
+        (click)="toggleDiagnostics()"
+      >
+        Diagnósticos
+      </button>
     </div>
 
     @if (store.availableEdgeTypes().length || store.availableStatuses().length) {
-      <div class="graph-feature__filters" aria-label="Filtros de relações">
+      <div class="graph-feature__filters" role="group" aria-label="Filtros de relações">
         @if (store.availableEdgeTypes().length) {
           <span class="filters__label">Tipos:</span>
           @for (t of store.availableEdgeTypes(); track t) {
@@ -88,6 +99,10 @@
     }
   </header>
 
+  @if (showDiagnostics()) {
+    <atlas-graph-diagnostics [canvas]="canvas()" />
+  }
+
   @if (store.breadcrumb().length > 1) {
     <nav class="breadcrumb" aria-label="Navegação estrutural">
       <ol>
@@ -107,12 +122,16 @@
   }
 
   @if (store.fileContext(); as ctx) {
-    @if (ctx.expectedSymbols > 0) {
-      <p class="notice" role="status">
-        Arquivo <code>{{ ctx.path }}</code>: {{ store.totalKnownNodes() }} ocorrências
-        localizadas{{ ctx.expectedSymbols > store.totalKnownNodes() ? ' de ~' + ctx.expectedSymbols + ' símbolos (cobertura limitada pela busca)' : '' }}.
-      </p>
-    }
+    <p class="notice" role="status">
+      Arquivo <code>{{ ctx.path }}</code>:
+      @if (ctx.occurrencesTotal !== null) {
+        {{ ctx.occurrencesTotal }} ocorrências indexadas no snapshot;
+        {{ store.totalKnownNodes() }} nós no grafo.
+      } @else {
+        {{ store.totalKnownNodes() }} nós no grafo
+        {{ ctx.expectedSymbols > 0 ? ' (agregado reporta ~' + ctx.expectedSymbols + ' símbolos)' : '' }}.
+      }
+    </p>
   }
 
   @if (store.hiddenNodeCount() > 0 || store.serverTruncated() || store.neighborsTruncated()) {
@@ -133,6 +152,13 @@
   @if (store.rendererFailed()) {
     <p class="notice notice--warning" role="alert">
       Renderização WebGL indisponível neste ambiente — usando a lista acessível.
+    </p>
+  }
+
+  @if (store.rendererLost()) {
+    <p class="notice notice--warning" role="alert">
+      Contexto WebGL perdido — o navegador tentará restaurar a renderização;
+      se persistir, alterne para a lista acessível.
     </p>
   }
 

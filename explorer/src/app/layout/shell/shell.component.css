@@ -16,12 +16,22 @@
 
 .shell {
   display: grid;
-  grid-template-columns: 220px 1fr;
+  /* minmax(0, 1fr): toolbar/main min-content can never blow the track past
+   * the viewport (was a real 217px page overflow at 375px). */
+  grid-template-columns: 220px minmax(0, 1fr);
   grid-template-rows: auto 1fr;
   grid-template-areas:
     'toolbar toolbar'
     'sidebar main';
   min-height: 100vh;
+}
+
+.shell--collapsed {
+  grid-template-columns: 0 minmax(0, 1fr);
+}
+
+.shell--collapsed .shell__sidebar {
+  display: none;
 }
 
 .shell__toolbar {
@@ -37,17 +47,77 @@
   z-index: var(--atlas-z-toolbar);
 }
 
+.shell__menu-toggle {
+  background: var(--atlas-color-bg-subtle);
+  border: 1px solid var(--atlas-color-border);
+  border-radius: var(--atlas-radius-sm);
+  padding: var(--atlas-space-1) var(--atlas-space-3);
+  cursor: pointer;
+  color: var(--atlas-color-text);
+  font-size: var(--atlas-font-size-md);
+  line-height: 1;
+}
+
 .shell__brand {
   font-weight: var(--atlas-font-weight-bold);
 }
 
-.shell__repo-selector {
+.shell__context {
   flex: 1;
+  display: flex;
+  align-items: center;
+  gap: var(--atlas-space-3);
+  min-width: 0;
+  flex-wrap: wrap;
+}
+
+.shell__context-label {
+  font-size: var(--atlas-font-size-sm);
   color: var(--atlas-color-text-muted);
 }
 
-.shell__repo-selector--empty {
+.shell__repo-select {
+  max-width: 22rem;
+  min-width: 0; /* flex/grid shrink below intrinsic width — long root_handle */
+  overflow: hidden;
+  text-overflow: ellipsis;
+  padding: var(--atlas-space-1) var(--atlas-space-2);
+  border: 1px solid var(--atlas-color-border-strong);
+  border-radius: var(--atlas-radius-sm);
+  background: var(--atlas-color-bg);
+  color: var(--atlas-color-text);
+  font: inherit;
+  font-size: var(--atlas-font-size-sm);
+}
+
+.shell__repo-select:disabled {
+  color: var(--atlas-color-text-muted);
   font-style: italic;
+}
+
+.shell__snapshot {
+  font-size: var(--atlas-font-size-sm);
+  color: var(--atlas-color-text-muted);
+  white-space: nowrap;
+}
+
+.shell__notice {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--atlas-space-2);
+  font-size: var(--atlas-font-size-sm);
+  color: var(--atlas-color-warning);
+  overflow-wrap: anywhere;
+}
+
+.shell__notice-dismiss {
+  background: none;
+  border: 0;
+  padding: 0 var(--atlas-space-1);
+  color: inherit;
+  cursor: pointer;
+  font: inherit;
+  font-weight: var(--atlas-font-weight-bold);
 }
 
 .shell__theme-toggle {
@@ -95,4 +165,94 @@
 .shell__main {
   grid-area: main;
   outline: none;
+  min-width: 0; /* grid item may shrink to its (now bounded) track */
+}
+
+.shell__breadcrumbs {
+  padding: var(--atlas-space-2) var(--atlas-space-5) 0;
+  font-size: var(--atlas-font-size-sm);
+  color: var(--atlas-color-text-muted);
+}
+
+.shell__breadcrumbs ol {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--atlas-space-1);
+}
+
+.shell__breadcrumbs li + li::before {
+  content: '›';
+  margin-right: var(--atlas-space-1);
+  color: var(--atlas-color-text-muted);
+}
+
+.shell__breadcrumbs a {
+  color: var(--atlas-color-accent);
+  text-decoration: none;
+}
+
+.shell__breadcrumbs a:hover {
+  text-decoration: underline;
+}
+
+/* Narrow screens — MUST be the last block: media queries add no cascade
+ * priority, so these rules only win over the equal-specificity base rules
+ * above by coming later in source order.
+ *
+ * The sidebar drops out of the column flow and becomes a horizontal nav
+ * band under the toolbar — a 220px rail leaves ~155px of usable main area
+ * on phones. The toolbar wraps and the repository context gets its own
+ * full-width row below menu + brand + theme toggle. */
+@media (max-width: 700px) {
+  .shell,
+  .shell--collapsed {
+    grid-template-columns: minmax(0, 1fr);
+    /* 3 explicit rows: sidebar must be auto-height or the leftover 1fr
+     * track pushes main content below the fold. */
+    grid-template-rows: auto auto minmax(0, 1fr);
+    grid-template-areas:
+      'toolbar'
+      'sidebar'
+      'main';
+  }
+
+  .shell__toolbar {
+    flex-wrap: wrap;
+    gap: var(--atlas-space-2) var(--atlas-space-3);
+  }
+
+  .shell__context {
+    flex: 1 1 100%;
+    order: 5;
+  }
+
+  .shell__repo-select {
+    flex: 1;
+    max-width: none;
+  }
+
+  .shell__sidebar {
+    border-right: none;
+    border-bottom: 1px solid var(--atlas-color-border);
+    padding: var(--atlas-space-1) var(--atlas-space-2);
+  }
+
+  .shell__sidebar ul {
+    flex-direction: row;
+    flex-wrap: wrap;
+  }
+
+  .shell__sidebar a {
+    border-left: none;
+    border-bottom: 3px solid transparent;
+    padding: var(--atlas-space-2) var(--atlas-space-3);
+  }
+
+  .shell__sidebar a.is-active {
+    border-left-color: transparent;
+    border-bottom-color: var(--atlas-color-accent);
+  }
 }

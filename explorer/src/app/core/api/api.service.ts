@@ -357,6 +357,12 @@ export interface ApiGraphOverviewItem {
   path: string;
   symbols: number;
   language: string | null;
+  /**
+   * `source_files.id` — emitted by the cycle-6.1 backend so drill-down can
+   * address GET /files/{id}/occurrences directly. Optional: older backends
+   * omit it and the explorer degrades honestly (404 → empty state).
+   */
+  file_id?: number;
 }
 
 export interface ApiGraphOverview {
@@ -394,10 +400,22 @@ export interface ApiGraphNode {
 export interface ApiGraphEdge {
   id: number;
   from_id: number;
-  to_id: number;
+  /** NULL when the target never resolved — see `to_unresolved`. */
+  to_id: number | null;
   type: string;
   resolution_status: string;
   resolver: string;
+  /**
+   * Free-text name of an unresolved target (`relations.to_unresolved`).
+   * Present only when `to_id` is NULL.
+   */
+  to_unresolved?: string | null;
+  /**
+   * `relations.confidence_class` (resolved|syntactic|heuristic|inferred).
+   * Emitted by the cycle-6.1 backend; optional so the inspector never
+   * fabricates a class that was not returned.
+   */
+  confidence_class?: string;
   /**
    * Present in the relations table but not emitted by /graph/neighbors
    * today; declared optional so the inspector never invents it.
@@ -410,6 +428,44 @@ export interface ApiGraphNeighbors {
   edges: ApiGraphEdge[];
   nodes: ApiGraphNode[];
   truncated: boolean;
+}
+
+/**
+ * GET /files/{file_id}/occurrences — cycle-6.1 endpoint (contract:
+ * `{items: [...], total}`). One item per symbol occurrence stored for the
+ * file in the current snapshot. Fields beyond the guaranteed set are
+ * declared optional — the explorer renders what arrives, never invents.
+ */
+export interface ApiFileOccurrence {
+  /** occurrence id — the numeric part of `occ:{id}` node keys. */
+  id: number;
+  qualified_name: string;
+  kind: string;
+  span_start: number | null;
+  span_end: number | null;
+  line: number | null;
+  col: number | null;
+  language?: string;
+  path?: string;
+  symbol_id?: number | null;
+  parse_status?: string;
+}
+
+export interface ApiFileOccurrences {
+  items: ApiFileOccurrence[];
+  total: number;
+  snapshot_id?: number;
+  truncated?: boolean;
+}
+
+/** Scope/pagination for the file-occurrences endpoint. */
+export interface ApiFileOccurrencesScope extends ApiGraphScope {
+  offset?: number;
+  /**
+   * Relative path — sent only when the numeric file_id is unknown so a
+   * path-aware backend can still resolve the file; ignored otherwise.
+   */
+  path?: string;
 }
 
 export interface ApiRelationSummaryEntry {
@@ -597,6 +653,39 @@ export class ApiService {
     return this.request<ApiGraphNeighbors>(
       'GET',
       `/graph/neighbors?${qs.toString()}${graphScopeQuery(scope, '&')}`,
+      undefined,
+      options,
+    );
+  }
+
+  /**
+   * GET /files/{file_id}/occurrences — all symbol occurrences indexed for
+   * one file in the current snapshot (cycle-6.1). `fileRef` is the numeric
+   * source_files id when the backend reports it; the URL-encoded relative
+   * path is sent as a best-effort fallback — a strictly numeric backend
+   * answers 404 and the caller shows the honest empty state.
+   */
+  getFileOccurrences(
+    fileRef: number | string,
+    scope?: ApiFileOccurrencesScope,
+    options?: ApiRequestOptions,
+  ): Promise<ApiFileOccurrences> {
+    const qs = new URLSearchParams();
+    if (scope?.limit !== undefined) qs.set('limit', String(scope.limit));
+    if (scope?.offset !== undefined && scope.offset > 0) {
+      qs.set('offset', String(scope.offset));
+    }
+    if (scope?.path) qs.set('path', scope.path);
+    if (scope?.repositoryId !== undefined) {
+      qs.set('repository_id', String(scope.repositoryId));
+    }
+    if (scope?.snapshotId !== undefined) {
+      qs.set('snapshot_id', String(scope.snapshotId));
+    }
+    const query = qs.toString();
+    return this.request<ApiFileOccurrences>(
+      'GET',
+      `/files/${encodeURIComponent(String(fileRef))}/occurrences${query ? `?${query}` : ''}`,
       undefined,
       options,
     );

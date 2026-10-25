@@ -1,7 +1,8 @@
 import { Injectable, OnDestroy, computed, signal } from '@angular/core';
 import {
+  ApiFileOccurrence,
+  ApiFileOccurrences,
   ApiGraphNeighbors,
-  ApiSearchHit,
   ApiService,
   ApiSymbolDetail,
 } from '../../core/api/api.service';
@@ -11,8 +12,9 @@ import {
   DEFAULT_NODE_CAP,
   DRILL_MAX_PAGES,
   DRILL_NEIGHBOR_BUDGET,
-  DRILL_SEARCH_LIMIT,
+  DRILL_PAGE_LIMIT,
   DrillLevel,
+  FileDrillContext,
   GraphDataVersion,
   GraphEdgeVM,
   GraphMode,
@@ -21,12 +23,13 @@ import {
   NEIGHBOR_LIMIT,
   OVERVIEW_LIMIT,
 } from './graph.models';
+import { GraphStateService } from './graph-state.service';
+import type { GraphViewState } from './graph-state.service';
 import {
-  fileStem,
   hashPosition,
   occNodeId,
+  occurrenceToVM,
   parseOccurrenceId,
-  searchHitToVM,
   spiralPosition,
   toEdgeVM,
   toFileNodeVM,
@@ -78,15 +81,15 @@ export class GraphDataStore implements OnDestroy {
   /** Server reported more rows than it returned (overview or neighbors). */
   readonly serverTruncated = signal(false);
   readonly neighborsTruncated = signal(false);
-  readonly fileContext = signal<{ path: string; expectedSymbols: number } | null>(
-    null,
-  );
+  readonly fileContext = signal<FileDrillContext | null>(null);
 
   readonly nodeCap = signal(DEFAULT_NODE_CAP);
 
   readonly mode = signal<GraphMode>('architecture');
   readonly breadcrumb = signal<DrillLevel[]>([{ kind: 'architecture' }]);
   readonly dataVersion = signal<GraphDataVersion>({ version: 0, needsLayout: false });
+  /** Incrementado a cada relayout explícito — o canvas força fit em vez de restaurar a câmera. */
+  readonly relayoutCount = signal(0);
 
   /* ---------------------------- interaction -------------------------- */
   readonly selectedNodeId = signal<string | null>(null);
@@ -98,6 +101,11 @@ export class GraphDataStore implements OnDestroy {
   readonly detailLoading = signal(false);
   readonly selectedDetail = signal<ApiSymbolDetail | null>(null);
   readonly rendererFailed = signal(false);
+  /**
+   * WebGL context currently lost (GPU reset/driver). Distinct from
+   * `rendererFailed`: the canvas may still recover on contextrestored.
+   */
+  readonly rendererLost = signal(false);
 
   readonly edgeTypeFilter = signal<ReadonlySet<string>>(new Set());
   readonly statusFilter = signal<ReadonlySet<string>>(new Set());
@@ -223,11 +231,20 @@ export class GraphDataStore implements OnDestroy {
   }
 
   /**
-   * Drill into a file aggregate: seeds symbol nodes via structural search
-   * (occurrence ids for the file's symbols) and merges a bounded number of
-   * neighbor fetches to draw intra/inter-file edges.
+   * Drill into a file aggregate: seeds symbol nodes from
+   * GET /files/{file_id}/occurrences (the real index data — no name-search
+   * heuristic) and merges a bounded number of neighbor fetches to draw
+   * intra/inter-file edges.
+   *
+   * `fileId` is `source_files.id` when the backend reports it on the
+   * overview item; otherwise the path is sent as the route ref — a 404
+   * answer maps to an honest empty state, never to a fabricated fallback.
    */
-  async drillFile(path: string, expectedSymbols: number): Promise<void> {
+  async drillFile(
+    path: string,
+    expectedSymbols: number,
+    fileId: number | null = null,
+  ): Promise<void> {
     if (this.drillBusy()) return;
     const gen = ++this.gen;
     this.drillBusy.set(true);
@@ -237,32 +254,52 @@ export class GraphDataStore implements OnDestroy {
     this.archSnapshot = this.freeze();
     this.resetGraphState();
     this.mode.set('symbols');
-    this.fileContext.set({ path, expectedSymbols });
+    this.fileContext.set({ path, expectedSymbols, occurrencesTotal: null });
     this.breadcrumb.set([
       { kind: 'architecture' },
       { kind: 'file', path, expectedSymbols },
     ]);
 
     try {
-      const hits = await this.searchFileOccurrences(path, gen);
+      const result = await this.fetchFileOccurrences(path, fileId, gen);
       if (gen !== this.gen) return;
 
-      if (!hits.length) {
+      if (result === null) {
+        // Endpoint absent (404): honest empty state — the search heuristic
+        // it replaces is gone for good.
         this.commitData();
         this.bumpVersion(true);
         this.phase.set('empty');
         this.emptyMessage.set(
-          `Não foi possível localizar ocorrências de símbolo em ${path} via busca estrutural.`,
+          `O endpoint de ocorrências (GET /files/{id}/occurrences) não está ` +
+            `disponível nesta versão da API — o conteúdo de ${path} não pode ` +
+            `ser inspecionado no grafo.`,
+        );
+        return;
+      }
+
+      this.fileContext.set({
+        path,
+        expectedSymbols,
+        occurrencesTotal: result.total,
+      });
+
+      if (!result.items.length) {
+        this.commitData();
+        this.bumpVersion(true);
+        this.phase.set('empty');
+        this.emptyMessage.set(
+          `Nenhuma ocorrência de símbolo indexada para ${path} neste snapshot.`,
         );
         return;
       }
 
       // Every occurrence in the file becomes a node — even ones without
       // relations — so the drilled view honestly represents the file.
-      this.mergeNodes(hits.map(searchHitToVM));
+      this.mergeNodes(result.items.map((item) => occurrenceToVM(item, path)));
 
       // Bounded neighbor expansion around the first seeds.
-      const seeds = hits.map((h) => h.occurrence_id).slice(0, DRILL_NEIGHBOR_BUDGET);
+      const seeds = result.items.map((o) => o.id).slice(0, DRILL_NEIGHBOR_BUDGET);
       let truncated = false;
       for (const seed of seeds) {
         const res = await this.api.getGraphNeighbors(
@@ -314,6 +351,12 @@ export class GraphDataStore implements OnDestroy {
     this.mode.set('architecture');
     this.breadcrumb.set([{ kind: 'architecture' }]);
     this.fileContext.set(null);
+    // Rebuild the pin set from the restored VMs — freeze() kept the flags
+    // on the nodes, and the signal must agree or a later relayout would
+    // move nodes that still render as pinned.
+    this.pinnedIds.set(
+      new Set([...this.nodesMap.values()].filter((n) => n.pinned).map((n) => n.id)),
+    );
     this.commitData();
     this.hiddenNodeCount.set(this.overflowMap.size);
     this.bumpVersion(false); // positions already on the nodes — no re-layout
@@ -497,6 +540,7 @@ export class GraphDataStore implements OnDestroy {
 
   /** User-triggered re-layout: the ONLY way to recompute positions. */
   requestRelayout(): void {
+    this.relayoutCount.update((c) => c + 1);
     this.bumpVersion(true);
   }
 
@@ -518,49 +562,93 @@ export class GraphDataStore implements OnDestroy {
     this.rendererFailed.set(true);
   }
 
+  /** WebGL context lost/restored — reported by the canvas listeners. */
+  markRendererLost(lost: boolean): void {
+    this.rendererLost.set(lost);
+  }
+
+  /**
+   * Non-fatal canvas diagnostic (e.g. nodes dropped for invalid
+   * coordinates) — surfaced as a dismissible warning, never silent.
+   */
+  reportDiagnostics(message: string): void {
+    console.warn(`[graph] ${message}`);
+    this.transientError.set(message);
+  }
+
+  /** Persistence key for the current view (repo + snapshot + mode). */
+  viewKey(mode: GraphMode = this.mode()): string {
+    return GraphStateService.key(this.repositoryId(), this.snapshotId(), mode);
+  }
+
+  /**
+   * Re-applies a persisted selection/pins after a reload. Every lookup is
+   * guarded against the current data — stale ids simply do not restore.
+   */
+  applyViewState(state: GraphViewState): void {
+    if (state.pinnedIds.length) {
+      const kept = new Set<string>();
+      for (const id of state.pinnedIds) {
+        const node = this.nodesMap.get(id);
+        if (node) {
+          node.pinned = true;
+          kept.add(id);
+        }
+      }
+      if (kept.size) {
+        this.pinnedIds.set(kept);
+        this.commitData();
+      }
+    }
+    if (state.selectedNodeId && this.nodesMap.has(state.selectedNodeId)) {
+      this.selectNode(state.selectedNodeId);
+    } else if (state.selectedEdgeId && this.edgesMap.has(state.selectedEdgeId)) {
+      this.selectEdge(state.selectedEdgeId);
+    }
+  }
+
   /* ============================= internals ============================ */
 
   /**
-   * Occurrence seeds for a file via structural search. The API requires a
-   * non-empty `q`, so we probe two honest queries — the file stem (module
-   * qnames embed it: `module.scope.name`) and `.` (dotted qnames) — merge
-   * and dedup by occurrence_id. Coverage is reported via fileContext vs.
-   * the returned count; nothing is fabricated.
+   * Paginated fetch of GET /files/{file_id}/occurrences (contract:
+   * `{items, total}`). Returns `null` on 404 — the endpoint or the file is
+   * absent and the caller renders the honest empty state. Any other error
+   * propagates to the normal error mapping.
    */
-  private async searchFileOccurrences(
+  private async fetchFileOccurrences(
     path: string,
+    fileId: number | null,
     gen: number,
-  ): Promise<ApiSearchHit[]> {
-    const collected = new Map<number, ApiSearchHit>();
-    const queries = [...new Set([fileStem(path), '.'].filter((q) => q.length > 0))];
-    for (const q of queries) {
-      let cursor: string | null = null;
-      let pages = 0;
+  ): Promise<{ items: ApiFileOccurrence[]; total: number } | null> {
+    const ref = fileId ?? path;
+    const items: ApiFileOccurrence[] = [];
+    let total = 0;
+    let pages = 0;
+    try {
       do {
-        const res = await this.api.searchCode(
+        const res: ApiFileOccurrences = await this.api.getFileOccurrences(
+          ref,
           {
-            q,
-            strategy: 'structural',
-            path,
-            repository_root: this.repositoryRoot() || undefined,
-            snapshot_id: this.snapshotId() ?? undefined,
-            limit: DRILL_SEARCH_LIMIT,
-            cursor,
+            repositoryId: this.repositoryId() ?? undefined,
+            snapshotId: this.snapshotId() ?? undefined,
+            limit: DRILL_PAGE_LIMIT,
+            offset: items.length,
+            // path only helps a path-aware backend when the id is unknown.
+            path: fileId === null ? path : undefined,
           },
           { signal: this.controller.signal },
         );
-        if (gen !== this.gen) return [];
-        for (const hit of res.items) {
-          // `path` is a substring filter server-side; keep exact-file hits.
-          if (hit.path === path && hit.occurrence_id > 0) {
-            collected.set(hit.occurrence_id, hit);
-          }
-        }
-        cursor = res.next_cursor;
+        if (gen !== this.gen) return { items: [], total: 0 };
+        total = res.total ?? 0;
+        items.push(...(res.items ?? []));
         pages++;
-      } while (cursor && pages < DRILL_MAX_PAGES);
+        if (!(res.items?.length)) break;
+      } while (items.length < total && pages < DRILL_MAX_PAGES);
+    } catch (error) {
+      if (error instanceof ApiHttpError && error.status === 404) return null;
+      throw error;
     }
-    return [...collected.values()].sort((a, b) => a.occurrence_id - b.occurrence_id);
+    return { items, total };
   }
 
   private mergeNeighbors(res: ApiGraphNeighbors, seedNodeId: string): void {

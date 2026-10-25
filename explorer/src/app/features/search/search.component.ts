@@ -1,6 +1,6 @@
 import { ChangeDetectionStrategy, Component, OnDestroy, OnInit, computed, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
-import { RouterLink } from '@angular/router';
+import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import {
   ApiSearchParams,
   ApiSearchStrategy,
@@ -71,6 +71,7 @@ const LIMITS = [10, 20, 50, 100];
               type="search"
               name="q"
               [(ngModel)]="form.query"
+              (ngModelChange)="syncUrlSoon()"
               maxlength="300"
               required
               autocomplete="off"
@@ -80,7 +81,11 @@ const LIMITS = [10, 20, 50, 100];
 
           <label class="search__field">
             <span>Repositório</span>
-            <select name="repo" [(ngModel)]="form.repositoryRoot">
+            <select
+              name="repo"
+              [(ngModel)]="form.repositoryRoot"
+              (ngModelChange)="syncUrlSoon()"
+            >
               <option value="">Padrão (primeiro indexado)</option>
               @for (repo of repositories(); track repo.id) {
                 <option [value]="repo.root_handle">{{ repo.root_handle }}</option>
@@ -92,7 +97,11 @@ const LIMITS = [10, 20, 50, 100];
         <div class="search__row">
           <label class="search__field">
             <span>Estratégia</span>
-            <select name="strategy" [(ngModel)]="form.strategy">
+            <select
+              name="strategy"
+              [(ngModel)]="form.strategy"
+              (ngModelChange)="syncUrlSoon()"
+            >
               <option value="">Padrão (híbrida)</option>
               @for (s of strategies; track s.value) {
                 <option [value]="s.value">{{ s.label }}</option>
@@ -106,6 +115,7 @@ const LIMITS = [10, 20, 50, 100];
               type="text"
               name="language"
               [(ngModel)]="form.language"
+              (ngModelChange)="syncUrlSoon()"
               list="search-languages"
               autocomplete="off"
               placeholder="ex.: python"
@@ -122,7 +132,11 @@ const LIMITS = [10, 20, 50, 100];
 
           <label class="search__field">
             <span>Kind</span>
-            <select name="kind" [(ngModel)]="form.kind">
+            <select
+              name="kind"
+              [(ngModel)]="form.kind"
+              (ngModelChange)="syncUrlSoon()"
+            >
               <option value="">Todos</option>
               @for (k of kinds; track k) {
                 <option [value]="k">{{ k }}</option>
@@ -136,6 +150,7 @@ const LIMITS = [10, 20, 50, 100];
               type="text"
               name="path"
               [(ngModel)]="form.path"
+              (ngModelChange)="syncUrlSoon()"
               autocomplete="off"
               placeholder="ex.: src/auth"
             />
@@ -143,7 +158,11 @@ const LIMITS = [10, 20, 50, 100];
 
           <label class="search__field search__field--small">
             <span>Limite</span>
-            <select name="limit" [(ngModel)]="form.limit">
+            <select
+              name="limit"
+              [(ngModel)]="form.limit"
+              (ngModelChange)="syncUrlSoon()"
+            >
               @for (l of limits; track l) {
                 <option [ngValue]="l">{{ l }}</option>
               }
@@ -203,7 +222,7 @@ const LIMITS = [10, 20, 50, 100];
       }
 
       @if (result(); as res) {
-        <div class="search__results" aria-live="polite" aria-label="Resultados da busca">
+        <div class="search__results" role="region" aria-live="polite" aria-label="Resultados da busca">
           <p class="search__summary" role="status">
             {{ items().length }} resultado(s) — estratégia “{{ res.strategy }}”,
             snapshot #{{ res.snapshotId }}@if (res.repository) {
@@ -228,13 +247,21 @@ const LIMITS = [10, 20, 50, 100];
               <li class="search-hit">
                 <div class="search-hit__head">
                   <code class="search-hit__qname">{{ hit.qualifiedName }}</code>
-                  <a
-                    class="search-hit__graph"
-                    [routerLink]="['/graph']"
-                    [queryParams]="{ focus: hit.graphFocus }"
-                  >
-                    Ver no grafo
-                  </a>
+                  <span class="search-hit__actions">
+                    <a
+                      class="search-hit__action"
+                      [routerLink]="['/symbols', hit.occurrenceId]"
+                    >
+                      Abrir no Inspector
+                    </a>
+                    <a
+                      class="search-hit__action search-hit__graph"
+                      [routerLink]="['/graph']"
+                      [queryParams]="{ focus: hit.graphFocus }"
+                    >
+                      Focar no grafo
+                    </a>
+                  </span>
                 </div>
                 <div class="search-hit__meta">
                   <atlas-evidence-badge [level]="badgeLevel(hit)" />
@@ -463,6 +490,22 @@ const LIMITS = [10, 20, 50, 100];
         overflow-wrap: anywhere;
       }
 
+      .search-hit__actions {
+        display: inline-flex;
+        gap: var(--atlas-space-3);
+        flex-wrap: wrap;
+        font-size: var(--atlas-font-size-sm);
+        white-space: nowrap;
+      }
+
+      .search-hit__action {
+        color: var(--atlas-color-accent);
+      }
+
+      .search-hit__action:hover {
+        text-decoration: underline;
+      }
+
       .search-hit__meta {
         display: flex;
         flex-wrap: wrap;
@@ -553,6 +596,7 @@ export class SearchComponent implements OnInit, OnDestroy {
   });
 
   private readonly controller = new AbortController();
+  private urlSyncTimer: ReturnType<typeof setTimeout> | null = null;
   /** Public so tests (and a future settings surface) can drive the opt-in. */
   readonly historyStore = new SearchHistoryStore(
     typeof localStorage === 'undefined' ? null : localStorage,
@@ -561,21 +605,48 @@ export class SearchComponent implements OnInit, OnDestroy {
   constructor(
     private readonly api: ApiService,
     private readonly perf: PerfLogService,
+    private readonly router: Router,
+    private readonly route: ActivatedRoute,
   ) {}
 
   ngOnInit(): void {
+    this.restoreFromUrl();
     this.historyEnabled.set(this.historyStore.isEnabled());
     this.history.set(this.historyStore.list());
     void this.loadRepositories();
+    // A `?q=` deep-link restores the executed search, not just the form.
+    if (this.form.query.trim()) {
+      void this.submit();
+    }
   }
 
   ngOnDestroy(): void {
+    if (this.urlSyncTimer !== null) {
+      clearTimeout(this.urlSyncTimer);
+      this.urlSyncTimer = null;
+    }
     this.controller.abort();
+  }
+
+  /**
+   * Debounced URL write for `ngModelChange` — coalesces keystrokes into a
+   * single replaceUrl navigation so the address bar always mirrors the
+   * current criteria without spamming history.
+   */
+  syncUrlSoon(): void {
+    if (this.urlSyncTimer !== null) {
+      clearTimeout(this.urlSyncTimer);
+    }
+    this.urlSyncTimer = setTimeout(() => {
+      this.urlSyncTimer = null;
+      this.syncUrl();
+    }, 250);
   }
 
   async submit(): Promise<void> {
     const q = this.form.query.trim();
     if (!q) return;
+    this.syncUrl();
     this.phase.set('loading');
     this.errorText.set('');
     this.result.set(null);
@@ -646,6 +717,47 @@ export class SearchComponent implements OnInit, OnDestroy {
   /** Evidence badge level for a hit: hits carry evidence strings, not levels. */
   badgeLevel(hit: SearchHitView): 'supported' | 'unknown' {
     return hit.evidence.length > 0 ? 'supported' : 'unknown';
+  }
+
+  /** Writes the current criteria to the URL (replaceUrl — no history spam). */
+  private syncUrl(): void {
+    if (this.urlSyncTimer !== null) {
+      clearTimeout(this.urlSyncTimer);
+      this.urlSyncTimer = null;
+    }
+    const queryParams: Record<string, string | number> = {};
+    const q = this.form.query.trim();
+    if (q) queryParams['q'] = q;
+    if (this.form.strategy) queryParams['strategy'] = this.form.strategy;
+    const language = this.form.language.trim();
+    if (language) queryParams['language'] = language;
+    if (this.form.kind) queryParams['kind'] = this.form.kind;
+    const path = this.form.path.trim();
+    if (path) queryParams['path'] = path;
+    if (this.form.repositoryRoot) queryParams['repo'] = this.form.repositoryRoot;
+    if (this.form.limit !== 20) queryParams['limit'] = this.form.limit;
+    void this.router.navigate([], {
+      relativeTo: this.route,
+      queryParams,
+      replaceUrl: true,
+    });
+  }
+
+  /** Restores query + filters from the URL (?q=&strategy=&…), validating enums. */
+  private restoreFromUrl(): void {
+    const qp = this.route.snapshot.queryParamMap;
+    this.form.query = qp.get('q') ?? '';
+    const strategy = qp.get('strategy');
+    this.form.strategy = STRATEGIES.some((s) => s.value === strategy)
+      ? (strategy as ApiSearchStrategy)
+      : '';
+    this.form.language = qp.get('language') ?? '';
+    const kind = qp.get('kind');
+    this.form.kind = kind !== null && KINDS.includes(kind) ? kind : '';
+    this.form.path = qp.get('path') ?? '';
+    const limit = Number(qp.get('limit'));
+    this.form.limit = LIMITS.includes(limit) ? limit : 20;
+    this.form.repositoryRoot = qp.get('repo') ?? '';
   }
 
   private buildParams(cursor?: string): ApiSearchParams {

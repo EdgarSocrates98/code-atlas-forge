@@ -1,4 +1,5 @@
 import { ChangeDetectionStrategy, Component, input } from '@angular/core';
+import { RouterLink } from '@angular/router';
 import { DiagnosticsListComponent } from '../../shared/components/diagnostics-list/diagnostics-list.component';
 import { EvidenceBadgeComponent } from '../../shared/components/evidence-badge/evidence-badge.component';
 import type { ImpactView } from './impact.vm';
@@ -18,10 +19,10 @@ import type { ImpactView } from './impact.vm';
   selector: 'atlas-impact-results',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [DiagnosticsListComponent, EvidenceBadgeComponent],
+  imports: [RouterLink, DiagnosticsListComponent, EvidenceBadgeComponent],
   template: `
     @if (view(); as v) {
-      <div class="impact-result" aria-live="polite" aria-label="Resultado da análise de impacto">
+      <div class="impact-result" role="region" aria-live="polite" aria-label="Resultado da análise de impacto">
         @if (v.partial) {
           <div class="impact-result__banner impact-result__banner--partial" role="alert">
             <strong>Análise parcial.</strong>
@@ -196,7 +197,20 @@ import type { ImpactView } from './impact.vm';
                   <li class="impact-item">
                     <div class="impact-item__head">
                       <code>{{ item.qualifiedName }}</code>
-                      <atlas-evidence-badge [level]="item.strength" />
+                      <span class="impact-item__side-actions">
+                        @if (item.occurrenceId !== null) {
+                          <a
+                            class="impact-item__graph"
+                            [routerLink]="['/graph']"
+                            [queryParams]="{
+                              focus: 'occ:' + item.occurrenceId,
+                            }"
+                          >
+                            Focar no grafo
+                          </a>
+                        }
+                        <atlas-evidence-badge [level]="item.strength" />
+                      </span>
                     </div>
                     <p class="impact-result__muted">
                       {{ item.impactLabel }} · {{ item.language }} ·
@@ -242,11 +256,25 @@ import type { ImpactView } from './impact.vm';
                 <li class="impact-item">
                   <div class="impact-item__head">
                     <code>{{ test.testSymbol || test.testFile }}</code>
-                    <atlas-evidence-badge [level]="test.strength" />
+                    <span class="impact-item__side-actions">
+                      @if (test.occurrenceId !== null) {
+                        <a
+                          class="impact-item__graph"
+                          [routerLink]="['/graph']"
+                          [queryParams]="{
+                            focus: 'occ:' + test.occurrenceId,
+                          }"
+                        >
+                          Focar no grafo
+                        </a>
+                      }
+                      <atlas-evidence-badge [level]="test.strength" />
+                    </span>
                   </div>
                   <p class="impact-result__muted">
                     <span class="impact-item__tag">{{ test.revisionLabel }}</span>
-                    relação {{ test.relationshipLabel }} · {{ test.reason }}
+                    relação {{ test.relationshipLabel }} ·
+                    {{ test.reason || 'sem justificativa registrada' }}
                   </p>
                   @if (test.testSymbol) {
                     <p class="impact-result__muted">
@@ -379,6 +407,23 @@ import type { ImpactView } from './impact.vm';
       .impact-item__head code {
         font-family: var(--atlas-font-family-mono);
         overflow-wrap: anywhere;
+      }
+
+      .impact-item__side-actions {
+        display: inline-flex;
+        align-items: baseline;
+        gap: var(--atlas-space-3);
+        flex-wrap: wrap;
+      }
+
+      .impact-item__graph {
+        color: var(--atlas-color-accent);
+        font-size: var(--atlas-font-size-sm);
+        white-space: nowrap;
+      }
+
+      .impact-item__graph:hover {
+        text-decoration: underline;
       }
 
       .impact-item__sides {

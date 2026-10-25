@@ -191,6 +191,8 @@ export interface TestCandidateView {
   strength: ApiEvidenceStrength;
   revision: string;
   revisionLabel: string;
+  /** Graph deep-link target when the candidate carries an occurrence id. */
+  occurrenceId: number | null;
 }
 
 export interface ContractChangeView {
@@ -340,6 +342,7 @@ export function toTestCandidateView(candidate: ApiTestCandidate): TestCandidateV
     strength: candidate.strength,
     revision: candidate.revision,
     revisionLabel: revisionTagLabel(candidate.revision),
+    occurrenceId: candidate.occurrence_id,
   };
 }
 
@@ -403,4 +406,137 @@ export function toImpactView(result: ApiImpactResult): ImpactView {
     totalImpacts: (result.impacts ?? []).length,
     totalTests: (result.test_candidates ?? []).length,
   };
+}
+
+/* ------------------------------------------------------------------------- */
+/* Markdown export — deterministic, honest about partial/truncated state.      */
+/* ------------------------------------------------------------------------- */
+
+/**
+ * Serializes an ApiImpactResult to a plain-text Markdown report for the
+ * "Exportar Markdown" action. Partial analysis and semantic blocks are
+ * flagged up front — an export must never read as a verified result when
+ * the on-screen banner says otherwise.
+ */
+export function impactToMarkdown(result: ApiImpactResult): string {
+  const v = toImpactView(result);
+  const lines: string[] = [];
+  lines.push('# Análise de impacto');
+  lines.push('');
+  lines.push(`- Repositório: ${v.repository || '(desconhecido)'}`);
+  lines.push(
+    `- Comparação: base ${v.baseRevision || '—'} ` +
+      `(snapshot ${v.baseSnapshotId ?? '—'}) → alvo ` +
+      `${v.targetRevision || '(worktree)'} ` +
+      `(snapshot ${v.targetSnapshotId ?? '—'})`,
+  );
+  lines.push(
+    `- Totais: ${v.totalChanges} mudança(s) de símbolo, ` +
+      `${v.totalImpacts} candidato(s) de impacto, ` +
+      `${v.totalTests} candidato(s) de teste`,
+  );
+  if (v.partial) {
+    lines.push(
+      '- **ANÁLISE PARCIAL** — vínculo revisão↔snapshot não verificado; ' +
+        'achados indicativos, não prova.',
+    );
+  }
+  if (v.semanticBlocked) {
+    lines.push(
+      '- **Análise semântica bloqueada** — apenas dados git/diagnósticos.',
+    );
+  }
+  if (v.truncated) {
+    lines.push('- Resultado truncado pelos limites do analisador.');
+  }
+  lines.push('');
+
+  lines.push(
+    `## Risco — ${v.risk.categoryLabel} ` +
+      `(incerteza ${v.risk.uncertaintyLabel})`,
+  );
+  if (v.risk.formulaVersion) {
+    lines.push(`fórmula ${v.risk.formulaVersion}`);
+  }
+  for (const reason of v.risk.reasons) {
+    lines.push(`- ${reason}`);
+  }
+  lines.push('');
+
+  for (const group of v.symbolGroups) {
+    lines.push(`## ${group.label} (${group.items.length})`);
+    for (const change of group.items) {
+      lines.push(
+        `- \`${change.qualifiedName}\` — ${change.language} ` +
+          `${change.kind}, evidência ${change.strength}` +
+          (change.detail ? ` — ${change.detail}` : ''),
+      );
+      if (change.oldSignature || change.newSignature) {
+        lines.push(
+          `  - antes: \`${change.oldSignature || '—'}\` → ` +
+            `depois: \`${change.newSignature || '—'}\``,
+        );
+      }
+    }
+    lines.push('');
+  }
+
+  if (v.contractChanges.length > 0) {
+    lines.push(`## Contratos públicos (${v.contractChanges.length})`);
+    for (const contract of v.contractChanges) {
+      lines.push(
+        `- \`${contract.symbolKey}\` — ${contract.classification}, ` +
+          contract.compatibilityLabel +
+          (contract.detail ? ` — ${contract.detail}` : ''),
+      );
+    }
+    lines.push('');
+  }
+
+  for (const group of v.blastGroups) {
+    lines.push(`## Raio de impacto — ${group.label} (${group.items.length})`);
+    for (const item of group.items) {
+      lines.push(
+        `- \`${item.qualifiedName}\` — ${item.impactLabel}, ` +
+          `evidência ${item.strength}` +
+          (item.reason ? ` — ${item.reason}` : '') +
+          (item.fullyVerified ? ' (cadeia totalmente verificada)' : ''),
+      );
+    }
+    lines.push('');
+  }
+
+  if (v.testCandidates.length > 0) {
+    lines.push(`## Candidatos de teste (${v.testCandidates.length})`);
+    lines.push(
+      '_Sugestões derivadas de relações comprovadas — candidato não é ' +
+        'cobertura garantida._',
+    );
+    for (const test of v.testCandidates) {
+      lines.push(
+        `- \`${test.testSymbol || test.testFile}\` — ${test.revisionLabel}, ` +
+          `relação ${test.relationshipLabel}` +
+          (test.reason ? ` — ${test.reason}` : ''),
+      );
+    }
+    lines.push('');
+  }
+
+  if (v.unknownCoverage.length > 0) {
+    lines.push('## Cobertura desconhecida');
+    for (const area of v.unknownCoverage) {
+      lines.push(`- \`${area}\``);
+    }
+    lines.push('');
+  }
+
+  if (v.diagnosticsTotal.length > 0) {
+    lines.push('## Diagnósticos');
+    for (const diag of v.diagnosticsTotal) {
+      lines.push(`- \`${diag.code}\` — ${diag.message}`);
+    }
+    lines.push('');
+  }
+
+  return lines.join('\n');
 }

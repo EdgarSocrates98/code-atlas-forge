@@ -1,9 +1,16 @@
 import { TestBed } from '@angular/core/testing';
+import { provideRouter } from '@angular/router';
 import { ApiService } from '../../core/api/api.service';
 import { ApiUnreachableError } from '../../core/api/api.errors';
 import type { ApiContextPack } from '../../core/api/api.service';
 import { ContextComponent } from './context.component';
-import { packToMarkdown, toBudgetView, toPackView } from './context.vm';
+import {
+  occurrenceIdFromEvidence,
+  packToMarkdown,
+  toBudgetView,
+  toExpansionRefView,
+  toPackView,
+} from './context.vm';
 
 function makePack(overrides: Partial<ApiContextPack> = {}): ApiContextPack {
   return {
@@ -102,6 +109,55 @@ describe('context pack view-model', () => {
     expect(md).toContain('`ext.lib`');
     expect(md).toContain('`sym:2`');
   });
+
+  it('extracts occurrence ids from occurrence evidence refs', () => {
+    expect(
+      occurrenceIdFromEvidence([{ kind: 'occurrence', ref: 'occ:11', detail: '' }]),
+    ).toBe(11);
+    expect(
+      occurrenceIdFromEvidence([{ kind: 'occurrence', ref: '12', detail: '' }]),
+    ).toBe(12);
+    expect(
+      occurrenceIdFromEvidence([{ kind: 'relation', ref: 'calls', detail: '' }]),
+    ).toBeNull();
+    expect(
+      occurrenceIdFromEvidence([{ kind: 'occurrence', ref: 'abc', detail: '' }]),
+    ).toBeNull();
+  });
+
+  it('maps expansion refs to re-query targets only for known prefixes', () => {
+    const sym = toExpansionRefView({
+      ref_id: 'sym:pkg.b',
+      kind: 'symbol',
+      reason: 'omitido por budget',
+    });
+    expect(sym.target).toBe('pkg.b');
+    expect(sym.searchQuery).toBe('pkg.b');
+
+    const file = toExpansionRefView({
+      ref_id: 'file:src/a.py',
+      kind: 'file',
+      reason: 'x',
+    });
+    expect(file.searchQuery).toBe('src/a.py');
+
+    const dep = toExpansionRefView({
+      ref_id: 'dep:a->calls->b',
+      kind: 'dependency',
+      reason: 'x',
+    });
+    expect(dep.searchQuery).toBeNull();
+    expect(dep.refId).toBe('dep:a->calls->b');
+  });
+
+  it('maps item occurrence ids and search queries in the view', () => {
+    const view = toPackView(makePack());
+    // fixture evidence: { kind: 'occurrence', ref: 'occ:1' }
+    expect(view.items[0].occurrenceId).toBe(1);
+    expect(view.items[0].searchQuery).toBe('python:function:pkg.a');
+    // fixture expansion_refs: [{ ref_id: 'sym:2' }]
+    expect(view.expansionRefs[0].searchQuery).toBe('2');
+  });
 });
 
 describe('ContextComponent', () => {
@@ -117,7 +173,7 @@ describe('ContextComponent', () => {
 
     await TestBed.configureTestingModule({
       imports: [ContextComponent],
-      providers: [{ provide: ApiService, useValue: api }],
+      providers: [provideRouter([]), { provide: ApiService, useValue: api }],
     }).compileComponents();
   });
 
@@ -171,5 +227,63 @@ describe('ContextComponent', () => {
     component.form.task = 'x';
     await component.build();
     expect(component.phase()).toBe('offline');
+  });
+
+  it('renders actionable chips for symbols, items and expansion refs', async () => {
+    const fixture = TestBed.createComponent(ContextComponent);
+    fixture.detectChanges();
+    await fixture.whenStable();
+    const component = fixture.componentInstance;
+    component.form.task = 'x';
+    await component.build();
+    fixture.detectChanges();
+
+    const el = fixture.nativeElement as HTMLElement;
+    const hrefs = Array.from(
+      el.querySelectorAll<HTMLAnchorElement>('a.context__chip'),
+    ).map((a) => decodeURIComponent(a.getAttribute('href') ?? ''));
+    // selected symbol → re-query
+    expect(hrefs.some((h) => h.includes('/search') && h.includes('q=python:function:pkg.a'))).toBe(true);
+    // item occurrence evidence → inspector
+    expect(hrefs.some((h) => h.includes('/symbols/1'))).toBe(true);
+    // expansion ref 'sym:2' → re-query
+    expect(hrefs.some((h) => h.includes('/search') && h.includes('q=2'))).toBe(true);
+  });
+
+  it('shows omitted and budget info explicitly', async () => {
+    const fixture = TestBed.createComponent(ContextComponent);
+    fixture.detectChanges();
+    await fixture.whenStable();
+    const component = fixture.componentInstance;
+    component.form.task = 'x';
+    await component.build();
+    fixture.detectChanges();
+
+    const el = fixture.nativeElement as HTMLElement;
+    expect(el.textContent).toContain('Omitidos pelo orçamento');
+    expect(el.textContent).toContain('1 item(ns)');
+    expect(el.textContent).toContain('disponível p/ itens');
+  });
+
+  it('renders non-requeryable expansion refs as plain text', async () => {
+    api.buildContextPack.and.resolveTo(
+      makePack({
+        expansion_refs: [
+          { ref_id: 'dep:a->calls->b', kind: 'dependency', reason: 'fora do budget' },
+        ],
+      }),
+    );
+    const fixture = TestBed.createComponent(ContextComponent);
+    fixture.detectChanges();
+    await fixture.whenStable();
+    const component = fixture.componentInstance;
+    component.form.task = 'x';
+    await component.build();
+    fixture.detectChanges();
+
+    const el = fixture.nativeElement as HTMLElement;
+    const expansion = el.querySelector('#pack-expansion')?.parentElement;
+    expect(expansion?.textContent).toContain('dep:a->calls->b');
+    expect(expansion?.querySelector('a.context__chip')).toBeNull();
   });
 });

@@ -1,5 +1,6 @@
 import { TestBed } from '@angular/core/testing';
-import { provideRouter } from '@angular/router';
+import { provideRouter, Router } from '@angular/router';
+import { RouterTestingHarness } from '@angular/router/testing';
 import { ApiService } from '../../core/api/api.service';
 import { ApiUnreachableError } from '../../core/api/api.errors';
 import type { ApiSearchResponse } from '../../core/api/api.service';
@@ -148,7 +149,10 @@ describe('SearchComponent', () => {
 
     await TestBed.configureTestingModule({
       imports: [SearchComponent],
-      providers: [provideRouter([]), { provide: ApiService, useValue: api }],
+      providers: [
+        provideRouter([{ path: 'search', component: SearchComponent }]),
+        { provide: ApiService, useValue: api },
+      ],
     }).compileComponents();
   });
 
@@ -179,7 +183,65 @@ describe('SearchComponent', () => {
     expect(el.querySelector('.search-hit__qname')?.textContent).toContain('pkg.mod.foo');
     const link = el.querySelector<HTMLAnchorElement>('.search-hit__graph');
     expect(link?.getAttribute('href')).toContain('/graph');
-    expect(link?.getAttribute('href')).toContain('focus=occ:11');
+    expect(link?.getAttribute('href')).toMatch(/focus=occ(%3A|:)11/);
+    const inspector = el.querySelector<HTMLAnchorElement>(
+      '.search-hit__actions a[href*="symbols"]',
+    );
+    expect(inspector?.getAttribute('href')).toContain('/symbols/11');
+    expect(inspector?.textContent).toContain('Abrir no Inspector');
+  });
+
+  it('restores query and filters from the URL and auto-runs', async () => {
+    const harness = await RouterTestingHarness.create();
+    await harness.navigateByUrl(
+      '/search?q=foo&strategy=lexical&language=python&kind=function&path=src&limit=50&repo=/repo',
+      SearchComponent,
+    );
+    await harness.fixture.whenStable();
+
+    expect(api.searchCode).toHaveBeenCalledWith(
+      jasmine.objectContaining({
+        q: 'foo',
+        strategy: 'lexical',
+        language: 'python',
+        kind: 'function',
+        path: 'src',
+        limit: 50,
+        repository_root: '/repo',
+      }),
+      jasmine.anything(),
+    );
+  });
+
+  it('writes the current criteria to the URL on submit', async () => {
+    const harness = await RouterTestingHarness.create();
+    const component = await harness.navigateByUrl('/search', SearchComponent);
+    await harness.fixture.whenStable();
+
+    component.form.query = 'bar';
+    component.form.strategy = 'lexical';
+    component.form.path = 'src/auth';
+    await component.submit();
+    await harness.fixture.whenStable();
+
+    const url = decodeURIComponent(TestBed.inject(Router).url);
+    expect(url).toContain('/search');
+    expect(url).toContain('q=bar');
+    expect(url).toContain('strategy=lexical');
+    expect(url).toContain('path=src/auth');
+  });
+
+  it('restores but does not auto-run when the URL carries filters without q', async () => {
+    const harness = await RouterTestingHarness.create();
+    const component = await harness.navigateByUrl(
+      '/search?strategy=vector&language=rust',
+      SearchComponent,
+    );
+    await harness.fixture.whenStable();
+
+    expect(component.form.strategy).toBe('vector');
+    expect(component.form.language).toBe('rust');
+    expect(api.searchCode).not.toHaveBeenCalled();
   });
 
   it('paginates via next_cursor and appends results', async () => {

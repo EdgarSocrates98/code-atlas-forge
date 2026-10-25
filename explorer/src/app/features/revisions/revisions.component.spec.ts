@@ -1,4 +1,5 @@
 import { TestBed } from '@angular/core/testing';
+import { provideRouter } from '@angular/router';
 import { ApiService } from '../../core/api/api.service';
 import { ApiUnreachableError } from '../../core/api/api.errors';
 import type { ApiImpactResult } from '../../core/api/api.service';
@@ -70,7 +71,7 @@ describe('RevisionsComponent', () => {
 
     await TestBed.configureTestingModule({
       imports: [RevisionsComponent],
-      providers: [{ provide: ApiService, useValue: api }],
+      providers: [provideRouter([]), { provide: ApiService, useValue: api }],
     }).compileComponents();
   });
 

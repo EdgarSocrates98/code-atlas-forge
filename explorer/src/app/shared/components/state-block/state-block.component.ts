@@ -1,4 +1,5 @@
-import { ChangeDetectionStrategy, Component, input } from '@angular/core';
+import { ChangeDetectionStrategy, Component, inject, input } from '@angular/core';
+import { ATLAS_API_BASE_URL } from '../../../core/api/api.config';
 
 /**
  * Canonical async state block shared by every feature screen.
@@ -32,7 +33,8 @@ export type BlockState = 'loading' | 'offline' | 'error' | 'empty' | 'ready';
             <h2 class="state-block__title">API local indisponível</h2>
             <p>
               Não foi possível falar com o Code Atlas em
-              <code>http://127.0.0.1:8741</code>. Verifique se o processo local está em execução
+              <code>{{ apiOrigin() }}</code
+              >. Verifique se o processo local está em execução
               (<code>code-atlas explorer</code>) e tente novamente.
             </p>
             @if (detail()) {
@@ -128,4 +130,26 @@ export class StateBlockComponent {
   readonly errorMessage = input('Ocorreu um erro inesperado.');
   /** Optional technical detail shown under the main message. */
   readonly detail = input('');
+
+  private readonly apiBase = inject(ATLAS_API_BASE_URL, { optional: true }) ?? '/api/v1';
+
+  /**
+   * The address the app actually talks to — never a hardcoded port. In
+   * production the API is same-origin (any `--port`), in `ng serve` dev it
+   * is the absolute local default.
+   */
+  apiOrigin(): string {
+    const base = this.apiBase;
+    if (base.startsWith('http')) {
+      try {
+        return new URL(base).origin;
+      } catch {
+        return base;
+      }
+    }
+    if (typeof document !== 'undefined' && document.location?.origin) {
+      return document.location.origin;
+    }
+    return 'o processo local';
+  }
 }

@@ -7,6 +7,7 @@ import {
   signal,
 } from '@angular/core';
 import { FormsModule } from '@angular/forms';
+import { RouterLink } from '@angular/router';
 import {
   ApiContextLevel,
   ApiContextPack,
@@ -31,7 +32,7 @@ const LEVELS: { value: ApiContextLevel; label: string; hint: string }[] = [
   selector: 'atlas-context',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [FormsModule, StateBlockComponent],
+  imports: [FormsModule, RouterLink, StateBlockComponent],
   template: `
     <section class="context" aria-labelledby="context-title">
       <header class="context__header">
@@ -133,7 +134,7 @@ const LEVELS: { value: ApiContextLevel; label: string; hint: string }[] = [
       }
 
       @if (pack(); as view) {
-        <div class="context__pack" aria-live="polite" aria-label="Context pack gerado">
+        <div class="context__pack" role="region" aria-live="polite" aria-label="Context pack gerado">
           @if (view.insufficientBudget || view.mandatoryContextOmitted) {
             <div class="context__banner" role="alert">
               <strong>Orçamento insuficiente.</strong>
@@ -159,8 +160,17 @@ const LEVELS: { value: ApiContextLevel; label: string; hint: string }[] = [
               <div><dt>Estimador</dt><dd>{{ view.estimator }}</dd></div>
               <div><dt>Frescor</dt><dd>{{ view.freshness }}</dd></div>
               <div>
-                <dt>Itens</dt>
-                <dd>{{ view.selected }} selecionado(s), {{ view.omitted }} omitido(s)</dd>
+                <dt>Selecionados</dt>
+                <dd>{{ view.selected }} item(ns)</dd>
+              </div>
+              <div>
+                <dt>Omitidos pelo orçamento</dt>
+                <dd>
+                  {{ view.omitted }} item(ns)
+                  @if (view.omitted > 0) {
+                    — ver pontos de expansão abaixo
+                  }
+                </dd>
               </div>
             </dl>
             @if (view.rankingExplanation) {
@@ -194,7 +204,8 @@ const LEVELS: { value: ApiContextLevel; label: string; hint: string }[] = [
                 ({{ view.budget.usedPercent }}%)
                 — reservas {{ view.budget.reservedTotal }}, itens ~{{
                   view.budget.itemsEstimate
-                }}, payload ~{{ view.tokensPayload }}
+                }}, disponível p/ itens ~{{ view.budget.available }},
+                payload ~{{ view.tokensPayload }}
               </p>
               <p class="context__muted">
                 Valores <strong>estimados</strong> pelo estimador
@@ -210,7 +221,16 @@ const LEVELS: { value: ApiContextLevel; label: string; hint: string }[] = [
               </h2>
               <ul class="context__list">
                 @for (symbol of view.selectedSymbols; track symbol) {
-                  <li><code>{{ symbol }}</code></li>
+                  <li>
+                    <a
+                      class="context__chip"
+                      [routerLink]="['/search']"
+                      [queryParams]="{ q: symbol }"
+                      title="Reconsultar este símbolo na busca"
+                    >
+                      <code>{{ symbol }}</code>
+                    </a>
+                  </li>
                 }
               </ul>
             </section>
@@ -240,6 +260,7 @@ const LEVELS: { value: ApiContextLevel; label: string; hint: string }[] = [
                     <th scope="col">Prioridade</th>
                     <th scope="col">~Tokens</th>
                     <th scope="col">Origem</th>
+                    <th scope="col">Ações</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -255,6 +276,30 @@ const LEVELS: { value: ApiContextLevel; label: string; hint: string }[] = [
                       <td>{{ item.priority }}</td>
                       <td>{{ item.estTokens }}</td>
                       <td><code>{{ item.path || item.symbolKey || '—' }}</code></td>
+                      <td class="context__item-actions">
+                        @if (item.occurrenceId !== null) {
+                          <a
+                            class="context__chip"
+                            [routerLink]="['/symbols', item.occurrenceId]"
+                            title="Abrir esta ocorrência no Inspector"
+                          >
+                            Inspector
+                          </a>
+                        }
+                        @if (item.searchQuery) {
+                          <a
+                            class="context__chip"
+                            [routerLink]="['/search']"
+                            [queryParams]="{ q: item.searchQuery }"
+                            title="Reconsultar este símbolo na busca"
+                          >
+                            Buscar
+                          </a>
+                        }
+                        @if (item.occurrenceId === null && !item.searchQuery) {
+                          —
+                        }
+                      </td>
                     </tr>
                   }
                 </tbody>
@@ -296,10 +341,26 @@ const LEVELS: { value: ApiContextLevel; label: string; hint: string }[] = [
               <h2 id="pack-expansion">
                 Pontos de expansão ({{ view.expansionRefs.length }})
               </h2>
+              <p class="context__muted">
+                Itens deixados de fora pelo orçamento — clique para reconsultar
+                na busca quando houver um alvo identificável.
+              </p>
               <ul class="context__list">
                 @for (ref of view.expansionRefs; track ref.refId) {
                   <li>
-                    <code>{{ ref.refId }}</code> ({{ ref.kind }}) — {{ ref.reason }}
+                    @if (ref.searchQuery) {
+                      <a
+                        class="context__chip"
+                        [routerLink]="['/search']"
+                        [queryParams]="{ q: ref.searchQuery }"
+                        [title]="'Reconsultar ' + ref.target + ' na busca'"
+                      >
+                        <code>{{ ref.target }}</code>
+                      </a>
+                    } @else {
+                      <code>{{ ref.refId }}</code>
+                    }
+                    ({{ ref.kind }}) — {{ ref.reason }}
                   </li>
                 }
               </ul>
@@ -533,6 +594,29 @@ const LEVELS: { value: ApiContextLevel; label: string; hint: string }[] = [
         border: 1px solid var(--atlas-color-accent);
         color: var(--atlas-color-accent);
         font-size: var(--atlas-font-size-xs);
+      }
+
+      .context__chip {
+        display: inline-block;
+        padding: 0 var(--atlas-space-2);
+        border-radius: var(--atlas-radius-full);
+        border: 1px solid var(--atlas-color-border-strong);
+        color: var(--atlas-color-accent);
+        text-decoration: none;
+        white-space: nowrap;
+      }
+
+      .context__chip:hover {
+        border-color: var(--atlas-color-accent);
+        text-decoration: underline;
+      }
+
+      .context__item-actions {
+        white-space: nowrap;
+      }
+
+      .context__item-actions a + a {
+        margin-left: var(--atlas-space-1);
       }
 
       .context__export {

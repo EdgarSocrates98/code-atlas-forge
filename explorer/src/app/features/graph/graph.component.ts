@@ -2,6 +2,7 @@ import {
   ChangeDetectionStrategy,
   Component,
   OnInit,
+  signal,
   viewChild,
 } from '@angular/core';
 import { ActivatedRoute } from '@angular/router';
@@ -9,6 +10,7 @@ import { EvidenceBadgeComponent } from '../../shared/components/evidence-badge/e
 import { StateBlockComponent } from '../../shared/components/state-block/state-block.component';
 import { GraphCanvasComponent } from './graph-canvas.component';
 import { GraphDataStore } from './graph-data.store';
+import { GraphDiagnosticsComponent } from './graph-diagnostics.component';
 import { GraphInspectorComponent } from './graph-inspector.component';
 import { GraphTableComponent } from './graph-table.component';
 import { ALL_RESOLUTION_STATUSES } from './graph.models';
@@ -30,6 +32,7 @@ type ViewMode = 'graph' | 'table';
     StateBlockComponent,
     EvidenceBadgeComponent,
     GraphCanvasComponent,
+    GraphDiagnosticsComponent,
     GraphInspectorComponent,
     GraphTableComponent,
   ],
@@ -45,6 +48,8 @@ export class GraphComponent implements OnInit {
   ];
   readonly statuses = ALL_RESOLUTION_STATUSES;
   viewMode: ViewMode = 'graph';
+  /** Diagnostics panel open state — closed destroys the rAF sampler. */
+  readonly showDiagnostics = signal(false);
 
   constructor(
     readonly store: GraphDataStore,
@@ -62,6 +67,10 @@ export class GraphComponent implements OnInit {
 
   setView(mode: ViewMode): void {
     this.viewMode = mode;
+  }
+
+  toggleDiagnostics(): void {
+    this.showDiagnostics.update((open) => !open);
   }
 
   levelOf(status: string) {

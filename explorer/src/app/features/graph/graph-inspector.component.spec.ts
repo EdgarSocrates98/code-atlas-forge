@@ -17,8 +17,11 @@ function makeNode(id: number, overrides: Partial<GraphNodeVM> = {}): GraphNodeVM
     occurrenceId: id,
     symbolId: id * 10,
     span: { start: id, end: id + 1 },
+    line: id,
+    col: 1,
     parseStatus: 'ok',
     symbolCount: null,
+    fileId: null,
     x: 0,
     y: 0,
     pinned: false,
@@ -94,6 +97,7 @@ function makeApi(): ApiService {
         to_id: 2,
         type: 'calls',
         resolution_status: 'verified',
+        confidence_class: 'resolved',
         resolver: 'scip',
         evidence_ids: [9],
       },
@@ -102,6 +106,16 @@ function makeApi(): ApiService {
         from_id: 2,
         to_id: 3,
         type: 'imports',
+        resolution_status: 'unresolved',
+        confidence_class: 'heuristic',
+        resolver: 'syntax',
+      },
+      {
+        id: 3,
+        from_id: 1,
+        to_id: null,
+        to_unresolved: 'pkg.missing.Symbol',
+        type: 'references',
         resolution_status: 'unresolved',
         resolver: 'syntax',
       },
@@ -167,28 +181,40 @@ describe('GraphInspectorComponent — data mapping', () => {
     expect(text).toContain('× 4');
   });
 
-  it('maps edge fields into the inspector (type, endpoints, status, resolver, evidence)', async () => {
+  it('maps edge fields into the inspector (type, endpoints, status, confidence, resolver, evidence)', async () => {
     store.selectEdge('edge:1');
     fixture.detectChanges();
     await fixture.whenStable();
     fixture.detectChanges();
 
     const text = (fixture.nativeElement as HTMLElement).textContent ?? '';
+    expect(text).toContain('edge:1');
     expect(text).toContain('calls');
     expect(text).toContain('fn1');
     expect(text).toContain('fn2');
     expect(text).toContain('Verificado');
+    expect(text).toContain('verified'); // raw resolution_status beside the badge
+    expect(text).toContain('resolved'); // confidence_class
     expect(text).toContain('scip');
     expect(text).toContain('9'); // evidence_ids rendered when present
   });
 
-  it('renders a dash when the edge carries no evidence ids', async () => {
+  it('renders an explicit empty state when the edge carries no evidence ids', async () => {
     store.selectEdge('edge:2');
     fixture.detectChanges();
     const text = (fixture.nativeElement as HTMLElement).textContent ?? '';
     expect(text).toContain('imports');
     expect(text).toContain('Não resolvido');
-    expect(text).toContain('—');
+    expect(text).toContain('heuristic'); // confidence_class when present
+    expect(text).toContain('Sem evidência registrada');
+  });
+
+  it('shows the unresolved target name instead of a phantom node link', async () => {
+    store.selectEdge('edge:3');
+    fixture.detectChanges();
+    const text = (fixture.nativeElement as HTMLElement).textContent ?? '';
+    expect(text).toContain('Alvo não resolvido');
+    expect(text).toContain('pkg.missing.Symbol');
   });
 
   it('endpoint buttons jump selection to the node', () => {

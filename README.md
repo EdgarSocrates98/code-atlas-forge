@@ -4,15 +4,20 @@ Plataforma **open source, local-first e offline-first** de inteligência estrutu
 semântica e arquitetural de software — grafos tipados, proveniência verificável,
 indexação incremental e contexto econômico para agentes.
 
-> **Status atual: Cycle 6 — Explorer (branch `cycle-6-angular-explorer`).**
+> **Status atual: Cycle 6.1 — Explorer homologado (branch
+> `cycle-6.1-explorer-hardening`).**
 > O Code Atlas indexa repositórios com parsing real (Tree-sitter), extrai
 > símbolos e constrói um grafo tipado persistido em SQLite, consultável via
 > CLI, servidor MCP stdio, **API HTTP loopback `/api/v1`** e o
 > **Explorer** — workbench visual Angular servido por
 > `code-atlas explorer`. Análise de impacto entre revisões
 > (`code-atlas impact` / `POST /impact/analyze`) está disponível com
-> estados de binding honestos. Homologação do ciclo em andamento — veja
-> `docs/cycle-6-homologation.md` e `docs/roadmap.md`.
+> estados de binding honestos. O 6.1 endureceu o Explorer: control
+> center de repositórios, contexto global com deep links, drill-down por
+> endpoint real, DTO de aresta com prova, rate limiting, CSP, câmera que
+> sobrevive à navegação e benchmarks medidos a 100–5000 arquivos. Veja
+> `docs/cycle-6.1-architecture.md`, `docs/cycle-6-homologation.md` (§7) e
+> `docs/roadmap.md`.
 
 ## Princípios
 
@@ -120,17 +125,25 @@ sintático não infere receiver — `d.speak()` fica `unresolved`),
 embeddings semânticos reais (provider naïve documentado, ADR-0022),
 structural sharing de grafo entre snapshots (rejeitado, ADR-0020),
 escrita via API/UI (read-only por contrato), telemetria (ausente por
-spec), rate limiting (adiado — loopback single-user).
+spec).
 
-**Homologado parcialmente** (Cycle 6 — `docs/cycle-6-limitations.md`):
-sem benchmark de 10k nós, E2E Playwright escrito mas **não executado**
-(lf-0094), auditoria WCAG/contraste **não executada**, Explorer em
-Windows **não testado**, ~55 vulnerabilidades `npm audit` transitivas
-de dev (runtime limpo).
+**Homologado com ressalvas** (Cycle 6.1 — `docs/cycle-6.1-limitations.md`):
+sem benchmark de 10k nós (máximo medido: 2000 renderizados; API trunca a
+2000, canvas capa a 500/2000), arestas do overview sem custo medido
+(0 edges por design), Firefox/Safari/Windows interativo **NOT RUN**,
+sem passeio com screen reader, ~55 vulnerabilidades `npm audit` (0
+critical em produção — `docs/cycle-6.1-dependency-audit.md`).
+**Verificado no 6.1:** 102 testes Playwright (flows, security, a11y,
+scale, screenshots) verdes no job `explorer-e2e`; auditoria axe WCAG 2.2
+AA em 24 scans com **0 violações**; rate limit 300/min + timeout 30 s +
+CSP/XFO na API; drill-down via `GET /files/{id}/occurrences`;
+`evidence_ids` emitidos nas arestas; canvas congelado pós-relayout
+corrigido e medido; `npm ci` reproduzível.
 Estados `unresolved`/`ambiguous`/`external` são preservados como
 fatos — nunca preenchidos por heurística. Detalhes:
 `docs/semantic-resolution.md`, `docs/cycle-3.1-evidence.md`,
-`docs/semantic-accuracy-report.md`, `docs/cycle-6-homologation.md`.
+`docs/semantic-accuracy-report.md`, `docs/cycle-6-homologation.md`,
+`docs/cycle-6.1-evidence.md`.
 
 ## Estrutura do repositório
 

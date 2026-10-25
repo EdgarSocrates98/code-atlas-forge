@@ -79,6 +79,9 @@ jobs:
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@v7
+        with:
+          # historico completo: o E2E de impacto usa HEAD~1 como revisao base
+          fetch-depth: 0
       - uses: actions/setup-python@v7
         with:
           python-version: "3.12"

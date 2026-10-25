@@ -30,6 +30,23 @@ export interface ContextItemView {
   path: string;
   expandable: boolean;
   evidenceCount: number;
+  /**
+   * Occurrence id extracted from an `occurrence` evidence entry
+   * (`occ:N` or bare `N`) — the Inspector deep-link target when present.
+   */
+  occurrenceId: number | null;
+  /** Qualified name usable as a `/search?q=` re-query, when the item has one. */
+  searchQuery: string | null;
+}
+
+export interface ExpansionRefView {
+  refId: string;
+  kind: string;
+  reason: string;
+  /** Payload after the `sym:`/`nb:`/`file:` prefix — display label. */
+  target: string;
+  /** `/search?q=` re-query; null when the ref has no honest action. */
+  searchQuery: string | null;
 }
 
 export interface PackView {
@@ -50,7 +67,7 @@ export interface PackView {
   relevantFiles: readonly string[];
   dependencies: readonly ApiPackEvidence[];
   unresolvedRefs: readonly string[];
-  expansionRefs: readonly { refId: string; kind: string; reason: string }[];
+  expansionRefs: readonly ExpansionRefView[];
   diagnosticCodes: readonly string[];
   diagnosticMessages: readonly string[];
   insufficientBudget: boolean;
@@ -83,6 +100,38 @@ export function toBudgetView(pack: ApiContextPack): BudgetView {
   };
 }
 
+/**
+ * First `occurrence` evidence ref parsed as an occurrence id — accepts the
+ * `occ:123` envelope form and the bare `123` form emitted by the pack
+ * engine (`PackEvidence(kind="occurrence", ref=str(occ_id))`).
+ */
+export function occurrenceIdFromEvidence(
+  evidence: readonly ApiPackEvidence[],
+): number | null {
+  for (const ev of evidence ?? []) {
+    if (ev.kind !== 'occurrence') continue;
+    const match = /^(?:occ:)?(\d+)$/.exec(ev.ref.trim());
+    if (match) return Number(match[1]);
+  }
+  return null;
+}
+
+/** Ref prefixes that carry a re-queryable payload (qualified name or path). */
+const REQUERYABLE_REF_PREFIXES = new Set(['sym', 'nb', 'file']);
+
+export function toExpansionRefView(ref: {
+  ref_id: string;
+  kind: string;
+  reason: string;
+}): ExpansionRefView {
+  const sep = ref.ref_id.indexOf(':');
+  const prefix = sep > 0 ? ref.ref_id.slice(0, sep) : '';
+  const target = sep > 0 ? ref.ref_id.slice(sep + 1) : ref.ref_id;
+  const searchQuery =
+    REQUERYABLE_REF_PREFIXES.has(prefix) && target ? target : null;
+  return { refId: ref.ref_id, kind: ref.kind, reason: ref.reason, target, searchQuery };
+}
+
 export function toPackView(pack: ApiContextPack): PackView {
   const manifest = pack.manifest;
   const diagnostics = pack.diagnostics;
@@ -109,16 +158,14 @@ export function toPackView(pack: ApiContextPack): PackView {
       path: item.path,
       expandable: item.expandable,
       evidenceCount: (item.evidence ?? []).length,
+      occurrenceId: occurrenceIdFromEvidence(item.evidence ?? []),
+      searchQuery: item.symbol_key || null,
     })),
     selectedSymbols: pack.selected_symbols ?? [],
     relevantFiles: pack.relevant_files ?? [],
     dependencies: pack.dependencies ?? [],
     unresolvedRefs: pack.unresolved_refs ?? [],
-    expansionRefs: (pack.expansion_refs ?? []).map((r) => ({
-      refId: r.ref_id,
-      kind: r.kind,
-      reason: r.reason,
-    })),
+    expansionRefs: (pack.expansion_refs ?? []).map(toExpansionRefView),
     diagnosticCodes: diagnostics?.codes ?? [],
     diagnosticMessages: diagnostics?.messages ?? [],
     insufficientBudget: Boolean(diagnostics?.insufficient_budget),

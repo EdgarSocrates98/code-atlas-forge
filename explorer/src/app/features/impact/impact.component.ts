@@ -7,8 +7,10 @@ import {
   signal,
 } from '@angular/core';
 import { FormsModule } from '@angular/forms';
+import { ActivatedRoute, Router } from '@angular/router';
 import {
   ApiImpactRequest,
+  ApiImpactResult,
   ApiRepositoryItem,
   ApiService,
 } from '../../core/api/api.service';
@@ -16,7 +18,7 @@ import { apiErrorText, isApiOffline } from '../../shared/errors';
 import { StateBlockComponent } from '../../shared/components/state-block/state-block.component';
 import { PerfLogService } from '../diagnostics/perf-log.service';
 import { ImpactResultsComponent } from './impact-results.component';
-import { ImpactView, toImpactView } from './impact.vm';
+import { ImpactView, impactToMarkdown, toImpactView } from './impact.vm';
 
 type ImpactPhase = 'idle' | 'loading' | 'ready' | 'error' | 'offline';
 
@@ -126,6 +128,22 @@ type ImpactPhase = 'idle' | 'loading' | 'ready' | 'error' | 'offline';
             {{ phase() === 'loading' ? 'Analisando…' : 'Analisar impacto' }}
           </button>
         </div>
+
+        @if (baseSnapshotId() !== null || targetSnapshotId() !== null) {
+          <p class="impact__snapshots" role="status">
+            Snapshots fixados pela URL — base #{{
+              baseSnapshotId() ?? '—'
+            }}
+            · alvo #{{ targetSnapshotId() ?? '—' }}.
+            <button
+              type="button"
+              class="impact__link"
+              (click)="clearUrlSnapshots()"
+            >
+              Ignorar snapshots da URL
+            </button>
+          </p>
+        }
       </form>
 
       @if (phase() === 'idle') {
@@ -145,6 +163,12 @@ type ImpactPhase = 'idle' | 'loading' | 'ready' | 'error' | 'offline';
 
       @if (result(); as view) {
         <atlas-impact-results [view]="view" />
+        <div class="impact__export">
+          <button type="button" (click)="exportJson()">Exportar JSON</button>
+          <button type="button" (click)="exportMarkdown()">
+            Exportar Markdown
+          </button>
+        </div>
       }
     </section>
   `,
@@ -232,6 +256,40 @@ type ImpactPhase = 'idle' | 'loading' | 'ready' | 'error' | 'offline';
         cursor: not-allowed;
       }
 
+      .impact__snapshots {
+        margin: 0;
+        font-size: var(--atlas-font-size-sm);
+        color: var(--atlas-color-text-muted);
+      }
+
+      .impact__link {
+        background: none;
+        border: 0;
+        padding: 0;
+        color: var(--atlas-color-accent);
+        cursor: pointer;
+        font: inherit;
+      }
+
+      .impact__link:hover {
+        text-decoration: underline;
+      }
+
+      .impact__export {
+        display: flex;
+        gap: var(--atlas-space-2);
+        flex-wrap: wrap;
+      }
+
+      .impact__export button {
+        padding: var(--atlas-space-2) var(--atlas-space-4);
+        border-radius: var(--atlas-radius-sm);
+        border: 1px solid var(--atlas-color-border-strong);
+        background: var(--atlas-color-bg-subtle);
+        color: var(--atlas-color-text);
+        cursor: pointer;
+      }
+
       .impact__hint {
         color: var(--atlas-color-text-muted);
       }
@@ -253,6 +311,9 @@ export class ImpactComponent implements OnInit, OnDestroy {
   readonly result = signal<ImpactView | null>(null);
   readonly repositories = signal<ApiRepositoryItem[]>([]);
   readonly errorText = signal('');
+  /** Snapshot ids pinned via URL (?base_snapshot=&target_snapshot=). */
+  readonly baseSnapshotId = signal<number | null>(null);
+  readonly targetSnapshotId = signal<number | null>(null);
 
   readonly showBlock = computed(() => {
     const p = this.phase();
@@ -282,13 +343,20 @@ export class ImpactComponent implements OnInit, OnDestroy {
   });
 
   private readonly controller = new AbortController();
+  /** Raw response retained client-side for JSON/Markdown export. */
+  private lastResult: ApiImpactResult | null = null;
+  /** Set by restoreFromUrl — auto-runs once repositories finish loading. */
+  private autoAnalyzePending = false;
 
   constructor(
     private readonly api: ApiService,
     private readonly perf: PerfLogService,
+    private readonly router: Router,
+    private readonly route: ActivatedRoute,
   ) {}
 
   ngOnInit(): void {
+    this.restoreFromUrl();
     void this.loadRepositories();
   }
 
@@ -298,20 +366,59 @@ export class ImpactComponent implements OnInit, OnDestroy {
 
   async analyze(): Promise<void> {
     if (!this.form.repositoryRoot) return;
+    this.syncUrl();
     this.phase.set('loading');
     this.errorText.set('');
     this.result.set(null);
+    this.lastResult = null;
     try {
       const res = await this.perf.time('POST /impact/analyze', () =>
         this.api.analyzeImpact(this.buildRequest(), {
           signal: this.controller.signal,
         }),
       );
+      this.lastResult = res;
       this.result.set(toImpactView(res));
       this.phase.set('ready');
     } catch (error) {
       this.handleError(error);
     }
+  }
+
+  /** Drops the URL-pinned snapshot ids and re-syncs the address bar. */
+  clearUrlSnapshots(): void {
+    this.baseSnapshotId.set(null);
+    this.targetSnapshotId.set(null);
+    this.syncUrl();
+  }
+
+  exportJson(): void {
+    if (!this.lastResult) return;
+    this.download(
+      'impact-analysis.json',
+      JSON.stringify(this.lastResult, null, 2),
+      'application/json',
+    );
+  }
+
+  exportMarkdown(): void {
+    if (!this.lastResult) return;
+    this.download(
+      'impact-analysis.md',
+      impactToMarkdown(this.lastResult),
+      'text/markdown',
+    );
+  }
+
+  private download(filename: string, text: string, type: string): void {
+    if (typeof document === 'undefined') return;
+    const blob = new Blob([text], { type });
+    const url = URL.createObjectURL(blob);
+    const anchor = document.createElement('a');
+    anchor.href = url;
+    anchor.download = filename;
+    anchor.click();
+    URL.revokeObjectURL(url);
   }
 
   private buildRequest(): ApiImpactRequest {
@@ -320,6 +427,10 @@ export class ImpactComponent implements OnInit, OnDestroy {
       include_possible: this.form.includePossible,
       known_only: this.form.knownOnly,
     };
+    const baseSnap = this.baseSnapshotId();
+    if (baseSnap !== null) req.base_snapshot_id = baseSnap;
+    const targetSnap = this.targetSnapshotId();
+    if (targetSnap !== null) req.target_snapshot_id = targetSnap;
     if (this.form.baseRevision.trim()) {
       req.base_revision = this.form.baseRevision.trim();
     }
@@ -331,14 +442,71 @@ export class ImpactComponent implements OnInit, OnDestroy {
     return req;
   }
 
+  /** Writes the current parameters to the URL (replaceUrl — no history spam). */
+  private syncUrl(): void {
+    const queryParams: Record<string, string | number> = {};
+    if (this.form.repositoryRoot) {
+      queryParams['repo'] = this.form.repositoryRoot;
+    }
+    const base = this.form.baseRevision.trim();
+    if (base) queryParams['base'] = base;
+    const target = this.form.targetRevision.trim();
+    if (target) queryParams['target'] = target;
+    const symbol = this.form.symbol.trim();
+    if (symbol) queryParams['symbol'] = symbol;
+    const file = this.form.file.trim();
+    if (file) queryParams['file'] = file;
+    const baseSnap = this.baseSnapshotId();
+    if (baseSnap !== null) queryParams['base_snapshot'] = baseSnap;
+    const targetSnap = this.targetSnapshotId();
+    if (targetSnap !== null) queryParams['target_snapshot'] = targetSnap;
+    if (!this.form.includePossible) queryParams['possible'] = '0';
+    if (this.form.knownOnly) queryParams['known'] = '1';
+    void this.router.navigate([], {
+      relativeTo: this.route,
+      queryParams,
+      replaceUrl: true,
+    });
+  }
+
+  /**
+   * Restores the analysis parameters from the URL
+   * (?repo=&base=&target=&base_snapshot=&target_snapshot=&symbol=&file=&possible=&known=).
+   * A `repo` param marks the URL as a restore intent and re-runs the
+   * analysis once the repository list confirms the form is usable.
+   */
+  private restoreFromUrl(): void {
+    const qp = this.route.snapshot.queryParamMap;
+    this.form.repositoryRoot = qp.get('repo') ?? '';
+    this.form.baseRevision = qp.get('base') ?? '';
+    this.form.targetRevision = qp.get('target') ?? '';
+    this.form.symbol = qp.get('symbol') ?? '';
+    this.form.file = qp.get('file') ?? '';
+    const possible = qp.get('possible');
+    if (possible !== null) {
+      this.form.includePossible = possible !== '0' && possible !== 'false';
+    }
+    const known = qp.get('known');
+    if (known !== null) {
+      this.form.knownOnly = known === '1' || known === 'true';
+    }
+    this.baseSnapshotId.set(parseSnapshotParam(qp.get('base_snapshot')));
+    this.targetSnapshotId.set(parseSnapshotParam(qp.get('target_snapshot')));
+    this.autoAnalyzePending = this.form.repositoryRoot !== '';
+  }
+
   private async loadRepositories(): Promise<void> {
     try {
       const res = await this.perf.time('GET /repositories', () =>
         this.api.listRepositories({ signal: this.controller.signal }),
       );
       this.repositories.set(res.items ?? []);
-      if (res.items?.length === 1) {
+      if (res.items?.length === 1 && !this.form.repositoryRoot) {
         this.form.repositoryRoot = res.items[0].root_handle;
+      }
+      if (this.autoAnalyzePending) {
+        this.autoAnalyzePending = false;
+        void this.analyze();
       }
     } catch (error) {
       if (isApiOffline(error)) {
@@ -358,4 +526,11 @@ export class ImpactComponent implements OnInit, OnDestroy {
     this.errorText.set(apiErrorText(error));
     this.phase.set('error');
   }
+}
+
+/** Positive integer snapshot id from a URL param; null when absent/invalid. */
+function parseSnapshotParam(raw: string | null): number | null {
+  if (raw === null) return null;
+  const value = Number(raw);
+  return Number.isInteger(value) && value > 0 ? value : null;
 }
