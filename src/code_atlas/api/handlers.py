@@ -984,11 +984,11 @@ def _hydrate_domain_endpoints(
 ) -> tuple[dict[int, dict[str, Any]], dict[int, dict[str, Any]]]:
     """Resolve os endpoints de um lote de arestas — 2 queries no máximo."""
     ent_ids = sorted(
-        {r["from_entity_occ_id"] for r in rows}
-        | {r["to_entity_occ_id"] for r in rows} - {None})
+        ({r["from_entity_occ_id"] for r in rows}
+         | {r["to_entity_occ_id"] for r in rows}) - {None})
     sym_ids = sorted(
-        {r["from_symbol_occ_id"] for r in rows}
-        | {r["to_symbol_occ_id"] for r in rows} - {None})
+        ({r["from_symbol_occ_id"] for r in rows}
+         | {r["to_symbol_occ_id"] for r in rows}) - {None})
     ents: dict[int, dict[str, Any]] = {}
     if ent_ids:
         occ_by_ids_sql = (

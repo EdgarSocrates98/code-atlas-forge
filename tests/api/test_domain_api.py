@@ -130,6 +130,7 @@ class TestDomainApi(unittest.TestCase):
     def setUpClass(cls) -> None:
         cls._tmp = tempfile.TemporaryDirectory()
         db, cls.snap = _index(Path(cls._tmp.name))
+        cls.db_path = db
         cls.server = serve(str(db), port=0)
         cls.thread = threading.Thread(target=cls.server.serve_forever,
                                       daemon=True)
@@ -236,6 +237,37 @@ class TestDomainApi(unittest.TestCase):
         dep = body["edges"][0]
         self.assertIn("ci.yml#ci/jobs/deploy", dep["from"]["qualified_name"])
         self.assertIn("ci.yml#ci/jobs/build", dep["to"]["qualified_name"])
+
+    def test_hydrate_endpoints_tolerates_none_side(self) -> None:
+        # Regressão cycle-8: edges com só um lado entity (from=None)
+        # quebravam sorted() — ``A | B - {None}`` deixava None no set.
+
+        eid = _entity_id(self.server.url, "data_view", "v_orders")
+        code, body = _req(
+            self.server.url, f"/domains/entities/{eid}/neighbors")
+        self.assertEqual(code, 200, body)
+        edge = next(e for e in body["edges"] if e["type"] == "DERIVES_FROM")
+        row = {
+            "from_entity_occ_id": None,
+            "to_entity_occ_id": edge["to"]["occurrence_id"],
+            "from_symbol_occ_id": None,
+            "to_symbol_occ_id": None,
+        }
+        ents, syms = self._hydrate(row)
+        self.assertIn(edge["to"]["occurrence_id"], ents)
+        self.assertEqual(syms, {})
+
+    def _hydrate(self, row):
+        from code_atlas.api.handlers import _hydrate_domain_endpoints
+
+        conn = connect(self.db_path)
+        try:
+            sid = conn.execute(
+                "SELECT id FROM snapshots WHERE status='READY' "
+                "ORDER BY id DESC LIMIT 1").fetchone()[0]
+            return _hydrate_domain_endpoints(conn, sid, [row])
+        finally:
+            conn.close()
 
     def test_relations_unresolved_targets_stay_textual(self) -> None:
         code, body = _req(
