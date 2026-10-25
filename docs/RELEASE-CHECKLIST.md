@@ -93,10 +93,9 @@ python -m twine check dist/*
 
 ## 4. Conhecidos/deferidos neste RC
 
-- `npm audit --omit=dev` reporta 8 advisories (4 high, 4 moderate) em
-  `@angular/*@18.2.13` — Angular 18 EOL, fix = bump de 3+ majors.
-  **Decisão de produto separada, documentada em `docs/RELEASING.md`;
-  o gate usa `--audit-level=critical` (paridade com CI/PR #10).**
+- ~~`npm audit --omit=dev` reporta 8 advisories (4 high, 4 moderate) em
+  `@angular/*@18.2.13`~~ — **resolvido em lf-0147 (cycle-8.1)**:
+  `@angular/*@22.2.3`, `npm audit --omit=dev` = 0 vulnerabilities.
 - Wheel pip não carrega o dist Angular — `code-atlas explorer`
   instalado via pip serve API-only com aviso honesto.
 - Se a bateria achar regressão → bump `rc2` e repetir este checklist

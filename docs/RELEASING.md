@@ -76,18 +76,13 @@ DONE se persistirem falhas P0/P1").
 
 ## Decisões de produto deferidas (documentadas, não executadas)
 
-- **Bump de Angular (18.2.13 → 22.x)** — Angular 18 está EOL e
-  `npm audit --omit=dev` reporta 8 advisories (4 high, 4 moderate) na
-  superfície `@angular/*` (`docs/cycle-8-baseline.md`). O fix exige
-  `npm audit fix --force` com bump de 3+ majors — **breaking change e
-  decisão de produto separada**, fora do escopo deste RC. Mitigação já
-  declarada (PR #10): o app não usa `HttpClient`/`TransferCache`
-  (fetch direto), então os advisories de cache/XSRF do HttpClient não
-  têm superfície explorável no bundle atual. O gate de release usa
-  `--audit-level=critical` (mesmo critério do CI) — as 8 entradas
-  high/moderate seguem reportadas e não bloqueiam, por decisão
-  registrada. **Recomendação: agendar a migração Angular como item
-  pós-1.0 ou pré-GA explícito.**
+- ~~**Bump de Angular (18.2.13 → 22.x)**~~ — **resolvido em lf-0147
+  (cycle-8.1, Phase 1+2)**: migração sequencial 18→19→20→21→22
+  concluída; `@angular/*@22.2.3` + TypeScript 6.0.3.
+  `npm audit --omit=dev` reporta **0 vulnerabilities** (antes: 8
+  advisories — 4 high, 4 moderate). 238/238 testes de unidade verdes,
+  e2e Playwright verde, CSP endurecido (`script-src-attr
+  'unsafe-inline'` removido; `inlineCritical` desligado no build).
 - ~~**Explorer dist fora do wheel**~~ — **resolvido em lf-0148
   (cycle-8.1, Phase 3)**: o dist Angular é embutido no wheel via
   `code_atlas/explorer_dist/` (package-data) gerado por

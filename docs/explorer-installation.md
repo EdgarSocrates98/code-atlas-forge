@@ -11,7 +11,7 @@
 | Peça | O que precisa | Quando |
 |---|---|---|
 | Indexador + API + servidor de assets | **Python 3.12+** e o pacote `code_atlas` (stdlib apenas — nenhuma dependência de runtime, ADR-0009) | **sempre** (execução) |
-| SPA Angular 18 compilada | **Node.js + npm** | **somente em build/test** — o navegador consome arquivos estáticos já gerados |
+| SPA Angular 22 compilada | **Node.js + npm** | **somente em build/test** — o navegador consome arquivos estáticos já gerados |
 
 Node **não** é necessário para *usar* o Explorer: quem recebe o pacote já
 com `explorer/dist/` compilado roda tudo com Python. Sem a dist, o CLI
@@ -58,7 +58,7 @@ code-atlas api --port 8741   # mesma superfície /api/v1, sem assets
 
 ```bash
 cd explorer
-npm install          # instala devDeps Angular 18.2.13 + Playwright pin
+npm install          # instala devDeps Angular 22.2.x + Playwright pin
 npm run build        # → explorer/dist/explorer/browser (production,
                      #   budgets: initial warn 500 kB / error 1 MB)
 npm run build -- --watch   # ou: npm run watch (configuration development)
@@ -72,7 +72,7 @@ Detalhes importantes:
   `code_atlas/explorer_dist/` **empacotado no wheel** (via
   `importlib.resources` — é o que faz `pip install` servir a SPA), e em
   modo dev `explorer/dist/explorer/browser` (saída do
-  `@angular-devkit/build-angular:application`) e depois
+  `@angular/build:application`) e depois
   `explorer/dist`. Só serve se houver `index.html`; senão imprime
   "Explorer não compilado — servindo apenas a API" e sobe só `/api/v1`.
 - **`npm start` (`ng serve`)** existe para dev, mas o caminho homologado

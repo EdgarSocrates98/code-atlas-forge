@@ -102,9 +102,10 @@ def _security_headers(h: BaseHTTPRequestHandler, *, cors: bool) -> None:
     h.send_header(
         "Content-Security-Policy",
         "default-src 'self'; script-src 'self'; "
-        "script-src-attr 'unsafe-inline'; "
         "style-src 'self' 'unsafe-inline'; img-src 'self' data:; "
-        "connect-src 'self'; font-src 'self'; frame-ancestors 'none'")
+        "connect-src 'self'; font-src 'self'; worker-src 'self'; "
+        "object-src 'none'; base-uri 'self'; form-action 'self'; "
+        "frame-ancestors 'none'")
     if cors:
         h.send_header("Access-Control-Allow-Origin", "http://127.0.0.1")
         h.send_header("Vary", "Origin")

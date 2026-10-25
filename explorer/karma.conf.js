@@ -1,13 +1,16 @@
+// Karma configuration for @angular/build:karma (Angular 22).
+// The builder injects its own bundle-serving middleware plugins —
+// a user config only lists test frameworks/plugins and launchers.
+// Reference in angular.json > projects.explorer.architect.test.options.karmaConfig.
 module.exports = function (config) {
   config.set({
     basePath: '',
-    frameworks: ['jasmine', '@angular-devkit/build-angular'],
+    frameworks: ['jasmine'],
     plugins: [
       require('karma-jasmine'),
       require('karma-chrome-launcher'),
       require('karma-jasmine-html-reporter'),
-      require('karma-coverage'),
-      require('@angular-devkit/build-angular/plugins/karma')
+      require('karma-coverage')
     ],
     client: {
       jasmine: {},
