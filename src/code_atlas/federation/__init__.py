@@ -10,14 +10,15 @@ entre repositórios é preservado por construção.
 """
 
 from code_atlas.federation.federation import (
-    FEDERATION_RESOLVER_ID,
     Federation,
     normalize_lookup_key,
     shared_key_of,
 )
 from code_atlas.federation.model import (
+    FEDERATION_RESOLVER_ID,
     MAX_GRAPH_DEPTH,
     MIN_FEDERATION_MEMBERS,
+    VIEW_ID_FORMAT,
     EntityNode,
     FederatedEdge,
     FederatedGraph,
@@ -44,6 +45,7 @@ __all__ = [
     "FEDERATION_RESOLVER_ID",
     "MAX_GRAPH_DEPTH",
     "MIN_FEDERATION_MEMBERS",
+    "VIEW_ID_FORMAT",
     "EntityNode",
     "FederatedEdge",
     "FederatedGraph",

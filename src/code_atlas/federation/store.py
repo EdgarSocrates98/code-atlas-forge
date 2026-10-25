@@ -8,7 +8,9 @@ pelo ``Store`` compartilhado (uma conexão, dois repositórios).
 
 from __future__ import annotations
 
+import json
 import sqlite3
+from collections.abc import Iterable
 
 from code_atlas.federation.model import (
     FederationMember,
@@ -119,6 +121,27 @@ class FederationStore:
             " WHERE workspace_id = ? AND repository_id = ?",
             (snapshot_id, workspace_id, repository_id),
         )
+
+    def repo_identities(
+        self, repository_ids: Iterable[int]
+    ) -> dict[int, str]:
+        """``{repository_id: identity_key}`` — identidade lógica do membro.
+
+        Componente "repo identity" da cache key da view (lf-0134): um
+        re-bind de ``identity_key`` sob o mesmo ``repo_id`` muda a
+        identidade resolvida mesmo com snapshots inalterados.
+        """
+        ids = sorted({int(r) for r in repository_ids})
+        if not ids:
+            return {}
+        # SQL constante (auditoria AST): IN variável via json_each —
+        # mesmo padrão de hidratação em lote do resto do código.
+        rows = self._conn.execute(
+            "SELECT id, identity_key FROM repositories"
+            " WHERE id IN (SELECT value FROM json_each(?))",
+            (json.dumps(ids),),
+        ).fetchall()
+        return {int(r["id"]): str(r["identity_key"]) for r in rows}
 
     # --- leitura federada ------------------------------------------------
 

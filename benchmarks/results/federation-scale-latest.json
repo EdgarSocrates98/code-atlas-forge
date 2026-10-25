@@ -1,0 +1,174 @@
+{
+  "isolation": {
+    "latest_found_s2": true,
+    "latest_snapshot": 6,
+    "latest_view_id": "fedview:6c1aeff778a487d7a5b37721707757efab0fa0d55f3fecda7e0655c817907c5f",
+    "pinned_s2_rows": 0,
+    "pinned_snapshot": 1,
+    "pinned_view_id": "fedview:71cdd339c46cc268435048465219585699f1615a17809a1a5f2aad223098bcb7",
+    "view_id_differs": true
+  },
+  "notes": [
+    "fixtures pequenos e determin\u00edsticos (seed fixo) \u2014 o regime medido \u00e9 o fan-out N-way, n\u00e3o o tamanho do \u00edndice",
+    "view_id cobre membership + identity_key + pins + digest de analyzer_versions + resolver federado + schema_version"
+  ],
+  "one_vs_n": {
+    "members_searched_all": 5,
+    "members_searched_one": 1,
+    "one_member_domain_items": 8,
+    "one_member_items": 0,
+    "search_all_members": {
+      "max_ms": 4.945,
+      "median_ms": 3.526,
+      "min_ms": 3.308,
+      "p95_ms": 4.945
+    },
+    "search_one_member": {
+      "max_ms": 1.037,
+      "median_ms": 0.911,
+      "min_ms": 0.713,
+      "p95_ms": 1.037
+    },
+    "search_symbols_all_members": {
+      "max_ms": 3.439,
+      "median_ms": 2.302,
+      "min_ms": 1.936,
+      "p95_ms": 3.439
+    },
+    "symbol_items_all_members": 5
+  },
+  "platform": "Linux-7.0.0-38-generic-x86_64-with-glibc2.39",
+  "python": "3.12.3",
+  "repeats": 9,
+  "repos": 5,
+  "scaling_members": {
+    "2": {
+      "entity_lookup": {
+        "max_ms": 0.395,
+        "median_ms": 0.315,
+        "min_ms": 0.291,
+        "p95_ms": 0.395
+      },
+      "graph_depth1": {
+        "max_ms": 0.808,
+        "median_ms": 0.567,
+        "min_ms": 0.517,
+        "p95_ms": 0.808
+      },
+      "graph_edges": 28,
+      "graph_nodes": 21,
+      "members_searched": 2,
+      "resolve_view": {
+        "max_ms": 0.121,
+        "median_ms": 0.089,
+        "min_ms": 0.088,
+        "p95_ms": 0.121
+      },
+      "search_all_members": {
+        "max_ms": 2.35,
+        "median_ms": 1.953,
+        "min_ms": 1.648,
+        "p95_ms": 2.35
+      },
+      "search_domain_items": 17,
+      "search_items": 0
+    },
+    "3": {
+      "entity_lookup": {
+        "max_ms": 0.64,
+        "median_ms": 0.494,
+        "min_ms": 0.434,
+        "p95_ms": 0.64
+      },
+      "graph_depth1": {
+        "max_ms": 1.743,
+        "median_ms": 1.5,
+        "min_ms": 0.983,
+        "p95_ms": 1.743
+      },
+      "graph_edges": 58,
+      "graph_nodes": 33,
+      "members_searched": 3,
+      "resolve_view": {
+        "max_ms": 0.216,
+        "median_ms": 0.125,
+        "min_ms": 0.117,
+        "p95_ms": 0.216
+      },
+      "search_all_members": {
+        "max_ms": 3.821,
+        "median_ms": 3.421,
+        "min_ms": 2.192,
+        "p95_ms": 3.821
+      },
+      "search_domain_items": 20,
+      "search_items": 0
+    },
+    "4": {
+      "entity_lookup": {
+        "max_ms": 0.789,
+        "median_ms": 0.641,
+        "min_ms": 0.569,
+        "p95_ms": 0.789
+      },
+      "graph_depth1": {
+        "max_ms": 2.337,
+        "median_ms": 1.429,
+        "min_ms": 1.179,
+        "p95_ms": 2.337
+      },
+      "graph_edges": 91,
+      "graph_nodes": 43,
+      "members_searched": 4,
+      "resolve_view": {
+        "max_ms": 0.269,
+        "median_ms": 0.162,
+        "min_ms": 0.157,
+        "p95_ms": 0.269
+      },
+      "search_all_members": {
+        "max_ms": 4.953,
+        "median_ms": 3.216,
+        "min_ms": 2.762,
+        "p95_ms": 4.953
+      },
+      "search_domain_items": 20,
+      "search_items": 0
+    },
+    "5": {
+      "entity_lookup": {
+        "max_ms": 1.664,
+        "median_ms": 0.946,
+        "min_ms": 0.729,
+        "p95_ms": 1.664
+      },
+      "graph_depth1": {
+        "max_ms": 2.937,
+        "median_ms": 1.811,
+        "min_ms": 1.597,
+        "p95_ms": 2.937
+      },
+      "graph_edges": 136,
+      "graph_nodes": 54,
+      "members_searched": 5,
+      "resolve_view": {
+        "max_ms": 0.338,
+        "median_ms": 0.192,
+        "min_ms": 0.187,
+        "p95_ms": 0.338
+      },
+      "search_all_members": {
+        "max_ms": 5.575,
+        "median_ms": 3.636,
+        "min_ms": 3.233,
+        "p95_ms": 5.575
+      },
+      "search_domain_items": 20,
+      "search_items": 0
+    }
+  },
+  "seed": 20261025,
+  "setup_s": 0.592,
+  "spec": "lf-0134",
+  "tool": "bench_federation_scale"
+}

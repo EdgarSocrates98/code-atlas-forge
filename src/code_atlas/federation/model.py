@@ -7,9 +7,14 @@ explícito; quando o pin está vazio a view resolve o READY mais recente
 entre repositórios.
 
 ``FederatedView`` é a materialização ``{repo_id: snapshot_id}``:
-``view_id`` é o hash sha256 dos pares ``(repo_id, snapshot_id)``
-resolvidos — a identidade honesta da view (muda quando qualquer membro
-troca de snapshot, pinado ou não).
+``view_id`` é a **chave de cache** da view (lf-0134) — hash sha256 do
+contrato completo de identidade: membership (``repo_id`` +
+``identity_key``), o snapshot resolvido de cada membro (pin/None), o
+digest das ``analyzer_versions`` que produziram os dados daquele
+snapshot (adapters/resolvers de índice), a versão do resolver
+federado e o ``schema_version`` do storage. Qualquer componente que
+mude invalida a view — caches chaveados em ``view_id`` nunca servem
+rows de uma identidade diferente.
 """
 
 from __future__ import annotations
@@ -65,6 +70,16 @@ MAX_GRAPH_DEPTH = 8
 DEFAULT_GRAPH_LIMIT = 500
 MAX_GRAPH_LIMIT = 5000
 
+FEDERATION_RESOLVER_ID = "federation-view"
+
+# Versão do contrato hasheado em ``view_id``. Bump quando o payload da
+# identidade muda — views computadas por outro formato nunca colidem,
+# o que torna a invalidação de caches externos chaveados em ``view_id``
+# honesta por construção (lf-0134: formato 1 era só os pares
+# ``(repo_id, snapshot_id)`` do Cycle 7 — sem identidade do repo,
+# versões de adapter/resolver nem schema).
+VIEW_ID_FORMAT = 2
+
 
 @dataclass(frozen=True)
 class FederationWorkspace:
@@ -110,10 +125,10 @@ class ViewMember:
 class FederatedView:
     """Mapa ``{repository_id: snapshot_id}`` materializado — read-only.
 
-    ``view_id`` é ``fedview:<sha256>`` dos pares ordenados
-    ``(repository_id, snapshot_id|None)`` de TODOS os membros (membros
-    sem snapshot resolvido entram como ``null`` — a ausência também faz
-    parte da identidade da view).
+    ``view_id`` é ``fedview:<sha256>`` do payload de identidade
+    completo (ver ``compute_view_id``) cobrindo TODOS os membros —
+    membros sem snapshot resolvido entram como ``null`` na posição de
+    snapshot: a ausência também faz parte da identidade da view.
     """
 
     workspace_id: int
@@ -148,15 +163,55 @@ class FederatedView:
         }
 
 
-def compute_view_id(pairs: Mapping[int, int | None]) -> str:
-    """Hash determinístico dos pares ``(repo_id, snapshot_id|None)``.
+def compute_view_id(
+    pairs: Mapping[int, int | None],
+    *,
+    identities: Mapping[int, str] | None = None,
+    member_versions: Mapping[int, str] | None = None,
+    schema: int = 0,
+) -> str:
+    """Hash determinístico da identidade completa da view — a cache key.
 
-    Ordenação por repo_id — mesma resolução, mesmo ``view_id``,
-    qualquer ordem de inserção.
+    Componentes (lf-0134, audit de cache):
+
+    - **membership**: ``repo_id`` de cada membro (chaves de ``pairs``)
+      — add/remove de membro muda a lista;
+    - **identidade do repo**: ``identities[repo_id]`` = ``identity_key``
+      lógica — um re-bind de identidade sob o mesmo ``repo_id`` invalida;
+    - **snapshot pins**: ``pairs[repo_id]`` (``None`` declarado) —
+      pin/override/READY novo muda a posição resolvida;
+    - **versões de resolver/adapter**: ``member_versions[repo_id]`` =
+      digest das ``analyzer_versions`` do snapshot resolvido (a versão
+      dos adapters/resolvers que produziram os dados) + o próprio
+      ``FEDERATION_RESOLVER_ID``/``VIEW_ID_FORMAT`` do caminho de
+      leitura federado;
+    - **schema**: ``schema`` = ``schema_version`` do storage.
+
+    Ordenação por ``repo_id`` — mesma resolução, mesmo ``view_id``,
+    qualquer ordem de inserção. Componentes não fornecidos entram como
+    vazio/0 — degradação declarada, nunca fabricada.
     """
-    payload = sorted((int(r), (None if s is None else int(s)))
-                     for r, s in pairs.items())
-    digest = hashlib.sha256(json.dumps(payload).encode("utf-8")).hexdigest()
+    ids = dict(identities or {})
+    vers = dict(member_versions or {})
+    ordered = sorted(pairs.items(), key=lambda kv: int(kv[0]))
+    members = [
+        [
+            int(r),
+            str(ids.get(int(r), "")),
+            (None if s is None else int(s)),
+            str(vers.get(int(r), "")),
+        ]
+        for r, s in ordered
+    ]
+    payload = {
+        "format": VIEW_ID_FORMAT,
+        "resolver": FEDERATION_RESOLVER_ID,
+        "schema": int(schema),
+        "members": members,
+    }
+    digest = hashlib.sha256(
+        json.dumps(payload, sort_keys=True).encode("utf-8")
+    ).hexdigest()
     return f"fedview:{digest}"
 
 
