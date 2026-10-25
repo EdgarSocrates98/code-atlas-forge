@@ -6,6 +6,66 @@ versionamento [SemVer](https://semver.org/lang/pt-BR/).
 
 ## [Unreleased]
 
+## [1.0.0rc1] - 2026-10-25
+
+Primeiro release candidato do code-atlas-forge. Nenhuma tag anterior
+existia (`git tag -l` vazio) — este é o primeiro corte de versão do
+repositório. Decisão de versionamento: `docs/RELEASING.md`.
+
+### Adicionado — Cycle 8 (branch `cycle-8-production-quality`)
+
+- **Índices SQLite de domínio** (schema v11, lf-0132): 4 índices
+  `(snapshot_id, endpoint)` em `domain_relations` + `ANALYZE`
+  escopo-domínio no publish. Medido no fixture mid-size (~12.5k
+  entidades): `via_relation` virou UNION de probes indexados
+  4.4–6.8 ms → **0.016 ms**; ego `IN (…)` 2.79→0.08 ms; hidratação
+  `json_each` 1.0→0.03 ms; `entity_detail` 1.99→0.03 ms.
+- **FTS5 de domínio** (schema v12, lf-0133): `domain_fts` standalone
+  (rowid = ocorrência), `unicode61` com case-fold + remoção de
+  diacríticos, coluna `terms` com fragmentos de identificador, BM25
+  (name 10 > qname 8 > terms 6 > path 1) dentro do teto de scan.
+  Fallback honesto para LIKE bounded (`domain-fts-fallback` /
+  `domain-fts-error` declarados); `Store.rebuild_domain_fts` para
+  backfill idempotente.
+- **Matriz de compatibilidade de dialetos de parser** (lf-0130):
+  `import x = require('m')`, `export * from 'm'`, `export =`,
+  `require()` CJS, `import()` literal, `namespace`/`declare module`,
+  decorators, `.cts`/`.mts`, re-exports — todos extraídos com
+  diagnósticos novos (`import-source-missing`,
+  `dynamic-import-nonliteral`, `empty-edge-target`, `engine-crash`).
+  Nenhuma aresta sai com alvo vazio (guarda no extractor + no
+  `GraphBuilder`); crash de engine isolado por arquivo no coordinator.
+  Verificado no axios real (`aa54a5e`): **503/503 arquivos, status
+  `success`, zero arestas vazias** — antes: snapshot inteiro falhava
+  (`graph integrity violated`).
+- **Benchmark real-world** (lf-0128): corpus de 5 repos OSS pinados por
+  SHA (jaffle_shop, terraform-aws-s3-bucket, requests, click, axios),
+  index via subprocesso real + latência de API medida (25 req,
+  3 warmups). Resultados verbatim em
+  `benchmarks/results/realworld-latest.json`.
+- **Acurácia medida dos adapters de domínio** (lf-0129): ground truth
+  rotulada à mão, auditoria exaustiva (`unaudited=0`) —
+  **precision = 1.0 em todos os 6 domínios, recall ≥ 0.95**
+  (aws 0.96, api 0.95, demais 1.0). Pisos fixados em
+  `tests/evaluation/test_ground_truth.py`.
+- **Graph hardening do Explorer** (lf-0131): fix de worker zumbi por
+  layout terminado e de arestas filtradas que seguiam renderizadas;
+  `ChunkedFa2Engine` + contrato de degradação do worker
+  (`worker-api-unavailable`/`worker-spawn-refused`/`worker-startup-error`
+  → fallback honesto); telemetria `window.__atlasGraph`. Medido: 0
+  workers/sigmas vivos após 20 ciclos destroy + ×10 nav stress.
+- **Baseline audit** (lf-0127): ambiente e gates medidos — pytest
+  1188 passed/1 skipped, ruff clean, mypy 163 arquivos, ng test
+  219/219, CI verde em `main`. Ambiente e verbatim em
+  `docs/cycle-8-baseline.md`.
+
+### Corrigido — Cycle 8
+
+- `import_require_clause` (TS) emitia `IMPORTS` com `to_text` vazio →
+  `validate_graph` (fail-closed) derrubava o snapshot inteiro do axios.
+- Resolver Python: `from .api import x` em `__init__.py` agora resolve
+  relativo ao pacote (`pkg → pkg.api`).
+
 ### Adicionado — Cycle 7 (branch `cycle-7-domain-intelligence-federation`)
 
 - **Adapters de domínio opt-in** (ADR-0010, schema v9): `sql`,
@@ -40,6 +100,20 @@ versionamento [SemVer](https://semver.org/lang/pt-BR/).
   inventário exaustivo de arestas + entidades proibidas.
 - **Fixes**: crash de repaint de arestas no Sigma e tipo de
   `occurrence_id` no drill-down (encontrados pelo benchmark denso).
+
+### Adicionado — Cycle 6 (branches `cycle-6-angular-explorer` + `cycle-6.1-explorer-hardening`)
+
+- **API HTTP local** `/api/v1` em stdlib, read-only, bind loopback
+  (ADR-0009, `src/code_atlas/api/`).
+- **Explorer** — workbench Angular 18 (`explorer/`) com 10 rotas lazy:
+  grafo Sigma/WebGL bounded com layout congelado, busca híbrida,
+  impacto e diff de revisões com banners de análise parcial, context
+  packs, central de diagnósticos.
+- **`code-atlas explorer`** — serve API + dist compilado (degrada
+  honesto para API-only quando o build Angular não existe).
+- **Hardening 6.1**: control center de repositórios, contexto global
+  com deep links `?repo=&snapshot=`, DTO de aresta consistente, E2E
+  real (Playwright contra API + SPA compilada, sem mocks).
 
 ### Adicionado
 

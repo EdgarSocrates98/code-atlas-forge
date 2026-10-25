@@ -35,7 +35,7 @@ data:    /home/edgar/.local/share/code-atlas
 
 ```bash
 $ code-atlas index /caminho/do/repo --json
-{"tool": "code-atlas", "version": "0.1.0", "root": "...",
+{"tool": "code-atlas", "version": "1.0.0rc1", "root": "...",
  "snapshot_id": 1, "status": "success", "files_indexed": 116,
  "secrets_skipped": 3, "warnings": [], "noop": false}
 ```
@@ -60,10 +60,10 @@ Após `index`, o snapshot READY é consultável — saída verbatim do fixture
 
 ```bash
 $ code-atlas search "main" --root demo --json
-{"tool": "code-atlas", "version": "0.1.0", "schema_version": "1", "command": "search", "query": "main", "snapshot_id": 1, "filters": {"language": null, "kind": null, "path": null}, "limit": 50, "offset": 0, "total": 3, "truncated": false, "results": [{"symbol_id": 5, "qualified_name": "main", "language": "python", "kind": "module"}, {"symbol_id": 11, "qualified_name": "main.main", "language": "python", "kind": "function"}, {"symbol_id": 1, "qualified_name": "main.py", "language": "", "kind": "file"}]}
+{"tool": "code-atlas", "version": "1.0.0rc1", "schema_version": "1", "command": "search", "query": "main", "snapshot_id": 1, "filters": {"language": null, "kind": null, "path": null}, "limit": 50, "offset": 0, "total": 3, "truncated": false, "results": [{"symbol_id": 5, "qualified_name": "main", "language": "python", "kind": "module"}, {"symbol_id": 11, "qualified_name": "main.main", "language": "python", "kind": "function"}, {"symbol_id": 1, "qualified_name": "main.py", "language": "", "kind": "file"}]}
 
 $ code-atlas symbol pkg.util.helper --root demo --json
-{"tool": "code-atlas", "version": "0.1.0", ..., "result": {"symbol_id": 12, "qualified_name": "pkg.util.helper", "language": "python", "kind": "function", "occurrences": [{"occurrence_id": 12, "path": "pkg/util.py", "line": 5, "col": 0, "parse_status": "parsed"}]}}
+{"tool": "code-atlas", "version": "1.0.0rc1", ..., "result": {"symbol_id": 12, "qualified_name": "pkg.util.helper", "language": "python", "kind": "function", "occurrences": [{"occurrence_id": 12, "path": "pkg/util.py", "line": 5, "col": 0, "parse_status": "parsed"}]}}
 
 $ code-atlas references pkg.util.helper --root demo --json
 {"tool": "code-atlas", ..., "results": [{"type": "CALLS", "from": {"symbol": "pkg.core.Engine.run", ...}, "to": {"symbol": "pkg.util.helper", ...}, "resolution_status": "resolved", "confidence_class": "resolved"}, {"type": "DEFINES", ...}]}
