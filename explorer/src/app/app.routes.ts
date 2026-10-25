@@ -52,6 +52,46 @@ export const routes: Routes = [
     title: 'Context Packs · Code Atlas Explorer',
   },
   {
+    path: 'lineage',
+    loadComponent: () =>
+      import('./features/domains/lineage/lineage.component').then(
+        (m) => m.LineageComponent,
+      ),
+    title: 'Linhagem · Code Atlas Explorer',
+  },
+  {
+    path: 'contracts',
+    loadComponent: () =>
+      import('./features/domains/contracts/contracts.component').then(
+        (m) => m.ContractsComponent,
+      ),
+    title: 'Contratos · Code Atlas Explorer',
+  },
+  {
+    path: 'infra',
+    loadComponent: () =>
+      import('./features/domains/infra/infra.component').then(
+        (m) => m.InfraComponent,
+      ),
+    title: 'Infraestrutura · Code Atlas Explorer',
+  },
+  {
+    path: 'pipelines',
+    loadComponent: () =>
+      import('./features/domains/pipelines/pipelines.component').then(
+        (m) => m.PipelinesComponent,
+      ),
+    title: 'Pipelines · Code Atlas Explorer',
+  },
+  {
+    path: 'federation',
+    loadComponent: () =>
+      import('./features/domains/federation/federation.component').then(
+        (m) => m.FederationComponent,
+      ),
+    title: 'Federação · Code Atlas Explorer',
+  },
+  {
     path: 'diagnostics',
     loadComponent: () =>
       import('./features/diagnostics/diagnostics.component').then(

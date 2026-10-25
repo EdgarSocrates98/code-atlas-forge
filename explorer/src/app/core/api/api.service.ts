@@ -488,6 +488,209 @@ export interface ApiGraphScope {
   limit?: number;
 }
 
+/* ------------------------------------------------------------------ */
+/* Domain endpoints (lf-0122 / Cycle 7 Phase 14 — read-only)           */
+/* ------------------------------------------------------------------ */
+
+/** GET /domains — one item per domain observed in the repository. */
+export interface ApiDomainKindSummary {
+  kind: string;
+  /** logical entities in the repository (stable across snapshots). */
+  entities: number;
+  /** occurrences observed in the resolved snapshot — 0 is valid. */
+  occurrences: number;
+}
+
+export interface ApiDomainSummaryItem {
+  domain: string;
+  kinds: ApiDomainKindSummary[];
+}
+
+export interface ApiDomainsResponse {
+  repository_id: number;
+  snapshot_id: number;
+  items: ApiDomainSummaryItem[];
+  total_domains: number;
+}
+
+/**
+ * GET /domains/entities — one item per logical entity that has at least
+ * one occurrence in the resolved snapshot. `path`/`line` describe the
+ * FIRST occurrence (deterministic), `occurrences` the snapshot count.
+ */
+export interface ApiDomainEntity {
+  id: number;
+  domain: string;
+  kind: string;
+  qualified_name: string;
+  name: string;
+  catalog: string;
+  namespace: string;
+  environment: string;
+  attributes: Record<string, string>;
+  occurrences: number;
+  first_occurrence_id: number | null;
+  path: string | null;
+  line: number | null;
+  extraction_status: string;
+}
+
+export interface ApiDomainEntitiesResponse {
+  repository_id: number;
+  snapshot_id: number;
+  items: ApiDomainEntity[];
+  total: number;
+  limit: number;
+  offset: number;
+  truncated: boolean;
+}
+
+export interface ApiDomainEntitiesParams extends ApiGraphScope {
+  /** comma-separated domain filter (e.g. 'sql,aws-data'). */
+  domain?: string;
+  /** comma-separated kind filter (e.g. 'data_table,data_view'). */
+  kind?: string;
+  /** substring filter over qualified_name/name. */
+  q?: string;
+  offset?: number;
+}
+
+/**
+ * Endpoint of a domain edge — exactly one of three shapes:
+ * - `entity`: domain entity occurrence (`entity_id`/`occurrence_id` set);
+ * - `symbol`: code symbol occurrence (the code↔domain bridge);
+ * - `unresolved`: honest textual target (`label`), never resolved.
+ * `stale: true` marks an endpoint persisted in another snapshot.
+ */
+export interface ApiDomainEndpoint {
+  ref: string;
+  endpoint: 'entity' | 'symbol' | 'unresolved' | 'unknown';
+  occurrence_id?: number | null;
+  entity_id?: number | null;
+  domain?: string;
+  entity_kind?: string;
+  qualified_name?: string;
+  name?: string;
+  /** symbol kind when endpoint === 'symbol'. */
+  kind?: string;
+  language?: string;
+  path?: string | null;
+  line?: number | null;
+  extraction_status?: string;
+  /** unresolved textual target (e.g. `s3://bucket`, `environment:prod`). */
+  label?: string;
+  stale?: boolean;
+}
+
+export interface ApiDomainEdge {
+  id: number;
+  relation_id: number;
+  snapshot_id: number;
+  type: string;
+  resolution_status: string;
+  confidence_class: string;
+  resolver: string;
+  evidence_ids: number[];
+  from: ApiDomainEndpoint;
+  to: ApiDomainEndpoint;
+}
+
+/** GET /domains/entities/{id}/neighbors — ego of one entity. */
+export interface ApiDomainNeighbors {
+  repository_id: number;
+  snapshot_id: number;
+  entity: Omit<ApiDomainEntity, 'first_occurrence_id' | 'path' | 'line' | 'extraction_status'>;
+  edges: ApiDomainEdge[];
+  truncated: boolean;
+}
+
+export interface ApiDomainRelationsParams extends ApiGraphScope {
+  /** comma-separated relation-type filter (e.g. 'DEPENDS_ON,TRIGGERS'). */
+  type?: string;
+  offset?: number;
+}
+
+/** GET /domains/relations — snapshot-scoped edge listing. */
+export interface ApiDomainRelationsResponse {
+  repository_id: number;
+  snapshot_id: number;
+  edges: ApiDomainEdge[];
+  total: number;
+  limit: number;
+  offset: number;
+  truncated: boolean;
+}
+
+export type ApiLineageDirection = 'upstream' | 'downstream' | 'both';
+
+/** Lineage node — endpoint descriptor + BFS distance/lane. */
+export interface ApiDomainLineageNode extends ApiDomainEndpoint {
+  distance: number;
+  lane: 'upstream' | 'downstream' | 'root';
+}
+
+/** GET /domains/lineage — bounded upstream/downstream traversal. */
+export interface ApiDomainLineage {
+  repository_id: number;
+  snapshot_id: number;
+  root: ApiDomainLineageNode;
+  direction: ApiLineageDirection;
+  depth: number;
+  nodes: ApiDomainLineageNode[];
+  edges: ApiDomainEdge[];
+  truncated: boolean;
+}
+
+/* ------------------------------------------------------------------ */
+/* Federation endpoints (lf-0118 — read-only GETs already on the API)  */
+/* ------------------------------------------------------------------ */
+
+/** GET /federation/workspaces — one item per workspace. */
+export interface ApiFederationWorkspaceItem {
+  id: number;
+  name: string;
+  created_at: string;
+  members: number;
+}
+
+export interface ApiFederationWorkspacesResponse {
+  items: ApiFederationWorkspaceItem[];
+  total: number;
+}
+
+/** GET /federation/workspaces/{id} — members with persisted pins. */
+export interface ApiFederationMember {
+  repository_id: number;
+  pinned_snapshot_id: number | null;
+  added_at: string;
+  root_handle: string;
+  identity_key: string;
+}
+
+export interface ApiFederationWorkspace {
+  id: number;
+  name: string;
+  created_at: string;
+  members: ApiFederationMember[];
+}
+
+/** GET /federation/workspaces/{id}/view — resolved snapshot per member. */
+export interface ApiFederationViewMember {
+  repository_id: number;
+  snapshot_id: number | null;
+  pinned: boolean;
+  /** pin-override | pinned | latest-ready | no-ready-snapshot */
+  resolution: string;
+  snapshot_status: string;
+}
+
+export interface ApiFederationView {
+  workspace_id: number;
+  workspace: string;
+  view_id: string;
+  members: ApiFederationViewMember[];
+}
+
 /**
  * Thin fetch-based client for the local Code Atlas HTTP API.
  *
@@ -705,6 +908,162 @@ export class ApiService {
     return this.request<ApiSymbolDetail>(
       'GET',
       `/symbols/${encodeURIComponent(occurrenceId)}${graphScopeQuery(scope)}`,
+      undefined,
+      options,
+    );
+  }
+
+  /* -----------------------------------------------------------------------
+   * Domain endpoints (lf-0122) — read-only views over domain_entities /
+   * domain_entity_occurrences / domain_relations. All are snapshot-scoped:
+   * pass the explorer context via `repositoryId`/`snapshotId`.
+   * --------------------------------------------------------------------- */
+
+  /** GET /domains — domains/kinds actually present for the scope. */
+  getDomains(
+    scope?: ApiGraphScope,
+    options?: ApiRequestOptions,
+  ): Promise<ApiDomainsResponse> {
+    return this.request<ApiDomainsResponse>(
+      'GET',
+      `/domains${graphScopeQuery(scope)}`,
+      undefined,
+      options,
+    );
+  }
+
+  /** GET /domains/entities — paginated domain entities of the snapshot. */
+  getDomainEntities(
+    params?: ApiDomainEntitiesParams,
+    options?: ApiRequestOptions,
+  ): Promise<ApiDomainEntitiesResponse> {
+    const qs = new URLSearchParams();
+    if (params?.domain) qs.set('domain', params.domain);
+    if (params?.kind) qs.set('kind', params.kind);
+    if (params?.q) qs.set('q', params.q);
+    if (params?.limit !== undefined) qs.set('limit', String(params.limit));
+    if (params?.offset !== undefined && params.offset > 0) {
+      qs.set('offset', String(params.offset));
+    }
+    const query = qs.toString();
+    const scopeQuery = graphScopeQuery(
+      { repositoryId: params?.repositoryId, snapshotId: params?.snapshotId },
+      query ? '&' : '?',
+    );
+    return this.request<ApiDomainEntitiesResponse>(
+      'GET',
+      `/domains/entities${query ? `?${query}` : ''}${scopeQuery}`,
+      undefined,
+      options,
+    );
+  }
+
+  /**
+   * GET /domains/entities/{id}/neighbors — domain_relations ego of one
+   * entity (edges touching any of its occurrences in the snapshot).
+   */
+  getDomainEntityNeighbors(
+    entityId: number,
+    direction?: 'in' | 'out' | 'both',
+    scope?: ApiGraphScope,
+    options?: ApiRequestOptions,
+  ): Promise<ApiDomainNeighbors> {
+    const qs = new URLSearchParams();
+    if (direction && direction !== 'both') qs.set('direction', direction);
+    const query = qs.toString();
+    const sep = query ? '&' : '?';
+    return this.request<ApiDomainNeighbors>(
+      'GET',
+      `/domains/entities/${encodeURIComponent(entityId)}/neighbors${query ? `?${query}` : ''}${graphScopeQuery(scope, sep)}`,
+      undefined,
+      options,
+    );
+  }
+
+  /** GET /domains/relations — snapshot edges filtered by relation type. */
+  getDomainRelations(
+    params?: ApiDomainRelationsParams,
+    options?: ApiRequestOptions,
+  ): Promise<ApiDomainRelationsResponse> {
+    const qs = new URLSearchParams();
+    if (params?.type) qs.set('type', params.type);
+    if (params?.limit !== undefined) qs.set('limit', String(params.limit));
+    if (params?.offset !== undefined && params.offset > 0) {
+      qs.set('offset', String(params.offset));
+    }
+    const query = qs.toString();
+    const scopeQuery = graphScopeQuery(
+      { repositoryId: params?.repositoryId, snapshotId: params?.snapshotId },
+      query ? '&' : '?',
+    );
+    return this.request<ApiDomainRelationsResponse>(
+      'GET',
+      `/domains/relations${query ? `?${query}` : ''}${scopeQuery}`,
+      undefined,
+      options,
+    );
+  }
+
+  /**
+   * GET /domains/lineage — bounded upstream/downstream traversal over the
+   * data-flow relations (READS_FROM/WRITES_TO/TRANSFORMS/DERIVES_FROM).
+   * `table` is a domain entity id (preferred) or an exact qualified name.
+   */
+  getDomainLineage(
+    table: number | string,
+    direction: ApiLineageDirection = 'both',
+    depth?: number,
+    scope?: ApiGraphScope,
+    options?: ApiRequestOptions,
+  ): Promise<ApiDomainLineage> {
+    const qs = new URLSearchParams({ table: String(table), direction });
+    if (depth !== undefined) qs.set('depth', String(depth));
+    return this.request<ApiDomainLineage>(
+      'GET',
+      `/domains/lineage?${qs.toString()}${graphScopeQuery(scope, '&')}`,
+      undefined,
+      options,
+    );
+  }
+
+  /* -----------------------------------------------------------------------
+   * Federation endpoints (lf-0118) — read-only; workspaces are created via
+   * `code-atlas federation` on the CLI, never through this client.
+   * --------------------------------------------------------------------- */
+
+  /** GET /federation/workspaces — workspace list (empty = not configured). */
+  listFederationWorkspaces(
+    options?: ApiRequestOptions,
+  ): Promise<ApiFederationWorkspacesResponse> {
+    return this.request<ApiFederationWorkspacesResponse>(
+      'GET',
+      '/federation/workspaces',
+      undefined,
+      options,
+    );
+  }
+
+  /** GET /federation/workspaces/{id} — members + persisted pins. */
+  getFederationWorkspace(
+    workspaceId: number,
+    options?: ApiRequestOptions,
+  ): Promise<ApiFederationWorkspace> {
+    return this.request<ApiFederationWorkspace>(
+      'GET',
+      `/federation/workspaces/${encodeURIComponent(workspaceId)}`,
+      undefined,
+      options,
+    );
+  }
+
+  /** GET /federation/workspaces/{id}/view — resolved snapshot per member. */
+  getFederationView(
+    workspaceId: number,
+    options?: ApiRequestOptions,
+  ): Promise<ApiFederationView> {
+    return this.request<ApiFederationView>(
+      'GET',
+      `/federation/workspaces/${encodeURIComponent(workspaceId)}/view`,
       undefined,
       options,
     );
