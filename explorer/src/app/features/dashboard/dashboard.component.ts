@@ -121,7 +121,7 @@ const QUICK_LINKS: QuickLink[] = [
           <p class="dashboard__empty">
             Nenhum repositório indexado — rode
             <code>code-atlas index --root &lt;path&gt;</code> e depois
-            <code>code-atlas serve</code>.
+            <code>code-atlas explorer</code>.
           </p>
         }
 

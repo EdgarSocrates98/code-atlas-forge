@@ -53,11 +53,23 @@ ganham arquivo quando o ciclo correspondente as tornar reais.
 | 027 | Token budget: reservas 5/10/5% + clamp 64..1M | `adr-0027-token-budget.md` |
 | 028 | Evidência de retrieval: matched_fields+evidence por hit | `adr-0028-retrieval-evidence.md` |
 
+## Decididas e implementadas (Cycle 6)
+
+| ADR | Título | Arquivo |
+|---|---|---|
+| 009 | API local Explorer: `http.server` stdlib, loopback read-only | `adr-0009-local-api-stdlib.md` |
+
+Notas de escopo do Cycle 6:
+
+- ADR-009 foi decidido como **API HTTP loopback dedicada** — não REST +
+  MCP genérico; MCP continua stdio (ADR-0023).
+- A decisão de biblioteca de grafo (ADR-010 "Explorer Angular +
+  Sigma.js") materializou-se como ADR local do workbench em
+  `explorer/docs/graph-rendering.md` (Sigma/WebGL + graphology +
+  ForceAtlas2).
+
 ## Propostas (ciclos futuros — não implementadas)
 
 | ADR | Título | Ciclo |
 |---|---|---|
-| 008 | Context packs com budget e redaction | 4 |
-| 009 | REST + MCP com contratos versionados | 4 |
-| 010 | Explorer Angular + Sigma.js | 6 |
 | 011 | Federação opt-in entre Forjas | 7 |

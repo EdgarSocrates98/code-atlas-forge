@@ -31,10 +31,10 @@
     "zone.js": "0.14.10"
   },
   "devDependencies": {
-    "@playwright/test": "1.48.2",
     "@angular-devkit/build-angular": "18.2.13",
     "@angular/cli": "18.2.13",
     "@angular/compiler-cli": "18.2.13",
+    "@playwright/test": "^1.56.1",
     "@types/jasmine": "5.1.4",
     "jasmine-core": "5.2.0",
     "karma": "6.4.4",

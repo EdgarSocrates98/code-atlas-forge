@@ -21,7 +21,7 @@ describe('ApiService', () => {
       .createSpy('fetch')
       .and.rejectWith(new TypeError('Failed to fetch')) as unknown as typeof fetch;
 
-    await expectAsync(service.getRepositories()).toBeRejectedWith(
+    await expectAsync(service.listRepositories()).toBeRejectedWith(
       jasmine.any(ApiUnreachableError),
     );
   });
@@ -31,7 +31,7 @@ describe('ApiService', () => {
       .createSpy('fetch')
       .and.rejectWith(new DOMException('Aborted', 'AbortError')) as unknown as typeof fetch;
 
-    await expectAsync(service.getRepositories()).toBeRejectedWith(jasmine.any(ApiAbortedError));
+    await expectAsync(service.listRepositories()).toBeRejectedWith(jasmine.any(ApiAbortedError));
   });
 
   it('passes an AbortSignal to fetch on every call', async () => {
@@ -40,7 +40,7 @@ describe('ApiService', () => {
       .and.resolveTo(new Response(JSON.stringify([]), { status: 200 }));
     globalThis.fetch = fetchSpy as unknown as typeof fetch;
 
-    await service.getRepositories();
+    await service.listRepositories();
 
     const callArgs = fetchSpy.calls.mostRecent().args;
     const requestInit = callArgs[1] as RequestInit;
@@ -58,7 +58,7 @@ describe('ApiService', () => {
         });
       }) as unknown as typeof fetch;
 
-    void service.getRepositories();
+    void service.listRepositories();
     service.cancelAll();
 
     expect(capturedSignal?.aborted).toBe(true);

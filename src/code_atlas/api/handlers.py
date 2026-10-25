@@ -199,7 +199,7 @@ def _graph_neighbors(server: _AtlasHttpd, conn: Any, p: dict[str, str],
     if not occ_id:
         raise ApiError("bad-param", "occurrence_id obrigatório")
     edges = conn.execute(
-        "SELECT id, from_id, to_id, type, resolution_status, resolver "
+        "SELECT id, from_id, to_id, type, resolution_status, resolver, evidence_ids "
         "FROM relations WHERE snapshot_id = ? AND ("
         "  (? = 'out' AND from_id = ?) "
         "  OR (? = 'in' AND to_id = ?) "

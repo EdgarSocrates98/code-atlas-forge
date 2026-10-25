@@ -29,7 +29,7 @@ export class RepositoriesComponent implements OnDestroy {
   private async load(): Promise<void> {
     this.loading.set(true);
     try {
-      await this.api.getRepositories({ signal: this.controller.signal });
+      await this.api.listRepositories({ signal: this.controller.signal });
     } catch (error) {
       if (error instanceof ApiUnreachableError) {
         this.apiDisconnected.set(true);

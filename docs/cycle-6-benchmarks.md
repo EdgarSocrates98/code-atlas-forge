@@ -37,7 +37,23 @@ then re-measure.
 
 ## 2. Backend API latency (health / repositories / search / graph)
 
-**NOT RUN.** Starting `code-atlas api --port 0` and indexing a sample
+**MEDIDO** (fixture mínimo: 1 repo, 9 ocorrências — corpus pequeno,
+valores de piso, não de escala):
+
+| endpoint | latência |
+|---|---|
+| `GET /health` | 2.5 ms |
+| `GET /repositories` | 2.4 ms |
+| `GET /search?q=f&strategy=lexical` | 3.1 ms |
+| `GET /graph/overview` | 3.0 ms |
+| `GET /` (SPA index) | 1.1 ms |
+
+Ambiente: loopback, banco SQLite local. Não extrapolar para repos
+grandes — isso prova overhead do transporte, não throughput.
+
+Texto original do autor da fase (sem shell):
+**NOT RUN no momento da escrita.** Medido depois na integração
+(tabela acima).
 repository requires process execution (`.venv/bin/python -m code_atlas
 index …`, then timing HTTP calls), which was not available in this
 session.
@@ -92,3 +108,15 @@ shell access. The new scale-test spec above was written against the
 existing `GraphDataStore`/`makeApi` test harness pattern and should be
 syntax-consistent with it, but has not been executed by a test runner in
 this session. This must be run before merge.
+
+
+---
+
+## Anexo — verificações executadas na integração (não no autor original)
+
+- `npm run build` prod: OK — inicial ~274 kB, graph lazy chunk ~237 kB
+- `npm test` ChromeHeadless: 95/95 SUCCESS
+- `npm run e2e` Playwright 1.56.1 + Chromium 141 real: **18/18**
+  (10 fluxos + 8 security hardening) contra `code-atlas explorer`
+  + index real
+- Latências acima medidas com curl em servidor real (porta 8798)

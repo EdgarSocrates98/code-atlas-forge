@@ -50,19 +50,40 @@ stdio stdlib read-only (ADR-0023), eval com judgments verificáveis,
 suíte adversarial 0 P0/P1. Evidência: `docs/cycle-4-evidence.md`;
 limitações honestas: `docs/cycle-4-limitations.md`.
 
-## Cycle 5 — Impact Engine
+## Cycle 5 — Impact Engine ✅ entregue (5.1 com hardening)
 
-Escopo: blast radius, diff, tests, contracts, impact report, integração PR
-opcional.
+Escopo realizado: `ImpactEngine` (`src/code_atlas/impact/`) com diff de
+símbolos entre snapshots, revision binding com estados honestos
+(`exact`/`content_verified`/`partial`/`mismatch`/`unavailable` —
+mismatch/unavailable bloqueiam análise semântica), blast radius com
+`ImpactPath`, contract changes, test candidates com tag de revisão,
+risk assessment em dois eixos (category × uncertainty), CLI
+`code-atlas impact`, integração ao MCP e à API `/impact/analyze`.
 
-**Gate:** precision/recall auditável e distinção known/possible.
+**Gate:** precision/recall auditável e distinção known/possible —
+evidência em `docs/cycle-5-impact-engine.md`,
+`docs/cycle-5.1-impact-integrity.md`, `docs/cycle-5.1-evidence.md`;
+limitações em `docs/cycle-5.1-limitations.md`.
 
-## Cycle 6 — Explorer
+## Cycle 6 — Explorer 🔶 implementado, homologação parcial
 
-Escopo: Angular e grafo; arquitetura progressiva, impact graph, zoom/filtros
-e UX.
+Escopo realizado (branch `cycle-6-angular-explorer`): API HTTP
+loopback `/api/v1` em stdlib read-only (ADR-0009,
+`src/code_atlas/api/`), workbench Angular 18 com 10 rotas lazy
+(`explorer/`), grafo Sigma/WebGL bounded com layout congelado
+(`docs/graph-layout-stability.md`), busca híbrida, impacto e diff de
+revisões com banners de análise parcial, context packs, central de
+diagnósticos, `code-atlas explorer` empacotando API + dist. Docs:
+`docs/cycle-6-architecture.md`, `docs/interactive-impact.md`,
+`docs/visual-diff.md`, `docs/explorer-installation.md`,
+`docs/explorer-security.md`.
 
-**Gate:** testes acessibilidade/E2E/performance, sem câmera que desaparece.
+**Gate:** testes acessibilidade/E2E/performance, sem câmera que
+desaparece — **PARCIAL** (`docs/cycle-6-homologation.md`, G0–G20):
+contrato de câmera/layout verificado em código, mas benchmark de
+10k nós, E2E Playwright (18 testes escritos, **não executados** —
+lf-0094) e auditoria WCAG permanecem **NOT RUN**; gaps abertos em
+`docs/cycle-6-limitations.md`.
 
 ## Cycle 7 — Domain Adapters / Federation
 

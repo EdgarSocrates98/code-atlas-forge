@@ -49,6 +49,12 @@ def _security_headers(h: BaseHTTPRequestHandler, *, cors: bool) -> None:
     h.send_header("X-Content-Type-Options", "nosniff")
     h.send_header("Cache-Control", "no-store")
     h.send_header("Referrer-Policy", "no-referrer")
+    h.send_header("X-Frame-Options", "DENY")
+    h.send_header(
+        "Content-Security-Policy",
+        "default-src 'self'; script-src 'self'; style-src 'self' "
+        "'unsafe-inline'; img-src 'self' data:; connect-src 'self'; "
+        "font-src 'self'; frame-ancestors 'none'")
     if cors:
         h.send_header("Access-Control-Allow-Origin", "http://127.0.0.1")
         h.send_header("Vary", "Origin")

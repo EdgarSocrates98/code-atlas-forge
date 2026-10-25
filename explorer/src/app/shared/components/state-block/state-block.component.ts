@@ -33,7 +33,7 @@ export type BlockState = 'loading' | 'offline' | 'error' | 'empty' | 'ready';
             <p>
               Não foi possível falar com o Code Atlas em
               <code>http://127.0.0.1:8741</code>. Verifique se o processo local está em execução
-              (<code>code-atlas serve</code>) e tente novamente.
+              (<code>code-atlas explorer</code>) e tente novamente.
             </p>
             @if (detail()) {
               <p class="state-block__detail">{{ detail() }}</p>

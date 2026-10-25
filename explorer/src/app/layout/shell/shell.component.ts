@@ -10,9 +10,11 @@ interface NavItem {
 
 const NAV_ITEMS: NavItem[] = [
   { path: '/dashboard', label: 'Painel' },
+  { path: '/repositories', label: 'Repositórios' },
   { path: '/graph', label: 'Grafo' },
   { path: '/search', label: 'Busca' },
   { path: '/impact', label: 'Impacto' },
+  { path: '/revisions', label: 'Revisões' },
   { path: '/context', label: 'Context Packs' },
   { path: '/diagnostics', label: 'Diagnósticos' },
   { path: '/settings', label: 'Configurações' },

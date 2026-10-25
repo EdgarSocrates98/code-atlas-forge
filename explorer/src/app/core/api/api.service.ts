@@ -448,51 +448,6 @@ export class ApiService {
 
   constructor(@Inject(ATLAS_API_BASE_URL) private readonly baseUrl: string) {}
 
-  getRepositories(options?: ApiRequestOptions): Promise<Repository[]> {
-    return this.request<Repository[]>('GET', '/repositories', undefined, options);
-  }
-
-  getSnapshot(repositoryId: string, options?: ApiRequestOptions): Promise<Snapshot> {
-    return this.request<Snapshot>(
-      'GET',
-      `/repositories/${encodeURIComponent(repositoryId)}/snapshot`,
-      undefined,
-      options,
-    );
-  }
-
-  search(query: string, options?: ApiRequestOptions): Promise<SearchResult> {
-    const params = new URLSearchParams({ q: query });
-    return this.request<SearchResult>('GET', `/search?${params.toString()}`, undefined, options);
-  }
-
-  getSymbol(symbolId: string, options?: ApiRequestOptions): Promise<SymbolNode> {
-    return this.request<SymbolNode>(
-      'GET',
-      `/symbols/${encodeURIComponent(symbolId)}`,
-      undefined,
-      options,
-    );
-  }
-
-  getRelations(symbolId: string, options?: ApiRequestOptions): Promise<RelationEdge[]> {
-    return this.request<RelationEdge[]>(
-      'GET',
-      `/symbols/${encodeURIComponent(symbolId)}/relations`,
-      undefined,
-      options,
-    );
-  }
-
-  getImpact(revisionId: string, options?: ApiRequestOptions): Promise<ImpactResult> {
-    return this.request<ImpactResult>(
-      'GET',
-      `/revisions/${encodeURIComponent(revisionId)}/impact`,
-      undefined,
-      options,
-    );
-  }
-
   getContextPack(
     symbolId: string,
     options?: ApiRequestOptions,
