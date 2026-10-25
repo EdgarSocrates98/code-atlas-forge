@@ -9,6 +9,12 @@
 # Tests
 /coverage
 
+# Playwright E2E
+/e2e/report
+/e2e/test-results
+/playwright-report
+/test-results
+
 # Logs
 npm-debug.log
 yarn-error.log

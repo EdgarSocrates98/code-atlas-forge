@@ -93,7 +93,12 @@
 }
 
 .chip--off {
-  opacity: 0.45;
+  /* WCAG 2.2 SC 1.4.3: this chip stays interactive (not disabled), so it must
+   * not rely on reduced opacity alone — that can drop text below 4.5:1
+   * contrast. Use explicit muted color + background instead. */
+  color: var(--atlas-color-text-muted);
+  background: var(--atlas-color-bg);
+  border-style: dashed;
 }
 
 .chip--clear {

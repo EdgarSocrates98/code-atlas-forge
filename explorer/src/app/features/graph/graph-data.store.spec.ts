@@ -183,6 +183,60 @@ describe('GraphDataStore — node cap & dedup', () => {
     expect(store.dataVersion().needsLayout).toBeFalse();
   });
 
+  describe('scale: cap enforcement and truncation banner at 100/500/2000 inputs', () => {
+    // lf-0093 phase 16: proves the store's cap/truncation contract at the
+    // sizes called out by the spec. 10k/25k are NOT RUN — no fixture of
+    // that size exists and generating one client-side would not measure
+    // anything the unit test doesn't already cover (the cap logic is O(n)
+    // over whatever `nodesMap` holds, independent of n once n > cap).
+
+    it('100 input nodes, default cap (500): nothing hidden, no truncation', async () => {
+      const store = new GraphDataStore(
+        makeApi({ getGraphOverview: jasmine.createSpy().and.resolveTo(overviewWith(100)) }),
+      );
+      await store.loadInitial();
+
+      expect(store.nodes().length).toBe(100);
+      expect(store.hiddenNodeCount()).toBe(0);
+      expect(store.totalKnownNodes()).toBe(100);
+    });
+
+    it('500 input nodes, default cap (500): exactly at cap, nothing hidden', async () => {
+      const store = new GraphDataStore(
+        makeApi({ getGraphOverview: jasmine.createSpy().and.resolveTo(overviewWith(500)) }),
+      );
+      await store.loadInitial();
+
+      expect(store.nodes().length).toBe(500);
+      expect(store.hiddenNodeCount()).toBe(0);
+    });
+
+    it('2000 input nodes, default cap (500): truncated with accurate hidden count', async () => {
+      const store = new GraphDataStore(
+        makeApi({ getGraphOverview: jasmine.createSpy().and.resolveTo(overviewWith(2000)) }),
+      );
+      await store.loadInitial();
+
+      expect(store.nodes().length).toBe(500);
+      expect(store.hiddenNodeCount()).toBe(1500);
+      expect(store.totalKnownNodes()).toBe(2000);
+      // this is exactly the condition the template checks to render the
+      // "Visualização limitada" banner (graph.component.html).
+      expect(store.hiddenNodeCount() > 0).toBeTrue();
+    });
+
+    it('2000 input nodes with cap raised to 2000: all render, no truncation', async () => {
+      const store = new GraphDataStore(
+        makeApi({ getGraphOverview: jasmine.createSpy().and.resolveTo(overviewWith(2000)) }),
+      );
+      store.setNodeCap(2000);
+      await store.loadInitial();
+
+      expect(store.nodes().length).toBe(2000);
+      expect(store.hiddenNodeCount()).toBe(0);
+    });
+  });
+
   it('dedups nodes and edges by stable id on neighbor merges', async () => {
     const api = makeApi({
       getGraphOverview: jasmine.createSpy().and.resolveTo({
