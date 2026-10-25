@@ -36,26 +36,26 @@
     "hub_occurrence_id": 6002,
     "client_limit_100": {
       "samples_ms": [
-        12.373999999999999,
-        10.763,
-        12.383999999999999,
-        12.612,
-        11.638
+        14.22,
+        12.299,
+        11.809999999999999,
+        11.974,
+        13.437
       ],
-      "median_ms": 12.373999999999999,
+      "median_ms": 12.299,
       "edges": 100,
       "nodes": 101,
       "truncated": true
     },
     "server_cap_200": {
       "samples_ms": [
-        12.033999999999999,
-        12.357999999999999,
-        12.434000000000001,
-        11.448,
-        11.918
+        15.077,
+        12.645999999999999,
+        12.511,
+        12.463999999999999,
+        12.235
       ],
-      "median_ms": 12.033999999999999,
+      "median_ms": 12.511,
       "edges": 151,
       "nodes": 152,
       "truncated": false
@@ -72,17 +72,17 @@
       "url": "/graph?focus=6002",
       "surface": "canvas",
       "renderer_failed_banner": false,
-      "wall_nav_to_ready_ms": 451,
+      "wall_nav_to_ready_ms": 471,
       "resource": {
-        "navDuration": 129.6,
+        "navDuration": 143.8,
         "neighborsApi": {
-          "start": 296.5,
-          "duration": 52.9,
-          "responseEnd": 349.4,
+          "start": 297.7,
+          "duration": 53.7,
+          "responseEnd": 351.4,
           "transferSize": 48588,
           "encodedBodySize": 48288
         },
-        "symbolApi": 51.4
+        "symbolApi": 49.8
       },
       "counts_initial": {
         "rendered": 101,
@@ -93,23 +93,23 @@
         "mode": "canvas",
         "rendererFailed": false
       },
-      "max_raf_gap_ms": 216.6,
+      "max_raf_gap_ms": 250,
       "longtasks": [
-        94,
-        134
+        112,
+        154
       ],
       "sigma_errors": [],
       "page_errors": [],
       "heap_mb": {
         "before_load": 1.1,
-        "end": 14.3
+        "end": 16.1
       },
-      "raf_alive_ms": 12.5
+      "raf_alive_ms": 11.3
     },
     "table_expansion_phase": {
       "view": "accessible table (renderer fallback keeps it usable)",
       "hub_self_expand": {
-        "wall_ms": 73,
+        "wall_ms": 77,
         "counts_after": {
           "nodes": 101,
           "edges": 100
@@ -120,56 +120,56 @@
         {
           "index": 0,
           "target": "first-enabled-0",
-          "wall_ms": 86,
+          "wall_ms": 78,
           "nodes_after": 108,
           "edges_after": 112
         },
         {
           "index": 1,
           "target": "first-enabled-1",
-          "wall_ms": 78,
+          "wall_ms": 77,
           "nodes_after": 110,
           "edges_after": 123
         },
         {
           "index": 2,
           "target": "first-enabled-2",
-          "wall_ms": 78,
+          "wall_ms": 77,
           "nodes_after": 112,
           "edges_after": 133
         },
         {
           "index": 3,
           "target": "first-enabled-3",
-          "wall_ms": 77,
+          "wall_ms": 75,
           "nodes_after": 114,
           "edges_after": 142
         },
         {
           "index": 4,
           "target": "first-enabled-4",
-          "wall_ms": 78,
+          "wall_ms": 77,
           "nodes_after": 116,
           "edges_after": 150
         },
         {
           "index": 5,
           "target": "first-enabled-5",
-          "wall_ms": 78,
+          "wall_ms": 80,
           "nodes_after": 118,
           "edges_after": 157
         },
         {
           "index": 6,
           "target": "first-enabled-6",
-          "wall_ms": 79,
+          "wall_ms": 91,
           "nodes_after": 120,
           "edges_after": 164
         },
         {
           "index": 7,
           "target": "first-enabled-7",
-          "wall_ms": 77,
+          "wall_ms": 78,
           "nodes_after": 122,
           "edges_after": 171
         },
@@ -183,42 +183,42 @@
         {
           "index": 9,
           "target": "first-enabled-9",
-          "wall_ms": 78,
+          "wall_ms": 93,
           "nodes_after": 126,
           "edges_after": 185
         },
         {
           "index": 10,
           "target": "first-enabled-10",
-          "wall_ms": 79,
+          "wall_ms": 89,
           "nodes_after": 128,
           "edges_after": 192
         },
         {
           "index": 11,
           "target": "first-enabled-11",
-          "wall_ms": 90,
+          "wall_ms": 88,
           "nodes_after": 130,
           "edges_after": 199
         },
         {
           "index": 12,
           "target": "first-enabled-12",
-          "wall_ms": 78,
+          "wall_ms": 79,
           "nodes_after": 132,
           "edges_after": 206
         },
         {
           "index": 13,
           "target": "first-enabled-13",
-          "wall_ms": 76,
+          "wall_ms": 81,
           "nodes_after": 134,
           "edges_after": 213
         },
         {
           "index": 14,
           "target": "first-enabled-14",
-          "wall_ms": 75,
+          "wall_ms": 85,
           "nodes_after": 136,
           "edges_after": 220
         }
@@ -236,7 +236,7 @@
         "collapsed_to": 100,
         "apply": {
           "max_gap_ms": 16.8,
-          "settle_ms": 1612.6
+          "settle_ms": 1610.9
         },
         "counts_collapsed": {
           "rendered": 100,
@@ -249,7 +249,7 @@
         },
         "restore": {
           "max_gap_ms": 16.8,
-          "settle_ms": 1604.1
+          "settle_ms": 1608.5
         },
         "counts_restored": {
           "rendered": 136,
@@ -266,7 +266,7 @@
     "canvas_session": {
       "arch_load": {
         "surface": "canvas",
-        "wall_nav_to_ready_ms": 410,
+        "wall_nav_to_ready_ms": 468,
         "counts": {
           "rendered": 500,
           "edges": 0,
@@ -279,20 +279,20 @@
         "note": "overview carries 0 edges — canvas mounts cleanly"
       },
       "pan_arch": {
-        "frames": 198,
-        "fps_mean": 58.1,
-        "delta_mean_ms": 17.22,
+        "frames": 196,
+        "fps_mean": 57.4,
+        "delta_mean_ms": 17.43,
         "delta_p95_ms": 16.8,
-        "delta_max_ms": 33.4,
-        "frames_over_33ms": 1,
-        "draw_calls": 176,
-        "draw_verts": 234060
+        "delta_max_ms": 50,
+        "frames_over_33ms": 3,
+        "draw_calls": 170,
+        "draw_verts": 225060
       },
       "drill_attempt": {
         "attempted": true,
         "target": "mod_0000.py",
         "action": "']' ×k + Enter + e — drillFile() in-session",
-        "wall_ms": 658,
+        "wall_ms": 698,
         "outcome": "canvas-edges",
         "page_state": {
           "state": null,
@@ -317,11 +317,11 @@
       "edge_canvas_metrics": {
         "pan_ego": {
           "frames": 204,
-          "fps_mean": 60,
-          "delta_mean_ms": 16.67,
-          "delta_p95_ms": 16.7,
-          "delta_max_ms": 33.4,
-          "frames_over_33ms": 1,
+          "fps_mean": 59.7,
+          "delta_mean_ms": 16.74,
+          "delta_p95_ms": 16.8,
+          "delta_max_ms": 33.3,
+          "frames_over_33ms": 0,
           "draw_calls": 168,
           "draw_verts": 99864
         },
@@ -351,8 +351,8 @@
         "cap_collapse": {
           "collapsed_to": 100,
           "apply": {
-            "max_gap_ms": 50,
-            "settle_ms": 1609.5
+            "max_gap_ms": 66.7,
+            "settle_ms": 1610.9
           },
           "counts_collapsed": {
             "rendered": 100,
@@ -364,8 +364,8 @@
             "rendererFailed": false
           },
           "restore": {
-            "max_gap_ms": 33.3,
-            "settle_ms": 1606
+            "max_gap_ms": 33.4,
+            "settle_ms": 1608.1
           },
           "counts_restored": {
             "rendered": 208,
@@ -379,8 +379,8 @@
         },
         "pan_dense": {
           "frames": 205,
-          "fps_mean": 60.1,
-          "delta_mean_ms": 16.64,
+          "fps_mean": 60,
+          "delta_mean_ms": 16.66,
           "delta_p95_ms": 16.7,
           "delta_max_ms": 16.8,
           "frames_over_33ms": 0,
@@ -388,7 +388,7 @@
           "draw_verts": 74916
         },
         "remount_table_to_graph": {
-          "wall_ms": 1553,
+          "wall_ms": 1575,
           "surface_after": "canvas",
           "renderer_failed": false,
           "sigma_errors_so_far": 0
@@ -397,18 +397,19 @@
       "sigma_errors": [],
       "page_errors": [],
       "longtasks": [
-        68,
-        88,
-        60,
-        169,
-        143,
-        270
+        81,
+        103,
+        78,
+        58,
+        187,
+        156,
+        298
       ],
       "heap_mb": {
         "before": 0.5,
-        "end": 10.2
+        "end": 10.1
       },
-      "raf_alive_ms": 3
+      "raf_alive_ms": 2.9
     }
   }
 }
