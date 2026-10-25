@@ -21,7 +21,12 @@ STRATEGIES = frozenset({"lexical", "structural", "graph", "hybrid", "vector"})
 
 @dataclass(frozen=True)
 class SearchRequest:
-    """Pedido de busca — snapshot resolvido para o READY atual."""
+    """Pedido de busca — snapshot resolvido para o READY atual.
+
+    ``domain`` (lf-0119): filtro exato da faceta de entidades de
+    domínio (``de.domain = ?``) — não toca hits de símbolo, que não
+    têm domínio.
+    """
 
     query: str
     strategy: str = "lexical"
@@ -32,11 +37,19 @@ class SearchRequest:
     language: str | None = None
     kind: str | None = None
     path: str | None = None  # substring em relative_path
+    domain: str | None = None  # filtro da faceta domain_entities
 
 
 @dataclass(frozen=True)
 class SearchHit:
-    """Um resultado: ocorrência + score + explicação."""
+    """Um resultado: ocorrência + score + explicação.
+
+    ``repository_id``/``snapshot_id`` (lf-0119): escopo que produziu o
+    hit — preenchido sempre que o engine conhece o escopo (busca
+    federada depende dele para nunca colapsar homônimos cross-repo).
+    ``item_type`` discrimina o tipo do item ("symbol" aqui; a faceta
+    de domínio usa ``DomainSearchHit`` com "domain_entity").
+    """
 
     occurrence_id: int
     qualified_name: str
@@ -46,6 +59,46 @@ class SearchHit:
     span: dict[str, int] | None
     score: float
     strategy: str
+    matched_fields: tuple[str, ...] = ()
+    evidence: tuple[str, ...] = ()
+    repository_id: int | None = None
+    snapshot_id: int | None = None
+    item_type: str = "symbol"
+
+
+@dataclass(frozen=True)
+class DomainSearchHit:
+    """Hit da faceta de domínio — entidade lógica observada no snapshot.
+
+    Nunca se funde com ``SearchHit`` de símbolos: sai em
+    ``SearchResult.domain_items`` como faceta separada. ``occurrences``
+    é a contagem de evidência (ocorrências da entidade no snapshot);
+    ``occurrence_id`` aponta para a primeira ocorrência (row âncora,
+    determinística). ``matched_fields`` declara COMO casou:
+    ``name``/``qualified_name``/``path`` (match direto LIKE) ou
+    ``via_relation`` (endpoint entity↔entity resolvido de
+    ``domain_relations`` adjacente a um match direto — a aresta real é
+    citada em ``evidence`` como ``via=TYPE:rel:<id>``).
+    """
+
+    entity_id: int
+    occurrence_id: int
+    domain: str
+    kind: str
+    qualified_name: str
+    name: str
+    identity_key: str
+    catalog: str
+    namespace: str
+    environment: str
+    path: str
+    line: int | None
+    occurrences: int
+    extraction_status: str
+    repository_id: int | None
+    snapshot_id: int
+    score: float
+    item_type: str = "domain_entity"
     matched_fields: tuple[str, ...] = ()
     evidence: tuple[str, ...] = ()
 
@@ -74,6 +127,12 @@ class SearchResult:
     truncated: bool
     next_cursor: str | None = None
     diagnostics: tuple[SearchDiagnostic, ...] = ()
+    # lf-0119: faceta de domínio — separada de ``items`` por desenho
+    # (nunca fundida com símbolos). ``domain_total`` conta matches
+    # diretos + adjacentes via_relation encontrados; é top-``limit``
+    # deterministicamente ordenada, sem cursor próprio.
+    domain_items: tuple[DomainSearchHit, ...] = ()
+    domain_total: int = 0
 
     def to_dict(self) -> dict[str, object]:
         return dataclasses.asdict(self)

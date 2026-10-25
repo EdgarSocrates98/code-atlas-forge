@@ -321,32 +321,77 @@ def _symbol(server: _AtlasHttpd, conn: Any, sym_id: str,
     return out
 
 
+def _search_strategy(p: dict[str, str]) -> str:
+    """Estratégia pedida — default hybrid, valor desconhecido → hybrid."""
+    s = p.get("strategy", "hybrid")
+    return s if s in (
+        "lexical", "structural", "hybrid", "vector", "graph") else "hybrid"
+
+
+def _search_repo_filter(conn: Any, p: dict[str, str]) -> int | None:
+    """``repository_id`` opcional validado — narrowing por repositório."""
+    rid = p.get("repository_id", "")
+    if not rid:
+        return None
+    try:
+        repo_id = int(rid)
+    except ValueError as exc:
+        raise ApiError("bad-param", "repository_id inválido") from exc
+    if Store(conn).repository_by_id(repo_id) is None:
+        raise ApiError("repo-not-found", "repositório inexistente", 404)
+    return repo_id
+
+
 def _search(server: _AtlasHttpd, conn: Any, p: dict[str, str],
             _b: dict[str, Any] | None) -> dict[str, Any]:
+    """Busca de símbolos + faceta de domínio (lf-0119).
+
+    ``workspace=``/``federation=`` ativa a busca federada (mesmo
+    envelope da família search + identidade da view); ``repository_id``
+    seleciona/narrow o repo; ``domain`` filtra a faceta de domínio;
+    ``pin=repo:snap[,…]`` aplica overrides da view.
+    """
     from code_atlas.search.contracts import SearchRequest
     from code_atlas.search.engine import SearchEngine
     q = p.get("q", "")
     if not q or len(q) > 300:
         raise ApiError("bad-param", "q obrigatório (≤300 chars)")
-    root = p.get("repository_root", "")
-    if not root:
-        first = conn.execute(
-            "SELECT root_handle FROM repositories ORDER BY id LIMIT 1"
-        ).fetchone()
-        root = str(first["root_handle"]) if first else ""
-    elif Store(conn).repository_id_for(root) is None:
-        raise ApiError("repo-not-indexed", "repositório não indexado", 404)
-    res = SearchEngine(conn).search(SearchRequest(
+    store = Store(conn)
+    workspace = p.get("workspace") or p.get("federation") or ""
+    repo_filter = _search_repo_filter(conn, p)
+    doms = _csv_filter(p.get("domain", ""), "domain", max_items=1)
+    req = SearchRequest(
         query=q,
-        strategy=p.get("strategy", "hybrid") if p.get("strategy", "hybrid") in
-        ("lexical", "structural", "hybrid", "vector", "graph") else "hybrid",
-        repository_root=root,
+        strategy=_search_strategy(p),
         snapshot_id=_int(p, "snapshot_id", 0, cap=10**9) or None,
         limit=_int(p, "limit", 20, cap=100) or 20,
         cursor=p.get("cursor") or None,
         language=p.get("language") or None,
         kind=p.get("kind") or None,
-        path=p.get("path") or None))
+        path=p.get("path") or None,
+        domain=doms[0] if doms else None)
+    if workspace:
+        from code_atlas.search.federated import FederatedSearchEngine
+        pins = _parse_pins(p)
+        return _fed_call(
+            lambda: FederatedSearchEngine(conn).search(
+                req, workspace, pins, repository_id=repo_filter
+            ).to_dict())
+    # repo escolhido: repository_id (explícito) > repository_root > 1º repo
+    root = p.get("repository_root", "")
+    if repo_filter is not None:
+        repo = store.repository_by_id(repo_filter)
+        assert repo is not None  # validado em _search_repo_filter
+        root = repo.root_handle
+    elif not root:
+        first = conn.execute(
+            "SELECT root_handle FROM repositories ORDER BY id LIMIT 1"
+        ).fetchone()
+        root = str(first["root_handle"]) if first else ""
+    elif store.repository_id_for(root) is None:
+        raise ApiError("repo-not-indexed", "repositório não indexado", 404)
+    res = SearchEngine(conn).search(
+        dataclasses.replace(req, repository_root=root))
     return dataclasses.asdict(res)
 
 
@@ -542,6 +587,40 @@ def _fed_graph(server: _AtlasHttpd, conn: Any, ws_id: str,
             pins=pins,
         ).to_dict()
     )
+
+
+def _fed_search(server: _AtlasHttpd, conn: Any, ws_id: str,
+                p: dict[str, str]) -> dict[str, Any]:
+    """Busca federada num workspace (lf-0119).
+
+    Cada membro é pesquisado no PRÓPRIO escopo ``(repo, snapshot)``
+    resolvido pela view — merge posicional determinístico, items
+    tagueados ``repository_id``+``snapshot_id``, homônimos cross-repo
+    nunca colapsam. ``pin=`` e ``snapshot_id`` ajustam a view;
+    ``repository_id`` restringe a um membro.
+    """
+    from code_atlas.search.contracts import SearchRequest
+    from code_atlas.search.federated import FederatedSearchEngine
+    q = p.get("q", "")
+    if not q or len(q) > 300:
+        raise ApiError("bad-param", "q obrigatório (≤300 chars)")
+    repo_filter = _search_repo_filter(conn, p)
+    doms = _csv_filter(p.get("domain", ""), "domain", max_items=1)
+    req = SearchRequest(
+        query=q,
+        strategy=_search_strategy(p),
+        snapshot_id=_int(p, "snapshot_id", 0, cap=10**9) or None,
+        limit=_int(p, "limit", 20, cap=100) or 20,
+        cursor=p.get("cursor") or None,
+        language=p.get("language") or None,
+        kind=p.get("kind") or None,
+        path=p.get("path") or None,
+        domain=doms[0] if doms else None)
+    pins = _parse_pins(p)
+    return _fed_call(
+        lambda: FederatedSearchEngine(conn).search(
+            req, int(ws_id), pins, repository_id=repo_filter
+        ).to_dict())
 
 
 # --- domínios (lf-0122, Phase 14 — somente leitura) --------------------
@@ -1178,6 +1257,9 @@ def _route_federation(server: _AtlasHttpd, conn: Any, route: str,
     m = re.fullmatch(r"/federation/workspaces/(\d+)/graph", route)
     if m:
         return _fed_graph(server, conn, m.group(1), p)
+    m = re.fullmatch(r"/federation/workspaces/(\d+)/search", route)
+    if m:
+        return _fed_search(server, conn, m.group(1), p)
     m = re.fullmatch(r"/federation/workspaces/(\d+)", route)
     if m:
         return _fed_workspace(server, conn, m.group(1), p)
