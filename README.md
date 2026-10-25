@@ -1,5 +1,9 @@
 # Code Atlas Forge
 
+<p align="center">
+  <img src="docs/assets/logo.png" alt="Code Atlas logo" width="420" />
+</p>
+
 Plataforma **open source, local-first e offline-first** de inteligência estrutural,
 semântica e arquitetural de software — grafos tipados, proveniência verificável,
 indexação incremental e contexto econômico para agentes.
