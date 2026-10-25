@@ -46,6 +46,84 @@ jobs:
           code-atlas doctor
           code-atlas index tests/fixtures/sample_repo --json
           code-atlas status --json
+          code-atlas api --help
+          code-atlas explorer --help
+
+  explorer:
+    name: explorer (build + unit tests)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v6
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: explorer/package-lock.json
+      - name: Install
+        working-directory: explorer
+        run: npm ci
+      - name: Build (production)
+        working-directory: explorer
+        run: npm run build
+      - name: Unit tests (ChromeHeadless)
+        working-directory: explorer
+        env:
+          CHROME_BIN: /usr/bin/google-chrome
+        run: npm test -- --watch=false --browsers=ChromeHeadless
+
+  explorer-e2e:
+    name: explorer E2E (playwright)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+      - uses: actions/setup-node@v6
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: explorer/package-lock.json
+      - name: Install Python package
+        run: python -m pip install -e .
+      - name: Install Explorer deps
+        working-directory: explorer
+        run: npm ci
+      - name: Install Playwright Chromium
+        working-directory: explorer
+        run: npx playwright install --with-deps chromium
+      - name: Build Explorer
+        working-directory: explorer
+        run: npm run build
+      - name: E2E tests (real API + SPA)
+        working-directory: explorer
+        env:
+          ATLAS_PYTHON: python
+        run: npm run e2e
+
+  npm-audit-explorer:
+    name: explorer dependency audit
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v6
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: explorer/package-lock.json
+      - name: Install
+        working-directory: explorer
+        run: npm ci
+      # Gate estrito em severidade CRITICAL do bundle de produção.
+      # High/moderate do toolchain dev e advisories do Angular 18
+      # (mitigados: app usa fetch, sem HttpClient/TransferCache) ficam
+      # reportados, não bloqueantes — decisão documentada no PR #10.
+      - name: Audit production deps (critical gate)
+        working-directory: explorer
+        run: npm audit --omit=dev --audit-level=critical
 
   pip-audit:
     name: dependency security (pip-audit)
