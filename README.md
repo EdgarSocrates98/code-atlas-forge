@@ -4,11 +4,15 @@ Plataforma **open source, local-first e offline-first** de inteligência estrutu
 semântica e arquitetural de software — grafos tipados, proveniência verificável,
 indexação incremental e contexto econômico para agentes.
 
-> **Status atual: Cycle 2 — Structural Intelligence.**
+> **Status atual: Cycle 6 — Explorer (branch `cycle-6-angular-explorer`).**
 > O Code Atlas indexa repositórios com parsing real (Tree-sitter), extrai
 > símbolos e constrói um grafo tipado persistido em SQLite, consultável via
-> `search`/`symbol`/`references`/`graph`. **Não há** resolução semântica
-> profunda (SCIP/LSP), impacto, MCP ou UI ainda — veja `docs/roadmap.md`.
+> CLI, servidor MCP stdio, **API HTTP loopback `/api/v1`** e o
+> **Explorer** — workbench visual Angular servido por
+> `code-atlas explorer`. Análise de impacto entre revisões
+> (`code-atlas impact` / `POST /impact/analyze`) está disponível com
+> estados de binding honestos. Homologação do ciclo em andamento — veja
+> `docs/cycle-6-homologation.md` e `docs/roadmap.md`.
 
 ## Princípios
 
@@ -69,6 +73,13 @@ code-atlas context-expand --symbol pkg.orders.validate_total --snapshot 1 --deli
 code-atlas mcp                            # servidor MCP stdio (JSON-RPC ndjson)
 code-atlas mcp doctor --json              # executável, DB, schema, sqlite_vec
 code-atlas mcp manifest --host claude-code   # emite config (nunca escreve)
+
+# impacto entre revisões/snapshots (Cycle 5)
+code-atlas impact report --base HEAD~1 --target HEAD --format json
+
+# API local + Explorer visual (Cycle 6)
+code-atlas api --port 8741                # só /api/v1, loopback, read-only
+code-atlas explorer --open                # API + UI Angular compilada
 ```
 
 Filtros: `--language`, `--kind`, `--path`, `--snapshot`,
@@ -89,8 +100,6 @@ inventário como nós `file`, sem extração.
 
 ## Limitações
 
-Cycle 4.1:
-
 Implementado hoje: parsing sintático real, símbolos/referências/
 relações com proveniência por aresta, resolução syntactic **integrada**
 a resolvers opt-in SCIP/LSP, indexação incremental com cache
@@ -98,19 +107,30 @@ versionado, snapshots atômicos, busca estrutural SQL, **FTS5
 snapshot-scoped**, **retrieval híbrido (RRF k=60 + rerank task-aware
 opt-in)**, graph retrieval multi-seed com direção por intent,
 **context packs** com budget do payload serializado e expansão
-progressiva, **servidor MCP stdio** (8 tools, read-only, homologado
-com o SDK oficial `mcp`), grounding de evidências canônicas
-(`search/refs.py`) e avaliação v2 com métricas validadas.
+progressiva, **servidor MCP stdio** (read-only, homologado com o SDK
+oficial `mcp`), **impact engine** entre revisões/snapshots com binding
+honesto (`partial`/`mismatch`/`unavailable` nunca viram resultado
+verificado), **API HTTP loopback `/api/v1`** stdlib read-only
+(ADR-0009) e o **Explorer Angular** (`code-atlas explorer`) — grafo
+bounded com layout congelado, busca, impacto, revisões, context packs
+e diagnósticos.
 
 **Não implementado** (por design): type-checking real (resolver
 sintático não infere receiver — `d.speak()` fica `unresolved`),
-análise de impacto, UI, embeddings semânticos reais (provider naïve
-documentado, ADR-0022), structural sharing de grafo entre snapshots
-(rejeitado, ADR-0020).
+embeddings semânticos reais (provider naïve documentado, ADR-0022),
+structural sharing de grafo entre snapshots (rejeitado, ADR-0020),
+escrita via API/UI (read-only por contrato), telemetria (ausente por
+spec), rate limiting (adiado — loopback single-user).
+
+**Homologado parcialmente** (Cycle 6 — `docs/cycle-6-limitations.md`):
+sem benchmark de 10k nós, E2E Playwright escrito mas **não executado**
+(lf-0094), auditoria WCAG/contraste **não executada**, Explorer em
+Windows **não testado**, ~55 vulnerabilidades `npm audit` transitivas
+de dev (runtime limpo).
 Estados `unresolved`/`ambiguous`/`external` são preservados como
 fatos — nunca preenchidos por heurística. Detalhes:
 `docs/semantic-resolution.md`, `docs/cycle-3.1-evidence.md`,
-`docs/semantic-accuracy-report.md`.
+`docs/semantic-accuracy-report.md`, `docs/cycle-6-homologation.md`.
 
 ## Estrutura do repositório
 
@@ -124,7 +144,10 @@ src/code_atlas/     pacote (layout src; deps pinned = tree-sitter)
   storage/          SQLite: migrações v1-v5, snapshots, FTS5
   indexing/         coordinator + persistência do grafo
   search/           StructuralSearch (SQL parametrizado)
+  impact/           ImpactEngine: diff, binding, blast, risco, testes
+  api/              HTTP loopback read-only /api/v1 (stdlib, ADR-0009)
   observability/    logging estruturado + redaction (sem telemetria)
+explorer/           workbench Angular 18 (SPA servida por `code-atlas explorer`)
 tests/              suíte pytest (unitários, golden corpus, e2e, bench)
 docs/               blueprint, ADRs, roadmap, schemas, evidências
 factory/            specs Loop Factory (inbox/active/archive + audit)

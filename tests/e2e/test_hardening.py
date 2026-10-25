@@ -30,10 +30,15 @@ def test_subprocess_confined_to_gitbin() -> None:
 
 
 def test_no_network_or_shell_exec_in_src() -> None:
+    # lf-0086: src/code_atlas/api/ é a fronteira HTTP deliberada do
+    # Explorer (loopback read-only) — única exceção permitida e auditada.
+    api_boundary = (SRC / "code_atlas" / "api").resolve()
     banned = {"socket", "urllib", "requests", "http", "ftplib", "smtplib",
               "telnetlib", "asyncio", "pty", "eval"}
     offenders: list[str] = []
     for py in SRC.rglob("*.py"):
+        if api_boundary in py.resolve().parents:
+            continue
         tree = ast.parse(py.read_text(encoding="utf-8"))
         for node in ast.walk(tree):
             if isinstance(node, ast.Import):

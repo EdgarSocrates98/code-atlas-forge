@@ -1,0 +1,27 @@
+# Dependencies
+/node_modules
+
+# Build output
+/dist
+/out-tsc
+/.angular/cache
+
+# Tests
+/coverage
+
+# Playwright E2E
+/e2e/report
+/e2e/test-results
+/playwright-report
+/test-results
+
+# Logs
+npm-debug.log
+yarn-error.log
+
+# IDE
+.vscode/
+.idea/
+
+# Env
+.env

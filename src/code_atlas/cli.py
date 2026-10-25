@@ -828,6 +828,67 @@ _MCP_MANIFESTS: dict[str, dict[str, Any]] = {
 }
 
 
+def run_api(args: argparse.Namespace) -> int:
+    """`code-atlas api serve` — API HTTP local loopback (Cycle 6)."""
+    from code_atlas.api.server import serve
+
+    db_file = db_path()
+    if not db_file.exists():
+        print("banco não existe — rode `code-atlas index` antes",
+              file=sys.stderr)
+        return EXIT_ERROR
+    server = serve(str(db_file), host=args.host, port=args.port,
+                   verbose=args.verbose)
+    print(f"API Explorer em {server.url} — Ctrl+C para parar")
+    try:
+        server.serve_forever()
+    except KeyboardInterrupt:
+        pass
+    finally:
+        server.shutdown()
+    return EXIT_OK
+
+
+def run_explorer(args: argparse.Namespace) -> int:
+    """`code-atlas explorer` — serve API + assets compilados do Explorer.
+
+    Nunca abre o navegador sem `--open`; bind sempre loopback; se a dist
+    do Angular não existir, serve só a API e avisa.
+    """
+    from code_atlas.api.server import serve
+
+    db_file = db_path()
+    if not db_file.exists():
+        print("banco não existe — rode `code-atlas index` antes",
+              file=sys.stderr)
+        return EXIT_ERROR
+    dist = Path(__file__).resolve().parents[2] / "explorer" / "dist" / "explorer" / "browser"
+    if not dist.is_dir():
+        dist = Path(__file__).resolve().parents[2] / "explorer" / "dist"
+    static = dist if (dist / "index.html").is_file() else None
+    if static is None:
+        print("Explorer não compilado — servindo apenas a API "
+              "(build: cd explorer && npm run build)", file=sys.stderr)
+    try:
+        server = serve(str(db_file), host=args.host, port=args.port,
+                       verbose=args.verbose, static_root=static)
+    except OSError as e:
+        print(f"porta indisponível: {e}", file=sys.stderr)
+        return EXIT_ERROR
+    url = f"http://{server.host}:{server.port}/"
+    print(f"Explorer em {url} — API em {server.url}")
+    if args.open:
+        import webbrowser
+        webbrowser.open(url)
+    try:
+        server.serve_forever()
+    except KeyboardInterrupt:
+        pass
+    finally:
+        server.shutdown()
+    return EXIT_OK
+
+
 def run_mcp(args: argparse.Namespace) -> int:
     """`code-atlas mcp [doctor|manifest] ` — servidor stdio + host UX.
 
@@ -1336,6 +1397,24 @@ def build_parser() -> argparse.ArgumentParser:
                           default="human")
     _add_query_args(p_impact, filters=False)
     p_impact.set_defaults(func=run_impact)
+
+    p_api = sub.add_parser(
+        "api", help="API HTTP local para o Explorer (loopback, read-only)")
+    p_api.add_argument("--host", metavar="HOST", default="127.0.0.1",
+                       help="bind (default 127.0.0.1 — público proibido)")
+    p_api.add_argument("--port", metavar="N", type=int, default=8741)
+    p_api.add_argument("--verbose", action="store_true")
+    p_api.set_defaults(func=run_api)
+
+    p_expl = sub.add_parser(
+        "explorer",
+        help="inicia o Explorer visual (API + assets compilados)")
+    p_expl.add_argument("--host", metavar="HOST", default="127.0.0.1")
+    p_expl.add_argument("--port", metavar="N", type=int, default=8741)
+    p_expl.add_argument("--open", action="store_true",
+                       help="abre o navegador (somente quando pedido)")
+    p_expl.add_argument("--verbose", action="store_true")
+    p_expl.set_defaults(func=run_explorer)
 
     return parser
 

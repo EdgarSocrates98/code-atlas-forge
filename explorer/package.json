@@ -1,0 +1,47 @@
+{
+  "name": "code-atlas-explorer",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "ng": "ng",
+    "start": "ng serve",
+    "build": "ng build --configuration production",
+    "watch": "ng build --watch --configuration development",
+    "test": "ng test",
+    "lint": "ng lint",
+    "e2e": "playwright test",
+    "e2e:report": "playwright show-report e2e/report"
+  },
+  "dependencies": {
+    "@angular/animations": "18.2.13",
+    "@angular/common": "18.2.13",
+    "@angular/compiler": "18.2.13",
+    "@angular/core": "18.2.13",
+    "@angular/forms": "18.2.13",
+    "@angular/platform-browser": "18.2.13",
+    "@angular/platform-browser-dynamic": "18.2.13",
+    "@angular/router": "18.2.13",
+    "graphology": "0.25.4",
+    "graphology-layout": "0.6.1",
+    "graphology-layout-forceatlas2": "0.10.1",
+    "graphology-types": "0.24.8",
+    "rxjs": "7.8.1",
+    "sigma": "3.0.2",
+    "tslib": "2.6.3",
+    "zone.js": "0.14.10"
+  },
+  "devDependencies": {
+    "@angular-devkit/build-angular": "18.2.13",
+    "@angular/cli": "18.2.13",
+    "@angular/compiler-cli": "18.2.13",
+    "@playwright/test": "^1.56.1",
+    "@types/jasmine": "5.1.4",
+    "jasmine-core": "5.2.0",
+    "karma": "6.4.4",
+    "karma-chrome-launcher": "3.2.0",
+    "karma-coverage": "2.2.1",
+    "karma-jasmine": "5.1.0",
+    "karma-jasmine-html-reporter": "2.1.0",
+    "typescript": "5.5.4"
+  }
+}

@@ -1,0 +1,234 @@
+.graph-feature {
+  display: flex;
+  flex-direction: column;
+  gap: var(--atlas-space-3);
+  height: 100%;
+  min-height: 0;
+  padding: var(--atlas-space-4);
+}
+
+.graph-feature__header {
+  display: flex;
+  flex-direction: column;
+  gap: var(--atlas-space-3);
+}
+
+.graph-feature__header h1 {
+  margin: 0;
+  font-size: var(--atlas-font-size-xl);
+}
+
+.graph-feature__toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--atlas-space-3);
+}
+
+.seg {
+  display: inline-flex;
+  border: 1px solid var(--atlas-color-border);
+  border-radius: var(--atlas-radius-md);
+  overflow: hidden;
+}
+
+.seg__btn {
+  border: none;
+  background: var(--atlas-color-bg);
+  color: var(--atlas-color-text);
+  padding: var(--atlas-space-1) var(--atlas-space-3);
+  font-size: var(--atlas-font-size-sm);
+  cursor: pointer;
+  border-right: 1px solid var(--atlas-color-border);
+}
+
+.seg__btn:last-child {
+  border-right: none;
+}
+
+.seg__btn--active {
+  background: var(--atlas-color-accent);
+  color: var(--atlas-color-accent-text);
+}
+
+.cap {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--atlas-space-2);
+  font-size: var(--atlas-font-size-sm);
+  color: var(--atlas-color-text-muted);
+}
+
+.cap__input {
+  width: 5.5rem;
+  padding: var(--atlas-space-1) var(--atlas-space-2);
+  border: 1px solid var(--atlas-color-border);
+  border-radius: var(--atlas-radius-sm);
+  background: var(--atlas-color-bg);
+  color: var(--atlas-color-text);
+  font: inherit;
+}
+
+.graph-feature__filters {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--atlas-space-1);
+  font-size: var(--atlas-font-size-sm);
+}
+
+.filters__label {
+  color: var(--atlas-color-text-muted);
+  margin-right: var(--atlas-space-1);
+}
+
+.chip {
+  border: 1px solid var(--atlas-color-border);
+  border-radius: var(--atlas-radius-full);
+  background: var(--atlas-color-bg-subtle);
+  color: var(--atlas-color-text);
+  font-size: var(--atlas-font-size-xs);
+  padding: var(--atlas-space-1) var(--atlas-space-2);
+  cursor: pointer;
+}
+
+.chip--off {
+  /* WCAG 2.2 SC 1.4.3: this chip stays interactive (not disabled), so it must
+   * not rely on reduced opacity alone — that can drop text below 4.5:1
+   * contrast. Use explicit muted color + background instead. */
+  color: var(--atlas-color-text-muted);
+  background: var(--atlas-color-bg);
+  border-style: dashed;
+}
+
+.chip--clear {
+  border-style: dashed;
+  color: var(--atlas-color-text-muted);
+}
+
+.breadcrumb {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--atlas-space-3);
+  font-size: var(--atlas-font-size-sm);
+  padding: var(--atlas-space-2) var(--atlas-space-3);
+  background: var(--atlas-color-bg-subtle);
+  border: 1px solid var(--atlas-color-border);
+  border-radius: var(--atlas-radius-md);
+}
+
+.breadcrumb ol {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--atlas-space-2);
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  align-items: center;
+}
+
+.breadcrumb li {
+  font-family: var(--atlas-font-family-mono);
+  font-size: var(--atlas-font-size-xs);
+  overflow-wrap: anywhere;
+}
+
+.breadcrumb__link,
+.breadcrumb__back {
+  border: none;
+  background: none;
+  color: var(--atlas-color-accent);
+  cursor: pointer;
+  font: inherit;
+  padding: 0;
+}
+
+.breadcrumb__back {
+  white-space: nowrap;
+}
+
+.notice {
+  margin: 0;
+  font-size: var(--atlas-font-size-sm);
+  padding: var(--atlas-space-2) var(--atlas-space-3);
+  border: 1px solid var(--atlas-color-border);
+  border-radius: var(--atlas-radius-md);
+  background: var(--atlas-color-bg-subtle);
+  color: var(--atlas-color-text-muted);
+}
+
+.notice--warning {
+  border-color: var(--atlas-evidence-possible);
+  background: var(--atlas-evidence-possible-bg);
+  color: var(--atlas-color-text);
+}
+
+.retry {
+  align-self: flex-start;
+  margin-top: var(--atlas-space-2);
+  padding: var(--atlas-space-1) var(--atlas-space-4);
+  border: 1px solid var(--atlas-color-border);
+  border-radius: var(--atlas-radius-md);
+  background: var(--atlas-color-bg);
+  color: var(--atlas-color-text);
+  cursor: pointer;
+  font: inherit;
+}
+
+.graph-feature__body {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(260px, 340px);
+  gap: var(--atlas-space-3);
+  flex: 1;
+  min-height: 0;
+}
+
+@media (max-width: 900px) {
+  .graph-feature__body {
+    grid-template-columns: 1fr;
+    grid-template-rows: minmax(0, 1fr) auto;
+  }
+}
+
+.graph-feature__main {
+  display: flex;
+  flex-direction: column;
+  gap: var(--atlas-space-2);
+  min-height: 0;
+  min-width: 0;
+}
+
+.graph-feature__main > atlas-graph-canvas {
+  flex: 1;
+  min-height: 0;
+}
+
+.graph-feature__main > atlas-graph-table {
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.graph-feature__inspector {
+  min-height: 0;
+  border: 1px solid var(--atlas-color-border);
+  border-radius: var(--atlas-radius-md);
+  overflow: hidden;
+}
+
+.legend {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--atlas-space-2);
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.legend__hint {
+  margin-left: auto;
+  font-size: var(--atlas-font-size-xs);
+  color: var(--atlas-color-text-muted);
+}

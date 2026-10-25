@@ -70,12 +70,20 @@ def test_empty_workspace_flow(env: Path, capsys: pytest.CaptureFixture[str]) -> 
 
 
 def test_cli_offline_no_network_imports() -> None:
-    """`src/` não importa socket/urllib/requests — operação 100% offline."""
+    """Núcleo não importa socket/urllib/requests — operação offline.
+
+    lf-0086: ``src/code_atlas/api/`` é a fronteira HTTP deliberada do
+    Cycle 6 (loopback read-only) — exceção documentada e auditada; todo
+    o resto de ``src/`` continua proibido de tocar rede.
+    """
     src = Path(__file__).resolve().parents[2] / "src"
+    api_boundary = (src / "code_atlas" / "api").resolve()
     banned = {"socket", "urllib", "requests", "http", "ftplib", "smtplib",
               "telnetlib", "asyncio"}  # asyncio abriria sockets
     offenders: list[str] = []
     for py in src.rglob("*.py"):
+        if api_boundary in py.resolve().parents:
+            continue
         tree = ast.parse(py.read_text(encoding="utf-8"))
         for node in ast.walk(tree):
             names: list[str] = []
