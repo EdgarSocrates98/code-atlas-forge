@@ -345,9 +345,9 @@ describe('ImpactComponent', () => {
     fixture.detectChanges();
 
     const el = fixture.nativeElement as HTMLElement;
-    const hrefs = [...el.querySelectorAll<HTMLAnchorElement>('a.impact-item__graph')].map(
-      (a) => a.getAttribute('href') ?? '',
-    );
+    const hrefs = Array.from(
+      el.querySelectorAll<HTMLAnchorElement>('a.impact-item__graph'),
+    ).map((a) => a.getAttribute('href') ?? '');
     // blast candidate occ 9 + test candidate occ 30
     expect(hrefs.length).toBe(2);
     expect(hrefs.some((h) => /focus=occ(%3A|:)9/.test(h))).toBe(true);

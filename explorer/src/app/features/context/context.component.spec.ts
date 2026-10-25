@@ -239,9 +239,9 @@ describe('ContextComponent', () => {
     fixture.detectChanges();
 
     const el = fixture.nativeElement as HTMLElement;
-    const hrefs = [...el.querySelectorAll<HTMLAnchorElement>('a.context__chip')].map(
-      (a) => decodeURIComponent(a.getAttribute('href') ?? ''),
-    );
+    const hrefs = Array.from(
+      el.querySelectorAll<HTMLAnchorElement>('a.context__chip'),
+    ).map((a) => decodeURIComponent(a.getAttribute('href') ?? ''));
     // selected symbol → re-query
     expect(hrefs.some((h) => h.includes('/search') && h.includes('q=python:function:pkg.a'))).toBe(true);
     // item occurrence evidence → inspector
