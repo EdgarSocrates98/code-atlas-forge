@@ -1,0 +1,14 @@
+{
+  "resource": {
+    "aws_emr_cluster": {
+      "analytics": {
+        "name": "analytics",
+        "service_role": "arn:aws:iam::123456789012:role/EMR_DefaultRole",
+        "depends_on": ["aws_iam_role.glue"]
+      }
+    }
+  },
+  "module": {
+    "extra": { "source": "git::https://example.com/mod.git" }
+  }
+}

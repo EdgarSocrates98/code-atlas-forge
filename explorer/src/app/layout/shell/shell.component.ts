@@ -36,6 +36,11 @@ const NAV_ITEMS: NavItem[] = [
   { path: '/impact', label: 'Impacto' },
   { path: '/revisions', label: 'Revisões' },
   { path: '/context', label: 'Context Packs' },
+  { path: '/lineage', label: 'Linhagem' },
+  { path: '/contracts', label: 'Contratos' },
+  { path: '/infra', label: 'Infraestrutura' },
+  { path: '/pipelines', label: 'Pipelines' },
+  { path: '/federation', label: 'Federação' },
   { path: '/diagnostics', label: 'Diagnósticos' },
   { path: '/settings', label: 'Configurações' },
 ];

@@ -1,0 +1,14 @@
+{
+  "Name": "nightly-etl",
+  "Role": "arn:aws:iam::123456789012:role/GlueServiceRole",
+  "Command": {
+    "Name": "glueetl",
+    "ScriptLocation": "s3://glue-scripts-bucket/nightly.py",
+    "PythonVersion": "3"
+  },
+  "DefaultArguments": {
+    "--output_uri": "s3://etl-out-bucket/final/",
+    "--job-bookmark-option": "job-bookmark-enable",
+    "--extra_key": "p4ssw0rd"
+  }
+}

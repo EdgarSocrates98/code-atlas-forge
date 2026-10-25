@@ -98,6 +98,13 @@ export class GraphDataStore implements OnDestroy {
   readonly pinnedIds = signal<ReadonlySet<string>>(new Set());
   readonly expansionBusy = signal<ReadonlySet<string>>(new Set());
   readonly drillBusy = signal(false);
+  /**
+   * True while a ForceAtlas2 pass runs in the layout worker — reported by
+   * the canvas (async Phase 0.2). Drives the toolbar's "Cancelar layout"
+   * affordance; diagnostics read the finer-grained progress straight off
+   * the canvas fields.
+   */
+  readonly layoutBusy = signal(false);
   readonly detailLoading = signal(false);
   readonly selectedDetail = signal<ApiSymbolDetail | null>(null);
   readonly rendererFailed = signal(false);
@@ -299,7 +306,7 @@ export class GraphDataStore implements OnDestroy {
       this.mergeNodes(result.items.map((item) => occurrenceToVM(item, path)));
 
       // Bounded neighbor expansion around the first seeds.
-      const seeds = result.items.map((o) => o.id).slice(0, DRILL_NEIGHBOR_BUDGET);
+      const seeds = result.items.map((o) => o.occurrence_id).slice(0, DRILL_NEIGHBOR_BUDGET);
       let truncated = false;
       for (const seed of seeds) {
         const res = await this.api.getGraphNeighbors(

@@ -68,6 +68,12 @@ Notas de escopo do Cycle 6:
   `explorer/docs/graph-rendering.md` (Sigma/WebGL + graphology +
   ForceAtlas2).
 
+## Decididas e implementadas (Cycle 7)
+
+| ADR | Título | Arquivo |
+|---|---|---|
+| 010 | Adaptadores de domínio: registro explícito + tabelas dedicadas (schema v9) | `adr-0010-domain-adapters.md` |
+
 ## Propostas (ciclos futuros — não implementadas)
 
 | ADR | Título | Ciclo |

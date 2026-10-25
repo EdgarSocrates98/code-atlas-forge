@@ -71,7 +71,10 @@ def test_real_client_handshake_and_tools(repo: Path, tmp_path: Path):
             "atlas_context", "atlas_dependencies", "atlas_evidence",
             "atlas_expand", "atlas_references", "atlas_search",
             "atlas_status", "atlas_symbol",
-            "atlas_impact", "atlas_diff", "atlas_test_impact"}
+            "atlas_impact", "atlas_diff", "atlas_test_impact",
+            # lf-0123 — superfícies read-only de domain intelligence
+            "atlas_domains", "atlas_domain_entity",
+            "atlas_domain_lineage", "atlas_federation_view"}
         status = _payload(await s.call_tool(
             "atlas_status", {"root": str(repo)}))
         assert status["repo_id"] > 0

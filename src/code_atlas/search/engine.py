@@ -21,6 +21,7 @@ from code_atlas.search.contracts import (
     encode_cursor,
     query_fingerprint,
 )
+from code_atlas.search.domain import DomainEntitySearch
 from code_atlas.search.graph import GraphRetrieval
 from code_atlas.search.hybrid import RANKING_VERSION_HYBRID, fuse, to_search_hit
 from code_atlas.search.lexical import LexicalSearch
@@ -46,6 +47,7 @@ class SearchEngine:
         self._structural = StructuralSearch(conn)
         self._lexical = LexicalSearch(conn)
         self._graph = GraphRetrieval(conn)
+        self._domain = DomainEntitySearch(conn)
         self._vec = enable_vector
         self._rerank = enable_rerank
 
@@ -83,12 +85,26 @@ class SearchEngine:
                 code="no-ready-snapshot", severity="error",
                 message=snap_err or "nenhum snapshot READY"))
             return self._empty(req, diags)
-        sid = int(snap.id or 0)
+        return self.search_scoped(req, repo_id, int(snap.id or 0))
+
+    def search_scoped(
+        self, req: SearchRequest, repository_id: int, snapshot_id: int
+    ) -> SearchResult:
+        """Busca num escopo (repositório, snapshot) já resolvido.
+
+        Diferente de ``search``: NÃO revalida o status do snapshot —
+        quem chama garante a legibilidade (a busca federada admite pins
+        STALE, cuja leitura é legítima). ``search()`` delega aqui após
+        resolver repo + READY.
+        """
+        repo_id, sid = repository_id, snapshot_id
+        diags: list[SearchDiagnostic] = []
 
         # lf-0058: snapshot no fingerprint — cursor de outra revisão é
         # rejeitado (proteção cross-revision exigida pela Phase 0.2).
         filters = {"language": req.language, "kind": req.kind,
-                   "path": req.path, "snapshot": str(sid)}
+                   "path": req.path, "domain": req.domain,
+                   "snapshot": str(sid)}
         fp = query_fingerprint(req.query, filters)
         offset = 0
         if req.cursor:
@@ -101,14 +117,14 @@ class SearchEngine:
             offset = decoded
 
         if req.strategy == "hybrid":
-            fused, h_diags = self._hybrid_hits(req, sid)
+            fused, h_diags = self._hybrid_hits(req, repo_id, sid)
             diags.extend(h_diags)
             # lf-0058 Phase 0.2: limit/offset APLICADOS após fusão —
             # antes retornava todos os candidatos (P1).
             lim = max(1, min(req.limit or 20, 200))
             page = fused[offset:offset + lim]
             truncated = offset + len(page) < len(fused)
-            return SearchResult(
+            res = SearchResult(
                 schema_version=SEARCH_SCHEMA_VERSION,
                 repository=req.repository_root,
                 snapshot_id=sid, query=req.query, strategy=req.strategy,
@@ -119,10 +135,11 @@ class SearchEngine:
                              if truncated else None),
                 diagnostics=tuple(diags),
             )
+            return self._attach_domain(res, req, repo_id, sid)
         if req.strategy == "graph":
-            hits, _total, g_diags = self._graph_hits(req, sid)
+            hits, _total, g_diags = self._graph_hits(req, repo_id, sid)
             diags.extend(g_diags)
-            return SearchResult(
+            res = SearchResult(
                 schema_version=SEARCH_SCHEMA_VERSION,
                 repository=req.repository_root,
                 snapshot_id=sid, query=req.query, strategy=req.strategy,
@@ -131,6 +148,7 @@ class SearchEngine:
                 truncated=len(hits) >= max(1, req.limit or 20),
                 diagnostics=tuple(diags),
             )
+            return self._attach_domain(res, req, repo_id, sid)
         if req.strategy == "structural":
             hits, total = self._structural_hits(req, repo_id, sid, offset)
             ranking = "structural-sql-v1"
@@ -150,7 +168,7 @@ class SearchEngine:
             return self._empty(req, diags, snapshot_id=sid)
 
         truncated = offset + len(hits) < total
-        return SearchResult(
+        res = SearchResult(
             schema_version=SEARCH_SCHEMA_VERSION,
             repository=req.repository_root,
             snapshot_id=sid,
@@ -164,6 +182,31 @@ class SearchEngine:
                 encode_cursor(offset + len(hits), fp) if truncated else None
             ),
             diagnostics=tuple(diags),
+        )
+        return self._attach_domain(res, req, repo_id, sid)
+
+    def _attach_domain(
+        self, res: SearchResult, req: SearchRequest,
+        repository_id: int, snapshot_id: int,
+    ) -> SearchResult:
+        """Pós-dispatch: tag de escopo em cada hit + faceta de domínio.
+
+        Todo hit carrega ``repository_id``/``snapshot_id`` do escopo —
+        a busca federada depende disso para nunca colapsar homônimos
+        cross-repo (lf-0119). A faceta ``domain_items`` é separada por
+        desenho — nunca fundida com símbolos.
+        """
+        tagged = tuple(
+            dataclasses.replace(
+                h, repository_id=repository_id, snapshot_id=snapshot_id)
+            for h in res.items
+        )
+        dom_items, dom_total, d_diags = self._domain.search(
+            req, repository_id, snapshot_id)
+        return dataclasses.replace(
+            res, items=tagged, domain_items=dom_items,
+            domain_total=dom_total,
+            diagnostics=(*res.diagnostics, *d_diags),
         )
 
     def _structural_hits(
@@ -202,7 +245,7 @@ class SearchEngine:
         return hits, int(page.total)
 
     def _hybrid_hits(
-        self, req: SearchRequest, snapshot_id: int
+        self, req: SearchRequest, repo_id: int, snapshot_id: int
     ) -> tuple[tuple[SearchHit, ...], tuple[SearchDiagnostic, ...]]:
         """Pipeline híbrido: lexical+structural+graph → RRF → página."""
         diags: list[SearchDiagnostic] = []
@@ -214,11 +257,11 @@ class SearchEngine:
         lex_hits, _total, lex_diags = self._lexical.search(lex_req, snapshot_id)
         diags.extend(lex_diags)
         rankings["lexical"] = list(lex_hits)
-        repo_id = self._structural.repo_for_root(req.repository_root)
         st_hits, _ = self._structural_hits(
-            lex_req, repo_id or 0, snapshot_id, 0)
+            lex_req, repo_id, snapshot_id, 0)
         rankings["structural"] = list(st_hits)
-        g_hits, _, g_diags = self._graph_hits(lex_req, snapshot_id)
+        g_hits, _, g_diags = self._graph_hits(
+            lex_req, repo_id, snapshot_id)
         diags.extend(d for d in g_diags if d.code != "seed-not-found")
         rankings["graph"] = list(g_hits)
         if self._vec:
@@ -381,28 +424,34 @@ class SearchEngine:
         return len(todo)
 
     def _graph_hits(
-        self, req: SearchRequest, snapshot_id: int
+        self, req: SearchRequest, repo_id: int, snapshot_id: int
     ) -> tuple[tuple[SearchHit, ...], int, tuple[SearchDiagnostic, ...]]:
         """Multi-seed → BFS limitado com direção por intent (lf-0049).
 
         Seeds: qualified_name exato + top lexical + top structural —
         dedup por occurrence_id. Seeds entram como hits rotulados
         ``graph-seed`` (casaram com a query por nome — honesto).
-        Direção vem de ``classify(query)`` — nunca inventa aresta."""
+        Direção vem de ``classify(query)`` — nunca inventa aresta.
+
+        lf-0119: seeds são coletados direto nos canais snapshot-scoped
+        (sem re-resolver repo+status via ``search()``) — funciona em
+        pins STALE da federação e não vaza o cursor da página externa
+        para a janela de seeds."""
         from code_atlas.search.graph import TraversalLimits
         from code_atlas.search.intent import classify
 
         intent = classify(req.query)
         seed_ids = set(self._graph.seed_occurrences(
             snapshot_id, req.query))
+        seed_req = dataclasses.replace(req, limit=3, cursor=None)
+        lex_hits, _lt, _ld = self._lexical.search(seed_req, snapshot_id)
+        st_hits, _st = self._structural_hits(
+            seed_req, repo_id, snapshot_id, 0)
         seed_hits: list[SearchHit] = []
-        for strat in ("lexical", "structural"):
-            sub = self.search(dataclasses.replace(
-                req, strategy=strat, limit=3))
-            for h in sub.items:
-                if h.occurrence_id not in seed_ids:
-                    seed_ids.add(h.occurrence_id)
-                    seed_hits.append(h)
+        for h in (*lex_hits, *st_hits):
+            if h.occurrence_id not in seed_ids:
+                seed_ids.add(h.occurrence_id)
+                seed_hits.append(h)
         if not seed_ids:
             return (), 0, (SearchDiagnostic(
                 code="seed-not-found", severity="warning",

@@ -1,0 +1,8 @@
+# Fixture: EMR cluster config — subconjunto YAML do yamlmini.
+Name: nightly-cluster
+JobFlowRole: arn:aws:iam::123456789012:role/EMR_EC2_DefaultRole
+ServiceRole: arn:aws:iam::123456789012:role/EMR_DefaultRole
+LogUri: s3://emr-logs-bucket/clusters/
+Applications:
+  - Name: Spark
+  - Name: Hive

@@ -69,10 +69,15 @@ def _items(res: ImpactResult, tok: HeuristicTokenizer) -> list[ImpactPackItem]:
         add("consumer", _P_DIRECT, f"direct: {i.qualified_name}", body,
             f"imp:{i.symbol_key}")
         if i.path:
+            # lf-0120: ``edge_refs`` é a proveniência por hop
+            # ("rel:<id>" código / "dom:<id>" domínio) — os ids
+            # numéricos de ``relation_ids`` cobrem só arestas de código.
+            refs = i.path.edge_refs or tuple(
+                f"rel:{r}" for r in i.path.relation_ids)
             add("path", _P_PATH,
                 f"path {i.path.origin_symbol_key} -> "
                 f"{i.path.affected_symbol_key}",
-                f"hops={i.path.hops} rels={i.path.relation_ids} "
+                f"hops={i.path.hops} edges={refs} "
                 f"verified={i.path.fully_verified}",
                 f"path:{i.symbol_key}")
     for i in res.impacts:

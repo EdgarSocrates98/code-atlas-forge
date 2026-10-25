@@ -1,0 +1,455 @@
+{
+  "schema": 1,
+  "domain": "terraform",
+  "fixture": "tests/fixtures/terraform_infra",
+  "entities": {
+    "total": 24,
+    "by_kind": {
+      "iam_role": 2,
+      "terraform_module": 4,
+      "terraform_resource": 18
+    },
+    "names": [
+      "terraform:aws_cloudwatch_log_group.lambda@dev",
+      "terraform:aws_cloudwatch_metric_alarm.depth@dev",
+      "terraform:aws_emr_cluster.analytics@dev",
+      "terraform:aws_glue_job.etl@dev",
+      "terraform:aws_iam_policy.glue_s3@dev",
+      "terraform:aws_iam_role.glue@dev",
+      "terraform:aws_iam_role.lambda_exec@dev",
+      "terraform:aws_iam_role_policy.extra@dev",
+      "terraform:aws_iam_role_policy_attachment.glue@dev",
+      "terraform:aws_lambda_function.trigger@dev",
+      "terraform:aws_s3_bucket.data@dev",
+      "terraform:aws_sfn_state_machine.pipeline@dev",
+      "terraform:aws_sqs_queue.workers@dev",
+      "terraform:data.aws_iam_policy_document.extra@dev",
+      "terraform:data.terraform_remote_state.network@dev",
+      "terraform:module.extra@dev",
+      "terraform:module.network.aws_cloudwatch_log_group.flow@dev",
+      "terraform:module.network.aws_s3_bucket.flow_logs@dev",
+      "terraform:module.network@dev",
+      "terraform:module.root@dev",
+      "terraform:module.shared@dev",
+      "terraform:random_id.suffix@dev",
+      "terraform:unresolved:broken.aws_s3_bucket.broken",
+      "terraform:unresolved:broken.aws_s3_bucket.survivor"
+    ],
+    "expected": [
+      "terraform:module.root@dev",
+      "terraform:module.network@dev",
+      "terraform:aws_glue_job.etl@dev",
+      "terraform:aws_iam_role.glue@dev",
+      "terraform:unresolved:broken.aws_s3_bucket.survivor"
+    ],
+    "forbidden": [
+      "terraform:aws_sqs_queue.workers[0]@dev",
+      "terraform:aws_sqs_queue.workers[1]@dev",
+      "terraform:aws_cloudwatch_metric_alarm.depth[high]@dev",
+      "terraform:aws_s3_bucket.acme-data-dev@dev"
+    ]
+  },
+  "relations": {
+    "total": 45,
+    "by_type": {
+      "ASSUMES_ROLE": 5,
+      "DEPENDS_ON": 13,
+      "PROVISIONS": 18,
+      "REFERENCES": 6,
+      "USES_RESOURCE": 3
+    },
+    "by_status": {
+      "resolved": 40,
+      "external": 5
+    },
+    "by_confidence": {
+      "syntactic": 45
+    },
+    "by_resolver": {
+      "domain:terraform": 45
+    },
+    "edges_skipped": 0
+  },
+  "diagnostics": [
+    {
+      "severity": "error",
+      "code": "unterminated-block",
+      "path": "broken/broken.tf",
+      "adapter": "terraform"
+    },
+    {
+      "severity": "error",
+      "code": "unterminated-string",
+      "path": "broken/broken.tf",
+      "adapter": "terraform"
+    },
+    {
+      "severity": "warning",
+      "code": "stray-brace",
+      "path": "broken/stray.tf",
+      "adapter": "terraform"
+    }
+  ],
+  "edges": [
+    {
+      "type": "ASSUMES_ROLE",
+      "from": "terraform:aws_glue_job.etl@dev",
+      "to": "terraform:aws_iam_role.glue@dev",
+      "status": "resolved",
+      "confidence": "syntactic",
+      "resolver": "domain:terraform"
+    },
+    {
+      "type": "ASSUMES_ROLE",
+      "from": "terraform:aws_iam_role.glue@dev",
+      "to": "terraform:aws_iam_role.lambda_exec@dev",
+      "status": "resolved",
+      "confidence": "syntactic",
+      "resolver": "domain:terraform"
+    },
+    {
+      "type": "ASSUMES_ROLE",
+      "from": "terraform:aws_iam_role_policy.extra@dev",
+      "to": "terraform:aws_iam_role.glue@dev",
+      "status": "resolved",
+      "confidence": "syntactic",
+      "resolver": "domain:terraform"
+    },
+    {
+      "type": "ASSUMES_ROLE",
+      "from": "terraform:aws_lambda_function.trigger@dev",
+      "to": "terraform:aws_iam_role.lambda_exec@dev",
+      "status": "resolved",
+      "confidence": "syntactic",
+      "resolver": "domain:terraform"
+    },
+    {
+      "type": "ASSUMES_ROLE",
+      "from": "terraform:aws_sfn_state_machine.pipeline@dev",
+      "to": "terraform:aws_iam_role.glue@dev",
+      "status": "resolved",
+      "confidence": "syntactic",
+      "resolver": "domain:terraform"
+    },
+    {
+      "type": "DEPENDS_ON",
+      "from": "terraform:aws_cloudwatch_log_group.lambda@dev",
+      "to": "terraform:aws_lambda_function.trigger@dev",
+      "status": "resolved",
+      "confidence": "syntactic",
+      "resolver": "domain:terraform"
+    },
+    {
+      "type": "DEPENDS_ON",
+      "from": "terraform:aws_cloudwatch_metric_alarm.depth@dev",
+      "to": "terraform:aws_sqs_queue.workers@dev",
+      "status": "resolved",
+      "confidence": "syntactic",
+      "resolver": "domain:terraform"
+    },
+    {
+      "type": "DEPENDS_ON",
+      "from": "terraform:aws_emr_cluster.analytics@dev",
+      "to": "terraform:aws_iam_role.glue@dev",
+      "status": "resolved",
+      "confidence": "syntactic",
+      "resolver": "domain:terraform"
+    },
+    {
+      "type": "DEPENDS_ON",
+      "from": "terraform:aws_glue_job.etl@dev",
+      "to": "terraform:aws_iam_role.glue@dev",
+      "status": "resolved",
+      "confidence": "syntactic",
+      "resolver": "domain:terraform"
+    },
+    {
+      "type": "DEPENDS_ON",
+      "from": "terraform:aws_glue_job.etl@dev",
+      "to": "terraform:aws_iam_role_policy_attachment.glue@dev",
+      "status": "resolved",
+      "confidence": "syntactic",
+      "resolver": "domain:terraform"
+    },
+    {
+      "type": "DEPENDS_ON",
+      "from": "terraform:aws_glue_job.etl@dev",
+      "to": "terraform:aws_s3_bucket.data@dev",
+      "status": "resolved",
+      "confidence": "syntactic",
+      "resolver": "domain:terraform"
+    },
+    {
+      "type": "DEPENDS_ON",
+      "from": "terraform:aws_iam_role_policy.extra@dev",
+      "to": "terraform:aws_iam_role.glue@dev",
+      "status": "resolved",
+      "confidence": "syntactic",
+      "resolver": "domain:terraform"
+    },
+    {
+      "type": "DEPENDS_ON",
+      "from": "terraform:aws_iam_role_policy_attachment.glue@dev",
+      "to": "terraform:aws_iam_policy.glue_s3@dev",
+      "status": "resolved",
+      "confidence": "syntactic",
+      "resolver": "domain:terraform"
+    },
+    {
+      "type": "DEPENDS_ON",
+      "from": "terraform:aws_iam_role_policy_attachment.glue@dev",
+      "to": "terraform:aws_iam_role.glue@dev",
+      "status": "resolved",
+      "confidence": "syntactic",
+      "resolver": "domain:terraform"
+    },
+    {
+      "type": "DEPENDS_ON",
+      "from": "terraform:aws_lambda_function.trigger@dev",
+      "to": "terraform:aws_iam_role.lambda_exec@dev",
+      "status": "resolved",
+      "confidence": "syntactic",
+      "resolver": "domain:terraform"
+    },
+    {
+      "type": "DEPENDS_ON",
+      "from": "terraform:aws_lambda_function.trigger@dev",
+      "to": "terraform:aws_s3_bucket.data@dev",
+      "status": "resolved",
+      "confidence": "syntactic",
+      "resolver": "domain:terraform"
+    },
+    {
+      "type": "DEPENDS_ON",
+      "from": "terraform:aws_sfn_state_machine.pipeline@dev",
+      "to": "terraform:aws_iam_role.glue@dev",
+      "status": "resolved",
+      "confidence": "syntactic",
+      "resolver": "domain:terraform"
+    },
+    {
+      "type": "DEPENDS_ON",
+      "from": "terraform:module.network.aws_cloudwatch_log_group.flow@dev",
+      "to": "terraform:module.network.aws_s3_bucket.flow_logs@dev",
+      "status": "resolved",
+      "confidence": "syntactic",
+      "resolver": "domain:terraform"
+    },
+    {
+      "type": "PROVISIONS",
+      "from": "terraform:module.network@dev",
+      "to": "terraform:module.network.aws_cloudwatch_log_group.flow@dev",
+      "status": "resolved",
+      "confidence": "syntactic",
+      "resolver": "domain:terraform"
+    },
+    {
+      "type": "PROVISIONS",
+      "from": "terraform:module.network@dev",
+      "to": "terraform:module.network.aws_s3_bucket.flow_logs@dev",
+      "status": "resolved",
+      "confidence": "syntactic",
+      "resolver": "domain:terraform"
+    },
+    {
+      "type": "PROVISIONS",
+      "from": "terraform:module.root@dev",
+      "to": "terraform:aws_cloudwatch_log_group.lambda@dev",
+      "status": "resolved",
+      "confidence": "syntactic",
+      "resolver": "domain:terraform"
+    },
+    {
+      "type": "PROVISIONS",
+      "from": "terraform:module.root@dev",
+      "to": "terraform:aws_cloudwatch_metric_alarm.depth@dev",
+      "status": "resolved",
+      "confidence": "syntactic",
+      "resolver": "domain:terraform"
+    },
+    {
+      "type": "PROVISIONS",
+      "from": "terraform:module.root@dev",
+      "to": "terraform:aws_emr_cluster.analytics@dev",
+      "status": "resolved",
+      "confidence": "syntactic",
+      "resolver": "domain:terraform"
+    },
+    {
+      "type": "PROVISIONS",
+      "from": "terraform:module.root@dev",
+      "to": "terraform:aws_glue_job.etl@dev",
+      "status": "resolved",
+      "confidence": "syntactic",
+      "resolver": "domain:terraform"
+    },
+    {
+      "type": "PROVISIONS",
+      "from": "terraform:module.root@dev",
+      "to": "terraform:aws_iam_policy.glue_s3@dev",
+      "status": "resolved",
+      "confidence": "syntactic",
+      "resolver": "domain:terraform"
+    },
+    {
+      "type": "PROVISIONS",
+      "from": "terraform:module.root@dev",
+      "to": "terraform:aws_iam_role.glue@dev",
+      "status": "resolved",
+      "confidence": "syntactic",
+      "resolver": "domain:terraform"
+    },
+    {
+      "type": "PROVISIONS",
+      "from": "terraform:module.root@dev",
+      "to": "terraform:aws_iam_role.lambda_exec@dev",
+      "status": "resolved",
+      "confidence": "syntactic",
+      "resolver": "domain:terraform"
+    },
+    {
+      "type": "PROVISIONS",
+      "from": "terraform:module.root@dev",
+      "to": "terraform:aws_iam_role_policy.extra@dev",
+      "status": "resolved",
+      "confidence": "syntactic",
+      "resolver": "domain:terraform"
+    },
+    {
+      "type": "PROVISIONS",
+      "from": "terraform:module.root@dev",
+      "to": "terraform:aws_iam_role_policy_attachment.glue@dev",
+      "status": "resolved",
+      "confidence": "syntactic",
+      "resolver": "domain:terraform"
+    },
+    {
+      "type": "PROVISIONS",
+      "from": "terraform:module.root@dev",
+      "to": "terraform:aws_lambda_function.trigger@dev",
+      "status": "resolved",
+      "confidence": "syntactic",
+      "resolver": "domain:terraform"
+    },
+    {
+      "type": "PROVISIONS",
+      "from": "terraform:module.root@dev",
+      "to": "terraform:aws_s3_bucket.data@dev",
+      "status": "resolved",
+      "confidence": "syntactic",
+      "resolver": "domain:terraform"
+    },
+    {
+      "type": "PROVISIONS",
+      "from": "terraform:module.root@dev",
+      "to": "terraform:aws_sfn_state_machine.pipeline@dev",
+      "status": "resolved",
+      "confidence": "syntactic",
+      "resolver": "domain:terraform"
+    },
+    {
+      "type": "PROVISIONS",
+      "from": "terraform:module.root@dev",
+      "to": "terraform:aws_sqs_queue.workers@dev",
+      "status": "resolved",
+      "confidence": "syntactic",
+      "resolver": "domain:terraform"
+    },
+    {
+      "type": "PROVISIONS",
+      "from": "terraform:module.root@dev",
+      "to": "terraform:data.aws_iam_policy_document.extra@dev",
+      "status": "resolved",
+      "confidence": "syntactic",
+      "resolver": "domain:terraform"
+    },
+    {
+      "type": "PROVISIONS",
+      "from": "terraform:module.root@dev",
+      "to": "terraform:data.terraform_remote_state.network@dev",
+      "status": "resolved",
+      "confidence": "syntactic",
+      "resolver": "domain:terraform"
+    },
+    {
+      "type": "PROVISIONS",
+      "from": "terraform:module.root@dev",
+      "to": "terraform:random_id.suffix@dev",
+      "status": "resolved",
+      "confidence": "syntactic",
+      "resolver": "domain:terraform"
+    },
+    {
+      "type": "REFERENCES",
+      "from": "terraform:aws_emr_cluster.analytics@dev",
+      "to": "txt:arn:aws:iam::123456789012:role/EMR_DefaultRole",
+      "status": "external",
+      "confidence": "syntactic",
+      "resolver": "domain:terraform"
+    },
+    {
+      "type": "REFERENCES",
+      "from": "terraform:aws_iam_role_policy.extra@dev",
+      "to": "terraform:data.aws_iam_policy_document.extra@dev",
+      "status": "resolved",
+      "confidence": "syntactic",
+      "resolver": "domain:terraform"
+    },
+    {
+      "type": "REFERENCES",
+      "from": "terraform:data.terraform_remote_state.network@dev",
+      "to": "txt:remote-state:s3",
+      "status": "external",
+      "confidence": "syntactic",
+      "resolver": "domain:terraform"
+    },
+    {
+      "type": "REFERENCES",
+      "from": "terraform:module.extra@dev",
+      "to": "txt:git::https://example.com/mod.git",
+      "status": "external",
+      "confidence": "syntactic",
+      "resolver": "domain:terraform"
+    },
+    {
+      "type": "REFERENCES",
+      "from": "terraform:module.root@dev",
+      "to": "txt:backend:s3",
+      "status": "external",
+      "confidence": "syntactic",
+      "resolver": "domain:terraform"
+    },
+    {
+      "type": "REFERENCES",
+      "from": "terraform:module.shared@dev",
+      "to": "txt:terraform-aws-modules/vpc/aws",
+      "status": "external",
+      "confidence": "syntactic",
+      "resolver": "domain:terraform"
+    },
+    {
+      "type": "USES_RESOURCE",
+      "from": "terraform:aws_iam_policy.glue_s3@dev",
+      "to": "terraform:aws_s3_bucket.data@dev",
+      "status": "resolved",
+      "confidence": "syntactic",
+      "resolver": "domain:terraform"
+    },
+    {
+      "type": "USES_RESOURCE",
+      "from": "terraform:aws_sfn_state_machine.pipeline@dev",
+      "to": "terraform:aws_lambda_function.trigger@dev",
+      "status": "resolved",
+      "confidence": "syntactic",
+      "resolver": "domain:terraform"
+    },
+    {
+      "type": "USES_RESOURCE",
+      "from": "terraform:data.aws_iam_policy_document.extra@dev",
+      "to": "terraform:aws_s3_bucket.data@dev",
+      "status": "resolved",
+      "confidence": "syntactic",
+      "resolver": "domain:terraform"
+    }
+  ]
+}

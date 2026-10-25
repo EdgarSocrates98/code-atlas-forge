@@ -41,3 +41,6 @@ Thumbs.db
 # Benchmark corpora generated at runtime
 benchmarks/.corpus/
 graphify-out/
+
+# Evaluation reports generated at runtime (goldens stay versioned)
+evaluation/results/

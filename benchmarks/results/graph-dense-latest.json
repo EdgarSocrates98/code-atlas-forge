@@ -1,0 +1,1281 @@
+{
+  "tool": "code-atlas graph-dense e2e (Cycle 7 Phase 0.3)",
+  "generated_at": "2026-10-25T12:57:15.554Z",
+  "work_dir": "/tmp/atlas-graph-dense",
+  "datasets": [
+    {
+      "label": "500-c2",
+      "files": 500,
+      "calls": 2
+    },
+    {
+      "label": "1000-c5",
+      "files": 1000,
+      "calls": 5
+    },
+    {
+      "label": "2000-c5",
+      "files": 2000,
+      "calls": 5
+    }
+  ],
+  "params": {
+    "hubs": 3,
+    "hub_fanout": 150,
+    "expansions": 15,
+    "client_neighbor_limit": 100,
+    "server_neighbor_cap": 200
+  },
+  "environment": {
+    "platform": "linux",
+    "os_release": "7.0.0-38-generic",
+    "cpu": "AMD Ryzen 7 5700U with Radeon Graphics",
+    "cpu_cores": 16,
+    "total_mem_gb": 31,
+    "node": "v22.23.2"
+  },
+  "results": [
+    {
+      "dataset": {
+        "label": "500-c2",
+        "files": 500,
+        "calls": 2,
+        "hubs": 3,
+        "hub_fanout": 150
+      },
+      "fixture": {
+        "generated": false,
+        "indexed": false,
+        "indexMs": null
+      },
+      "db": {
+        "snapshot_id": 1,
+        "relations_total": 5401,
+        "by_type": {
+          "CALLS": 1950,
+          "CONTAINS": 500,
+          "DEFINES": 1503,
+          "IMPORTS": 1448
+        },
+        "by_status": {
+          "resolved": 5401
+        },
+        "occurrences": 2503,
+        "symbols": 2503,
+        "files": 500,
+        "hubs": {
+          "mod_0000.hub_0000": 1502,
+          "mod_0001.hub_0001": 1504,
+          "mod_0002.hub_0002": 1506
+        }
+      },
+      "api": {
+        "hub_occurrence_id": 1502,
+        "client_limit_100": {
+          "samples_ms": [
+            5.819,
+            4.511,
+            4.8919999999999995,
+            4.795,
+            5.684
+          ],
+          "median_ms": 4.8919999999999995,
+          "edges": 100,
+          "nodes": 101,
+          "truncated": true
+        },
+        "server_cap_200": {
+          "samples_ms": [
+            6.091,
+            5.517,
+            6.22,
+            5.492,
+            6.498
+          ],
+          "median_ms": 6.091,
+          "edges": 151,
+          "nodes": 152,
+          "truncated": false
+        }
+      },
+      "measured": {
+        "env": {
+          "webgl2": true,
+          "renderer": "ANGLE (Google, Vulkan 1.3.0 (SwiftShader Device (Subzero) (0x0000C0DE)), SwiftShader driver)",
+          "hardwareConcurrency": 16,
+          "devicePixelRatio": 1
+        },
+        "focus_load": {
+          "url": "/graph?focus=1502",
+          "surface": "canvas",
+          "renderer_failed_banner": false,
+          "wall_nav_to_ready_ms": 446,
+          "resource": {
+            "navDuration": 140.3,
+            "neighborsApi": {
+              "start": 280.4,
+              "duration": 45.8,
+              "responseEnd": 326.2,
+              "transferSize": 48475,
+              "encodedBodySize": 48175
+            },
+            "symbolApi": 45
+          },
+          "counts_initial": {
+            "rendered": 101,
+            "edges": 100,
+            "hidden": 0,
+            "known": 101,
+            "noticeText": "Visualização limitada: exibindo 101 de 101 nós conhecidos — o servidor também truncou resultados . Expanda nós sob demanda ou ajuste o limite.",
+            "mode": "canvas",
+            "rendererFailed": false
+          },
+          "max_raf_gap_ms": 233.3,
+          "longtasks": [
+            110,
+            138
+          ],
+          "sigma_errors": [],
+          "page_errors": [],
+          "heap_mb": {
+            "before_load": 1.1,
+            "end": 9.6
+          },
+          "raf_alive_ms": 13.9
+        },
+        "table_expansion_phase": {
+          "view": "accessible table (renderer fallback keeps it usable)",
+          "hub_self_expand": {
+            "wall_ms": 97,
+            "counts_after": {
+              "nodes": 101,
+              "edges": 100
+            },
+            "note": "re-expands the truncated hub — same first page, no pagination (no-op by design)"
+          },
+          "expansions": [
+            {
+              "index": 0,
+              "target": "first-enabled-0",
+              "wall_ms": 78,
+              "nodes_after": 105,
+              "edges_after": 106
+            },
+            {
+              "index": 1,
+              "target": "first-enabled-1",
+              "wall_ms": 76,
+              "nodes_after": 107,
+              "edges_after": 111
+            },
+            {
+              "index": 2,
+              "target": "first-enabled-2",
+              "wall_ms": 76,
+              "nodes_after": 109,
+              "edges_after": 115
+            },
+            {
+              "index": 3,
+              "target": "first-enabled-3",
+              "wall_ms": 79,
+              "nodes_after": 111,
+              "edges_after": 119
+            },
+            {
+              "index": 4,
+              "target": "first-enabled-4",
+              "wall_ms": 75,
+              "nodes_after": 113,
+              "edges_after": 123
+            },
+            {
+              "index": 5,
+              "target": "first-enabled-5",
+              "wall_ms": 78,
+              "nodes_after": 115,
+              "edges_after": 127
+            },
+            {
+              "index": 6,
+              "target": "first-enabled-6",
+              "wall_ms": 78,
+              "nodes_after": 117,
+              "edges_after": 131
+            },
+            {
+              "index": 7,
+              "target": "first-enabled-7",
+              "wall_ms": 77,
+              "nodes_after": 119,
+              "edges_after": 135
+            },
+            {
+              "index": 8,
+              "target": "first-enabled-8",
+              "wall_ms": 77,
+              "nodes_after": 121,
+              "edges_after": 139
+            },
+            {
+              "index": 9,
+              "target": "first-enabled-9",
+              "wall_ms": 77,
+              "nodes_after": 123,
+              "edges_after": 143
+            },
+            {
+              "index": 10,
+              "target": "first-enabled-10",
+              "wall_ms": 78,
+              "nodes_after": 125,
+              "edges_after": 147
+            },
+            {
+              "index": 11,
+              "target": "first-enabled-11",
+              "wall_ms": 78,
+              "nodes_after": 127,
+              "edges_after": 151
+            },
+            {
+              "index": 12,
+              "target": "first-enabled-12",
+              "wall_ms": 79,
+              "nodes_after": 129,
+              "edges_after": 155
+            },
+            {
+              "index": 13,
+              "target": "first-enabled-13",
+              "wall_ms": 72,
+              "nodes_after": 131,
+              "edges_after": 159
+            },
+            {
+              "index": 14,
+              "target": "first-enabled-14",
+              "wall_ms": 80,
+              "nodes_after": 133,
+              "edges_after": 163
+            }
+          ],
+          "counts_before": {
+            "nodes": 101,
+            "edges": 100
+          },
+          "counts_after": {
+            "nodes": 133,
+            "edges": 163
+          },
+          "max_raf_gap_during_phase_ms": 16.8,
+          "cap_collapse": {
+            "collapsed_to": 100,
+            "apply": {
+              "max_gap_ms": 16.8,
+              "settle_ms": 1609.3
+            },
+            "counts_collapsed": {
+              "rendered": 100,
+              "edges": 129,
+              "hidden": 33,
+              "known": 133,
+              "noticeText": "Visualização limitada: exibindo 100 de 133 nós conhecidos (33 ocultos pelo limite de 100) — o servidor também truncou resultados . Expanda nós sob demanda ou ajuste o limite.",
+              "mode": "table",
+              "rendererFailed": false
+            },
+            "restore": {
+              "max_gap_ms": 16.8,
+              "settle_ms": 1605.7
+            },
+            "counts_restored": {
+              "rendered": 133,
+              "edges": 163,
+              "hidden": 0,
+              "known": 133,
+              "noticeText": "Visualização limitada: exibindo 133 de 133 nós conhecidos — o servidor também truncou resultados . Expanda nós sob demanda ou ajuste o limite.",
+              "mode": "table",
+              "rendererFailed": false
+            }
+          },
+          "sigma_errors_after": []
+        },
+        "canvas_session": {
+          "arch_load": {
+            "surface": "canvas",
+            "wall_nav_to_ready_ms": 451,
+            "counts": {
+              "rendered": 500,
+              "edges": 0,
+              "hidden": 0,
+              "known": null,
+              "noticeText": null,
+              "mode": "canvas",
+              "rendererFailed": false
+            },
+            "note": "overview carries 0 edges — canvas mounts cleanly"
+          },
+          "pan_arch": {
+            "frames": 198,
+            "fps_mean": 58.2,
+            "delta_mean_ms": 17.2,
+            "delta_p95_ms": 16.8,
+            "delta_max_ms": 33.4,
+            "frames_over_33ms": 0,
+            "draw_calls": 174,
+            "draw_verts": 231060
+          },
+          "drill_attempt": {
+            "attempted": true,
+            "target": "mod_0000.py",
+            "action": "']' ×k + Enter + e — drillFile() in-session",
+            "wall_ms": 615,
+            "outcome": "canvas-edges",
+            "page_state": {
+              "state": null,
+              "stateText": "",
+              "breadcrumb": "Arquitetura / mod_0000.py ← Voltar sem perder o contexto"
+            },
+            "counts_after": {
+              "rendered": 205,
+              "edges": 207,
+              "hidden": 0,
+              "known": 205,
+              "noticeText": "Visualização limitada: exibindo 205 de 205 nós conhecidos — o servidor também truncou resultados . Expanda nós sob demanda ou ajuste o limite.",
+              "mode": "canvas",
+              "rendererFailed": false
+            },
+            "sigma_errors_during_drill": [],
+            "canvas_alive_with_edges": true
+          },
+          "recovery_after_drill_error": {
+            "attempted": false
+          },
+          "edge_canvas_metrics": {
+            "pan_ego": {
+              "frames": 205,
+              "fps_mean": 60.3,
+              "delta_mean_ms": 16.59,
+              "delta_p95_ms": 16.8,
+              "delta_max_ms": 16.8,
+              "frames_over_33ms": 0,
+              "draw_calls": 165,
+              "draw_verts": 98415
+            },
+            "canvas_expand": {
+              "attempts": 4,
+              "grew": false,
+              "note": "no focused symbol added edges — expansion targets may already be expanded",
+              "tries": [
+                {
+                  "node_label": "py",
+                  "grew": false
+                },
+                {
+                  "node_label": "mod_0000",
+                  "grew": false
+                },
+                {
+                  "node_label": "K0000",
+                  "grew": false
+                },
+                {
+                  "node_label": "m0000",
+                  "grew": false
+                }
+              ]
+            },
+            "cap_collapse": {
+              "collapsed_to": 100,
+              "apply": {
+                "max_gap_ms": 49.9,
+                "settle_ms": 1609.6
+              },
+              "counts_collapsed": {
+                "rendered": 100,
+                "edges": 99,
+                "hidden": 105,
+                "known": 205,
+                "noticeText": "Visualização limitada: exibindo 100 de 205 nós conhecidos (105 ocultos pelo limite de 100) — o servidor também truncou resultados . Expanda nós sob demanda ou ajuste o limite.",
+                "mode": "canvas",
+                "rendererFailed": false
+              },
+              "restore": {
+                "max_gap_ms": 33.3,
+                "settle_ms": 1605.3
+              },
+              "counts_restored": {
+                "rendered": 205,
+                "edges": 207,
+                "hidden": 0,
+                "known": 205,
+                "noticeText": "Visualização limitada: exibindo 205 de 205 nós conhecidos — o servidor também truncou resultados . Expanda nós sob demanda ou ajuste o limite.",
+                "mode": "canvas",
+                "rendererFailed": false
+              }
+            },
+            "pan_dense": {
+              "frames": 205,
+              "fps_mean": 60.1,
+              "delta_mean_ms": 16.65,
+              "delta_p95_ms": 16.7,
+              "delta_max_ms": 16.8,
+              "frames_over_33ms": 0,
+              "draw_calls": 121,
+              "draw_verts": 73803
+            },
+            "remount_table_to_graph": {
+              "wall_ms": 1519,
+              "surface_after": "canvas",
+              "renderer_failed": false,
+              "sigma_errors_so_far": 0
+            }
+          },
+          "sigma_errors": [],
+          "page_errors": [],
+          "longtasks": [
+            66,
+            88,
+            76,
+            168,
+            131,
+            257
+          ],
+          "heap_mb": {
+            "before": 0.5,
+            "end": 9.9
+          },
+          "raf_alive_ms": 18.4
+        }
+      }
+    },
+    {
+      "dataset": {
+        "label": "1000-c5",
+        "files": 1000,
+        "calls": 5,
+        "hubs": 3,
+        "hub_fanout": 150
+      },
+      "fixture": {
+        "generated": false,
+        "indexed": false,
+        "indexMs": null
+      },
+      "db": {
+        "snapshot_id": 1,
+        "relations_total": 15898,
+        "by_type": {
+          "CALLS": 6450,
+          "CONTAINS": 1000,
+          "DEFINES": 3003,
+          "IMPORTS": 5445
+        },
+        "by_status": {
+          "resolved": 15898
+        },
+        "occurrences": 5003,
+        "symbols": 5003,
+        "files": 1000,
+        "hubs": {
+          "mod_0000.hub_0000": 3002,
+          "mod_0001.hub_0001": 3004,
+          "mod_0002.hub_0002": 3006
+        }
+      },
+      "api": {
+        "hub_occurrence_id": 3002,
+        "client_limit_100": {
+          "samples_ms": [
+            9.233,
+            8.177,
+            9.476999999999999,
+            8.243,
+            8.375
+          ],
+          "median_ms": 8.375,
+          "edges": 100,
+          "nodes": 101,
+          "truncated": true
+        },
+        "server_cap_200": {
+          "samples_ms": [
+            8.452,
+            8.626,
+            8.266,
+            8.947000000000001,
+            8.545
+          ],
+          "median_ms": 8.545,
+          "edges": 151,
+          "nodes": 152,
+          "truncated": false
+        }
+      },
+      "measured": {
+        "env": {
+          "webgl2": true,
+          "renderer": "ANGLE (Google, Vulkan 1.3.0 (SwiftShader Device (Subzero) (0x0000C0DE)), SwiftShader driver)",
+          "hardwareConcurrency": 16,
+          "devicePixelRatio": 1
+        },
+        "focus_load": {
+          "url": "/graph?focus=3002",
+          "surface": "canvas",
+          "renderer_failed_banner": false,
+          "wall_nav_to_ready_ms": 448,
+          "resource": {
+            "navDuration": 137.6,
+            "neighborsApi": {
+              "start": 289.9,
+              "duration": 53.1,
+              "responseEnd": 343,
+              "transferSize": 48588,
+              "encodedBodySize": 48288
+            },
+            "symbolApi": 48.7
+          },
+          "counts_initial": {
+            "rendered": 101,
+            "edges": 100,
+            "hidden": 0,
+            "known": 101,
+            "noticeText": "Visualização limitada: exibindo 101 de 101 nós conhecidos — o servidor também truncou resultados . Expanda nós sob demanda ou ajuste o limite.",
+            "mode": "canvas",
+            "rendererFailed": false
+          },
+          "max_raf_gap_ms": 200.1,
+          "longtasks": [
+            98,
+            127
+          ],
+          "sigma_errors": [],
+          "page_errors": [],
+          "heap_mb": {
+            "before_load": 1.1,
+            "end": 8.6
+          },
+          "raf_alive_ms": 12.4
+        },
+        "table_expansion_phase": {
+          "view": "accessible table (renderer fallback keeps it usable)",
+          "hub_self_expand": {
+            "wall_ms": 93,
+            "counts_after": {
+              "nodes": 101,
+              "edges": 100
+            },
+            "note": "re-expands the truncated hub — same first page, no pagination (no-op by design)"
+          },
+          "expansions": [
+            {
+              "index": 0,
+              "target": "first-enabled-0",
+              "wall_ms": 81,
+              "nodes_after": 108,
+              "edges_after": 112
+            },
+            {
+              "index": 1,
+              "target": "first-enabled-1",
+              "wall_ms": 79,
+              "nodes_after": 110,
+              "edges_after": 123
+            },
+            {
+              "index": 2,
+              "target": "first-enabled-2",
+              "wall_ms": 79,
+              "nodes_after": 112,
+              "edges_after": 133
+            },
+            {
+              "index": 3,
+              "target": "first-enabled-3",
+              "wall_ms": 77,
+              "nodes_after": 114,
+              "edges_after": 142
+            },
+            {
+              "index": 4,
+              "target": "first-enabled-4",
+              "wall_ms": 79,
+              "nodes_after": 116,
+              "edges_after": 150
+            },
+            {
+              "index": 5,
+              "target": "first-enabled-5",
+              "wall_ms": 78,
+              "nodes_after": 118,
+              "edges_after": 157
+            },
+            {
+              "index": 6,
+              "target": "first-enabled-6",
+              "wall_ms": 73,
+              "nodes_after": 120,
+              "edges_after": 164
+            },
+            {
+              "index": 7,
+              "target": "first-enabled-7",
+              "wall_ms": 76,
+              "nodes_after": 122,
+              "edges_after": 171
+            },
+            {
+              "index": 8,
+              "target": "first-enabled-8",
+              "wall_ms": 79,
+              "nodes_after": 124,
+              "edges_after": 178
+            },
+            {
+              "index": 9,
+              "target": "first-enabled-9",
+              "wall_ms": 76,
+              "nodes_after": 126,
+              "edges_after": 185
+            },
+            {
+              "index": 10,
+              "target": "first-enabled-10",
+              "wall_ms": 78,
+              "nodes_after": 128,
+              "edges_after": 192
+            },
+            {
+              "index": 11,
+              "target": "first-enabled-11",
+              "wall_ms": 76,
+              "nodes_after": 130,
+              "edges_after": 199
+            },
+            {
+              "index": 12,
+              "target": "first-enabled-12",
+              "wall_ms": 76,
+              "nodes_after": 132,
+              "edges_after": 206
+            },
+            {
+              "index": 13,
+              "target": "first-enabled-13",
+              "wall_ms": 77,
+              "nodes_after": 134,
+              "edges_after": 213
+            },
+            {
+              "index": 14,
+              "target": "first-enabled-14",
+              "wall_ms": 77,
+              "nodes_after": 136,
+              "edges_after": 220
+            }
+          ],
+          "counts_before": {
+            "nodes": 101,
+            "edges": 100
+          },
+          "counts_after": {
+            "nodes": 136,
+            "edges": 220
+          },
+          "max_raf_gap_during_phase_ms": 16.8,
+          "cap_collapse": {
+            "collapsed_to": 100,
+            "apply": {
+              "max_gap_ms": 16.8,
+              "settle_ms": 1614.6
+            },
+            "counts_collapsed": {
+              "rendered": 100,
+              "edges": 174,
+              "hidden": 36,
+              "known": 136,
+              "noticeText": "Visualização limitada: exibindo 100 de 136 nós conhecidos (36 ocultos pelo limite de 100) — o servidor também truncou resultados . Expanda nós sob demanda ou ajuste o limite.",
+              "mode": "table",
+              "rendererFailed": false
+            },
+            "restore": {
+              "max_gap_ms": 33.4,
+              "settle_ms": 1607.1
+            },
+            "counts_restored": {
+              "rendered": 136,
+              "edges": 220,
+              "hidden": 0,
+              "known": 136,
+              "noticeText": "Visualização limitada: exibindo 136 de 136 nós conhecidos — o servidor também truncou resultados . Expanda nós sob demanda ou ajuste o limite.",
+              "mode": "table",
+              "rendererFailed": false
+            }
+          },
+          "sigma_errors_after": []
+        },
+        "canvas_session": {
+          "arch_load": {
+            "surface": "canvas",
+            "wall_nav_to_ready_ms": 410,
+            "counts": {
+              "rendered": 500,
+              "edges": 0,
+              "hidden": 500,
+              "known": 1000,
+              "noticeText": "Visualização limitada: exibindo 500 de 1000 nós conhecidos (500 ocultos pelo limite de 500) . Expanda nós sob demanda ou ajuste o limite.",
+              "mode": "canvas",
+              "rendererFailed": false
+            },
+            "note": "overview carries 0 edges — canvas mounts cleanly"
+          },
+          "pan_arch": {
+            "frames": 199,
+            "fps_mean": 58.2,
+            "delta_mean_ms": 17.17,
+            "delta_p95_ms": 16.8,
+            "delta_max_ms": 33.4,
+            "frames_over_33ms": 0,
+            "draw_calls": 173,
+            "draw_verts": 228063
+          },
+          "drill_attempt": {
+            "attempted": true,
+            "target": "mod_0000.py",
+            "action": "']' ×k + Enter + e — drillFile() in-session",
+            "wall_ms": 637,
+            "outcome": "canvas-edges",
+            "page_state": {
+              "state": null,
+              "stateText": "",
+              "breadcrumb": "Arquitetura / mod_0000.py ← Voltar sem perder o contexto"
+            },
+            "counts_after": {
+              "rendered": 208,
+              "edges": 213,
+              "hidden": 0,
+              "known": 208,
+              "noticeText": "Visualização limitada: exibindo 208 de 208 nós conhecidos — o servidor também truncou resultados . Expanda nós sob demanda ou ajuste o limite.",
+              "mode": "canvas",
+              "rendererFailed": false
+            },
+            "sigma_errors_during_drill": [],
+            "canvas_alive_with_edges": true
+          },
+          "recovery_after_drill_error": {
+            "attempted": false
+          },
+          "edge_canvas_metrics": {
+            "pan_ego": {
+              "frames": 205,
+              "fps_mean": 60.3,
+              "delta_mean_ms": 16.59,
+              "delta_p95_ms": 16.7,
+              "delta_max_ms": 16.8,
+              "frames_over_33ms": 0,
+              "draw_calls": 168,
+              "draw_verts": 99864
+            },
+            "canvas_expand": {
+              "attempts": 4,
+              "grew": false,
+              "note": "no focused symbol added edges — expansion targets may already be expanded",
+              "tries": [
+                {
+                  "node_label": "py",
+                  "grew": false
+                },
+                {
+                  "node_label": "mod_0000",
+                  "grew": false
+                },
+                {
+                  "node_label": "K0000",
+                  "grew": false
+                },
+                {
+                  "node_label": "m0000",
+                  "grew": false
+                }
+              ]
+            },
+            "cap_collapse": {
+              "collapsed_to": 100,
+              "apply": {
+                "max_gap_ms": 33.3,
+                "settle_ms": 1609.5
+              },
+              "counts_collapsed": {
+                "rendered": 100,
+                "edges": 99,
+                "hidden": 108,
+                "known": 208,
+                "noticeText": "Visualização limitada: exibindo 100 de 208 nós conhecidos (108 ocultos pelo limite de 100) — o servidor também truncou resultados . Expanda nós sob demanda ou ajuste o limite.",
+                "mode": "canvas",
+                "rendererFailed": false
+              },
+              "restore": {
+                "max_gap_ms": 33.3,
+                "settle_ms": 1605
+              },
+              "counts_restored": {
+                "rendered": 208,
+                "edges": 213,
+                "hidden": 0,
+                "known": 208,
+                "noticeText": "Visualização limitada: exibindo 208 de 208 nós conhecidos — o servidor também truncou resultados . Expanda nós sob demanda ou ajuste o limite.",
+                "mode": "canvas",
+                "rendererFailed": false
+              }
+            },
+            "pan_dense": {
+              "frames": 205,
+              "fps_mean": 60.1,
+              "delta_mean_ms": 16.65,
+              "delta_p95_ms": 16.8,
+              "delta_max_ms": 16.8,
+              "frames_over_33ms": 0,
+              "draw_calls": 124,
+              "draw_verts": 74898
+            },
+            "remount_table_to_graph": {
+              "wall_ms": 1523,
+              "surface_after": "canvas",
+              "renderer_failed": false,
+              "sigma_errors_so_far": 0
+            }
+          },
+          "sigma_errors": [],
+          "page_errors": [],
+          "longtasks": [
+            64,
+            89,
+            76,
+            170,
+            138,
+            265
+          ],
+          "heap_mb": {
+            "before": 0.5,
+            "end": 10
+          },
+          "raf_alive_ms": 19.1
+        }
+      }
+    },
+    {
+      "dataset": {
+        "label": "2000-c5",
+        "files": 2000,
+        "calls": 5,
+        "hubs": 3,
+        "hub_fanout": 150
+      },
+      "fixture": {
+        "generated": false,
+        "indexed": false,
+        "indexMs": null
+      },
+      "db": {
+        "snapshot_id": 1,
+        "relations_total": 30898,
+        "by_type": {
+          "CALLS": 12450,
+          "CONTAINS": 2000,
+          "DEFINES": 6003,
+          "IMPORTS": 10445
+        },
+        "by_status": {
+          "resolved": 30898
+        },
+        "occurrences": 10003,
+        "symbols": 10003,
+        "files": 2000,
+        "hubs": {
+          "mod_0000.hub_0000": 6002,
+          "mod_0001.hub_0001": 6004,
+          "mod_0002.hub_0002": 6006
+        }
+      },
+      "api": {
+        "hub_occurrence_id": 6002,
+        "client_limit_100": {
+          "samples_ms": [
+            12.373999999999999,
+            10.763,
+            12.383999999999999,
+            12.612,
+            11.638
+          ],
+          "median_ms": 12.373999999999999,
+          "edges": 100,
+          "nodes": 101,
+          "truncated": true
+        },
+        "server_cap_200": {
+          "samples_ms": [
+            12.033999999999999,
+            12.357999999999999,
+            12.434000000000001,
+            11.448,
+            11.918
+          ],
+          "median_ms": 12.033999999999999,
+          "edges": 151,
+          "nodes": 152,
+          "truncated": false
+        }
+      },
+      "measured": {
+        "env": {
+          "webgl2": true,
+          "renderer": "ANGLE (Google, Vulkan 1.3.0 (SwiftShader Device (Subzero) (0x0000C0DE)), SwiftShader driver)",
+          "hardwareConcurrency": 16,
+          "devicePixelRatio": 1
+        },
+        "focus_load": {
+          "url": "/graph?focus=6002",
+          "surface": "canvas",
+          "renderer_failed_banner": false,
+          "wall_nav_to_ready_ms": 451,
+          "resource": {
+            "navDuration": 129.6,
+            "neighborsApi": {
+              "start": 296.5,
+              "duration": 52.9,
+              "responseEnd": 349.4,
+              "transferSize": 48588,
+              "encodedBodySize": 48288
+            },
+            "symbolApi": 51.4
+          },
+          "counts_initial": {
+            "rendered": 101,
+            "edges": 100,
+            "hidden": 0,
+            "known": 101,
+            "noticeText": "Visualização limitada: exibindo 101 de 101 nós conhecidos — o servidor também truncou resultados . Expanda nós sob demanda ou ajuste o limite.",
+            "mode": "canvas",
+            "rendererFailed": false
+          },
+          "max_raf_gap_ms": 216.6,
+          "longtasks": [
+            94,
+            134
+          ],
+          "sigma_errors": [],
+          "page_errors": [],
+          "heap_mb": {
+            "before_load": 1.1,
+            "end": 14.3
+          },
+          "raf_alive_ms": 12.5
+        },
+        "table_expansion_phase": {
+          "view": "accessible table (renderer fallback keeps it usable)",
+          "hub_self_expand": {
+            "wall_ms": 73,
+            "counts_after": {
+              "nodes": 101,
+              "edges": 100
+            },
+            "note": "re-expands the truncated hub — same first page, no pagination (no-op by design)"
+          },
+          "expansions": [
+            {
+              "index": 0,
+              "target": "first-enabled-0",
+              "wall_ms": 86,
+              "nodes_after": 108,
+              "edges_after": 112
+            },
+            {
+              "index": 1,
+              "target": "first-enabled-1",
+              "wall_ms": 78,
+              "nodes_after": 110,
+              "edges_after": 123
+            },
+            {
+              "index": 2,
+              "target": "first-enabled-2",
+              "wall_ms": 78,
+              "nodes_after": 112,
+              "edges_after": 133
+            },
+            {
+              "index": 3,
+              "target": "first-enabled-3",
+              "wall_ms": 77,
+              "nodes_after": 114,
+              "edges_after": 142
+            },
+            {
+              "index": 4,
+              "target": "first-enabled-4",
+              "wall_ms": 78,
+              "nodes_after": 116,
+              "edges_after": 150
+            },
+            {
+              "index": 5,
+              "target": "first-enabled-5",
+              "wall_ms": 78,
+              "nodes_after": 118,
+              "edges_after": 157
+            },
+            {
+              "index": 6,
+              "target": "first-enabled-6",
+              "wall_ms": 79,
+              "nodes_after": 120,
+              "edges_after": 164
+            },
+            {
+              "index": 7,
+              "target": "first-enabled-7",
+              "wall_ms": 77,
+              "nodes_after": 122,
+              "edges_after": 171
+            },
+            {
+              "index": 8,
+              "target": "first-enabled-8",
+              "wall_ms": 79,
+              "nodes_after": 124,
+              "edges_after": 178
+            },
+            {
+              "index": 9,
+              "target": "first-enabled-9",
+              "wall_ms": 78,
+              "nodes_after": 126,
+              "edges_after": 185
+            },
+            {
+              "index": 10,
+              "target": "first-enabled-10",
+              "wall_ms": 79,
+              "nodes_after": 128,
+              "edges_after": 192
+            },
+            {
+              "index": 11,
+              "target": "first-enabled-11",
+              "wall_ms": 90,
+              "nodes_after": 130,
+              "edges_after": 199
+            },
+            {
+              "index": 12,
+              "target": "first-enabled-12",
+              "wall_ms": 78,
+              "nodes_after": 132,
+              "edges_after": 206
+            },
+            {
+              "index": 13,
+              "target": "first-enabled-13",
+              "wall_ms": 76,
+              "nodes_after": 134,
+              "edges_after": 213
+            },
+            {
+              "index": 14,
+              "target": "first-enabled-14",
+              "wall_ms": 75,
+              "nodes_after": 136,
+              "edges_after": 220
+            }
+          ],
+          "counts_before": {
+            "nodes": 101,
+            "edges": 100
+          },
+          "counts_after": {
+            "nodes": 136,
+            "edges": 220
+          },
+          "max_raf_gap_during_phase_ms": 16.8,
+          "cap_collapse": {
+            "collapsed_to": 100,
+            "apply": {
+              "max_gap_ms": 16.8,
+              "settle_ms": 1612.6
+            },
+            "counts_collapsed": {
+              "rendered": 100,
+              "edges": 174,
+              "hidden": 36,
+              "known": 136,
+              "noticeText": "Visualização limitada: exibindo 100 de 136 nós conhecidos (36 ocultos pelo limite de 100) — o servidor também truncou resultados . Expanda nós sob demanda ou ajuste o limite.",
+              "mode": "table",
+              "rendererFailed": false
+            },
+            "restore": {
+              "max_gap_ms": 16.8,
+              "settle_ms": 1604.1
+            },
+            "counts_restored": {
+              "rendered": 136,
+              "edges": 220,
+              "hidden": 0,
+              "known": 136,
+              "noticeText": "Visualização limitada: exibindo 136 de 136 nós conhecidos — o servidor também truncou resultados . Expanda nós sob demanda ou ajuste o limite.",
+              "mode": "table",
+              "rendererFailed": false
+            }
+          },
+          "sigma_errors_after": []
+        },
+        "canvas_session": {
+          "arch_load": {
+            "surface": "canvas",
+            "wall_nav_to_ready_ms": 410,
+            "counts": {
+              "rendered": 500,
+              "edges": 0,
+              "hidden": 1500,
+              "known": 2000,
+              "noticeText": "Visualização limitada: exibindo 500 de 2000 nós conhecidos (1500 ocultos pelo limite de 500) . Expanda nós sob demanda ou ajuste o limite.",
+              "mode": "canvas",
+              "rendererFailed": false
+            },
+            "note": "overview carries 0 edges — canvas mounts cleanly"
+          },
+          "pan_arch": {
+            "frames": 198,
+            "fps_mean": 58.1,
+            "delta_mean_ms": 17.22,
+            "delta_p95_ms": 16.8,
+            "delta_max_ms": 33.4,
+            "frames_over_33ms": 1,
+            "draw_calls": 176,
+            "draw_verts": 234060
+          },
+          "drill_attempt": {
+            "attempted": true,
+            "target": "mod_0000.py",
+            "action": "']' ×k + Enter + e — drillFile() in-session",
+            "wall_ms": 658,
+            "outcome": "canvas-edges",
+            "page_state": {
+              "state": null,
+              "stateText": "",
+              "breadcrumb": "Arquitetura / mod_0000.py ← Voltar sem perder o contexto"
+            },
+            "counts_after": {
+              "rendered": 208,
+              "edges": 213,
+              "hidden": 0,
+              "known": 208,
+              "noticeText": "Visualização limitada: exibindo 208 de 208 nós conhecidos — o servidor também truncou resultados . Expanda nós sob demanda ou ajuste o limite.",
+              "mode": "canvas",
+              "rendererFailed": false
+            },
+            "sigma_errors_during_drill": [],
+            "canvas_alive_with_edges": true
+          },
+          "recovery_after_drill_error": {
+            "attempted": false
+          },
+          "edge_canvas_metrics": {
+            "pan_ego": {
+              "frames": 204,
+              "fps_mean": 60,
+              "delta_mean_ms": 16.67,
+              "delta_p95_ms": 16.7,
+              "delta_max_ms": 33.4,
+              "frames_over_33ms": 1,
+              "draw_calls": 168,
+              "draw_verts": 99864
+            },
+            "canvas_expand": {
+              "attempts": 4,
+              "grew": false,
+              "note": "no focused symbol added edges — expansion targets may already be expanded",
+              "tries": [
+                {
+                  "node_label": "py",
+                  "grew": false
+                },
+                {
+                  "node_label": "mod_0000",
+                  "grew": false
+                },
+                {
+                  "node_label": "K0000",
+                  "grew": false
+                },
+                {
+                  "node_label": "m0000",
+                  "grew": false
+                }
+              ]
+            },
+            "cap_collapse": {
+              "collapsed_to": 100,
+              "apply": {
+                "max_gap_ms": 50,
+                "settle_ms": 1609.5
+              },
+              "counts_collapsed": {
+                "rendered": 100,
+                "edges": 99,
+                "hidden": 108,
+                "known": 208,
+                "noticeText": "Visualização limitada: exibindo 100 de 208 nós conhecidos (108 ocultos pelo limite de 100) — o servidor também truncou resultados . Expanda nós sob demanda ou ajuste o limite.",
+                "mode": "canvas",
+                "rendererFailed": false
+              },
+              "restore": {
+                "max_gap_ms": 33.3,
+                "settle_ms": 1606
+              },
+              "counts_restored": {
+                "rendered": 208,
+                "edges": 213,
+                "hidden": 0,
+                "known": 208,
+                "noticeText": "Visualização limitada: exibindo 208 de 208 nós conhecidos — o servidor também truncou resultados . Expanda nós sob demanda ou ajuste o limite.",
+                "mode": "canvas",
+                "rendererFailed": false
+              }
+            },
+            "pan_dense": {
+              "frames": 205,
+              "fps_mean": 60.1,
+              "delta_mean_ms": 16.64,
+              "delta_p95_ms": 16.7,
+              "delta_max_ms": 16.8,
+              "frames_over_33ms": 0,
+              "draw_calls": 127,
+              "draw_verts": 74916
+            },
+            "remount_table_to_graph": {
+              "wall_ms": 1553,
+              "surface_after": "canvas",
+              "renderer_failed": false,
+              "sigma_errors_so_far": 0
+            }
+          },
+          "sigma_errors": [],
+          "page_errors": [],
+          "longtasks": [
+            68,
+            88,
+            60,
+            169,
+            143,
+            270
+          ],
+          "heap_mb": {
+            "before": 0.5,
+            "end": 10.2
+          },
+          "raf_alive_ms": 3
+        }
+      }
+    }
+  ]
+}

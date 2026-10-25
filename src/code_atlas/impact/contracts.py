@@ -143,6 +143,11 @@ class ImpactPath:
     resolution_statuses: tuple[str, ...]
     fully_verified: bool
     reason: str
+    # lf-0120: refs tipadas por hop ("rel:<id>" = relations,
+    # "dom:<id>" = domain_relations) — os ids numéricos das duas
+    # tabelas compartilham espaço, então o prefixo preserva a
+    # proveniência quando o caminho mistura código e domínio.
+    edge_refs: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True)
@@ -161,6 +166,20 @@ class ImpactCandidate:
     # lf-0078: estado do consumidor histórico no destino
     # ("" | still_present | also_removed | unresolved_in_target)
     consumer_state: str = ""
+    # lf-0120 (Cycle 7 Phase 12): tipo do nó impactado — ``"symbol"``
+    # para símbolo de código, ``"domain"`` para entidade de domínio
+    # (o kind então carrega o ``DomainEntityKind``: data_table,
+    # spark_job…). ``symbol_key`` de entidade é a ``identity_key``
+    # canônica ``dom:…`` e ``language`` é o domínio produtor.
+    node_type: str = "symbol"
+    # Ocorrência de ``domain_entity_occurrences`` — espaço de ids
+    # separado de ``occurrence_id`` (que é sempre symbol_occurrences).
+    domain_occurrence_id: int | None = None
+    # Dependências não-traversáveis do nó (alvos ``unresolved`` /
+    # ``ambiguous`` / ``external`` sem endpoint concreto) — contam como
+    # incerteza, nunca como blast confirmado. Formas curtas estáveis:
+    # ``"WRITES_TO→<texto> (unresolved)"``.
+    uncertain_deps: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True)
@@ -207,8 +226,18 @@ class ImpactRequest:
     repository_root: str
     base_revision: str = ""         # HEAD~1, sha, branch, snapshot:N
     target_revision: str = ""       # vazio = worktree
-    symbol: str | None = None       # seleção explícita
+    symbol: str | None = None       # seleção explícita (também aceita
+                                    # ref de entidade — ver ``entity``)
     file: str | None = None
+    # lf-0120 (Cycle 7 Phase 12): seed de entidade de domínio — a
+    # análise passa a responder "se esta tabela/job/recurso mudar".
+    # Formas aceitas: ``identity_key`` canônica ``dom:…``, row id
+    # (``entity:N``/``id:N``/``N``), ``display()`` (ex.:
+    # ``pyspark:staging.orders``) ou nome qualificado
+    # (``staging.orders``, ``orders``). ``symbol`` também funciona como
+    # seed de entidade quando casa — fiação mínima para handlers que já
+    # expõem ``symbol`` (API/CLI/MCP não precisam mudar).
+    entity: str | None = None
     base_snapshot_id: int | None = None
     target_snapshot_id: int | None = None
     include_possible: bool = True

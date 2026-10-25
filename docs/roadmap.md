@@ -98,12 +98,37 @@ nós, sem arestas medidas, mobile overflow fixado com re-verificação
 pendente, Windows/macOS interativo NOT RUN — inventário em
 `docs/cycle-6.1-limitations.md`.
 
-## Cycle 7 — Domain Adapters / Federation
+## Cycle 7 — Domain Intelligence & Federation ✅ entregue
 
-Escopo: SQL/PySpark/Iceberg/Glue, APIs, Terraform, CI, multi-repo,
-integrações Forge opcionais.
+> Branch `cycle-7-domain-intelligence-federation`, specs lf-0109–lf-0126.
+> Ver `docs/cycle-7-architecture.md`, `docs/cycle-7-homologation.md`,
+> `docs/cycle-7-limitations.md`, `docs/cycle-7-evidence.md`.
 
-**Gate:** fixtures cross-repo e domínio; independência entre pacotes.
+Escopo realizado: seis adapters de domínio opt-in stdlib-only
+(`sql`, `pyspark`, `aws-data`, `api`, `terraform`, `cicd`) com grafo de
+domínio snapshot-scoped (schema v9: `domain_entities`,
+`domain_entity_occurrences`, `domain_relations`), identidade posicional
+`dom:…`, resolução cross-domain por identidade qualificada (opt-in,
+mesma transação de publicação), federação multi-repo read-only (schema
+v10: workspaces, pins READY/STALE por membro, `view_id` hash, joins por
+`shared_key`, arestas `shared_entity` computadas), faceta `domain` +
+busca federada no SearchEngine, blast misto símbolo+domínio no Impact
+Engine, context packs de domínio, cinco views novas no Explorer
+(`/lineage`, `/contracts`, `/infra`, `/pipelines`, `/federation`), FA2
+em Web Worker (RAF gap máx. 83 ms, era ~2300 ms), benchmark de grafo
+denso que achou — e o ciclo corrigiu — dois bugs P0 de canvas, suíte de
+segurança de domínio (segredos, zero rede/exec, contenção de path) e
+avaliação por goldens curados com 7/7 cenários casando 100%.
+
+**Gate:** fixtures cross-repo e domínio; independência entre pacotes —
+**PASS com ressalvas** (`docs/cycle-7-homologation.md`: G0–G20 = 20
+PASS / 1 PARTIAL; Phase 22 = 29 PASS / 2 PARTIAL). Verificado:
+pytest 1188 passed / 1 skipped, ruff limpo, mypy strict 163 arquivos,
+`ng test` 219, e2e verdes. Ressalvas honestas em
+`docs/cycle-7-limitations.md`: sem 10k nós medidos, sem Firefox/Safari/
+screen reader/Windows interativo, sem FTS de domínio (LIKE), mutação
+de domínio só via CLI, arestas cross-repo computadas-não-persistidas,
+sem integração AWS real (estático por design).
 
 ## Cycle 8 — Production Quality
 

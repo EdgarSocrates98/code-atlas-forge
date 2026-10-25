@@ -1,23 +1,31 @@
 # Code Atlas Forge
 
+<p align="center">
+  <img src="docs/assets/logo.png" alt="Code Atlas logo" width="420" />
+</p>
+
 Plataforma **open source, local-first e offline-first** de inteligência estrutural,
 semântica e arquitetural de software — grafos tipados, proveniência verificável,
 indexação incremental e contexto econômico para agentes.
 
-> **Status atual: Cycle 6.1 — Explorer homologado (branch
-> `cycle-6.1-explorer-hardening`).**
+> **Status atual: Cycle 7 — inteligência de domínio + federação
+> (branch `cycle-7-domain-intelligence-federation`).**
 > O Code Atlas indexa repositórios com parsing real (Tree-sitter), extrai
 > símbolos e constrói um grafo tipado persistido em SQLite, consultável via
 > CLI, servidor MCP stdio, **API HTTP loopback `/api/v1`** e o
 > **Explorer** — workbench visual Angular servido por
 > `code-atlas explorer`. Análise de impacto entre revisões
 > (`code-atlas impact` / `POST /impact/analyze`) está disponível com
-> estados de binding honestos. O 6.1 endureceu o Explorer: control
-> center de repositórios, contexto global com deep links, drill-down por
-> endpoint real, DTO de aresta com prova, rate limiting, CSP, câmera que
-> sobrevive à navegação e benchmarks medidos a 100–5000 arquivos. Veja
-> `docs/cycle-6.1-architecture.md`, `docs/cycle-6-homologation.md` (§7) e
-> `docs/roadmap.md`.
+> estados de binding honestos. O Cycle 7 adiciona **seis adapters de
+> domínio opt-in** (SQL, PySpark, AWS data, API contracts, Terraform,
+> CI/CD) com grafo de domínio snapshot-scoped (schema v9), **resolução
+> cross-domain** por identidade qualificada, **federação multi-repo**
+> read-only com pins por snapshot (schema v10), faceta de domínio e
+> busca federada no SearchEngine, blast radius misto no Impact Engine,
+> context packs de domínio, cinco telas novas no Explorer e layout FA2
+> assíncrono em Web Worker (RAF gap máx. 83 ms, era ~2300 ms). Veja
+> `docs/cycle-7-architecture.md`, `docs/cycle-7-homologation.md`,
+> `docs/cycle-7-limitations.md` e `docs/roadmap.md`.
 
 ## Princípios
 
@@ -85,6 +93,18 @@ code-atlas impact report --base HEAD~1 --target HEAD --format json
 # API local + Explorer visual (Cycle 6)
 code-atlas api --port 8741                # só /api/v1, loopback, read-only
 code-atlas explorer --open                # API + UI Angular compilada
+
+# domínios + federação (Cycle 7 — opt-in, default OFF)
+code-atlas index . --domains sql,pyspark --cross-domain   # extrai domínio no snapshot
+code-atlas domains list                    # adapters registrados (listar não extrai)
+code-atlas domains entities --domain sql   # entidades do snapshot READY
+code-atlas domains entity 'sql:mart.daily_revenue'
+code-atlas domains lineage staging.orders --direction up --depth 3
+code-atlas federation create minha-view    # workspace multi-repo
+code-atlas federation add minha-view /repo/a
+code-atlas federation add minha-view /repo/b
+code-atlas federation pin minha-view a 42  # pin de snapshot (latest desfaz)
+code-atlas federation view minha-view --json
 ```
 
 Filtros: `--language`, `--kind`, `--path`, `--snapshot`,
@@ -116,16 +136,25 @@ progressiva, **servidor MCP stdio** (read-only, homologado com o SDK
 oficial `mcp`), **impact engine** entre revisões/snapshots com binding
 honesto (`partial`/`mismatch`/`unavailable` nunca viram resultado
 verificado), **API HTTP loopback `/api/v1`** stdlib read-only
-(ADR-0009) e o **Explorer Angular** (`code-atlas explorer`) — grafo
-bounded com layout congelado, busca, impacto, revisões, context packs
-e diagnósticos.
+(ADR-0009), o **Explorer Angular** (`code-atlas explorer`) — grafo
+bounded, busca, impacto, revisões, context packs e diagnósticos — e,
+no Cycle 7, **adapters de domínio opt-in** (SQL/PySpark/AWS data/
+API/Terraform/CI-CD, stdlib-only, zero deps novas), **grafo de
+domínio** persistido com estados `resolved`/`ambiguous`/`unresolved`/
+`external`, **resolução cross-domain** por identidade qualificada,
+**federação multi-repo** com snapshot pinado por membro, **busca
+federada** e faceta `domain`, **blast misto** símbolo+domínio,
+**context packs de domínio** e **views de domínio no Explorer**
+(`/lineage`, `/contracts`, `/infra`, `/pipelines`, `/federation`).
 
 **Não implementado** (por design): type-checking real (resolver
 sintático não infere receiver — `d.speak()` fica `unresolved`),
 embeddings semânticos reais (provider naïve documentado, ADR-0022),
 structural sharing de grafo entre snapshots (rejeitado, ADR-0020),
 escrita via API/UI (read-only por contrato), telemetria (ausente por
-spec).
+spec), conexão com cloud real (adapters de domínio leem só artefatos
+declarados no repo — zero rede, zero execução), mutação de federação
+por HTTP (CLI-only), FTS de entidades de domínio (`q=` é `LIKE`).
 
 **Homologado com ressalvas** (Cycle 6.1 — `docs/cycle-6.1-limitations.md`):
 sem benchmark de 10k nós (máximo medido: 2000 renderizados; API trunca a
@@ -143,7 +172,8 @@ Estados `unresolved`/`ambiguous`/`external` são preservados como
 fatos — nunca preenchidos por heurística. Detalhes:
 `docs/semantic-resolution.md`, `docs/cycle-3.1-evidence.md`,
 `docs/semantic-accuracy-report.md`, `docs/cycle-6-homologation.md`,
-`docs/cycle-6.1-evidence.md`.
+`docs/cycle-6.1-evidence.md`, `docs/cycle-7-homologation.md`,
+`docs/cycle-7-limitations.md`.
 
 ## Estrutura do repositório
 
@@ -154,10 +184,14 @@ src/code_atlas/     pacote (layout src; deps pinned = tree-sitter)
   parsers/          engine + registry + adaptadores tree-sitter
   graph/            builder canônico, identidades, validação
   resolvers/        syntactic + SCIP/LSP opt-in, enrichment, bootstrap
-  storage/          SQLite: migrações v1-v5, snapshots, FTS5
+  storage/          SQLite: migrações v1-v10, snapshots, FTS5
   indexing/         coordinator + persistência do grafo
   search/           StructuralSearch (SQL parametrizado)
-  impact/           ImpactEngine: diff, binding, blast, risco, testes
+  impact/           ImpactEngine: diff, binding, blast misto, risco, testes
+  domains/          adapters de domínio opt-in (sql, pyspark, aws, api,
+                    terraform, cicd) + registry, identity, crossresolve
+  federation/       workspaces multi-repo, pins, views (schema v10)
+  eval/             suporte do runner de avaliação por goldens
   api/              HTTP loopback read-only /api/v1 (stdlib, ADR-0009)
   observability/    logging estruturado + redaction (sem telemetria)
 explorer/           workbench Angular 18 (SPA servida por `code-atlas explorer`)

@@ -141,14 +141,14 @@ export function searchHitToVM(hit: ApiSearchHit): GraphNodeVM {
  */
 export function occurrenceToVM(item: ApiFileOccurrence, path: string): GraphNodeVM {
   return {
-    id: occNodeId(item.id),
+    id: occNodeId(item.occurrence_id),
     kind: 'symbol',
     label: shortName(item.qualified_name),
     qname: item.qualified_name,
     symbolKind: item.kind,
     language: item.language ?? '',
     path: item.path ?? path,
-    occurrenceId: item.id,
+    occurrenceId: item.occurrence_id,
     symbolId: item.symbol_id ?? null,
     span:
       item.span_start !== null && item.span_end !== null
@@ -217,8 +217,9 @@ export function isFinitePosition(
 
 /**
  * Bounded ForceAtlas2 iteration count: ~60k units of work per pass,
- * clamped to [80, 400] so the synchronous layout can never run unbounded
- * — tiny graphs still converge, huge graphs stay under the frame budget.
+ * clamped to [80, 400] so the async (worker) layout can never run
+ * unbounded — tiny graphs still converge, huge graphs stay under a
+ * bounded wall-time budget.
  */
 export function layoutIterations(order: number): number {
   const n = Math.max(1, Math.floor(order) || 1);

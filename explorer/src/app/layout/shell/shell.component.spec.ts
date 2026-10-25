@@ -77,12 +77,22 @@ describe('ShellComponent', () => {
     localStorage.clear();
   });
 
-  it('should render all navigation items', async () => {
+  it('should render all navigation items including domain views', async () => {
     const fixture = await create();
     const links = (fixture.nativeElement as HTMLElement).querySelectorAll(
       '.shell__sidebar a',
     );
-    expect(links.length).toBe(9);
+    expect(links.length).toBe(14);
+    const labels = Array.from(links).map((a) => a.textContent?.trim());
+    for (const expected of [
+      'Linhagem',
+      'Contratos',
+      'Infraestrutura',
+      'Pipelines',
+      'Federação',
+    ]) {
+      expect(labels).toContain(expected);
+    }
   });
 
   it('should toggle theme on button click', async () => {

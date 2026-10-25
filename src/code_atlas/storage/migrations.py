@@ -231,6 +231,118 @@ CREATE TABLE embedding_cache (
 """
 
 
+_SCHEMA_V9_DOMAINS = """
+-- Federação de domínios (lf-0110 / ADR-0010): tabelas dedicadas porque
+-- (a) relations.type tem CHECK que não aceita o vocabulário de domínio e
+-- SQLite não altera CHECK sem rebuild; (b) a identidade de entidades de
+-- domínio inclui catalog/namespace/environment, inexpressável no UNIQUE
+-- de symbols (repo, language, qualified_name, kind). Aditiva: bancos
+-- antigos abrem e ganham as três tabelas vazias.
+
+CREATE TABLE domain_entities (
+    id INTEGER PRIMARY KEY,
+    repository_id INTEGER NOT NULL REFERENCES repositories(id),
+    domain TEXT NOT NULL,
+    kind TEXT NOT NULL,
+    identity_key TEXT NOT NULL,
+    qualified_name TEXT NOT NULL,
+    name TEXT NOT NULL DEFAULT '',
+    catalog TEXT NOT NULL DEFAULT '',
+    namespace TEXT NOT NULL DEFAULT '',
+    environment TEXT NOT NULL DEFAULT '',
+    attributes TEXT NOT NULL DEFAULT '{}',
+    UNIQUE (repository_id, identity_key)
+);
+
+CREATE TABLE domain_entity_occurrences (
+    id INTEGER PRIMARY KEY,
+    snapshot_id INTEGER NOT NULL REFERENCES snapshots(id) ON DELETE CASCADE,
+    entity_id INTEGER NOT NULL REFERENCES domain_entities(id),
+    source_file_id INTEGER REFERENCES source_files(id),
+    span_start INTEGER,
+    span_end INTEGER,
+    line INTEGER,
+    col INTEGER,
+    content_hash TEXT,
+    attributes TEXT NOT NULL DEFAULT '{}',
+    extraction_status TEXT NOT NULL DEFAULT 'extracted'
+);
+
+CREATE TABLE domain_relations (
+    id INTEGER PRIMARY KEY,
+    snapshot_id INTEGER NOT NULL REFERENCES snapshots(id) ON DELETE CASCADE,
+    from_entity_occ_id INTEGER REFERENCES domain_entity_occurrences(id),
+    from_symbol_occ_id INTEGER REFERENCES symbol_occurrences(id),
+    to_entity_occ_id INTEGER REFERENCES domain_entity_occurrences(id),
+    to_symbol_occ_id INTEGER REFERENCES symbol_occurrences(id),
+    to_unresolved TEXT,
+    type TEXT NOT NULL CHECK (type IN (
+        'CONTAINS','DEFINES','IMPORTS','CALLS','IMPLEMENTS',
+        'EXTENDS','REFERENCES','CONFIGURES','TESTS',
+        'READS_FROM','WRITES_TO','TRANSFORMS','DERIVES_FROM',
+        'DEPENDS_ON','CALLS_ENDPOINT','IMPLEMENTS_CONTRACT',
+        'PROVISIONS','USES_RESOURCE','ASSUMES_ROLE','TRIGGERS','DEPLOYS')),
+    resolution_status TEXT NOT NULL CHECK (resolution_status IN (
+        'resolved','ambiguous','unresolved','external')),
+    confidence_class TEXT NOT NULL CHECK (confidence_class IN (
+        'resolved','syntactic','heuristic','inferred')),
+    resolver TEXT NOT NULL,
+    evidence_ids TEXT NOT NULL DEFAULT '[]',
+    CHECK (from_entity_occ_id IS NOT NULL OR from_symbol_occ_id IS NOT NULL),
+    CHECK (to_entity_occ_id IS NOT NULL OR to_symbol_occ_id IS NOT NULL
+           OR to_unresolved IS NOT NULL)
+);
+
+CREATE INDEX idx_domain_entities_repo
+    ON domain_entities (repository_id, domain, kind);
+CREATE INDEX idx_domain_occ_snapshot
+    ON domain_entity_occurrences (snapshot_id, entity_id);
+CREATE INDEX idx_domain_occ_entity
+    ON domain_entity_occurrences (entity_id);
+CREATE INDEX idx_domain_relations_from
+    ON domain_relations (from_entity_occ_id, type);
+CREATE INDEX idx_domain_relations_to
+    ON domain_relations (to_entity_occ_id, type);
+CREATE INDEX idx_domain_relations_snap
+    ON domain_relations (snapshot_id, type);
+"""
+
+
+_SCHEMA_V10_FEDERATION = """
+-- Workspaces federados (lf-0118 / Cycle 7 Phase 10): agrupa >=2
+-- repositórios já indexados numa "view" multi-repo. Estritamente
+-- aditiva — bancos antigos abrem e ganham as duas tabelas vazias.
+--
+-- ``federation_members.pinned_snapshot_id`` é NULLABLE e carrega
+-- ``ON DELETE SET NULL``: quando o GC de retenção remove um snapshot
+-- STALE que estava pinado, o pin é limpo e o membro volta a seguir o
+-- READY mais recente — nunca FK dangling nem ponteiro para dados
+-- removidos. ``repository_id`` não tem cascade: repositórios não são
+-- removidos por nenhum caminho hoje (só snapshots viram GC).
+
+CREATE TABLE federation_workspaces (
+    id INTEGER PRIMARY KEY,
+    name TEXT NOT NULL UNIQUE,
+    created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now'))
+);
+
+CREATE TABLE federation_members (
+    id INTEGER PRIMARY KEY,
+    workspace_id INTEGER NOT NULL
+        REFERENCES federation_workspaces(id) ON DELETE CASCADE,
+    repository_id INTEGER NOT NULL REFERENCES repositories(id),
+    pinned_snapshot_id INTEGER REFERENCES snapshots(id) ON DELETE SET NULL,
+    added_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+    UNIQUE (workspace_id, repository_id)
+);
+
+CREATE INDEX idx_federation_members_ws
+    ON federation_members (workspace_id);
+CREATE INDEX idx_federation_members_repo
+    ON federation_members (repository_id);
+"""
+
+
 def migrations(*, fts5: bool) -> list[Migration]:
     """Lista de migrações; a v2 (FTS5) só existe quando a build suporta."""
     m = [Migration(1, "core schema (blueprint §6)", _SCHEMA_V1)]
@@ -248,6 +360,14 @@ def migrations(*, fts5: bool) -> list[Migration]:
     m.append(Migration(
         8, "vector embeddings + content cache (lf-0039)",
         _SCHEMA_V8_VECTORS,
+    ))
+    m.append(Migration(
+        9, "domain entities + relations (lf-0110)",
+        _SCHEMA_V9_DOMAINS,
+    ))
+    m.append(Migration(
+        10, "federation workspaces + members (lf-0118)",
+        _SCHEMA_V10_FEDERATION,
     ))
     return m
 

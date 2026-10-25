@@ -7,13 +7,15 @@ comparável → diagnóstico explícito, nunca fallback silencioso.
 
 from __future__ import annotations
 
+import json
 import sqlite3
+from dataclasses import replace
 from pathlib import Path
 
 from code_atlas.impact import (
-    blast_radius,
     contract_analyzer,
     diff_reader,
+    domain_traversal,
     revision_binding,
     risk_classifier,
     symbol_diff,
@@ -66,16 +68,17 @@ class ImpactEngine:
     def _reconcile(
         self, removed_impacts: tuple[ImpactCandidate, ...],
         sym_changes: tuple[SymbolChange, ...],
-        target_sid: int,
+        target_sid: int, repo_id: int,
     ) -> tuple[ImpactCandidate, ...]:
         """lf-0078: classifica o consumidor histórico no destino.
 
         still_present | consumer_modified | also_removed |
         unresolved_in_target — existência histórica separada do risco.
+        lf-0120: candidatos de domínio reconciliam por ``identity_key``
+        (presença de ocorrência no alvo / row do repositório).
         """
         if not removed_impacts:
             return removed_impacts
-        from dataclasses import replace
         target_keys = {
             f"{r['language']}:{r['kind']}:{r['qualified_name']}"
             for r in self._conn.execute(
@@ -86,9 +89,29 @@ class ImpactEngine:
         removed_keys = {s.symbol_key for s in sym_changes
                         if s.change == SymbolChangeKind.REMOVED}
         changed_keys = {s.symbol_key for s in sym_changes}
+        domain_states: dict[str, set[str]] = {"still_present": set(),
+                                              "repo": set()}
+        if any(i.node_type == "domain" for i in removed_impacts):
+            domain_states["still_present"] = {
+                str(r["identity_key"]) for r in self._conn.execute(
+                    "SELECT DISTINCT de.identity_key"
+                    " FROM domain_entity_occurrences deo"
+                    " JOIN domain_entities de ON de.id = deo.entity_id"
+                    " WHERE deo.snapshot_id = ?", (target_sid,))}
+            domain_states["repo"] = {
+                str(r["identity_key"]) for r in self._conn.execute(
+                    "SELECT identity_key FROM domain_entities"
+                    " WHERE repository_id = ?", (repo_id,))}
         out = []
         for i in removed_impacts:
-            if i.symbol_key in removed_keys:
+            if i.node_type == "domain":
+                if i.symbol_key in domain_states["still_present"]:
+                    state = "still_present"
+                elif i.symbol_key in domain_states["repo"]:
+                    state = "also_removed"
+                else:
+                    state = "unresolved_in_target"
+            elif i.symbol_key in removed_keys:
                 state = "also_removed"
             elif i.symbol_key in changed_keys:
                 state = "consumer_modified"
@@ -98,6 +121,139 @@ class ImpactEngine:
                 state = "unresolved_in_target"
             out.append(replace(i, consumer_state=state))
         return tuple(out)
+
+    def _blast(
+        self, req: ImpactRequest, pair: ResolvedImpactSnapshots,
+        sym_changes: tuple[SymbolChange, ...],
+        base_sid: int, target_sid: int,
+        unknown: tuple[str, ...],
+        diags: list[ImpactDiagnostic],
+    ) -> tuple[tuple[ImpactCandidate, ...], bool, tuple[str, ...]]:
+        """Passo 6: blast misto (código + domínio) nos dois snapshots.
+
+        Origens: ocorrências vivas de símbolos alterados no alvo;
+        REMOVIDAS na base (lf-0074). lf-0120 soma seeds de entidade —
+        ``entity`` explícito; ``symbol`` também resolve refs de
+        entidade (fiação mínima — handlers que já passam
+        ``symbol``/``ident`` aceitam seeds de domínio sem mudança de
+        assinatura). Retorna ``(impactos, truncado, unknown_coverage)``.
+        """
+        origins_target, origins_base = self._origins(sym_changes)
+        # lf-0120: ``symbol`` também é seed de símbolo — "se ESTE
+        # símbolo mudar" cobre ocorrências não-alteradas (what-if),
+        # não só as que o diff marcou como origens.
+        if req.symbol:
+            for key, occ in self._symbol_seeds(
+                    req.symbol, target_sid).items():
+                origins_target.setdefault(key, occ)
+
+        refs: list[tuple[str, bool]] = []
+        if req.entity:
+            refs.append((req.entity, True))
+        if req.symbol:
+            refs.append((req.symbol, False))
+        seeds = domain_traversal.resolve_seeds(
+            self._conn, pair.repository_id, tuple(refs),
+            base_sid, target_sid)
+        diags.extend(seeds.diagnostics)
+
+        # Estado dos dados de domínio no alvo — flag de ausência
+        # honesta (spec: parcial marcado, nunca erro silencioso).
+        unknown_list = list(unknown) + self._domain_flags(target_sid)
+
+        t_out = domain_traversal.blast(
+            self._conn, target_sid,
+            sym_origins=origins_target,
+            ent_origins=seeds.target_origins, limits=req.limits)
+        impacts = t_out.candidates
+        truncated = t_out.truncated
+        unc = dict(t_out.uncertain)
+        cross_snap = t_out.cross_snapshot
+        removed_impacts: tuple[ImpactCandidate, ...] = ()
+        if base_sid != target_sid and (origins_base or
+                                       seeds.base_origins):
+            r_out = domain_traversal.blast(
+                self._conn, base_sid,
+                sym_origins=origins_base,
+                ent_origins=seeds.base_origins, limits=req.limits,
+                reason_suffix=" (base snapshot — símbolo removido)")
+            removed_impacts = r_out.candidates
+            truncated = truncated or r_out.truncated
+            cross_snap += r_out.cross_snapshot
+            for st, n in r_out.uncertain.items():
+                unc[st] = unc.get(st, 0) + n
+        removed_impacts = self._reconcile(
+            removed_impacts, sym_changes, target_sid,
+            pair.repository_id)
+        impacts = impacts + removed_impacts
+        for st in sorted(unc):
+            unknown_list.append(f"domain-{st}-deps:{unc[st]}")
+        if cross_snap:
+            unknown_list.append(f"domain-cross-snapshot:{cross_snap}")
+        return impacts, truncated, tuple(unknown_list)
+
+    @staticmethod
+    def _origins(
+        sym_changes: tuple[SymbolChange, ...],
+    ) -> tuple[dict[str, int], dict[str, int]]:
+        """``(origens no alvo, origens na base)`` a partir do diff."""
+        target: dict[str, int] = {}
+        base: dict[str, int] = {}
+        for s in sym_changes:
+            if s.change == SymbolChangeKind.REMOVED:
+                if s.old_occurrence_id is not None:
+                    base[s.symbol_key] = s.old_occurrence_id
+            else:
+                occ = s.new_occurrence_id or s.old_occurrence_id
+                if occ is not None:
+                    target[s.symbol_key] = occ
+        return target, base
+
+    def _symbol_seeds(
+        self, ref: str, target_sid: int,
+    ) -> dict[str, int]:
+        """Ocorrências-alvo cujo ``symbol_key``/``qualified_name``
+        casa ``ref`` — seeds de símbolo para análise what-if."""
+        out: dict[str, int] = {}
+        for r in self._conn.execute(
+                "SELECT o.id AS occ, s.language, s.kind,"
+                " s.qualified_name FROM symbol_occurrences o"
+                " JOIN symbols s ON s.id = o.logical_symbol_id"
+                " WHERE o.snapshot_id = ? AND ("
+                "  s.language || ':' || s.kind || ':'"
+                "   || s.qualified_name = ?"
+                "  OR instr(s.qualified_name, ?) > 0)"
+                " ORDER BY o.id LIMIT 64",
+                (target_sid, ref, ref)):
+            key = (f"{r['language']}:{r['kind']}:"
+                   f"{r['qualified_name']}")
+            out.setdefault(key, int(r["occ"]))
+        return out
+
+    def _domain_flags(self, target_sid: int) -> list[str]:
+        """Flag de ausência/parcialidade dos dados de domínio."""
+        dstate = domain_traversal.domain_state(
+            self._conn, target_sid, self._snapshot_versions(target_sid))
+        if dstate == "adapters-disabled":
+            return ["domain-adapters-disabled"]
+        if dstate == "empty":
+            return ["domain-data-empty"]
+        return []
+
+    def _snapshot_versions(self, sid: int) -> dict[str, str]:
+        """``analyzer_versions`` de um snapshot — ``{}`` se corrompido."""
+        row = self._conn.execute(
+            "SELECT analyzer_versions FROM snapshots WHERE id = ?",
+            (sid,)).fetchone()
+        if row is None:
+            return {}
+        try:
+            v = json.loads(str(row["analyzer_versions"] or "{}"))
+        except json.JSONDecodeError:
+            return {}
+        if not isinstance(v, dict):
+            return {}
+        return {str(k): str(x) for k, x in v.items()}
 
     def analyze(self, req: ImpactRequest) -> ImpactResult:
         diags: list[ImpactDiagnostic] = []
@@ -151,26 +307,12 @@ class ImpactEngine:
         contract_changes = contract_analyzer.analyze(sym_changes)
 
         # 6) Blast radius: origens vivas no alvo; REMOVIDAS na base
-        # (lf-0074 — a ocorrência atual não existe mais).
-        origins_target: dict[str, int] = {}
-        origins_base: dict[str, int] = {}
-        for s in sym_changes:
-            if s.change == SymbolChangeKind.REMOVED:
-                if s.old_occurrence_id is not None:
-                    origins_base[s.symbol_key] = s.old_occurrence_id
-            else:
-                occ = s.new_occurrence_id or s.old_occurrence_id
-                if occ is not None:
-                    origins_target[s.symbol_key] = occ
-        impacts, b_trunc = blast_radius.blast(
-            self._conn, target_sid, origins_target, req.limits)
-        removed_impacts, r_trunc = blast_radius.blast(
-            self._conn, base_sid, origins_base, req.limits,
-            reason_suffix=" (base snapshot — símbolo removido)")
-        b_trunc = b_trunc or r_trunc
-        removed_impacts = self._reconcile(
-            removed_impacts, sym_changes, target_sid)
-        impacts = impacts + tuple(removed_impacts)
+        # (lf-0074 — a ocorrência atual não existe mais). lf-0120: o
+        # blast é misto — relações de código + relações de domínio —
+        # e seeds podem ser entidades (``req.entity``/``req.symbol``).
+        impacts, b_trunc, unknown = self._blast(
+            req, pair, sym_changes, base_sid, target_sid, unknown,
+            diags)
         if req.known_only or not req.include_possible:
             impacts = tuple(
                 i for i in impacts

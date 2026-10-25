@@ -21,7 +21,12 @@ import sys
 from collections.abc import Sequence
 from dataclasses import asdict, dataclass, replace
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
+
+if TYPE_CHECKING:
+    from code_atlas.domains.crossresolve import CrossDomainResolver
+    from code_atlas.domains.registry import DomainRegistry
+    from code_atlas.federation import Federation
 
 from code_atlas import __version__, gitbin
 from code_atlas.config import (
@@ -387,10 +392,20 @@ def run_index(args: argparse.Namespace) -> int:
         if fatal:
             conn.close()
             return _emit_error(args, fatal)
+        # Domínio opt-in (lf-0123, Cycle 7 Phase 15): ``--domains``
+        # monta o registry de adapters built-in; ``--cross-domain``
+        # injeta o resolver. Default = flags ausentes → ``None`` →
+        # comportamento byte a byte anterior (adapters OFF).
+        dom_reg, cross_res, dom_err = _index_domains(target, args)
+        if dom_err:
+            conn.close()
+            return _emit_error(args, dom_err)
         coord = IndexCoordinator(
             conn, resolver_factories=factories,
             resolver_versions=res_versions,
-            snapshot_retention=retain)
+            snapshot_retention=retain,
+            domain_registry=dom_reg,
+            cross_resolver=cross_res)
         # lf-0022: incremental é o default — ``--full`` é o escape
         # (force desliga o caminho incremental internamente).
         outcome: IndexOutcome = coord.index(target, force=args.full, incremental=True)
@@ -415,12 +430,46 @@ def run_index(args: argparse.Namespace) -> int:
         "stats": outcome.stats,
         "plan": plan_counts,
         "diagnostics": boot_errors,
+        "domains": (
+            sorted(d.domain_id for d in dom_reg.enabled())
+            if dom_reg is not None else []
+        ),
+        "cross_domain": cross_res is not None,
     }
     if args.json:
         print(json.dumps(payload))
     else:
         _print_index_human(outcome)
     return EXIT_OK if outcome.status in ("success", "noop") else EXIT_ERROR
+
+
+def _index_domains(
+    target: Path, args: argparse.Namespace,
+) -> tuple[DomainRegistry | None, CrossDomainResolver | None, str]:
+    """Flags de domínio do ``index`` → (registry, cross_resolver, fatal).
+
+    ``--domains`` aceita ids separados por vírgula ou ``all``;
+    ``--cross-domain`` exige ``--domains`` (sem rows de domínio o plano
+    do resolver sai vazio — recusar é mais honesto que indexar uma
+    versão de analisador que não faz nada).
+    """
+    spec = getattr(args, "domains", None)
+    cross = bool(getattr(args, "cross_domain", False))
+    if not spec:
+        if cross:
+            return None, None, "--cross-domain requires --domains"
+        return None, None, ""
+    from code_atlas.domains.cli_surface import select_domain_registry
+
+    reg, err = select_domain_registry(spec, target)
+    if err or reg is None:
+        return None, None, err or "--domains: registry build failed"
+    resolver = None
+    if cross:
+        from code_atlas.domains.crossresolve import CrossDomainResolver
+
+        resolver = CrossDomainResolver()
+    return reg, resolver, ""
 
 
 def _print_index_human(outcome: IndexOutcome) -> None:
@@ -433,6 +482,11 @@ def _print_index_human(outcome: IndexOutcome) -> None:
                   f"{s.get('occurrences', 0)} occurrences, "
                   f"{s.get('relations', 0)} relations "
                   f"({s.get('files_failed', 0)} files failed)")
+        if s.get("domain_adapters"):
+            dom = {k: v for k, v in s.items()
+                   if k.startswith("domain_") and k != "domain_adapters"}
+            print(f"domains: {s['domain_adapters']} adapter(s) — "
+                  + ", ".join(f"{k}={v}" for k, v in sorted(dom.items())))
     elif outcome.status == "noop":
         print(f"snapshot #{outcome.snapshot_id} unchanged — no-op index")
     else:
@@ -1175,6 +1229,440 @@ def run_impact(args: argparse.Namespace) -> int:
         conn.close()
 
 
+def _fed_cmd_create(fed: Federation, args: argparse.Namespace) -> dict[str, Any]:
+    ws = fed.create_workspace(args.name)
+    return {"workspace_id": ws.id, "workspace": ws.name, "created": True}
+
+
+def _fed_cmd_add(fed: Federation, args: argparse.Namespace) -> dict[str, Any]:
+    ws = fed.get_workspace(args.name)
+    repo_id = fed.resolve_repository(args.repo)
+    member = fed.add_member(ws, repo_id)
+    return {
+        "workspace_id": ws.id, "workspace": ws.name,
+        "repository_id": member.repository_id, "member_id": member.id,
+    }
+
+
+def _fed_cmd_pin(fed: Federation, args: argparse.Namespace) -> dict[str, Any]:
+    from code_atlas.federation import InvalidPinError
+
+    ws = fed.get_workspace(args.name)
+    repo_id = fed.resolve_repository(args.repo)
+    if args.snapshot == "latest":
+        member = fed.unpin_member(ws, repo_id)
+    else:
+        try:
+            snap_id = int(args.snapshot)
+        except ValueError as exc:
+            raise InvalidPinError(
+                f"snapshot must be an id or 'latest': {args.snapshot!r}"
+            ) from exc
+        member = fed.pin_member(ws, repo_id, snap_id)
+    return {
+        "workspace_id": ws.id, "workspace": ws.name,
+        "repository_id": member.repository_id,
+        "pinned_snapshot_id": member.pinned_snapshot_id,
+    }
+
+
+def _fed_cmd_view(fed: Federation, args: argparse.Namespace) -> dict[str, Any]:
+    from code_atlas.federation import InvalidPinError
+
+    ws = fed.get_workspace(args.name)
+    pins: dict[int, int] = {}
+    for seg in (args.pin or "").split(","):
+        seg = seg.strip()
+        if not seg:
+            continue
+        repo, sep, snap = seg.partition(":")
+        if not sep or not repo.isdigit() or not snap.isdigit():
+            raise InvalidPinError(
+                "pin must be repo:snapshot[,repo:snapshot…]"
+            )
+        pins[int(repo)] = int(snap)
+    return fed.resolve_view(ws, pins).to_dict()
+
+
+_FED_COMMANDS = {
+    "create": _fed_cmd_create,
+    "add": _fed_cmd_add,
+    "pin": _fed_cmd_pin,
+    "view": _fed_cmd_view,
+}
+
+_FED_REQUIRED = {
+    "create": ("name",), "add": ("name", "repo"),
+    "pin": ("name", "repo", "snapshot"), "view": ("name",),
+}
+
+
+def run_federation(args: argparse.Namespace) -> int:
+    """``federation`` (lf-0118, Phase 10): agrupamentos multi-repo.
+
+    A mutação (create/add/pin) é superfície exclusiva da CLI — a API HTTP
+    expõe somente views/lookups/graphs GET. Membros só entram de repos
+    **já indexados**; nada de auto-discovery de diretórios.
+    """
+    from code_atlas.federation import Federation, FederationError
+
+    cmd = getattr(args, "fed_cmd", "view") or "view"
+    missing = [k for k in _FED_REQUIRED.get(cmd, ())
+               if not getattr(args, k, None)]
+    if missing:
+        print(f"error: federation {cmd} requires "
+              f"{', '.join(missing)}", file=sys.stderr)
+        return EXIT_USAGE
+    conn = _open_db()
+    try:
+        try:
+            payload = _FED_COMMANDS[cmd](Federation(conn), args)
+        except FederationError as exc:
+            return _emit_error(args, str(exc))
+    finally:
+        conn.close()
+    payload["tool"] = "code-atlas"
+    payload["version"] = __version__
+    payload["command"] = f"federation {cmd}"
+    if args.json:
+        print(json.dumps(payload))
+    elif cmd == "view":
+        print(f"view {payload['view_id']}")
+        for m in payload["members"]:
+            print(
+                f"  repo={m['repository_id']} "
+                f"snapshot={m['snapshot_id']} "
+                f"[{m['resolution']}] {m['snapshot_status']}"
+            )
+    else:
+        for k, v in payload.items():
+            if not k.startswith("_") and k not in ("tool", "version",
+                                                   "command"):
+                print(f"{k}: {v}")
+    return EXIT_OK
+
+
+# --- domains (lf-0123, Cycle 7 Phase 15) ------------------------------------
+
+
+def _domain_repo(
+    conn: sqlite3.Connection, args: argparse.Namespace, ident: str | None
+) -> tuple[int | None, str]:
+    """Escopo do repo: ``--repo`` > ``--root`` > derivado do ``ident``.
+
+    ``--repo`` aceita id | identity_key | root_handle | path (mesma
+    resolução de ``federation add`` — reusa ``Federation.resolve_repository``).
+    ``ident`` numérico/``dom:``/nome único deriva o repo do próprio dado
+    — ``domains entity`` funciona sem flags quando a chave é exata.
+    """
+    repo_ref = getattr(args, "repo", None)
+    root_arg = getattr(args, "root", None)
+    if repo_ref:
+        from code_atlas.federation import Federation, FederationError
+
+        try:
+            return Federation(conn).resolve_repository(str(repo_ref)), ""
+        except FederationError as exc:
+            return None, str(exc)
+    if root_arg:
+        root = resolve_root(root_arg)
+        repo_id = StructuralSearch(conn).repo_for_root(str(root))
+        if repo_id is None:
+            return None, f"no indexed repository at {root}"
+        return repo_id, ""
+    if ident:
+        from code_atlas.domains.cli_surface import repo_for_ident
+
+        repo_id, derr = repo_for_ident(conn, ident)
+        if derr:
+            return None, derr
+        if repo_id is not None:
+            return repo_id, ""
+    root = resolve_root(root_arg)
+    repo_id = StructuralSearch(conn).repo_for_root(str(root))
+    if repo_id is None:
+        return None, f"no indexed repository at {root}"
+    return repo_id, ""
+
+
+def _domain_context(
+    args: argparse.Namespace, ident: str | None = None
+) -> tuple[
+    sqlite3.Connection | None,
+    int | None,
+    int | None,
+    dict[str, Any] | None,
+    str,
+]:
+    """(conn, repo_id, snapshot_id, repo_info, err) — mesmo contrato de
+    ``_search_context``, mas o repo pode vir de ``--repo``/``ident``."""
+    conn = _open_db()
+    repo_id, err = _domain_repo(conn, args, ident)
+    if err or repo_id is None:
+        conn.close()
+        return None, None, None, None, err or "repository unresolved"
+    search = StructuralSearch(conn)
+    snap, serr = search.resolve_snapshot(
+        repo_id, getattr(args, "snapshot", None))
+    if serr or snap is None or snap.id is None:
+        conn.close()
+        return None, None, None, None, serr or "snapshot missing id"
+    repo_info = search.repository_info(repo_id) or {"id": repo_id}
+    return conn, repo_id, int(snap.id), repo_info, ""
+
+
+def _dom_cmd_list(
+    args: argparse.Namespace,
+) -> tuple[dict[str, Any] | None, str]:
+    """``domains list`` — adapters registrados (não extrai nada)."""
+    from code_atlas.domains.cli_surface import adapters_report
+
+    adapters = adapters_report()
+    width = max((len(a["domain_id"]) for a in adapters), default=0)
+    return {
+        "command": "domains list",
+        "adapters": adapters,
+        "notes": [
+            "registered adapters are opt-in: extraction only runs when "
+            "`code-atlas index --domains` selects them",
+        ],
+        "_human": [
+            "domain".ljust(width) + "  version  enabled  artifacts",
+            *(
+                f"{a['domain_id']:<{width}}  {a['adapter_version']:<8} "
+                f"{'yes' if a['enabled'] else 'no':<7}  "
+                + ",".join(a["artifact_support"]["extensions"] or ["-"])
+                + (f"; globs={a['artifact_support']['globs']}"
+                   if a["artifact_support"]["globs"] else "")
+                for a in adapters
+            ),
+            "note: opt-in — `index --domains <ids|all>` enables extraction",
+        ],
+    }, ""
+
+
+def _dom_cmd_entities(
+    args: argparse.Namespace,
+) -> tuple[dict[str, Any] | None, str]:
+    """``domains entities`` — listagem determinística do snapshot."""
+    from code_atlas.domains.cli_surface import (
+        NOTE_OPT_IN,
+        list_entities,
+    )
+    from code_atlas.domains.model import DomainEntityKind
+
+    kind = (getattr(args, "kind", None) or "").strip()
+    if kind and kind not in {str(k) for k in DomainEntityKind}:
+        return None, (
+            f"unknown --kind {kind!r} (valid: "
+            f"{', '.join(sorted(str(k) for k in DomainEntityKind))})"
+        )
+    conn, repo_id, snap_id, repo_info, err = _domain_context(args)
+    if err:
+        return None, err
+    assert conn is not None and repo_id is not None and snap_id is not None
+    try:
+        limit = clamp_limit(args.limit)
+        offset = max(0, getattr(args, "offset", 0) or 0)
+        domain = (getattr(args, "domain", None) or "").strip()
+        q = (getattr(args, "q", None) or "").strip()
+        out = list_entities(
+            conn, repo_id, snap_id,
+            domain=domain, kind=kind, q=q, limit=limit, offset=offset)
+    finally:
+        conn.close()
+    notes = [NOTE_OPT_IN] if out["total"] == 0 else []
+    items = out["items"]
+    return {
+        "command": "domains entities",
+        "repository": repo_info,
+        "snapshot_id": snap_id,
+        "filters": {"domain": domain, "kind": kind, "q": q},
+        "limit": limit,
+        "offset": offset,
+        "total": out["total"],
+        "truncated": out["truncated"],
+        "items": items,
+        "notes": notes,
+        "_human": [
+            *(
+                f"{i['entity_id']:>4} {i['domain']:<10} {i['kind']:<20} "
+                f"{i['display_name']}  x{i['occurrences']}"
+                f"{' ' + i['path'] if i['path'] else ''}"
+                for i in items
+            ),
+            *notes,
+        ],
+    }, ""
+
+
+def _dom_cmd_entity(
+    args: argparse.Namespace,
+) -> tuple[dict[str, Any] | None, str]:
+    """``domains entity <key>`` — cartão de identidade + proveniência."""
+    from code_atlas.domains.cli_surface import (
+        entity_detail,
+        resolve_single_entity,
+    )
+
+    ident = str(args.ident)
+    conn, repo_id, snap_id, repo_info, err = _domain_context(args, ident)
+    if err:
+        return None, err
+    assert conn is not None and repo_id is not None and snap_id is not None
+    try:
+        entity, eerr = resolve_single_entity(conn, repo_id, ident)
+        if entity is None:
+            return None, eerr
+        detail = entity_detail(conn, entity, snap_id)
+    finally:
+        conn.close()
+    identd = detail["identity"]
+    notes: list[str] = []
+    if not detail["occurrences"]:
+        notes.append(
+            f"no occurrences in snapshot {snap_id} — entity was "
+            "extracted under another snapshot or a different "
+            "enablement set"
+        )
+    human = [
+        f"entity #{detail['entity_id']} {identd['display_name']} "
+        f"({identd['kind']}) — domain={identd['domain']}",
+        f"identity_key: {identd['identity_key']}",
+        f"  catalog={identd['catalog'] or '-'} "
+        f"namespace={identd['namespace'] or '-'} "
+        f"environment={identd['environment'] or '-'} "
+        f"name={identd['name']}",
+        f"occurrences (snapshot {snap_id}): "
+        f"{len(detail['occurrences'])}",
+        *(
+            f"  {o['path'] or '<synthesized>'}:{o['line'] or '-'}:"
+            f"{o['col'] or '-'} [{o['extraction_status']}]"
+            for o in detail["occurrences"]
+        ),
+        f"relations: {sum(r['count'] for r in detail['relations_summary'])}",
+        *(
+            f"  {r['direction']:<4} {r['type']:<20} {r['status']:<11} "
+            f"x{r['count']}"
+            for r in detail["relations_summary"]
+        ),
+        f"evidence: {detail['evidence_count']} distinct row(s)",
+        *notes,
+    ]
+    return {
+        "command": "domains entity",
+        "repository": repo_info,
+        "snapshot_id": snap_id,
+        "entity": detail,
+        "notes": notes,
+        "_human": human,
+    }, ""
+
+
+def _dom_cmd_lineage(
+    args: argparse.Namespace,
+) -> tuple[dict[str, Any] | None, str]:
+    """``domains lineage <table>`` — traversal de fluxo bounded."""
+    from code_atlas.domains.cli_surface import (
+        DATA_FLOW_TYPES,
+        lineage,
+        resolve_single_entity,
+    )
+
+    ident = str(args.ident)
+    conn, repo_id, snap_id, repo_info, err = _domain_context(args, ident)
+    if err:
+        return None, err
+    assert conn is not None and repo_id is not None and snap_id is not None
+    try:
+        entity, eerr = resolve_single_entity(conn, repo_id, ident)
+        if entity is None:
+            return None, eerr
+        out = lineage(
+            conn, entity, snap_id,
+            direction=getattr(args, "direction", "both"),
+            depth=clamp_depth(getattr(args, "depth", 2)),
+            limit=clamp_limit(getattr(args, "limit", None)))
+    finally:
+        conn.close()
+    types = ", ".join(sorted(DATA_FLOW_TYPES))
+    notes = (
+        [f"no data-flow relations ({types}) touch this entity in "
+         f"snapshot {snap_id}"]
+        if not out["edges"] else []
+    )
+    ent = out["entity"]
+    human = [
+        f"lineage of {ent['display_name']} ({ent['kind']}) — "
+        f"direction={out['direction']} depth<={out['depth']} "
+        f"limit={out['limit']} truncated={out['truncated']}",
+    ]
+    if out["direction"] in ("up", "both"):
+        human.append(f"upstream (feeds {ent['display_name']}):")
+        human += [
+            f"  d{e['depth']} {e['from']} → {e['to']} "
+            f"[{e['type']} {e['resolution_status']}]"
+            for e in out["edges"] if e["via"] == "up"
+        ]
+    if out["direction"] in ("down", "both"):
+        human.append(f"downstream (fed by {ent['display_name']}):")
+        human += [
+            f"  d{e['depth']} {e['from']} → {e['to']} "
+            f"[{e['type']} {e['resolution_status']}]"
+            for e in out["edges"] if e["via"] == "down"
+        ]
+    human += notes
+    payload = {
+        "command": "domains lineage",
+        "repository": repo_info,
+        "snapshot_id": snap_id,
+        "notes": notes,
+        "_human": human,
+    }
+    payload.update(out)
+    return payload, ""
+
+
+_DOM_COMMANDS = {
+    "list": _dom_cmd_list,
+    "entities": _dom_cmd_entities,
+    "entity": _dom_cmd_entity,
+    "lineage": _dom_cmd_lineage,
+}
+
+_DOM_REQUIRED = {
+    "entity": ("ident",),
+    "lineage": ("ident",),
+}
+
+
+def run_domains(args: argparse.Namespace) -> int:
+    """``domains`` (lf-0123, Phase 15): superfície read-only de domínio.
+
+    Todos os subcomandos são somente leitura e ancorados no snapshot
+    resolvido — adapters desabilitados produzem resposta vazia com
+    nota, nunca erro.
+    """
+    cmd = getattr(args, "dom_cmd", "list") or "list"
+    missing = [k for k in _DOM_REQUIRED.get(cmd, ())
+               if not getattr(args, k, None)]
+    if missing:
+        print(f"error: domains {cmd} requires "
+              f"{', '.join(missing)}", file=sys.stderr)
+        return EXIT_USAGE
+    try:
+        payload, err = _DOM_COMMANDS[cmd](args)
+    except KeyError:
+        print(f"error: unknown domains command {cmd!r}", file=sys.stderr)
+        return EXIT_USAGE
+    if err or payload is None:
+        return _emit_error(args, err or "domains command failed")
+    payload["tool"] = "code-atlas"
+    payload["version"] = __version__
+    payload["schema_version"] = SCHEMA_VERSION
+    return _emit_page(args, payload)
+
+
 def run_dependencies(args: argparse.Namespace) -> int:
     """``dependencies`` (lf-0022): arestas saíntes, BFS limitado."""
     conn, repo_id, snap_id, repo_info, err = _search_context(args)
@@ -1265,6 +1753,16 @@ def build_parser() -> argparse.ArgumentParser:
         "--resolver", metavar="NAME", action="append", default=None,
         help="restringe resolvers ativos (syntactic|scip|lsp|lsp:<nome>); "
              "repetível ou separado por vírgula",
+    )
+    p_index.add_argument(
+        "--domains", metavar="LIST", default=None,
+        help="adapters de domínio opt-in: ids separados por vírgula "
+             "(sql,pyspark,aws-data,terraform,cicd,api) ou 'all' — "
+             "default OFF (ver `code-atlas domains list`)",
+    )
+    p_index.add_argument(
+        "--cross-domain", action="store_true",
+        help="resolução cross-domain no snapshot (requer --domains)",
     )
     p_index.add_argument("--json", action="store_true", help="saída em JSON")
     p_index.set_defaults(func=run_index)
@@ -1415,6 +1913,69 @@ def build_parser() -> argparse.ArgumentParser:
                        help="abre o navegador (somente quando pedido)")
     p_expl.add_argument("--verbose", action="store_true")
     p_expl.set_defaults(func=run_explorer)
+
+    p_fed = sub.add_parser(
+        "federation",
+        help="agrupa repos indexados numa view federada "
+             "(lf-0118; mutação via CLI)")
+    p_fed.add_argument(
+        "fed_cmd", metavar="CMD",
+        choices=("create", "add", "pin", "view"),
+        help="create <name> | add <ws> <repo> | pin <ws> <repo> <snap|latest>"
+             " | view <ws>")
+    p_fed.add_argument("name", nargs="?", metavar="NAME",
+                       help="nome a criar (create) ou ref <ws> (demais)")
+    p_fed.add_argument("repo", nargs="?", metavar="REPO",
+                       help="repo id | identity_key | root_handle | path "
+                            "(add/pin)")
+    p_fed.add_argument("snapshot", nargs="?", metavar="SNAPSHOT",
+                       help="snapshot id a pinar, ou 'latest' para desfazer "
+                            "o pin (pin)")
+    p_fed.add_argument("--pin", metavar="REPO:SNAP,…", default="",
+                       help="overrides de pin na view (view)")
+    p_fed.add_argument("--json", action="store_true", help="saída em JSON")
+    p_fed.set_defaults(func=run_federation)
+
+    p_dom = sub.add_parser(
+        "domains",
+        help="inteligência de domínio read-only (lf-0123): adapters, "
+             "entidades e linhagem — dados existem só quando o índice "
+             "rodou com `index --domains`")
+    p_dom.add_argument(
+        "dom_cmd", metavar="CMD",
+        choices=("list", "entities", "entity", "lineage"),
+        help="list | entities | entity <key> | lineage <table>")
+    p_dom.add_argument(
+        "ident", nargs="?", metavar="KEY",
+        help="identity_key 'dom:…' | id numérico | qualified_name | "
+             "namespace.qualified_name (entity/lineage)")
+    p_dom.add_argument(
+        "--repo", metavar="REF",
+        help="repo id | identity_key | root_handle | path "
+             "(como `federation add`)")
+    p_dom.add_argument("--domain", metavar="D",
+                       help="filtra por domain_id (entities)")
+    p_dom.add_argument("--kind", metavar="K",
+                       help="filtra por DomainEntityKind (entities)")
+    p_dom.add_argument("--q", metavar="SUBSTR",
+                       help="substring de qualified_name/name (entities)")
+    p_dom.add_argument(
+        "--direction", choices=("up", "down", "both"), default="both",
+        help="up=produtores, down=consumidores (lineage; default both)")
+    p_dom.add_argument(
+        "--depth", metavar="N", type=int, default=2,
+        help=f"hops do traversal (lineage; default 2, teto {MAX_DEPTH})")
+    p_dom.add_argument(
+        "--limit", metavar="N", type=int,
+        help=f"máx. de resultados (default {DEFAULT_LIMIT}, teto {MAX_LIMIT})")
+    p_dom.add_argument("--offset", metavar="N", type=int, default=0,
+                       help="deslocamento de paginação (entities)")
+    p_dom.add_argument("--snapshot", metavar="ID", type=int,
+                       help="snapshot alvo (default: READY mais recente)")
+    p_dom.add_argument("--root", metavar="PATH",
+                       help="raiz do workspace (default: cwd)")
+    p_dom.add_argument("--json", action="store_true", help="saída em JSON")
+    p_dom.set_defaults(func=run_domains)
 
     return parser
 
