@@ -10,10 +10,24 @@ from __future__ import annotations
 import dataclasses
 import json
 import re
+from collections.abc import Callable
 from typing import TYPE_CHECKING, Any
-from urllib.parse import parse_qs, urlparse
+from urllib.parse import parse_qs, unquote, urlparse
 
 from code_atlas.api.server import ApiError
+from code_atlas.federation import (
+    Federation,
+    FederationError,
+    InvalidKeyError,
+    InvalidPinError,
+    MemberNotFoundError,
+    RepositoryNotFoundError,
+    SnapshotNotFoundError,
+    SnapshotNotReadyError,
+    WorkspaceExistsError,
+    WorkspaceNotFoundError,
+    WorkspaceSizeError,
+)
 from code_atlas.storage.store import Store
 
 if TYPE_CHECKING:
@@ -419,6 +433,161 @@ def _index_status(server: _AtlasHttpd, conn: Any, _p: dict[str, str],
     return {"items": items}
 
 
+# --- federação multi-repo (lf-0118, Phase 10 — somente leitura) -------
+#
+# Views/lookups/graphs são GET sobre conexão ``query_only``; criar/
+# editar workspaces é superfície exclusiva da CLI — POST de federação
+# não existe por desenho nesta fase.
+
+_FED_ERROR_MAP: tuple[tuple[type[FederationError], str, int], ...] = (
+    (WorkspaceNotFoundError, "workspace-not-found", 404),
+    (WorkspaceSizeError, "federation-too-small", 409),
+    (WorkspaceExistsError, "workspace-exists", 409),
+    (MemberNotFoundError, "member-not-found", 404),
+    (RepositoryNotFoundError, "repo-not-found", 404),
+    (SnapshotNotFoundError, "snapshot-not-found", 404),
+    (SnapshotNotReadyError, "snapshot-not-ready", 409),
+    (InvalidPinError, "bad-pin", 400),
+    (InvalidKeyError, "bad-key", 400),
+)
+
+
+def _fed_call[T](fn: Callable[[], T]) -> T:
+    """Mapeia ``FederationError`` tipadas para ``ApiError``."""
+    try:
+        return fn()
+    except FederationError as exc:
+        for cls, code, status in _FED_ERROR_MAP:
+            if isinstance(exc, cls):
+                raise ApiError(code, str(exc)[:300], status) from exc
+        raise ApiError("federation-error", str(exc)[:300]) from exc
+
+
+def _parse_pins(p: dict[str, str]) -> dict[int, int]:
+    """``?pin=<repo>:<snap>[,<repo>:<snap>…]`` — overrides da view."""
+    raw = p.get("pin", "")
+    out: dict[int, int] = {}
+    if not raw.strip():
+        return out
+    for part in raw.split(","):
+        seg = part.strip()
+        if not seg:
+            continue
+        repo, sep, snap = seg.partition(":")
+        if not sep or not repo.isdigit() or not snap.isdigit():
+            raise ApiError(
+                "bad-param",
+                "pin deve ser repo:snapshot[,repo:snapshot…]",
+            )
+        out[int(repo)] = int(snap)
+    return out
+
+
+def _fed_workspaces(server: _AtlasHttpd, conn: Any, _p: dict[str, str],
+                    _b: dict[str, Any] | None) -> dict[str, Any]:
+    rows = conn.execute(
+        "SELECT w.id, w.name, w.created_at, "
+        "(SELECT COUNT(*) FROM federation_members m "
+        " WHERE m.workspace_id = w.id) AS members "
+        "FROM federation_workspaces w ORDER BY w.name").fetchall()
+    return {"items": [dict(r) for r in rows], "total": len(rows)}
+
+
+def _fed_workspace(server: _AtlasHttpd, conn: Any, ws_id: str,
+                   _p: dict[str, str]) -> dict[str, Any]:
+    fed = Federation(conn)
+    ws = _fed_call(lambda: fed.get_workspace(int(ws_id)))
+    rows = conn.execute(
+        "SELECT m.repository_id, m.pinned_snapshot_id, m.added_at, "
+        "r.root_handle, r.identity_key "
+        "FROM federation_members m "
+        "JOIN repositories r ON r.id = m.repository_id "
+        "WHERE m.workspace_id = ? ORDER BY m.repository_id",
+        (ws.id,)).fetchall()
+    return {"id": ws.id, "name": ws.name, "created_at": ws.created_at,
+            "members": [dict(r) for r in rows]}
+
+
+def _fed_view(server: _AtlasHttpd, conn: Any, ws_id: str,
+              p: dict[str, str]) -> dict[str, Any]:
+    fed = Federation(conn)
+    pins = _parse_pins(p)
+    return _fed_call(
+        lambda: fed.resolve_view(fed.get_workspace(int(ws_id)), pins)
+        .to_dict()
+    )
+
+
+def _fed_entity_occurrences(server: _AtlasHttpd, conn: Any, ws_id: str,
+                            key: str, p: dict[str, str]) -> dict[str, Any]:
+    fed = Federation(conn)
+    pins = _parse_pins(p)
+    logical_key = unquote(key)[:2000]
+    return _fed_call(
+        lambda: fed.entity_occurrences(
+            fed.get_workspace(int(ws_id)), logical_key, pins
+        )
+    )
+
+
+def _fed_graph(server: _AtlasHttpd, conn: Any, ws_id: str,
+               p: dict[str, str]) -> dict[str, Any]:
+    fed = Federation(conn)
+    pins = _parse_pins(p)
+    depth = _int(p, "depth", 1, cap=8)
+    limit = _int(p, "limit", 500, cap=5000)
+    return _fed_call(
+        lambda: fed.graph(
+            fed.get_workspace(int(ws_id)), depth=depth, limit=limit,
+            pins=pins,
+        ).to_dict()
+    )
+
+
+_NO_MATCH = object()  # sentinela: rota não é do grupo parametrizado
+
+
+def _route_get_detail(server: _AtlasHttpd, conn: Any, route: str,
+                      p: dict[str, str], body: Any) -> Any:
+    """Despacha rotas GET ``/<recurso>/<id>`` — ``_NO_MATCH`` fora do escopo."""
+    m = re.fullmatch(r"/repositories/(\d+)/snapshots", route)
+    if m:
+        return _snapshots(server, conn, m.group(1), body)
+    m = re.fullmatch(r"/symbols/(\d+)", route)
+    if m:
+        return _symbol(server, conn, m.group(1), p)
+    m = re.fullmatch(r"/evidence/(\d+)", route)
+    if m:
+        return _evidence(server, conn, m.group(1), p)
+    m = re.fullmatch(r"/files/(\d+)/occurrences", route)
+    if m:
+        return _file_occurrences(server, conn, m.group(1), p)
+    return _NO_MATCH
+
+
+def _route_federation(server: _AtlasHttpd, conn: Any, route: str,
+                      p: dict[str, str]) -> Any:
+    """Despacha rotas GET de federação — ``_NO_MATCH`` fora do escopo."""
+    if route == "/federation/workspaces":
+        return _fed_workspaces(server, conn, p, None)
+    m = re.fullmatch(r"/federation/workspaces/(\d+)/view", route)
+    if m:
+        return _fed_view(server, conn, m.group(1), p)
+    m = re.fullmatch(
+        r"/federation/workspaces/(\d+)/entities/([^/]+)/occurrences",
+        route)
+    if m:
+        return _fed_entity_occurrences(
+            server, conn, m.group(1), m.group(2), p)
+    m = re.fullmatch(r"/federation/workspaces/(\d+)/graph", route)
+    if m:
+        return _fed_graph(server, conn, m.group(1), p)
+    m = re.fullmatch(r"/federation/workspaces/(\d+)", route)
+    if m:
+        return _fed_workspace(server, conn, m.group(1), p)
+    return _NO_MATCH
+
+
 def handle(server: _AtlasHttpd, method: str, route: str,
            handler: BaseHTTPRequestHandler) -> Any:
     conn = server.connect()
@@ -426,18 +595,13 @@ def handle(server: _AtlasHttpd, method: str, route: str,
         p = _qs(handler)
         body = server_body(handler) if method == "POST" else None
         if method == "GET":
-            m = re.fullmatch(r"/repositories/(\d+)/snapshots", route)
-            if m:
-                return _snapshots(server, conn, m.group(1), body)
-            m = re.fullmatch(r"/symbols/(\d+)", route)
-            if m:
-                return _symbol(server, conn, m.group(1), p)
-            m = re.fullmatch(r"/evidence/(\d+)", route)
-            if m:
-                return _evidence(server, conn, m.group(1), p)
-            m = re.fullmatch(r"/files/(\d+)/occurrences", route)
-            if m:
-                return _file_occurrences(server, conn, m.group(1), p)
+            detail = _route_get_detail(server, conn, route, p, body)
+            if detail is not _NO_MATCH:
+                return detail
+            # federação (lf-0118) — rotas GET read-only
+            fed_result = _route_federation(server, conn, route, p)
+            if fed_result is not _NO_MATCH:
+                return fed_result
             simple = {
                 "/health": _health, "/capabilities": _capabilities,
                 "/repositories": _repositories,

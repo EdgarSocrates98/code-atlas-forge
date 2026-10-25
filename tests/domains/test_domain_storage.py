@@ -73,7 +73,7 @@ def workspace(tmp_path: Path) -> tuple[sqlite3.Connection, int, int, dict[str, i
 
 
 def test_migration_v9_creates_domain_tables(db: sqlite3.Connection) -> None:
-    assert schema_version(db) == 9
+    assert schema_version(db) == 10
     tables = {
         r["name"]
         for r in db.execute(
@@ -100,7 +100,7 @@ def test_old_db_opens_and_gains_domain_schema(
     conn.close()
 
     conn2 = connect(tmp_path / "old.db")
-    assert mig.migrate(conn2) == 9
+    assert mig.migrate(conn2) == 10
     row = conn2.execute(
         "SELECT COUNT(*) AS c FROM domain_entities"
     ).fetchone()

@@ -308,6 +308,41 @@ CREATE INDEX idx_domain_relations_snap
 """
 
 
+_SCHEMA_V10_FEDERATION = """
+-- Workspaces federados (lf-0118 / Cycle 7 Phase 10): agrupa >=2
+-- repositórios já indexados numa "view" multi-repo. Estritamente
+-- aditiva — bancos antigos abrem e ganham as duas tabelas vazias.
+--
+-- ``federation_members.pinned_snapshot_id`` é NULLABLE e carrega
+-- ``ON DELETE SET NULL``: quando o GC de retenção remove um snapshot
+-- STALE que estava pinado, o pin é limpo e o membro volta a seguir o
+-- READY mais recente — nunca FK dangling nem ponteiro para dados
+-- removidos. ``repository_id`` não tem cascade: repositórios não são
+-- removidos por nenhum caminho hoje (só snapshots viram GC).
+
+CREATE TABLE federation_workspaces (
+    id INTEGER PRIMARY KEY,
+    name TEXT NOT NULL UNIQUE,
+    created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now'))
+);
+
+CREATE TABLE federation_members (
+    id INTEGER PRIMARY KEY,
+    workspace_id INTEGER NOT NULL
+        REFERENCES federation_workspaces(id) ON DELETE CASCADE,
+    repository_id INTEGER NOT NULL REFERENCES repositories(id),
+    pinned_snapshot_id INTEGER REFERENCES snapshots(id) ON DELETE SET NULL,
+    added_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+    UNIQUE (workspace_id, repository_id)
+);
+
+CREATE INDEX idx_federation_members_ws
+    ON federation_members (workspace_id);
+CREATE INDEX idx_federation_members_repo
+    ON federation_members (repository_id);
+"""
+
+
 def migrations(*, fts5: bool) -> list[Migration]:
     """Lista de migrações; a v2 (FTS5) só existe quando a build suporta."""
     m = [Migration(1, "core schema (blueprint §6)", _SCHEMA_V1)]
@@ -329,6 +364,10 @@ def migrations(*, fts5: bool) -> list[Migration]:
     m.append(Migration(
         9, "domain entities + relations (lf-0110)",
         _SCHEMA_V9_DOMAINS,
+    ))
+    m.append(Migration(
+        10, "federation workspaces + members (lf-0118)",
+        _SCHEMA_V10_FEDERATION,
     ))
     return m
 

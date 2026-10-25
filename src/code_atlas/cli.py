@@ -21,7 +21,10 @@ import sys
 from collections.abc import Sequence
 from dataclasses import asdict, dataclass, replace
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
+
+if TYPE_CHECKING:
+    from code_atlas.federation import Federation
 
 from code_atlas import __version__, gitbin
 from code_atlas.config import (
@@ -1175,6 +1178,119 @@ def run_impact(args: argparse.Namespace) -> int:
         conn.close()
 
 
+def _fed_cmd_create(fed: Federation, args: argparse.Namespace) -> dict[str, Any]:
+    ws = fed.create_workspace(args.name)
+    return {"workspace_id": ws.id, "workspace": ws.name, "created": True}
+
+
+def _fed_cmd_add(fed: Federation, args: argparse.Namespace) -> dict[str, Any]:
+    ws = fed.get_workspace(args.name)
+    repo_id = fed.resolve_repository(args.repo)
+    member = fed.add_member(ws, repo_id)
+    return {
+        "workspace_id": ws.id, "workspace": ws.name,
+        "repository_id": member.repository_id, "member_id": member.id,
+    }
+
+
+def _fed_cmd_pin(fed: Federation, args: argparse.Namespace) -> dict[str, Any]:
+    from code_atlas.federation import InvalidPinError
+
+    ws = fed.get_workspace(args.name)
+    repo_id = fed.resolve_repository(args.repo)
+    if args.snapshot == "latest":
+        member = fed.unpin_member(ws, repo_id)
+    else:
+        try:
+            snap_id = int(args.snapshot)
+        except ValueError as exc:
+            raise InvalidPinError(
+                f"snapshot must be an id or 'latest': {args.snapshot!r}"
+            ) from exc
+        member = fed.pin_member(ws, repo_id, snap_id)
+    return {
+        "workspace_id": ws.id, "workspace": ws.name,
+        "repository_id": member.repository_id,
+        "pinned_snapshot_id": member.pinned_snapshot_id,
+    }
+
+
+def _fed_cmd_view(fed: Federation, args: argparse.Namespace) -> dict[str, Any]:
+    from code_atlas.federation import InvalidPinError
+
+    ws = fed.get_workspace(args.name)
+    pins: dict[int, int] = {}
+    for seg in (args.pin or "").split(","):
+        seg = seg.strip()
+        if not seg:
+            continue
+        repo, sep, snap = seg.partition(":")
+        if not sep or not repo.isdigit() or not snap.isdigit():
+            raise InvalidPinError(
+                "pin must be repo:snapshot[,repo:snapshot…]"
+            )
+        pins[int(repo)] = int(snap)
+    return fed.resolve_view(ws, pins).to_dict()
+
+
+_FED_COMMANDS = {
+    "create": _fed_cmd_create,
+    "add": _fed_cmd_add,
+    "pin": _fed_cmd_pin,
+    "view": _fed_cmd_view,
+}
+
+_FED_REQUIRED = {
+    "create": ("name",), "add": ("name", "repo"),
+    "pin": ("name", "repo", "snapshot"), "view": ("name",),
+}
+
+
+def run_federation(args: argparse.Namespace) -> int:
+    """``federation`` (lf-0118, Phase 10): agrupamentos multi-repo.
+
+    A mutação (create/add/pin) é superfície exclusiva da CLI — a API HTTP
+    expõe somente views/lookups/graphs GET. Membros só entram de repos
+    **já indexados**; nada de auto-discovery de diretórios.
+    """
+    from code_atlas.federation import Federation, FederationError
+
+    cmd = getattr(args, "fed_cmd", "view") or "view"
+    missing = [k for k in _FED_REQUIRED.get(cmd, ())
+               if not getattr(args, k, None)]
+    if missing:
+        print(f"error: federation {cmd} requires "
+              f"{', '.join(missing)}", file=sys.stderr)
+        return EXIT_USAGE
+    conn = _open_db()
+    try:
+        try:
+            payload = _FED_COMMANDS[cmd](Federation(conn), args)
+        except FederationError as exc:
+            return _emit_error(args, str(exc))
+    finally:
+        conn.close()
+    payload["tool"] = "code-atlas"
+    payload["version"] = __version__
+    payload["command"] = f"federation {cmd}"
+    if args.json:
+        print(json.dumps(payload))
+    elif cmd == "view":
+        print(f"view {payload['view_id']}")
+        for m in payload["members"]:
+            print(
+                f"  repo={m['repository_id']} "
+                f"snapshot={m['snapshot_id']} "
+                f"[{m['resolution']}] {m['snapshot_status']}"
+            )
+    else:
+        for k, v in payload.items():
+            if not k.startswith("_") and k not in ("tool", "version",
+                                                   "command"):
+                print(f"{k}: {v}")
+    return EXIT_OK
+
+
 def run_dependencies(args: argparse.Namespace) -> int:
     """``dependencies`` (lf-0022): arestas saíntes, BFS limitado."""
     conn, repo_id, snap_id, repo_info, err = _search_context(args)
@@ -1415,6 +1531,28 @@ def build_parser() -> argparse.ArgumentParser:
                        help="abre o navegador (somente quando pedido)")
     p_expl.add_argument("--verbose", action="store_true")
     p_expl.set_defaults(func=run_explorer)
+
+    p_fed = sub.add_parser(
+        "federation",
+        help="agrupa repos indexados numa view federada "
+             "(lf-0118; mutação via CLI)")
+    p_fed.add_argument(
+        "fed_cmd", metavar="CMD",
+        choices=("create", "add", "pin", "view"),
+        help="create <name> | add <ws> <repo> | pin <ws> <repo> <snap|latest>"
+             " | view <ws>")
+    p_fed.add_argument("name", nargs="?", metavar="NAME",
+                       help="nome a criar (create) ou ref <ws> (demais)")
+    p_fed.add_argument("repo", nargs="?", metavar="REPO",
+                       help="repo id | identity_key | root_handle | path "
+                            "(add/pin)")
+    p_fed.add_argument("snapshot", nargs="?", metavar="SNAPSHOT",
+                       help="snapshot id a pinar, ou 'latest' para desfazer "
+                            "o pin (pin)")
+    p_fed.add_argument("--pin", metavar="REPO:SNAP,…", default="",
+                       help="overrides de pin na view (view)")
+    p_fed.add_argument("--json", action="store_true", help="saída em JSON")
+    p_fed.set_defaults(func=run_federation)
 
     return parser
 
