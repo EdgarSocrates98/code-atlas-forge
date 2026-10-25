@@ -1,0 +1,107 @@
+{
+  "size": 1000,
+  "fixture": {
+    "generated": false,
+    "indexed": false,
+    "indexMs": null
+  },
+  "api": {
+    "samples_ms": [
+      9.43,
+      7.511,
+      8.443000000000001,
+      8.038,
+      8.595
+    ],
+    "median_ms": 8.443000000000001,
+    "body": {
+      "items": 1000,
+      "total_files": 1000,
+      "truncated": false
+    }
+  },
+  "measured": {
+    "env": {
+      "webgl2": true,
+      "renderer": "ANGLE (Google, Vulkan 1.3.0 (SwiftShader Device (Subzero) (0x0000C0DE)), SwiftShader driver)",
+      "hardwareConcurrency": 16,
+      "devicePixelRatio": 1
+    },
+    "wall_nav_to_ready_ms": 546,
+    "ready_ms_page_clock": 542.1,
+    "resource": {
+      "navDuration": 132.2,
+      "overviewApi": {
+        "start": 230.7,
+        "duration": 9.2,
+        "responseEnd": 239.9,
+        "transferSize": 71283,
+        "encodedBodySize": 70983
+      },
+      "reposApi": 43.2,
+      "maxRafGap": 16.8,
+      "longtasks": [
+        300,
+        105
+      ]
+    },
+    "counts": {
+      "rendered": 500,
+      "edges": 0,
+      "hidden": 500,
+      "known": 1000,
+      "noticeText": "Visualização limitada: exibindo 500 de 1000 nós conhecidos (500 ocultos pelo limite de 500) . Expanda nós sob demanda ou ajuste o limite.",
+      "mode": "canvas"
+    },
+    "heap_mb": {
+      "before_load": 1.1,
+      "after_render": 6.3,
+      "after_pan": 7
+    },
+    "pan_at_default_cap": {
+      "frames": 205,
+      "fps_mean": 60.2,
+      "delta_mean_ms": 16.6,
+      "delta_p95_ms": 16.7,
+      "delta_max_ms": 16.8,
+      "frames_over_33ms": 0,
+      "draw_calls": 137,
+      "draw_verts": 180051
+    },
+    "relayout": null,
+    "cap_experiment": {
+      "raised_to": 2000,
+      "rendered": 1000,
+      "hidden": 0,
+      "apply": {
+        "max_gap_ms": 66.7,
+        "settle_ms": 1607.1
+      },
+      "draw_totals_after_raise": {
+        "drawCalls": 165,
+        "drawVerts": 237057
+      },
+      "pan_at_cap": {
+        "frames": 169,
+        "fps_mean": 49.5,
+        "delta_mean_ms": 20.18,
+        "delta_p95_ms": 33.4,
+        "delta_max_ms": 66.7,
+        "frames_over_33ms": 6,
+        "draw_calls": 161,
+        "draw_verts": 372111
+      },
+      "relayout_at_cap": {
+        "max_gap_ms": 650,
+        "settle_ms": 1600.2
+      },
+      "heap_after_mb": 6
+    },
+    "second_relayout_probe": {
+      "max_gap_ms": 633.3,
+      "settle_ms": 1200.2,
+      "draw_calls_in_window": 6,
+      "canvas_frozen_after_first_relayout": false
+    }
+  }
+}
