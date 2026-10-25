@@ -672,7 +672,7 @@ def _domain_entities(server: _AtlasHttpd, conn: Any, p: dict[str, str],
     # SQLite garante que colunas "bare" num GROUP BY com MIN() vêm da row
     # do mínimo — path/line/extraction_status descrevem a PRIMEIRA
     # ocorrência da entidade no snapshot, de forma determinística.
-    rows = conn.execute(
+    entities_sql = (
         "SELECT de.id, de.domain, de.kind, de.qualified_name, de.name, "
         "de.catalog, de.namespace, de.environment, de.attributes, "
         "COUNT(*) AS occurrences, MIN(deo.id) AS first_occurrence_id, "
@@ -685,15 +685,15 @@ def _domain_entities(server: _AtlasHttpd, conn: Any, p: dict[str, str],
         f"WHERE {where_sql} "
         "GROUP BY de.id "
         "ORDER BY de.domain, de.kind, de.qualified_name, de.id "
-        "LIMIT ? OFFSET ?",
-        (*args, limit, offset)).fetchall()
-    total = conn.execute(
+        "LIMIT ? OFFSET ?")
+    rows = conn.execute(entities_sql, (*args, limit, offset)).fetchall()
+    count_sql = (
         "SELECT COUNT(DISTINCT de.id) AS n "
         "FROM domain_entities de "
         "JOIN domain_entity_occurrences deo "
         "  ON deo.entity_id = de.id AND deo.snapshot_id = ? "
-        f"WHERE {where_sql}",
-        args).fetchone()["n"]
+        f"WHERE {where_sql}")
+    total = conn.execute(count_sql, args).fetchone()["n"]
     return {"repository_id": rid, "snapshot_id": sid,
             "items": [_domain_entity_dto(r) for r in rows],
             "total": total, "limit": limit, "offset": offset,
@@ -727,11 +727,12 @@ def _hydrate_domain_endpoints(
         | {r["to_symbol_occ_id"] for r in rows} - {None})
     ents: dict[int, dict[str, Any]] = {}
     if ent_ids:
-        for r in conn.execute(
+        occ_by_ids_sql = (
             _DOMAIN_OCC_SELECT +
             "WHERE deo.snapshot_id = ? "
-            "AND deo.id IN (SELECT value FROM json_each(?))",
-            (sid, json.dumps(ent_ids))).fetchall():
+            "AND deo.id IN (SELECT value FROM json_each(?))")
+        for r in conn.execute(
+            occ_by_ids_sql, (sid, json.dumps(ent_ids))).fetchall():
             occ = int(r["occ_id"])
             eid = int(r["entity_id"])
             ents[occ] = {
@@ -834,12 +835,10 @@ def _domain_relations(server: _AtlasHttpd, conn: Any, p: dict[str, str],
     if types:
         where += f" AND type IN ({_in_clause(types)})"
         args += types
-    rows = conn.execute(
-        _DOMAIN_EDGE_SELECT + where + " ORDER BY id LIMIT ? OFFSET ?",
-        (*args, limit, offset)).fetchall()
-    total = conn.execute(
-        f"SELECT COUNT(*) AS n FROM domain_relations {where}",
-        args).fetchone()["n"]
+    edges_sql = _DOMAIN_EDGE_SELECT + where + " ORDER BY id LIMIT ? OFFSET ?"
+    rows = conn.execute(edges_sql, (*args, limit, offset)).fetchall()
+    count_sql = f"SELECT COUNT(*) AS n FROM domain_relations {where}"
+    total = conn.execute(count_sql, args).fetchone()["n"]
     return {"repository_id": rid, "snapshot_id": sid,
             "edges": _domain_edges_dto(conn, sid, rows),
             "total": total, "limit": limit, "offset": offset,
@@ -882,11 +881,11 @@ def _domain_entity_neighbors(server: _AtlasHttpd, conn: Any,
         if direction in ("in", "both"):
             conds.append(f"to_entity_occ_id IN ({marks})")
             args += occ_ids
-        edges = conn.execute(
+        ego_sql = (
             _DOMAIN_EDGE_SELECT +
             f"WHERE snapshot_id = ? AND ({' OR '.join(conds)}) "
-            "ORDER BY id LIMIT ?",
-            (*args, limit)).fetchall()
+            "ORDER BY id LIMIT ?")
+        edges = conn.execute(ego_sql, (*args, limit)).fetchall()
     entity_dto = {
         "id": eid, "domain": ent["domain"], "kind": ent["kind"],
         "qualified_name": ent["qualified_name"], "name": ent["name"],
@@ -911,11 +910,12 @@ def _lineage_root(conn: Any, rid: int, table: str) -> Any:
             raise ApiError("lineage-target-not-found",
                            f"entidade {table} inexistente no repositório", 404)
         return row
-    rows = conn.execute(
+    root_sql = (
         "SELECT * FROM domain_entities WHERE repository_id = ? "
         f"AND kind IN ({_in_clause(list(_LINEAGE_KINDS))}) "
-        "AND (qualified_name = ? OR name = ?) ORDER BY id",
-        (rid, *_LINEAGE_KINDS, table, table)).fetchall()
+        "AND (qualified_name = ? OR name = ?) ORDER BY id")
+    rows = conn.execute(
+        root_sql, (rid, *_LINEAGE_KINDS, table, table)).fetchall()
     if not rows:
         raise ApiError(
             "lineage-target-not-found",
@@ -959,10 +959,11 @@ def _lineage_step(
                 "OR (type IN ('READS_FROM','DERIVES_FROM') AND ("
                 "to_entity_occ_id IN (SELECT value FROM json_each(?)) OR "
                 "to_symbol_occ_id IN (SELECT value FROM json_each(?))))")
-    rows: list[Any] = conn.execute(
+    step_sql = (
         _DOMAIN_EDGE_SELECT +
-        f"WHERE snapshot_id = ? AND ({cond}) ORDER BY id",
-        (sid, e_json, s_json, e_json, s_json)).fetchall()
+        f"WHERE snapshot_id = ? AND ({cond}) ORDER BY id")
+    rows: list[Any] = conn.execute(
+        step_sql, (sid, e_json, s_json, e_json, s_json)).fetchall()
     return rows
 
 

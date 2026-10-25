@@ -12,7 +12,6 @@ Falhas imprimem o diff legível (``missing edge``/``unexpected edge``/
 
 from __future__ import annotations
 
-import json
 from pathlib import Path
 
 import pytest

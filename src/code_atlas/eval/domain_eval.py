@@ -32,6 +32,7 @@ from collections import Counter
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 from pathlib import Path
+from typing import Any, cast
 
 from code_atlas.discovery.identity import identity_key
 from code_atlas.discovery.scanner import scan as default_scan
@@ -219,7 +220,7 @@ def _extract_for_diagnostics(
 
 def _read_persisted(
     conn: sqlite3.Connection, store: Store, snapshot_id: int
-) -> dict[str, object]:
+) -> dict[str, Any]:
     """Estado persistido do snapshot → relatório de domínio."""
     occ_display: dict[int, str] = {}
     occ_kind: dict[int, str] = {}
@@ -331,7 +332,7 @@ def run_domain_eval(
         snapshot_id = outcome.snapshot_id
         store = Store(conn)
 
-        cross_info: dict[str, object] = {}
+        cross_info: dict[str, Any] = {}
         if spec.cross:
             # Réplica fiel de ``_run_cross_resolution``: mesmo resolver,
             # mesma ordem (plan → persist). Roda pós-publish numa
@@ -384,7 +385,7 @@ def run_domain_eval(
             "path": "",
             "adapter": "cross-domain",
         }
-        for d in cross_info.get("diagnostics", ())  # type: ignore[union-attr]
+        for d in cross_info.get("diagnostics", ())
     )
     diagnostics.sort(key=lambda d: (d["path"], d["code"], d["severity"]))
     artifacts = {
@@ -464,8 +465,115 @@ def _fmt_diag(d: Mapping[str, object]) -> str:
     return f"{d['severity']}:{d['code']}:{d['path'] or '-'}"
 
 
+def _count_diff(
+    diffs: list[str], actual: int, want: Any, label: str
+) -> None:
+    if want is None:
+        return
+    if actual != int(want):
+        diffs.append(f"{label}: expected {want}, got {actual}")
+
+
+def _diff_entities(
+    report: Mapping[str, Any], g_entities: Mapping[str, Any],
+    diffs: list[str],
+) -> None:
+    r_entities = cast(Mapping[str, Any], report["entities"])
+    _count_diff(
+        diffs, int(r_entities["total"]), g_entities.get("total"),
+        "entities.total",
+    )
+    want_kind = g_entities.get("by_kind")
+    if want_kind is not None and dict(
+        r_entities["by_kind"]
+    ) != dict(want_kind):
+        diffs.append(
+            "entities.by_kind: expected "
+            f"{dict(want_kind)}, got {dict(r_entities['by_kind'])}"
+        )
+    names = set(r_entities["names"])
+    for want in g_entities.get("expected", ()):
+        if want not in names:
+            diffs.append(f"entity expected but absent: {want}")
+    for bad in g_entities.get("forbidden", ()):
+        if bad in names:
+            diffs.append(f"entity forbidden but present: {bad}")
+    # inventário exato de nomes — quando presente no golden,
+    # rename/removal/addition vira diff explícito, não só delta
+    # agregado de total/by_kind
+    want_names = g_entities.get("names")
+    if want_names is not None:
+        for missing in sorted(set(want_names) - names):
+            diffs.append(f"missing entity: {missing}")
+        for extra in sorted(names - set(want_names)):
+            diffs.append(f"unexpected entity: {extra}")
+
+
+def _diff_relations(
+    report: Mapping[str, Any], g_relations: Mapping[str, Any],
+    diffs: list[str],
+) -> None:
+    r_relations = cast(Mapping[str, Any], report["relations"])
+    _count_diff(
+        diffs, int(r_relations["total"]), g_relations.get("total"),
+        "relations.total",
+    )
+    for group in ("by_type", "by_status", "by_confidence", "by_resolver"):
+        want = g_relations.get(group)
+        if want is not None and dict(r_relations[group]) != dict(want):
+            diffs.append(
+                f"relations.{group}: expected {dict(want)}, "
+                f"got {dict(r_relations[group])}"
+            )
+    _count_diff(
+        diffs, int(r_relations["edges_skipped"]),
+        g_relations.get("edges_skipped"),
+        "relations.edges_skipped",
+    )
+
+
+def _diff_edges(
+    report: Mapping[str, Any], golden: Mapping[str, Any],
+    diffs: list[str],
+) -> None:
+    # inventário exaustivo de arestas — matched/missing/unexpected
+    want_edges = {_edge_key(e) for e in golden.get("edges", ())}
+    got_edges = {_edge_key(e) for e in report["edges"]}
+    by_key = {_edge_key(e): e for e in golden.get("edges", ())}
+    by_key.update({_edge_key(e): e for e in report["edges"]})
+    for ekey in sorted(want_edges - got_edges):
+        diffs.append(f"missing edge: {_fmt_edge(by_key[ekey])}")
+    for ekey in sorted(got_edges - want_edges):
+        diffs.append(f"unexpected edge: {_fmt_edge(by_key[ekey])}")
+
+
+def _diff_diagnostics(
+    report: Mapping[str, Any], golden: Mapping[str, Any],
+    diffs: list[str],
+) -> None:
+    # diagnósticos como multiconjunto (severity, code, path)
+    want_diags = Counter(
+        _diag_key(d) for d in golden.get("diagnostics", ())
+    )
+    got_diags = Counter(
+        _diag_key(d) for d in report["diagnostics"]
+    )
+    by_dkey: dict[tuple[str, str, str], Mapping[str, object]] = {
+        _diag_key(d): d for d in golden.get("diagnostics", ())
+    }
+    by_dkey.update(
+        {_diag_key(d): d for d in report["diagnostics"]}
+    )
+    for dkey in sorted(set(want_diags) | set(got_diags)):
+        if want_diags[dkey] != got_diags[dkey]:
+            diffs.append(
+                f"diagnostic {_fmt_diag(by_dkey[dkey])}: expected "
+                f"{want_diags[dkey]}x, got {got_diags[dkey]}x"
+            )
+
+
 def diff_report(
-    report: Mapping[str, object], golden: Mapping[str, object]
+    report: Mapping[str, Any], golden: Mapping[str, Any]
 ) -> list[str]:
     """Diff legível report↔golden; ``[]`` = cenário dentro do esperado.
 
@@ -474,104 +582,22 @@ def diff_report(
     exaustivo de arestas (``missing``/``unexpected``) e diagnósticos.
     """
     diffs: list[str] = []
-
-    def _count(actual: int, want: object, label: str) -> None:
-        if want is None:
-            return
-        if actual != int(want):
-            diffs.append(f"{label}: expected {want}, got {actual}")
-
     g_entities = golden.get("entities", {})
     if isinstance(g_entities, Mapping):
-        r_entities = report["entities"]  # type: ignore[index]
-        _count(
-            int(r_entities["total"]), g_entities.get("total"),  # type: ignore[index]
-            "entities.total",
-        )
-        want_kind = g_entities.get("by_kind")
-        if want_kind is not None and dict(
-            r_entities["by_kind"]  # type: ignore[index]
-        ) != dict(want_kind):
-            diffs.append(
-                "entities.by_kind: expected "
-                f"{dict(want_kind)}, got {dict(r_entities['by_kind'])}"  # type: ignore[index]
-            )
-        names = set(r_entities["names"])  # type: ignore[index]
-        for want in g_entities.get("expected", ()):
-            if want not in names:
-                diffs.append(f"entity expected but absent: {want}")
-        for bad in g_entities.get("forbidden", ()):
-            if bad in names:
-                diffs.append(f"entity forbidden but present: {bad}")
-        # inventário exato de nomes — quando presente no golden,
-        # rename/removal/addition vira diff explícito, não só delta
-        # agregado de total/by_kind
-        want_names = g_entities.get("names")
-        if want_names is not None:
-            for missing in sorted(set(want_names) - names):
-                diffs.append(f"missing entity: {missing}")
-            for extra in sorted(names - set(want_names)):
-                diffs.append(f"unexpected entity: {extra}")
-
+        _diff_entities(report, g_entities, diffs)
     g_relations = golden.get("relations", {})
     if isinstance(g_relations, Mapping):
-        r_relations = report["relations"]  # type: ignore[index]
-        _count(
-            int(r_relations["total"]), g_relations.get("total"),  # type: ignore[index]
-            "relations.total",
-        )
-        for key in ("by_type", "by_status", "by_confidence", "by_resolver"):
-            want = g_relations.get(key)
-            if want is not None and dict(
-                r_relations[key]  # type: ignore[index]
-            ) != dict(want):
-                diffs.append(
-                    f"relations.{key}: expected {dict(want)}, "
-                    f"got {dict(r_relations[key])}"  # type: ignore[index]
-                )
-        _count(
-            int(r_relations["edges_skipped"]),  # type: ignore[index]
-            g_relations.get("edges_skipped"),
-            "relations.edges_skipped",
-        )
-
-    # inventário exaustivo de arestas — matched/missing/unexpected
-    want_edges = {_edge_key(e) for e in golden.get("edges", ())}
-    got_edges = {_edge_key(e) for e in report["edges"]}  # type: ignore[index]
-    by_key = {_edge_key(e): e for e in golden.get("edges", ())}
-    by_key.update({_edge_key(e): e for e in report["edges"]})  # type: ignore[index]
-    for key in sorted(want_edges - got_edges):
-        diffs.append(f"missing edge: {_fmt_edge(by_key[key])}")
-    for key in sorted(got_edges - want_edges):
-        diffs.append(f"unexpected edge: {_fmt_edge(by_key[key])}")
-
-    # diagnósticos como multiconjunto (severity, code, path)
-    want_diags = Counter(
-        _diag_key(d) for d in golden.get("diagnostics", ())
-    )
-    got_diags = Counter(
-        _diag_key(d) for d in report["diagnostics"]  # type: ignore[index]
-    )
-    by_dkey: dict[tuple[str, str, str], Mapping[str, object]] = {
-        _diag_key(d): d for d in golden.get("diagnostics", ())
-    }
-    by_dkey.update(
-        {_diag_key(d): d for d in report["diagnostics"]}  # type: ignore[index]
-    )
-    for key in sorted(set(want_diags) | set(got_diags)):
-        if want_diags[key] != got_diags[key]:
-            diffs.append(
-                f"diagnostic {_fmt_diag(by_dkey[key])}: expected "
-                f"{want_diags[key]}x, got {got_diags[key]}x"
-            )
+        _diff_relations(report, g_relations, diffs)
+    _diff_edges(report, golden, diffs)
+    _diff_diagnostics(report, golden, diffs)
     return diffs
 
 
-def load_golden(golden_dir: Path, eval_id: str) -> dict[str, object] | None:
+def load_golden(golden_dir: Path, eval_id: str) -> dict[str, Any] | None:
     path = Path(golden_dir) / f"{eval_id}.json"
     if not path.is_file():
         return None
-    return json.loads(path.read_text(encoding="utf-8"))
+    return cast("dict[str, Any]", json.loads(path.read_text(encoding="utf-8")))
 
 
 def evaluate_all(
@@ -612,7 +638,7 @@ def evaluate_all(
                     1 for d in domains.values()
                     if isinstance(d, dict)
                     and isinstance(d.get("check"), dict)
-                    and d["check"].get("golden")  # type: ignore[index]
+                    and cast("dict[str, Any]", d["check"]).get("golden")
                 ),
                 "all_pass": ok,
             },
@@ -622,33 +648,33 @@ def evaluate_all(
             tmp.cleanup()
 
 
-def report_to_golden(report: Mapping[str, object]) -> dict[str, object]:
+def report_to_golden(report: Mapping[str, Any]) -> dict[str, Any]:
     """Recorte persistível de ``report`` no schema de golden (bless).
 
     ``--bless`` é a ferramenta de curadoria: a saída DEVE ser revista
     linha a linha contra a fixture antes de commitar — golden gerado
     sem revisão é só um eco do comportamento corrente, não expectativa.
     """
-    entities = report["entities"]  # type: ignore[index]
-    relations = report["relations"]  # type: ignore[index]
+    entities = cast(Mapping[str, Any], report["entities"])
+    relations = cast(Mapping[str, Any], report["relations"])
     return {
         "schema": GOLDEN_SCHEMA,
         "domain": report["domain"],
         "fixture": report["fixture"],
         "entities": {
-            "total": entities["total"],  # type: ignore[index]
-            "by_kind": entities["by_kind"],  # type: ignore[index]
-            "names": entities["names"],  # type: ignore[index]
+            "total": entities["total"],
+            "by_kind": entities["by_kind"],
+            "names": entities["names"],
             "expected": [],
             "forbidden": [],
         },
         "relations": {
-            "total": relations["total"],  # type: ignore[index]
-            "by_type": relations["by_type"],  # type: ignore[index]
-            "by_status": relations["by_status"],  # type: ignore[index]
-            "by_confidence": relations["by_confidence"],  # type: ignore[index]
-            "by_resolver": relations["by_resolver"],  # type: ignore[index]
-            "edges_skipped": relations["edges_skipped"],  # type: ignore[index]
+            "total": relations["total"],
+            "by_type": relations["by_type"],
+            "by_status": relations["by_status"],
+            "by_confidence": relations["by_confidence"],
+            "by_resolver": relations["by_resolver"],
+            "edges_skipped": relations["edges_skipped"],
         },
         "diagnostics": report["diagnostics"],
         "edges": report["edges"],
