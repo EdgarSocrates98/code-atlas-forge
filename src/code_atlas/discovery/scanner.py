@@ -279,7 +279,7 @@ def _classify_and_hash(
     try:
         size = abs_path.stat().st_size
     except OSError as exc:
-        budget.warnings.append(ScanWarning(WarningKind.READ_ERROR, str(exc), rel))
+        _on_stat_failure(abs_path, rel, exc, acc, budget)
         return
     acc.count += 1
     if ignored:
@@ -355,16 +355,17 @@ def _walk_paths(
         for name in sorted(filenames):
             f = d / name
             rel = f"{rel_dir}/{name}" if rel_dir else name
-            if f.is_symlink():
-                if _symlink_escapes(f, root_real):
-                    budget.warnings.append(
-                        ScanWarning(
-                            WarningKind.SYMLINK_ESCAPE, "file symlink escapes root", rel
-                        )
+            if f.is_symlink() and _symlink_escapes(f, root_real):
+                budget.warnings.append(
+                    ScanWarning(
+                        WarningKind.SYMLINK_ESCAPE, "file symlink escapes root", rel
                     )
-                    continue
-                if not f.exists():
-                    continue  # symlink quebrado ou alvo ausente
+                )
+                continue
+            # symlink quebrado/ausente não é descartado aqui — scan()
+            # decide: checa alias-de-segredo pelo readlink cru ANTES
+            # do exists() (Windows: alvo POSIX relativo pode falhar
+            # exists() mas ainda é alias de .env).
             ignored = stack.is_ignored(rel, is_dir=False)
             yield f, rel, ignored
 
@@ -390,6 +391,19 @@ def _git_paths(
         yield root / rel, rel, rel in ignored
     for rel in sorted(ignored):
         yield root / rel, rel, True
+
+
+def _on_stat_failure(
+    abs_path: Path, rel: str, exc: OSError,
+    acc: _Accumulator, budget: _Budget,
+) -> None:
+    """Stat falhou — última chance de alias-de-segredo (Windows:
+    symlink com alvo relativo POSIX cujo stat falha mas o readlink
+    ainda revela o alvo ``.env``); senão READ_ERROR honesto."""
+    if _symlink_targets_secret(abs_path):
+        acc.secret_count += 1
+        return
+    budget.warnings.append(ScanWarning(WarningKind.READ_ERROR, str(exc), rel))
 
 
 def _symlink_targets_secret(path: Path) -> bool:
