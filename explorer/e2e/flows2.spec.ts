@@ -29,8 +29,7 @@ import { join } from 'node:path';
  *   edge 3 DEFINES occ:6→occ:8 (tree-sitter-python, evidence [1]).
  */
 
-const REPO_ROOT_HANDLE =
-  '/home/edgar/Documentos/projetos/forjas/code-atlas-forge/tests/fixtures/sample_repo';
+const REPO_ROOT_HANDLE = join(__dirname, '..', '..', 'tests', 'fixtures', 'sample_repo');
 
 /* ------------------------------------------------------------------ */
 /* helpers                                                             */
@@ -131,8 +130,9 @@ test.describe('cycle-6.1 flows', () => {
     await expect(meta.locator('dd').nth(3)).toHaveText('5'); // Arquivos
     await expect(meta.locator('dd').nth(4)).toHaveText('9'); // Símbolos
     await expect(meta.locator('dd').nth(5)).toHaveText('4'); // Relações
-    await expect(card).toContainText('cycle-6.1-explorer-hardening');
-    await expect(card).toContainText(/[0-9a-f]{7,40}/); // git sha real do snapshot, não hardcoded
+    // git_ref reflete o checkout do ambiente (branch local vs pull/N/merge
+    // no CI) — o que se prova é que o snapshot carrega git info real.
+    await expect(card).toContainText(/[0-9a-f]{7,40}/);
     // With a single indexed repository the bootstrap auto-selects it — the
     // "Selecionar" path cannot be re-exercised (button is rendered only for
     // a non-active repo), so the assertable contract is the active state:
