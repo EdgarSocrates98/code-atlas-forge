@@ -156,6 +156,20 @@
     },
     {
       "confidence": "syntactic",
+      "from": "src.ns",
+      "status": "resolved",
+      "to": "src.ns.Config",
+      "type": "DEFINES"
+    },
+    {
+      "confidence": "syntactic",
+      "from": "src.ns.Config",
+      "status": "resolved",
+      "to": "src.ns.Config.read",
+      "type": "DEFINES"
+    },
+    {
+      "confidence": "syntactic",
       "from": "src.over",
       "status": "resolved",
       "to": "src.over.pick",
@@ -174,6 +188,20 @@
       "status": "resolved",
       "to": "src.iface.Shape",
       "type": "IMPLEMENTS"
+    },
+    {
+      "confidence": "resolved",
+      "from": "src.barrel.index",
+      "status": "resolved",
+      "to": "src.barrel.other",
+      "type": "IMPORTS"
+    },
+    {
+      "confidence": "resolved",
+      "from": "src.barrel.index",
+      "status": "resolved",
+      "to": "src.barrel.thing",
+      "type": "IMPORTS"
     },
     {
       "confidence": "resolved",
@@ -270,6 +298,18 @@
       "language": "typescript",
       "path": "src/ns.ts",
       "qname": "src.ns"
+    },
+    {
+      "kind": "symbol",
+      "language": "typescript",
+      "path": "src/ns.ts",
+      "qname": "src.ns.Config"
+    },
+    {
+      "kind": "function",
+      "language": "typescript",
+      "path": "src/ns.ts",
+      "qname": "src.ns.Config.read"
     },
     {
       "kind": "module",

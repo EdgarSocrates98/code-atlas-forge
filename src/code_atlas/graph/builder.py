@@ -213,7 +213,8 @@ class GraphBuilder:
         for rel in res.relations:
             self._edge_from_relation(res, ctx, rel)
         for ref in res.references:
-            if ref.context in ("decorator", "type-ref", "jsx"):
+            if ref.context in ("decorator", "type-ref", "jsx",
+                               "export", "export-assignment"):
                 frm = self._scope_nid(ctx, ref.scope_path)
                 self._reference_edge(res, ctx, ref, frm)
 
@@ -339,6 +340,23 @@ class GraphBuilder:
         span: SourceSpan | None,
         source_path: str = "",
     ) -> None:
+        if to_id is None and not to_text:
+            # lf-0130: aresta sem alvo resolvido NEM texto é sempre
+            # inválida (validate_graph falha o snapshot inteiro). Um
+            # adapter que emita relação degenerada vira diagnóstico —
+            # nunca derruba a indexação pelos outros N arquivos.
+            self._diagnostics.append(
+                ParseDiagnostic(
+                    code="empty-edge-target",
+                    severity="warning",
+                    message=(
+                        f"{type_} edge dropped: no resolved target and "
+                        f"empty to_text (from {from_id})"
+                    ),
+                    span=span,
+                )
+            )
+            return
         key = (type_, from_id, to_id, to_text or "",
                -1 if span is None else span.start_byte)
         if key in self._edge_keys:

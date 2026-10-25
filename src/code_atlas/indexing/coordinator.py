@@ -805,7 +805,16 @@ class IndexCoordinator:
                 failures.append(f"{f.path}:content-mismatch")
                 file_status[f.path] = "parse-failed"
                 continue
-            res = self._engine.parse(f.path, data)
+            # lf-0130: falha por arquivo é auditável, nunca derruba os
+            # arquivos seguintes. O engine já isola crash de adapter
+            # (adapter-crash); esta camada extra cobre falhas internas
+            # do próprio engine/registry — file N falha, N+1..M seguem.
+            try:
+                res = self._engine.parse(f.path, data)
+            except Exception:
+                failures.append(f"{f.path}:engine-crash")
+                file_status[f.path] = "parse-failed"
+                continue
             results.append(res)
             # só resultados suportados entram no cache — falhas são
             # re-tentadas a cada run (determinístico, honesto e barato)

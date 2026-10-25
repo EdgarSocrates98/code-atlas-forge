@@ -183,6 +183,11 @@ class SyntacticResolver:
             dots = len(target) - len(target.lstrip("."))
             rest_txt = target.lstrip(".")
             parts = ctx.module_name.split(".")
+            # lf-0130: `pkg/__init__.py` É o pacote `pkg` — `.` já resolve
+            # para o módulo inteiro, não para o pai dele (`from .api
+            # import x` no __init__ → ``pkg.api.x``, não ``api.x``).
+            if posixpath.basename(ctx.path) == "__init__.py":
+                dots -= 1
             pkg_parts = parts[: max(len(parts) - dots, 0)]
             cand = ".".join([*pkg_parts, rest_txt]) if rest_txt else ".".join(
                 pkg_parts
@@ -200,8 +205,11 @@ class SyntacticResolver:
             return None
         base_dir = posixpath.dirname(ctx.path)
         norm = posixpath.normpath(posixpath.join(base_dir, target))
+        # lf-0130: .d.mts/.d.cts e index.d.ts cobertos — mesma família de
+        # extensões que o adapter TypeScript registra.
         for ext in (".ts", ".tsx", ".d.ts", ".mts", ".cts",
-                    "/index.ts", "/index.tsx"):
+                    ".d.mts", ".d.cts",
+                    "/index.ts", "/index.tsx", "/index.d.ts"):
             nid = self._universe.by_path.get(norm + ext)
             if nid:
                 return nid
