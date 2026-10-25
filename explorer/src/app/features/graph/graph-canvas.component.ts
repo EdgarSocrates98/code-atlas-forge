@@ -105,6 +105,7 @@ export class GraphCanvasComponent implements AfterViewInit, OnDestroy {
   private resizeObserver: ResizeObserver | null = null;
   private themeObserver: MutationObserver | null = null;
   private lastDataVersion = -1;
+  private lastRelayoutCount = -1;
   private pendingSync = true;
   private resizeTimer: ReturnType<typeof setTimeout> | null = null;
   private glCanvases: HTMLCanvasElement[] = [];
@@ -500,12 +501,19 @@ export class GraphCanvasComponent implements AfterViewInit, OnDestroy {
     graph.forEachNode((id, attrs) => {
       positions.set(id, { x: attrs['x'] as number, y: attrs['y'] as number });
     });
-    this.store.reportPositions(positions);
+    // Deferido para fora do effect de sync — reportPositions → commitData
+    // escreve `nodes`, que este effect lê.
+    queueMicrotask(() => this.store.reportPositions(positions));
 
-    // Restore the persisted view (same repo+snapshot+mode) once; otherwise
-    // fit — a restored camera only applies over the layout it was taken on.
+    // Relayout explícito invalida a câmera persistida (foi medida sobre o
+    // layout anterior — restaurá-la joga todos os nós para fora do frustum).
+    const isRelayout = this.store.relayoutCount() !== this.lastRelayoutCount;
+    this.lastRelayoutCount = this.store.relayoutCount();
     const restored = this.viewStates.consume(this.store.viewKey());
-    const cam = restored && restored.mode === this.store.mode() ? restored.camera : null;
+    const cam =
+      !isRelayout && restored && restored.mode === this.store.mode()
+        ? restored.camera
+        : null;
     if (cam && isFinitePosition(cam.x, cam.y) && Number.isFinite(cam.ratio) && cam.ratio > 0) {
       sigma.getCamera().setState({ x: cam.x, y: cam.y, ratio: cam.ratio, angle: 0 });
     } else {

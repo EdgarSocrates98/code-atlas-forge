@@ -88,6 +88,8 @@ export class GraphDataStore implements OnDestroy {
   readonly mode = signal<GraphMode>('architecture');
   readonly breadcrumb = signal<DrillLevel[]>([{ kind: 'architecture' }]);
   readonly dataVersion = signal<GraphDataVersion>({ version: 0, needsLayout: false });
+  /** Incrementado a cada relayout explícito — o canvas força fit em vez de restaurar a câmera. */
+  readonly relayoutCount = signal(0);
 
   /* ---------------------------- interaction -------------------------- */
   readonly selectedNodeId = signal<string | null>(null);
@@ -538,6 +540,7 @@ export class GraphDataStore implements OnDestroy {
 
   /** User-triggered re-layout: the ONLY way to recompute positions. */
   requestRelayout(): void {
+    this.relayoutCount.update((c) => c + 1);
     this.bumpVersion(true);
   }
 
