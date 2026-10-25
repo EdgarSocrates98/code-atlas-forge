@@ -1,6 +1,6 @@
 {
   "tool": "code-atlas graph-hardiness e2e (Cycle 8 Phases 4+5, lf-0131)",
-  "generated_at": "2026-10-25T15:49:10.391Z",
+  "generated_at": "2026-10-25T18:50:33.064Z",
   "environment": {
     "platform": "linux",
     "os_release": "7.0.0-38-generic",
@@ -26,7 +26,7 @@
           "layout_busy_at_leave": true,
           "cancel_button_visible": true,
           "worker_seen_live": true,
-          "ms_to_leave": 128,
+          "ms_to_leave": 175,
           "sigmaLive_on_search": 0,
           "workersLive_on_search": 0
         },
@@ -35,7 +35,7 @@
           "layout_busy_at_leave": true,
           "cancel_button_visible": true,
           "worker_seen_live": true,
-          "ms_to_leave": 70,
+          "ms_to_leave": 86,
           "sigmaLive_on_search": 0,
           "workersLive_on_search": 0
         },
@@ -44,7 +44,7 @@
           "layout_busy_at_leave": true,
           "cancel_button_visible": true,
           "worker_seen_live": true,
-          "ms_to_leave": 81,
+          "ms_to_leave": 73,
           "sigmaLive_on_search": 0,
           "workersLive_on_search": 0
         },
@@ -53,7 +53,7 @@
           "layout_busy_at_leave": true,
           "cancel_button_visible": true,
           "worker_seen_live": true,
-          "ms_to_leave": 70,
+          "ms_to_leave": 83,
           "sigmaLive_on_search": 0,
           "workersLive_on_search": 0
         },
@@ -62,7 +62,7 @@
           "layout_busy_at_leave": true,
           "cancel_button_visible": true,
           "worker_seen_live": true,
-          "ms_to_leave": 58,
+          "ms_to_leave": 72,
           "sigmaLive_on_search": 0,
           "workersLive_on_search": 0
         },
@@ -71,7 +71,7 @@
           "layout_busy_at_leave": true,
           "cancel_button_visible": true,
           "worker_seen_live": true,
-          "ms_to_leave": 62,
+          "ms_to_leave": 70,
           "sigmaLive_on_search": 0,
           "workersLive_on_search": 0
         },
@@ -80,7 +80,7 @@
           "layout_busy_at_leave": true,
           "cancel_button_visible": true,
           "worker_seen_live": true,
-          "ms_to_leave": 64,
+          "ms_to_leave": 77,
           "sigmaLive_on_search": 0,
           "workersLive_on_search": 0
         },
@@ -89,7 +89,7 @@
           "layout_busy_at_leave": true,
           "cancel_button_visible": true,
           "worker_seen_live": true,
-          "ms_to_leave": 67,
+          "ms_to_leave": 63,
           "sigmaLive_on_search": 0,
           "workersLive_on_search": 0
         },
@@ -98,7 +98,7 @@
           "layout_busy_at_leave": true,
           "cancel_button_visible": true,
           "worker_seen_live": true,
-          "ms_to_leave": 70,
+          "ms_to_leave": 105,
           "sigmaLive_on_search": 0,
           "workersLive_on_search": 0
         },
@@ -107,15 +107,15 @@
           "layout_busy_at_leave": true,
           "cancel_button_visible": true,
           "worker_seen_live": true,
-          "ms_to_leave": 63,
+          "ms_to_leave": 107,
           "sigmaLive_on_search": 0,
           "workersLive_on_search": 0
         }
       ],
       "heap_mb": {
-        "before": 4.58,
-        "after": 7.26,
-        "delta": 2.68
+        "before": 4.76,
+        "after": 7.72,
+        "delta": 2.96
       },
       "telemetry_after": {
         "sigmaLive": 1,
@@ -137,7 +137,7 @@
     },
     "worker_crash": {
       "killed_workers": 1,
-      "watchdog_notice_ms": 30952,
+      "watchdog_notice_ms": 30454,
       "telemetry_at_error": {
         "sigmaLive": 1,
         "sigmaTotal": 1,
@@ -173,7 +173,7 @@
       "note": "terminate() is silent by design — the 30 s watchdog is the honest detector"
     },
     "worker_unavailable_fallback": {
-      "max_raf_gap_ms_during_chunked_layout": 166.5,
+      "max_raf_gap_ms_during_chunked_layout": 183.3,
       "counts_after": {
         "nodes": 500,
         "edges": 0
@@ -199,7 +199,7 @@
       "ops": [
         {
           "op": "relayout",
-          "saw_busy": true
+          "saw_busy": false
         },
         {
           "op": "cap→60"
@@ -253,28 +253,28 @@
       "edges_at_click": 259,
       "relations_in_snapshot": 5401,
       "candidates_in_bounds": 216,
-      "clicked_edge": "edge:101",
-      "edge_screen_len_px": 513.8212412534974,
-      "click_to_inspector_ms": 76.1,
+      "clicked_edge": "edge:96",
+      "edge_screen_len_px": 488.26743394804436,
+      "click_to_inspector_ms": 121,
       "note": "edge hover affordance does not exist (no enterEdge handler) — click only"
     },
     "mount_unmount": {
       "cycles": 20,
       "destroys_while_layout_in_flight": 20,
       "heap_mb": {
-        "before": 6.91,
-        "after": 14.82,
-        "delta": 7.91
+        "before": 7.14,
+        "after": 14.5,
+        "delta": 7.36
       },
       "listeners": {
         "before": {
-          "adds": 4683,
-          "removes": 4604,
+          "adds": 4682,
+          "removes": 4603,
           "globalNet": 22
         },
         "after": {
-          "adds": 36903,
-          "removes": 35317,
+          "adds": 36902,
+          "removes": 35316,
           "globalNet": 16
         },
         "global_net_delta": -6,
