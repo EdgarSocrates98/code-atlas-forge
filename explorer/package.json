@@ -34,7 +34,7 @@
     "@angular/compiler-cli": "22.2.3",
     "@axe-core/playwright": "^4.13.0",
     "@playwright/test": "^1.56.1",
-    "@types/jasmine": "5.1.4",
+    "@types/jasmine": "7.0.0",
     "istanbul-lib-instrument": "^6.0.3",
     "jasmine-core": "5.2.0",
     "karma": "6.4.4",
