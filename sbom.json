@@ -585,6 +585,13 @@
           "name": "ecosystem",
           "value": "pypi"
         }
+      ],
+      "licenses": [
+        {
+          "license": {
+            "id": "MIT"
+          }
+        }
       ]
     },
     {
@@ -12428,6 +12435,13 @@
         {
           "name": "ecosystem",
           "value": "pypi"
+        }
+      ],
+      "licenses": [
+        {
+          "license": {
+            "id": "MIT"
+          }
         }
       ]
     },

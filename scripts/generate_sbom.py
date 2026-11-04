@@ -65,6 +65,24 @@ _CLASSIFIER_TO_SPDX = {
     "The Unlicense (Unlicense)": "Unlicense",
 }
 
+# The SBOM is a release artifact and must not vary with the metadata emitted
+# by the Python interpreter used to regenerate it.  These are the pinned
+# dependencies declared by this repository; their SPDX identifiers are kept
+# here as source-controlled supply-chain data rather than inferred from the
+# installed environment (which differs between Python versions and wheels).
+_PINNED_PYPI_LICENSES = {
+    "build": "MIT",
+    "mcp": "MIT",
+    "mypy": "MIT",
+    "pytest": "MIT",
+    "pytest-cov": "MIT",
+    "ruff": "MIT",
+    "sqlite-vec": "MIT",
+    "tree-sitter": "MIT",
+    "tree-sitter-python": "MIT",
+    "tree-sitter-typescript": "MIT",
+}
+
 _SCOPE_RANK = {"required": 0, "optional": 1, "excluded": 2}
 
 
@@ -132,7 +150,7 @@ def _pypi_components() -> list[dict]:
         }
         if version:
             comp["version"] = version
-        lic = _license_entry(_pypi_license(name))
+        lic = _license_entry(_PINNED_PYPI_LICENSES.get(name) or _pypi_license(name))
         if lic:
             comp["licenses"] = [lic]
         comps.append(comp)
