@@ -111,8 +111,10 @@ def test_symlink_to_etc_warns_not_follows(tmp_path: Path) -> None:
 
 
 def test_pathological_depth_capped(tmp_path: Path) -> None:
+    # 30 níveis já passam do max_depth=20 com folga — 60 estouraria o
+    # MAX_PATH do Windows (~260 chars) antes mesmo de o scan rodar.
     deep = tmp_path
-    for i in range(60):
+    for i in range(30):
         deep = deep / f"d{i}"
     deep.mkdir(parents=True)
     (deep / "leaf.txt").write_text("x\n")

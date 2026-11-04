@@ -101,11 +101,11 @@ def run_flag_install(
 
 
 def _render_install_doc(doc: dict[str, Any]) -> None:
-    print(f"install: {doc.get('status', '?')}")
+    print(f"{doc.get('operation', 'install')}: {doc.get('status', '?')}")
     for s in doc.get("applied", []):
         print(f"  {s['component']:<10} {s['action']:<22} {s['target']}")
     for s in doc.get("skipped", []):
-        print(f"  skipped    {s['component']:<10} {s['target']}")
+        print(f"  skipped    {s['component']:<10} {s.get('result', s['target'])}")
     for s in doc.get("unverified", []):
         print(f"  unverified {s['component']:<10} {s['result']}")
     if doc.get("status") == "planned":
@@ -136,6 +136,14 @@ def run_install(args: Any) -> int:
             doc = lifecycle.status()
         elif action == "doctor":
             doc = lifecycle.doctor(scope=args.scope)
+        elif action == "uninstall":
+            doc = lifecycle.uninstall(
+                scope=args.scope,
+                root=Path(args.root) if args.root else None,
+                dry_run=args.dry_run,
+                yes=args.yes,
+                purge_state=getattr(args, "purge", False),
+            )
         else:
             doc = run_flag_install(
                 scope=args.scope,
@@ -151,12 +159,12 @@ def run_install(args: Any) -> int:
 
     if getattr(args, "json", False):
         print(json.dumps(doc, indent=2, ensure_ascii=False))
-    elif action == "install":
+    elif action in ("install", "uninstall"):
         _render_install_doc(doc)
     else:
         _render_check_doc(doc)
 
-    if action == "install":
+    if action in ("install", "uninstall"):
         return 0 if doc.get("status") in ("completed", "planned") else 1
     if action == "doctor":
         return 0 if doc.get("status") == "healthy" else 1

@@ -1770,9 +1770,9 @@ def build_parser() -> argparse.ArgumentParser:
         "install",
         help="provisiona ambiente local (data dir, config, registro) + receipt")
     p_inst.add_argument(
-        "action", nargs="?", choices=("install", "status", "doctor"),
+        "action", nargs="?", choices=("install", "uninstall", "status", "doctor"),
         default="install",
-        help="install=plano/aplica; status=recibo gravado; doctor=saúde")
+        help="install=aplica; uninstall=remove o instalado; status; doctor")
     p_inst.add_argument("--scope", choices=("project", "user"),
                         default="project",
                         help="project=workspace atual; user=só data dir global")
@@ -1787,6 +1787,8 @@ def build_parser() -> argparse.ArgumentParser:
                         help="mostra o plano; não escreve nada")
     p_inst.add_argument("--yes", "-y", action="store_true",
                         help="aprovação explícita para aplicar")
+    p_inst.add_argument("--purge", action="store_true",
+                        help="uninstall: também remove atlas.db/estado indexado")
     p_inst.add_argument("--json", action="store_true", help="saída em JSON")
     from code_atlas.install.cli import run_install
 

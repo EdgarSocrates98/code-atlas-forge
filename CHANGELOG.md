@@ -6,6 +6,24 @@ versionamento [SemVer](https://semver.org/lang/pt-BR/).
 
 ## [Unreleased]
 
+### Added
+- **`install uninstall` action + `--purge`** — parity with sibling forges.
+  Removes only what the receipt proves install applied; `atlas.db`/index
+  state only goes with `--purge` (uninstall ≠ data deletion).
+- **Install lifecycle tests** — 18 tests covering plan/apply/receipt/
+  doctor/uninstall via env-isolated CODE_ATLAS_* dirs.
+
+### Fixed
+- **Corrupt receipt honesty** — `status`/`doctor` now report `error`
+  (degraded) instead of `missing`/not-installed for an unparseable
+  receipt; `status` gains `receipt_state` (ok|missing|error).
+- **Install step resilience** — `sqlite3.Error` during apply lands in
+  `unverified` (partial) instead of crashing before the receipt.
+- **Receipt provenance** — the receipt records `applied`/`skipped`
+  components (what actually happened), not just requested components.
+- **Cross-platform tests** — `EXPECTED_VERSION` bumped to 1.1.0; depth-cap
+  hardening test uses 30 levels (was 60 → Windows MAX_PATH overflow).
+
 ## [1.1.0] - 2026-11-04
 
 ### Added
