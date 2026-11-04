@@ -24,6 +24,11 @@ versionamento [SemVer](https://semver.org/lang/pt-BR/).
 - **Cross-platform tests** — `EXPECTED_VERSION` bumped to 1.1.0; depth-cap
   hardening test uses 30 levels (was 60 → Windows MAX_PATH overflow).
 
+## [1.1.1] - 2026-11-04
+
+### Fixed
+- Deterministic SBOM generation and cross-platform release evidence.
+
 ## [1.1.0] - 2026-11-04
 
 ### Added
