@@ -1766,6 +1766,32 @@ def build_parser() -> argparse.ArgumentParser:
     p_init.add_argument("--json", action="store_true", help="saída em JSON")
     p_init.set_defaults(func=run_init)
 
+    p_inst = sub.add_parser(
+        "install",
+        help="provisiona ambiente local (data dir, config, registro) + receipt")
+    p_inst.add_argument(
+        "action", nargs="?", choices=("install", "status", "doctor"),
+        default="install",
+        help="install=plano/aplica; status=recibo gravado; doctor=saúde")
+    p_inst.add_argument("--scope", choices=("project", "user"),
+                        default="project",
+                        help="project=workspace atual; user=só data dir global")
+    p_inst.add_argument("--root", metavar="PATH",
+                        help="raiz do workspace (default: cwd)")
+    p_inst.add_argument("--profile",
+                        choices=("minimal", "recommended", "full"),
+                        default="recommended")
+    p_inst.add_argument("--components", metavar="CSV", default=None,
+                        help="csv de componentes: config,data-dir,repository")
+    p_inst.add_argument("--dry-run", action="store_true",
+                        help="mostra o plano; não escreve nada")
+    p_inst.add_argument("--yes", "-y", action="store_true",
+                        help="aprovação explícita para aplicar")
+    p_inst.add_argument("--json", action="store_true", help="saída em JSON")
+    from code_atlas.install.cli import run_install
+
+    p_inst.set_defaults(func=run_install)
+
     p_index = sub.add_parser("index", help="indexa inventário de um diretório (snapshot)")
     p_index.add_argument("path", nargs="?", metavar="PATH", help="diretório a indexar")
     p_index.add_argument("--root", metavar="PATH", help="raiz alternativa (se PATH ausente)")
@@ -2039,5 +2065,20 @@ def _add_query_args(
 
 
 def main(argv: Sequence[str] | None = None) -> int:
+    argv = list(sys.argv[1:] if argv is None else argv)
+    # Bare `code-atlas install` on a TTY → guided wizard (same contract as
+    # `sparkforge-aws install` / `productforge install`); flags and pipes
+    # keep the argparse path unchanged.
+    if argv == ["install"] and sys.stdin.isatty() and sys.stdout.isatty():
+        try:
+            from code_atlas.install.cli import run_guided_install
+            from code_atlas.ui.kit import NonInteractive
+        except ImportError:
+            pass
+        else:
+            try:
+                return run_guided_install()
+            except NonInteractive:
+                pass
     args = build_parser().parse_args(argv)
     return int(args.func(args))

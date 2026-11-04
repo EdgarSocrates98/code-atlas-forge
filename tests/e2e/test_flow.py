@@ -96,8 +96,23 @@ def test_cli_offline_no_network_imports() -> None:
 
 
 def test_cli_no_forge_imports() -> None:
+    """code_atlas não importa pacotes de outros forges nem CLIs de
+    agente — o ui/kit compartilhado é vendored byte-parity, não
+    dependência de pacote (checagem em nível de import, não de texto)."""
     src = Path(__file__).resolve().parents[2] / "src"
+    banned = {"forge_lens", "forge_agent_bridge", "data_sentinel",
+              "sparkforge_aws", "product_forge", "theforge"}
+    offenders: list[str] = []
     for py in src.rglob("*.py"):
-        text = py.read_text(encoding="utf-8").lower()
-        assert "import claude" not in text and "import codex" not in text
-        assert "forge_" not in text or "code_atlas_forge" in py.name
+        tree = ast.parse(py.read_text(encoding="utf-8"))
+        for node in ast.walk(tree):
+            names: list[str] = []
+            if isinstance(node, ast.Import):
+                names = [a.name.split(".")[0] for a in node.names]
+            elif isinstance(node, ast.ImportFrom) and node.module:
+                names = [node.module.split(".")[0]]
+            offenders.extend(
+                f"{py.name}:{n}" for n in names
+                if n in banned or n.startswith(("claude", "codex"))
+            )
+    assert offenders == []

@@ -173,8 +173,13 @@ def test_no_unix_only_apis_in_src() -> None:
     """Paridade Windows: nada de fcntl/pwd/grp/termios/os.symlink fora
     de testes (resource já é guardado por try/except no bench)."""
     banned = {"fcntl", "pwd", "grp", "termios", "resource", "syslog"}
+    ui_vendored = (SRC / "code_atlas" / "ui").resolve()
     offenders: list[str] = []
     for py in SRC.rglob("*.py"):
+        # Vendored Forge UI kit — termios/tty ficam atrás de guarda
+        # `sys.platform != "win32"`; byte-parity com a fonte canônica.
+        if ui_vendored in py.resolve().parents:
+            continue
         tree = ast.parse(py.read_text(encoding="utf-8"))
         for node in ast.walk(tree):
             if isinstance(node, ast.Import):

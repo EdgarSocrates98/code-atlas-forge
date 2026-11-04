@@ -32,7 +32,7 @@ EXPECTED_VERSION = "1.0.0"
 
 #: Subcomandos top-level do CLI — todos devem continuar existindo.
 CLI_COMMANDS = frozenset({
-    "doctor", "init", "index", "semantic-status", "index-plan",
+    "doctor", "init", "install", "index", "semantic-status", "index-plan",
     "status", "search", "context", "context-expand", "mcp",
     "symbol", "references", "graph", "definitions", "dependencies",
     "impact", "api", "explorer", "federation", "domains",

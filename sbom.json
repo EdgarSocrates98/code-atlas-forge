@@ -12429,13 +12429,6 @@
           "name": "ecosystem",
           "value": "pypi"
         }
-      ],
-      "licenses": [
-        {
-          "license": {
-            "id": "MIT"
-          }
-        }
       ]
     },
     {
