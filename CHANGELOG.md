@@ -28,6 +28,8 @@ versionamento [SemVer](https://semver.org/lang/pt-BR/).
 
 ### Fixed
 - Deterministic SBOM generation and cross-platform release evidence.
+- Sigma graph remounts now register the built-in circle program per renderer,
+  preventing long-session canvas errors after navigation.
 
 ## [1.1.0] - 2026-11-04
 

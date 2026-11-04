@@ -13,6 +13,7 @@ import forceAtlas2 from 'graphology-layout-forceatlas2';
 import FA2_DEFAULT_SETTINGS from 'graphology-layout-forceatlas2/defaults';
 import { graphToByteArrays } from 'graphology-layout-forceatlas2/helpers';
 import Sigma from 'sigma';
+import { NodeCircleProgram } from 'sigma/rendering';
 import {
   FA2_NODE_FIXED_OFFSET,
   FA2_NODE_STRIDE,
@@ -302,6 +303,12 @@ export class GraphCanvasComponent implements AfterViewInit, OnDestroy {
       // Container can be 0x0 transiently during mount/unmount churn and
       // view transitions — that is a legit state, not a Sigma error.
       allowInvalidContainer: true,
+      // Register the built-in node program explicitly.  Sigma normally
+      // supplies this default, but an explicit per-instance registry keeps
+      // remounted canvases safe when a long session tears down one renderer
+      // while another is being created.
+      defaultNodeType: 'circle',
+      nodeProgramClasses: { circle: NodeCircleProgram },
       renderEdgeLabels: true,
       edgeLabelSize: 11,
       edgeLabelColor: { attribute: 'color' },
