@@ -6,6 +6,12 @@ versionamento [SemVer](https://semver.org/lang/pt-BR/).
 
 ## [Unreleased]
 
+## [1.1.0] - 2026-11-04
+
+### Added
+- **Guided install lifecycle + wizard** — install planning, receipts and
+  host-aware guided flow on a real TTY; flags stay non-interactive.
+
 ## [1.0.0] - 2026-10-25
 
 Primeiro release estável (GA) do code-atlas-forge. Promoção de
