@@ -30,6 +30,8 @@ versionamento [SemVer](https://semver.org/lang/pt-BR/).
 - Deterministic SBOM generation and cross-platform release evidence.
 - Sigma graph remounts now register the built-in circle program per renderer,
   preventing long-session canvas errors after navigation.
+- Layout promises that finish during route teardown are now invalidated before
+  touching a renderer that has already been killed.
 
 ## [1.1.0] - 2026-11-04
 

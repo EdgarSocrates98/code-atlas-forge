@@ -265,6 +265,10 @@ export class GraphCanvasComponent implements AfterViewInit, OnDestroy {
 
   ngOnDestroy(): void {
     this.destroyed = true;
+    // Invalidate a layout promise even when the worker has already reported
+    // done and its `.then` callback is still waiting in the microtask queue.
+    // That callback must never mutate a renderer that is being torn down.
+    this.layoutGen++;
     // An in-flight layout can never commit after the view dies — kill it
     // before the renderer so its resolve lands on a dead generation.
     this.cancelLayoutRun();
@@ -287,8 +291,17 @@ export class GraphCanvasComponent implements AfterViewInit, OnDestroy {
     // RAF; the store's AbortController aborts in-flight requests — no
     // callbacks outlive this component.
     const sigma = this.sigma;
+    const graph = this.graph;
     this.sigma = null;
+    if (sigma) {
+      // A RAF callback already queued inside Sigma resolves the method at
+      // callback time. Turn that callback into a no-op before kill() clears
+      // the WebGL contexts and program registry.
+      const staleSafe = sigma as unknown as { render: () => Sigma };
+      staleSafe.render = () => sigma;
+    }
     sigma?.kill();
+    graph?.clear();
     if (sigma) untrackSigma(sigma);
     this.graph = null;
   }
@@ -610,8 +623,8 @@ export class GraphCanvasComponent implements AfterViewInit, OnDestroy {
    * can touch flags owned by a newer run.
    */
   private cancelLayoutRun(): void {
-    if (!this.layoutRunner.running) return;
     this.layoutGen++;
+    if (!this.layoutRunner.running) return;
     this.layoutRunner.cancel();
     this.layoutBusy = false;
     this.layoutProgress = null;
@@ -634,7 +647,7 @@ export class GraphCanvasComponent implements AfterViewInit, OnDestroy {
     // Count the terminal status even on a stale generation — the run
     // started under this component and the counter must stay honest.
     recordRunFinished(result.status);
-    if (gen !== this.layoutGen) return; // superseded — a newer run owns the flags
+    if (this.destroyed || gen !== this.layoutGen) return; // superseded or torn down
     this.layoutBusy = false;
     this.layoutProgress = null;
     this.stageRef.nativeElement.removeAttribute('aria-busy');
