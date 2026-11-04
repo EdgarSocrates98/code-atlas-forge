@@ -1,0 +1,12 @@
+{
+  "forge_id": "code-atlas",
+  "package": "code_atlas",
+  "distribution": "code-atlas-forge",
+  "cli": "code-atlas",
+  "python": ">=3.12",
+  "mcp_server_name": "code-atlas",
+  "mcp_command": ["code-atlas", "mcp"],
+  "extras": ["mcp", "vector"],
+  "install_command": ["code-atlas", "install", "--yes"],
+  "smoke_command": ["code-atlas", "doctor"]
+}

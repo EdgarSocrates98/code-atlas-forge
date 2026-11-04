@@ -55,7 +55,7 @@ where = ["src"]
 # diretório é gitignored e pode não existir num checkout limpo; nesse
 # caso o wheel/sdist saem API-only e `code-atlas explorer` avisa.
 [tool.setuptools.package-data]
-code_atlas = ["explorer_dist/**"]
+code_atlas = ["explorer_dist/**", "forge/*.json"]
 
 [tool.setuptools.dynamic]
 version = { attr = "code_atlas.__version__" }

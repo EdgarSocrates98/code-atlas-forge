@@ -1,0 +1,15 @@
+{
+  "agent": "codex",
+  "command": [
+    "codex",
+    "exec",
+    "$(cat E:\\projetos\\FORJAS\\code-atlas-forge\\factory\\prompts\\ecosystem-capability-manifest.implement.codex.md)"
+  ],
+  "created_at": "2026-11-04T03:06:51+00:00",
+  "id": "ecosystem-capability-manifest",
+  "prompt_path": "E:\\projetos\\FORJAS\\code-atlas-forge\\factory\\prompts\\ecosystem-capability-manifest.implement.codex.md",
+  "spec_path": "E:\\projetos\\FORJAS\\code-atlas-forge\\factory\\specs\\active\\ecosystem-capability-manifest.md",
+  "spec_sha256": "1954cb9b6e9c06a58f3d3c9cf70d513de2b8ee79e75e3c93e8c157aea4b0cc42",
+  "status": "planned",
+  "title": "Publish Code Atlas capability manifests for generic discovery"
+}

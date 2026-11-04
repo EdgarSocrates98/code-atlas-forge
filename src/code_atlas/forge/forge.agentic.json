@@ -1,0 +1,22 @@
+{
+  "schema": "forge/SpecialistAgenticManifest/v1",
+  "provider": "code-atlas",
+  "version": "1.1.0",
+  "cli": "code-atlas",
+  "cli_entry": "code_atlas.cli:main",
+  "workflows": [
+    {"id": "index", "mode": "DIRECT_CAPABILITY", "command": ["{cli}", "index", "--root", "{target}"], "description": "Build or update the structural code index", "read_only": false},
+    {"id": "search", "mode": "DIRECT_CAPABILITY", "command": ["{cli}", "search", "{query}", "--root", "{target}"], "description": "Search indexed symbols and structural relationships", "read_only": true},
+    {"id": "impact", "mode": "DIRECT_CAPABILITY", "command": ["{cli}", "impact", "symbol", "{symbol}", "--root", "{target}"], "description": "Explain the reverse impact of a symbol or resource", "read_only": true},
+    {"id": "doctor", "mode": "DIAGNOSTIC_ONLY", "command": ["{cli}", "doctor", "--json"], "description": "Check the local installation and storage runtime", "read_only": true},
+    {"id": "mcp-doctor", "mode": "DIAGNOSTIC_ONLY", "command": ["{cli}", "mcp", "doctor", "--json"], "description": "Check the MCP entry point and declared capabilities", "read_only": true}
+  ],
+  "skills": [],
+  "agents": [],
+  "coordinators": [],
+  "mcp_command": ["{cli}", "mcp"],
+  "host_adapters": ["claude", "devin", "codex", "copilot"],
+  "requires_network": false,
+  "requires_credentials": false,
+  "read_only_default": true
+}

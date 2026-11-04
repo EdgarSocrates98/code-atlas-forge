@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import tomllib
 from pathlib import Path
 
@@ -23,6 +24,19 @@ def test_src_layout() -> None:
     assert (pkg / "__init__.py").exists()
     for sub in ("contracts", "discovery", "storage", "indexing", "observability"):
         assert (pkg / sub / "__init__.py").exists(), f"missing {sub}"
+
+
+def test_capability_manifests_match_and_are_packaged() -> None:
+    root_manifests = [ROOT / "forge.json", ROOT / "forge.agentic.json"]
+    package_manifests = [ROOT / "src" / "code_atlas" / "forge" / p.name for p in root_manifests]
+    for root_path, package_path in zip(root_manifests, package_manifests, strict=True):
+        assert root_path.exists(), f"missing source manifest: {root_path.name}"
+        assert package_path.exists(), f"missing package manifest: {package_path.name}"
+        assert json.loads(root_path.read_text(encoding="utf-8")) == json.loads(
+            package_path.read_text(encoding="utf-8")
+        )
+    assert json.loads(root_manifests[0].read_text(encoding="utf-8"))["forge_id"] == "code-atlas"
+    assert json.loads(root_manifests[1].read_text(encoding="utf-8"))["version"] == __version__
 
 
 def test_runtime_dependencies_are_pinned_tree_sitter() -> None:
