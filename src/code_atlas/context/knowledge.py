@@ -58,7 +58,7 @@ def to_knowledge_context_pack(
                 "path": item.path,
                 "symbol_key": item.symbol_key,
             }
-            for item_id, item in zip(selected, pack.items)
+            for item_id, item in zip(selected, pack.items, strict=False)
         ],
     }
 
