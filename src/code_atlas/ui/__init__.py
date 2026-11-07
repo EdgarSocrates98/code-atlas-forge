@@ -16,6 +16,8 @@ from code_atlas.ui.kit import (
     select,
     status_table,
 )
+from code_atlas.ui.home import run_home
+from code_atlas.ui.tui import run_tui
 
 __all__ = [
     "UIContext",
@@ -25,5 +27,7 @@ __all__ = [
     "prompt",
     "select",
     "status_table",
+    "run_home",
+    "run_tui",
     "t",
 ]
