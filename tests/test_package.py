@@ -35,7 +35,10 @@ def test_capability_manifests_match_and_are_packaged() -> None:
         assert json.loads(root_path.read_text(encoding="utf-8")) == json.loads(
             package_path.read_text(encoding="utf-8")
         )
-    assert json.loads(root_manifests[0].read_text(encoding="utf-8"))["forge_id"] == "code-atlas-forge"
+    assert (
+        json.loads(root_manifests[0].read_text(encoding="utf-8"))["forge_id"]
+        == "code-atlas-forge"
+    )
     assert json.loads(root_manifests[1].read_text(encoding="utf-8"))["version"] == __version__
 
 

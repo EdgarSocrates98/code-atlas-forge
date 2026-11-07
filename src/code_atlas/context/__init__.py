@@ -27,21 +27,22 @@ from code_atlas.context.expand import (
     ExpansionResult,
     expansion_to_json,
 )
+from code_atlas.context.knowledge import (
+    KNOWLEDGE_CONTEXT_PACK_SCHEMA,
+    to_knowledge_context_pack,
+)
 from code_atlas.context.renderers import (
     RENDERER_VERSION_JSON,
     RENDERER_VERSION_MD,
     render_json,
     render_markdown,
 )
-from code_atlas.context.knowledge import (
-    KNOWLEDGE_CONTEXT_PACK_SCHEMA,
-    to_knowledge_context_pack,
-)
 from code_atlas.context.tokenizer import HeuristicTokenizer, TokenCounter
 
 __all__ = [
     "DOMAIN_PACK_SCHEMA_VERSION",
     "DOMAIN_REQUERY_CONTRACT",
+    "KNOWLEDGE_CONTEXT_PACK_SCHEMA",
     "PACK_SCHEMA_VERSION",
     "RENDERER_VERSION_JSON",
     "RENDERER_VERSION_MD",
@@ -63,10 +64,9 @@ __all__ = [
     "PackEvidence",
     "PackManifest",
     "TokenCounter",
-    "KNOWLEDGE_CONTEXT_PACK_SCHEMA",
     "expansion_to_json",
-    "to_knowledge_context_pack",
     "render_json",
     "render_markdown",
     "resolve_domain_ref",
+    "to_knowledge_context_pack",
 ]
