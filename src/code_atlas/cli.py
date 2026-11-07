@@ -2068,6 +2068,13 @@ def _add_query_args(
 
 def main(argv: Sequence[str] | None = None) -> int:
     argv = list(sys.argv[1:] if argv is None else argv)
+    if argv in ([], ["tui"]) and sys.stdin.isatty() and sys.stdout.isatty():
+        from code_atlas.ui.home import run_home
+
+        return run_home()
+    if argv == ["tui"]:
+        print("code-atlas tui requires an interactive TTY", file=sys.stderr)
+        return EXIT_USAGE
     # Bare `code-atlas install` on a TTY → guided wizard (same contract as
     # `sparkforge-aws install` / `productforge install`); flags and pipes
     # keep the argparse path unchanged.
