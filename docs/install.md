@@ -3,6 +3,21 @@
 Requisito: **Python 3.12+**. Sem dependências de runtime (stdlib apenas),
 sem Docker, sem conta externa.
 
+## Instalador portátil
+
+A partir de um checkout, a rota recomendada instala o CLI em uma venv
+user-scoped e cria um launcher independente do workspace:
+
+```bash
+./install.sh              # Linux/macOS/Git Bash
+./install.sh --dry-run    # mostra o plano sem escrever
+```
+
+No PowerShell use `.\install.ps1`; o mesmo fluxo existe em
+`install.windows.sh` para Git Bash. O launcher e o receipt ficam em
+`~/.forjas/code-atlas-forge/` (ou no diretório indicado por
+`FORGE_INSTALL_HOME`). Adicione o subdiretório `bin/` ao `PATH` uma vez.
+
 ## Linux
 
 ```bash
