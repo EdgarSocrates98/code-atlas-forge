@@ -33,6 +33,10 @@ from code_atlas.context.renderers import (
     render_json,
     render_markdown,
 )
+from code_atlas.context.knowledge import (
+    KNOWLEDGE_CONTEXT_PACK_SCHEMA,
+    to_knowledge_context_pack,
+)
 from code_atlas.context.tokenizer import HeuristicTokenizer, TokenCounter
 
 __all__ = [
@@ -59,7 +63,9 @@ __all__ = [
     "PackEvidence",
     "PackManifest",
     "TokenCounter",
+    "KNOWLEDGE_CONTEXT_PACK_SCHEMA",
     "expansion_to_json",
+    "to_knowledge_context_pack",
     "render_json",
     "render_markdown",
     "resolve_domain_ref",
