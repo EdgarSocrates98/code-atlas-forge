@@ -123,7 +123,8 @@ def packaged_install(tmp_path_factory: pytest.TempPathFactory):
         None)
     assert vpy is not None, "venv criada sem python executável"
     subprocess.run(
-        [str(vpy), "-m", "pip", "install", "--quiet", "--no-deps",
+        [str(vpy), "-m", "pip", "install", "--quiet", "--no-cache-dir",
+         "--force-reinstall", "--no-deps",
          str(wheel)], check=True, timeout=300)
 
     data_dir = work / "data"
