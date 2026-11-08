@@ -8,6 +8,7 @@ without importing the The Forge control plane.
 from __future__ import annotations
 
 import hashlib
+import json
 from typing import Any
 
 from code_atlas.context.contracts import ContextPack
@@ -25,6 +26,7 @@ def to_knowledge_context_pack(
     query: str,
     workspace_id: str,
     principal: str,
+    product_id: str | None = None,
 ) -> dict[str, Any]:
     """Project a verified ContextPack into the cross-Forge contract.
 
@@ -35,13 +37,35 @@ def to_knowledge_context_pack(
     selected = [_item_id(item.item_id) for item in pack.items]
     evidence = [e.ref for item in pack.items for e in item.evidence]
     evidence.extend(e.ref for e in pack.dependencies)
+    source_id = pack.manifest.repository
+    source_version = str(pack.manifest.snapshot_id)
+    identity = {
+        "repository": source_id,
+        "snapshot": pack.manifest.snapshot_id,
+        "query": query,
+        "workspace_id": workspace_id,
+        "product_id": product_id,
+        "selected_items": selected,
+        "evidence_ids": sorted(set(evidence)),
+        "source_versions": {source_id: source_version},
+        "strategy": {
+            "level": pack.manifest.level,
+            "estimator": pack.manifest.estimator,
+            "ranking": pack.manifest.ranking_explanation,
+        },
+        "budget": pack.budget.limit,
+    }
+    pack_id = "code-atlas:" + hashlib.sha256(
+        json.dumps(identity, sort_keys=True, separators=(",", ":")).encode("utf-8")
+    ).hexdigest()[:24]
     return {
         "schema": KNOWLEDGE_CONTEXT_PACK_SCHEMA,
-        "pack_id": _item_id(f"{pack.manifest.repository}:{pack.manifest.snapshot_id}:{query}"),
+        "pack_id": pack_id,
         "query": query,
         "workspace_id": workspace_id,
         "principal": principal,
-        "source_versions": {pack.manifest.repository: str(pack.manifest.snapshot_id)},
+        **({"product_id": product_id} if product_id is not None else {}),
+        "source_versions": {source_id: source_version},
         "selected_items": selected,
         "evidence_ids": sorted(set(evidence)),
         "estimated_tokens": sum(item.est_tokens for item in pack.items),
@@ -52,6 +76,12 @@ def to_knowledge_context_pack(
         "items": [
             {
                 "item_id": item_id,
+                "source_id": source_id,
+                "document_id": item.path or item.item_id,
+                "workspace_id": workspace_id,
+                "version": source_version,
+                "product_id": product_id,
+                "content_hash": hashlib.sha256(item.body.encode("utf-8")).hexdigest(),
                 "kind": item.kind,
                 "title": item.title,
                 "body": item.body,
