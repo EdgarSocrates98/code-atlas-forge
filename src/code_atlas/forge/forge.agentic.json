@@ -12,7 +12,12 @@
     {"id": "mcp-doctor", "mode": "DIAGNOSTIC_ONLY", "command": ["{cli}", "mcp", "doctor", "--json"], "description": "Check the MCP entry point and declared capabilities", "read_only": true}
   ],
   "skills": [],
-  "agents": [],
+  "agents": [
+    "code-atlas-structural-analyst",
+    "code-atlas-impact-reviewer",
+    "code-atlas-context-curator"
+  ],
+  "agent_roster_paths": ["src/code_atlas/installation/assets/agents"],
   "coordinators": [],
   "mcp_command": ["{cli}", "mcp"],
   "host_adapters": ["claude", "devin", "codex", "copilot"],

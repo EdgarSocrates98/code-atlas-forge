@@ -42,6 +42,24 @@ def test_capability_manifests_match_and_are_packaged() -> None:
     assert json.loads(root_manifests[1].read_text(encoding="utf-8"))["version"] == __version__
 
 
+def test_agent_roster_matches_manifest_and_is_packaged() -> None:
+    manifest = json.loads((ROOT / "forge.agentic.json").read_text(encoding="utf-8"))
+    roster_dir = ROOT / manifest["agent_roster_paths"][0]
+    roster_ids = sorted(path.stem for path in roster_dir.glob("*.md"))
+    assert roster_ids == sorted(manifest["agents"])
+    for agent_id in roster_ids:
+        agent_path = (
+            ROOT
+            / "src"
+            / "code_atlas"
+            / "installation"
+            / "assets"
+            / "agents"
+            / f"{agent_id}.md"
+        )
+        assert agent_path.exists()
+
+
 def test_runtime_dependencies_are_pinned_tree_sitter() -> None:
     """Cycle 2: deps de runtime = apenas a pilha Tree-sitter aprovada (ADR)."""
     raw = tomllib.loads((ROOT / "pyproject.toml").read_text(encoding="utf-8"))
