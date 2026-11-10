@@ -6,6 +6,11 @@ versionamento [SemVer](https://semver.org/lang/pt-BR/).
 
 ## [Unreleased]
 
+## [1.1.2] - 2026-11-10
+
+### Fixed
+- Published the Cycle 2.7 release certification baseline.
+
 ### Added
 - **`install uninstall` action + `--purge`** — parity with sibling forges.
   Removes only what the receipt proves install applied; `atlas.db`/index

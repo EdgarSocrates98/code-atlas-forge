@@ -1,7 +1,7 @@
 {
   "schema": "forge/SpecialistAgenticManifest/v1",
   "provider": "code-atlas-forge",
-  "version": "1.1.1",
+  "version": "1.1.2",
   "cli": "code-atlas",
   "cli_entry": "code_atlas.cli:main",
   "workflows": [
