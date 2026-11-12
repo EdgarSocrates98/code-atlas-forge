@@ -82,6 +82,7 @@
     "{cli}",
     "mcp"
   ],
+  "mcp_verify_tool": "atlas_status",
   "host_adapters": [
     "claude",
     "devin",
