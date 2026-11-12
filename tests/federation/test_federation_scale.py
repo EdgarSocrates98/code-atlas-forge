@@ -428,11 +428,13 @@ class TestFiveRepoStress:
         b = eng.search(SearchRequest(query="orders"), ws_id)
         assert a.view.view_id == b.view.view_id
         assert a.members_searched == N_REPOS
-        key = lambda h: (
-            h.repository_id,
-            h.snapshot_id,  # noqa: E731
-            h.entity_id,
-        )
+        def key(h):
+            return (
+                h.repository_id,
+                h.snapshot_id,
+                h.entity_id,
+            )
+
         assert [key(h) for h in a.domain_items] == [key(h) for h in b.domain_items]
         # narrowing a 1 membro: só ele é pesquisado, view segue 5-wide
         one = eng.search(

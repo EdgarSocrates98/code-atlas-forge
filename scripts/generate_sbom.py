@@ -192,12 +192,11 @@ def _npm_components() -> list[dict]:
             if lic:
                 comp["licenses"] = [lic]
             comps[purl] = comp
-        elif comp["scope"] != scope:
+        elif comp["scope"] != scope and scope == "required":
             # Same name@version reachable via prod and dev paths: it ships
             # in prod installs, so required wins over excluded.
-            if scope == "required":
-                comp["scope"] = "required"
-                comp["group"] = "npm-runtime"
+            comp["scope"] = "required"
+            comp["group"] = "npm-runtime"
     return list(comps.values())
 
 

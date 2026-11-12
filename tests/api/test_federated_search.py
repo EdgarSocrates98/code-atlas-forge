@@ -149,11 +149,13 @@ class TestFederatedSearchApi(unittest.TestCase):
     def test_determinism_and_bounded_limit(self) -> None:
         code, a = self._ws_search("?q=orders")
         code, b = self._ws_search("?q=orders")
-        key = lambda h: (
-            h["repository_id"],
-            h["occurrence_id"],  # noqa: E731
-            h["qualified_name"],
-        )
+        def key(h):
+            return (
+                h["repository_id"],
+                h["occurrence_id"],
+                h["qualified_name"],
+            )
+
         self.assertEqual([key(h) for h in a["items"]], [key(h) for h in b["items"]])
         code, body = self._ws_search("?q=orders&limit=1")
         self.assertEqual(code, 200)
