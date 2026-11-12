@@ -8,35 +8,62 @@
     {
       "id": "index",
       "mode": "DIRECT_CAPABILITY",
-      "command": ["{cli}", "index", "--root", "{target}"],
+      "command": [
+        "{cli}",
+        "index",
+        "--root",
+        "{target}"
+      ],
       "description": "Build or update the structural code index",
       "read_only": false
     },
     {
       "id": "search",
       "mode": "DIRECT_CAPABILITY",
-      "command": ["{cli}", "search", "{query}", "--root", "{target}"],
+      "command": [
+        "{cli}",
+        "search",
+        "{query}",
+        "--root",
+        "{target}"
+      ],
       "description": "Search indexed symbols and structural relationships",
       "read_only": true
     },
     {
       "id": "impact",
       "mode": "DIRECT_CAPABILITY",
-      "command": ["{cli}", "impact", "symbol", "{symbol}", "--root", "{target}"],
+      "command": [
+        "{cli}",
+        "impact",
+        "symbol",
+        "{symbol}",
+        "--root",
+        "{target}"
+      ],
       "description": "Explain the reverse impact of a symbol or resource",
       "read_only": true
     },
     {
       "id": "doctor",
       "mode": "DIAGNOSTIC_ONLY",
-      "command": ["{cli}", "doctor", "--json"],
+      "command": [
+        "{cli}",
+        "doctor",
+        "--json"
+      ],
       "description": "Check the local installation and storage runtime",
       "read_only": true
     },
     {
       "id": "mcp-doctor",
       "mode": "DIAGNOSTIC_ONLY",
-      "command": ["{cli}", "mcp", "doctor", "--json"],
+      "command": [
+        "{cli}",
+        "mcp",
+        "doctor",
+        "--json"
+      ],
       "description": "Check the MCP entry point and declared capabilities",
       "read_only": true
     }
@@ -47,11 +74,148 @@
     "code-atlas-impact-reviewer",
     "code-atlas-context-curator"
   ],
-  "agent_roster_paths": ["src/code_atlas/installation/assets/agents"],
+  "agent_roster_paths": [
+    "src/code_atlas/installation/assets/agents"
+  ],
   "coordinators": [],
-  "mcp_command": ["{cli}", "mcp"],
-  "host_adapters": ["claude", "devin", "codex", "copilot"],
+  "mcp_command": [
+    "{cli}",
+    "mcp"
+  ],
+  "host_adapters": [
+    "claude",
+    "devin",
+    "codex",
+    "copilot"
+  ],
   "requires_network": false,
   "requires_credentials": false,
-  "read_only_default": true
+  "read_only_default": true,
+  "resources": [
+    {
+      "id": "code-atlas-context-curator",
+      "kind": "agent",
+      "location": "src/code_atlas/installation/assets/agents/code-atlas-context-curator.md",
+      "resource_class": "agentic"
+    },
+    {
+      "id": "code-atlas-impact-reviewer",
+      "kind": "agent",
+      "location": "src/code_atlas/installation/assets/agents/code-atlas-impact-reviewer.md",
+      "resource_class": "agentic"
+    },
+    {
+      "id": "code-atlas-structural-analyst",
+      "kind": "agent",
+      "location": "src/code_atlas/installation/assets/agents/code-atlas-structural-analyst.md",
+      "resource_class": "agentic"
+    },
+    {
+      "id": "evaluation/golden",
+      "kind": "eval",
+      "location": "evaluation/golden",
+      "resource_class": "validation"
+    },
+    {
+      "id": "evaluation/ground_truth",
+      "kind": "eval",
+      "location": "evaluation/ground_truth",
+      "resource_class": "validation"
+    },
+    {
+      "id": "evaluation/impact_truth",
+      "kind": "eval",
+      "location": "evaluation/impact_truth",
+      "resource_class": "validation"
+    },
+    {
+      "id": "evaluation/pack_value",
+      "kind": "eval",
+      "location": "evaluation/pack_value",
+      "resource_class": "validation"
+    },
+    {
+      "id": "evaluation/run_eval.py",
+      "kind": "eval",
+      "location": "evaluation/run_eval.py",
+      "format": "python",
+      "resource_class": "validation"
+    },
+    {
+      "id": "evaluation/run_ground_truth.py",
+      "kind": "eval",
+      "location": "evaluation/run_ground_truth.py",
+      "format": "python",
+      "resource_class": "validation"
+    },
+    {
+      "id": "evaluation/run_impact_validation.py",
+      "kind": "eval",
+      "location": "evaluation/run_impact_validation.py",
+      "format": "python",
+      "resource_class": "validation"
+    },
+    {
+      "id": "evaluation/run_pack_value.py",
+      "kind": "eval",
+      "location": "evaluation/run_pack_value.py",
+      "format": "python",
+      "resource_class": "validation"
+    },
+    {
+      "id": "tests/fixtures/api_repo",
+      "kind": "fixture",
+      "location": "tests/fixtures/api_repo",
+      "resource_class": "test-only"
+    },
+    {
+      "id": "tests/fixtures/aws_repo",
+      "kind": "fixture",
+      "location": "tests/fixtures/aws_repo",
+      "resource_class": "test-only"
+    },
+    {
+      "id": "tests/fixtures/cicd_repo",
+      "kind": "fixture",
+      "location": "tests/fixtures/cicd_repo",
+      "resource_class": "test-only"
+    },
+    {
+      "id": "tests/fixtures/crossdomain_ws",
+      "kind": "fixture",
+      "location": "tests/fixtures/crossdomain_ws",
+      "resource_class": "test-only"
+    },
+    {
+      "id": "tests/fixtures/gen_large_repo.py",
+      "kind": "fixture",
+      "location": "tests/fixtures/gen_large_repo.py",
+      "format": "python",
+      "resource_class": "test-only"
+    },
+    {
+      "id": "tests/fixtures/pyspark_repo",
+      "kind": "fixture",
+      "location": "tests/fixtures/pyspark_repo",
+      "resource_class": "test-only"
+    },
+    {
+      "id": "tests/fixtures/sample_repo",
+      "kind": "fixture",
+      "location": "tests/fixtures/sample_repo",
+      "resource_class": "test-only"
+    },
+    {
+      "id": "tests/fixtures/sql_warehouse",
+      "kind": "fixture",
+      "location": "tests/fixtures/sql_warehouse",
+      "resource_class": "test-only"
+    },
+    {
+      "id": "tests/fixtures/terraform_infra",
+      "kind": "fixture",
+      "location": "tests/fixtures/terraform_infra",
+      "resource_class": "test-only"
+    }
+  ]
 }
