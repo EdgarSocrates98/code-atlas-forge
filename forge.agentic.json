@@ -96,19 +96,22 @@
       "id": "code-atlas-context-curator",
       "kind": "agent",
       "location": "src/code_atlas/installation/assets/agents/code-atlas-context-curator.md",
-      "resource_class": "agentic"
+      "resource_class": "agentic",
+      "packaged_location": "installation/assets/agents/code-atlas-context-curator.md"
     },
     {
       "id": "code-atlas-impact-reviewer",
       "kind": "agent",
       "location": "src/code_atlas/installation/assets/agents/code-atlas-impact-reviewer.md",
-      "resource_class": "agentic"
+      "resource_class": "agentic",
+      "packaged_location": "installation/assets/agents/code-atlas-impact-reviewer.md"
     },
     {
       "id": "code-atlas-structural-analyst",
       "kind": "agent",
       "location": "src/code_atlas/installation/assets/agents/code-atlas-structural-analyst.md",
-      "resource_class": "agentic"
+      "resource_class": "agentic",
+      "packaged_location": "installation/assets/agents/code-atlas-structural-analyst.md"
     },
     {
       "id": "evaluation/golden",
