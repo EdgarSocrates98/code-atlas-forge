@@ -92,7 +92,7 @@ strict = true
 warn_unused_ignores = true
 warn_unreachable = true
 # Vendored Forge UI kit — mesma razão da exclusão de lint.
-exclude = ["code_atlas.ui"]
+exclude = ["code_atlas.ui", "code_atlas._forge_obsidian"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
