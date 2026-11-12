@@ -6,6 +6,11 @@ versionamento [SemVer](https://semver.org/lang/pt-BR/).
 
 ## [Unreleased]
 
+## [1.1.3] - 2026-11-12
+
+Cycle 2.7 patch release: federated SDD contracts and adapters, forge-context kind taxonomy, universal Obsidian export verbs, portal and install UX improvements, provider context-registry wiring, CI hardening and generated-artifact refresh.
+
+
 ## [1.1.2] - 2026-11-10
 
 ### Fixed
