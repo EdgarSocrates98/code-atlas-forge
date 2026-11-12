@@ -1778,9 +1778,9 @@ def build_parser() -> argparse.ArgumentParser:
     )
     p_inst.add_argument(
         "--scope",
-        choices=("project", "user"),
+        choices=("project", "user", "workspace"),
         default="project",
-        help="project=workspace atual; user=só data dir global",
+        help="project=workspace atual (alias: workspace); user=só data dir global",
     )
     p_inst.add_argument("--root", metavar="PATH", help="raiz do workspace (default: cwd)")
     p_inst.add_argument(
