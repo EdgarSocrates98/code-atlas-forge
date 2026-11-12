@@ -2041,6 +2041,11 @@ def build_parser() -> argparse.ArgumentParser:
     p_dom.add_argument("--json", action="store_true", help="saída em JSON")
     p_dom.set_defaults(func=run_domains)
 
+    # obsidian — shared authorized-vault verbs (vendored forge_obsidian engine)
+    from code_atlas._forge_obsidian.cli import obsidian_argparse
+
+    obsidian_argparse(sub, "code-atlas-forge")
+
     return parser
 
 
