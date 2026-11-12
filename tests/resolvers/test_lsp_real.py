@@ -34,13 +34,9 @@ def _repo(tmp_path: Path) -> Path:
     repo = tmp_path / "repo"
     (repo / "pkg").mkdir(parents=True)
     (repo / "pkg" / "__init__.py").write_text("")
-    (repo / "pkg" / "util.py").write_text(
-        "def helper():\n    return 1\n"
-    )
+    (repo / "pkg" / "util.py").write_text("def helper():\n    return 1\n")
     (repo / "pkg" / "engine.py").write_text(
-        "from pkg.util import helper\n\n"
-        "def run():\n"
-        "    return helper()\n"
+        "from pkg.util import helper\n\ndef run():\n    return helper()\n"
     )
     return repo
 
@@ -77,11 +73,7 @@ def test_pyright_real_handshake_document_symbol(tmp_path: Path) -> None:
             },
         )
         symbols = client.document_symbol(uri)
-        names = {
-            s.get("name")
-            for s in (symbols or [])
-            if isinstance(s, dict)
-        }
+        names = {s.get("name") for s in (symbols or []) if isinstance(s, dict)}
         assert "helper" in names
     finally:
         if client is not None:

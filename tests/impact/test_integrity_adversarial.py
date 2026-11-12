@@ -1,4 +1,5 @@
 """Adversariais de integridade Cycle 5.1 — lf-0071..lf-0074."""
+
 from __future__ import annotations
 
 import sys
@@ -31,9 +32,7 @@ def two_repos(tmp_path):
 
 
 def _snap_repo(conn, sid):
-    return conn.execute(
-        "SELECT repository_id FROM snapshots WHERE id=?",
-        (sid,)).fetchone()[0]
+    return conn.execute("SELECT repository_id FROM snapshots WHERE id=?", (sid,)).fetchone()[0]
 
 
 def test_explicit_cross_repo_snapshot_rejected(two_repos) -> None:
@@ -42,20 +41,21 @@ def test_explicit_cross_repo_snapshot_rejected(two_repos) -> None:
     repo_b = conn.execute(
         "SELECT repository_id FROM snapshots s JOIN repositories r"
         " ON r.id=s.repository_id WHERE r.root_handle LIKE ?",
-        (f"%{root_b.name}%",)).fetchone()
+        (f"%{root_b.name}%",),
+    ).fetchone()
     if repo_b is None:
         repo_b = conn.execute(
-            "SELECT repository_id FROM snapshots ORDER BY id DESC"
-            " LIMIT 1").fetchone()
+            "SELECT repository_id FROM snapshots ORDER BY id DESC LIMIT 1"
+        ).fetchone()
     b_sid = conn.execute(
-        "SELECT id FROM snapshots WHERE repository_id=? LIMIT 1",
-        (repo_b[0],)).fetchone()[0]
+        "SELECT id FROM snapshots WHERE repository_id=? LIMIT 1", (repo_b[0],)
+    ).fetchone()[0]
     repo_a = conn.execute(
-        "SELECT repository_id FROM snapshots WHERE repository_id!=?"
-        " LIMIT 1", (repo_b[0],)).fetchone()[0]
+        "SELECT repository_id FROM snapshots WHERE repository_id!=? LIMIT 1", (repo_b[0],)
+    ).fetchone()[0]
     res, diags = ImpactSnapshotResolver(conn).resolve(
-        ImpactRequest(repository_root=str(root_a),
-                      target_snapshot_id=b_sid), root_a)
+        ImpactRequest(repository_root=str(root_a), target_snapshot_id=b_sid), root_a
+    )
     assert res is None or res.repository_id == repo_a
     assert any(d.code == "cross-repo-snapshot" for d in diags)
 
@@ -66,12 +66,12 @@ def test_failed_snapshot_rejected(two_repos) -> None:
     sid = conn.execute(
         "SELECT s.id FROM snapshots s JOIN repositories r"
         " ON r.id=s.repository_id WHERE r.root_handle LIKE ?",
-        (f"%{root_a.name}%",)).fetchone()[0]
-    conn.execute("UPDATE snapshots SET status='FAILED' WHERE id=?",
-                 (sid,))
+        (f"%{root_a.name}%",),
+    ).fetchone()[0]
+    conn.execute("UPDATE snapshots SET status='FAILED' WHERE id=?", (sid,))
     res, diags = ImpactSnapshotResolver(conn).resolve(
-        ImpactRequest(repository_root=str(root_a),
-                      target_snapshot_id=sid), root_a)
+        ImpactRequest(repository_root=str(root_a), target_snapshot_id=sid), root_a
+    )
     assert res is None
     assert any(d.code == "snapshot-failed" for d in diags)
 
@@ -80,20 +80,22 @@ def test_stale_accepted_as_base(two_repos) -> None:
     """lf-0071: STALE vale como base histórica."""
     conn, root_a, _ = two_repos
     (root_a / "pkg" / "orders.py").write_text(
-        "class OrderService:\n"
-        "    def cancel_order(self, o):\n        return 0\n")
+        "class OrderService:\n    def cancel_order(self, o):\n        return 0\n"
+    )
     IndexCoordinator(conn).index(root_a)
-    sids = [r[0] for r in conn.execute(
-        "SELECT s.id FROM snapshots s JOIN repositories r"
-        " ON r.id=s.repository_id WHERE r.root_handle LIKE ?"
-        " ORDER BY s.id", (f"%{root_a.name}%",))]
+    sids = [
+        r[0]
+        for r in conn.execute(
+            "SELECT s.id FROM snapshots s JOIN repositories r"
+            " ON r.id=s.repository_id WHERE r.root_handle LIKE ?"
+            " ORDER BY s.id",
+            (f"%{root_a.name}%",),
+        )
+    ]
     assert len(sids) >= 2
-    stale = conn.execute(
-        "SELECT status FROM snapshots WHERE id=?", (sids[0],)
-    ).fetchone()[0]
+    stale = conn.execute("SELECT status FROM snapshots WHERE id=?", (sids[0],)).fetchone()[0]
     assert stale == "STALE"  # o antigo ficou STALE após reindex
-    res = ImpactEngine(conn).analyze(
-        ImpactRequest(repository_root=str(root_a)))
+    res = ImpactEngine(conn).analyze(ImpactRequest(repository_root=str(root_a)))
     assert res.base_snapshot_id == sids[0]
     assert res.target_snapshot_id == sids[-1]
 
@@ -103,21 +105,19 @@ def test_removed_symbol_blast_on_base(tmp_path) -> None:
     root = tmp_path / "r"
     conn = build_eval_repo(root)
     (root / "pkg" / "orders.py").write_text(
-        "class OrderService:\n"
-        "    pass\n")  # cancel_order removido
+        "class OrderService:\n    pass\n"
+    )  # cancel_order removido
     IndexCoordinator(conn).index(root)
-    res = ImpactEngine(conn).analyze(
-        ImpactRequest(repository_root=str(root)))
-    removed = [s for s in res.symbol_changes
-               if s.change == SymbolChangeKind.REMOVED]
+    res = ImpactEngine(conn).analyze(ImpactRequest(repository_root=str(root)))
+    removed = [s for s in res.symbol_changes if s.change == SymbolChangeKind.REMOVED]
     assert removed, "cancel_order devia aparecer como removido"
     # consumidores históricos (checkout usa cancel_order) devem aparecer
     keys = {i.symbol_key for i in res.impacts}
     assert any("checkout" in k or "Order" in k for k in keys), (
-        f"sem impacto de símbolo removido: {keys}")
+        f"sem impacto de símbolo removido: {keys}"
+    )
     for i in res.impacts:
-        if i.path and i.path.origin_symbol_key in {
-                s.symbol_key for s in removed}:
+        if i.path and i.path.origin_symbol_key in {s.symbol_key for s in removed}:
             assert "base snapshot" in (i.path.reason or "")
 
 
@@ -136,14 +136,14 @@ def test_ambiguous_hash_no_false_rename(tmp_path) -> None:
     (root / "pkg" / "c.py").write_text(same)
     (root / "pkg" / "d.py").write_text(same)
     IndexCoordinator(conn).index(root)
-    res = ImpactEngine(conn).analyze(
-        ImpactRequest(repository_root=str(root)))
-    renames = [s for s in res.symbol_changes
-               if s.change == SymbolChangeKind.RENAMED]
+    res = ImpactEngine(conn).analyze(ImpactRequest(repository_root=str(root)))
+    renames = [s for s in res.symbol_changes if s.change == SymbolChangeKind.RENAMED]
     assert not renames, "rename verificado sem prova 1:1"
-    amb = [s for s in res.symbol_changes
-           if "ambíguo" in s.detail
-           or s.strength == EvidenceStrength.POSSIBLE]
+    amb = [
+        s
+        for s in res.symbol_changes
+        if "ambíguo" in s.detail or s.strength == EvidenceStrength.POSSIBLE
+    ]
     assert amb, "correspondência ambígua devia ser marcada"
 
 
@@ -188,20 +188,15 @@ def test_binding_states(tmp_path) -> None:
 
     conn = connect(tmp_path / "atlas.db")
     migrate(conn)
-    IndexCoordinator(conn).index(repo)   # snapshot em HEAD=sha2
-    sid = conn.execute(
-        "SELECT id FROM snapshots ORDER BY id DESC LIMIT 1"
-    ).fetchone()[0]
-    repo_id = conn.execute(
-        "SELECT repository_id FROM snapshots WHERE id=?",
-        (sid,)).fetchone()[0]
+    IndexCoordinator(conn).index(repo)  # snapshot em HEAD=sha2
+    sid = conn.execute("SELECT id FROM snapshots ORDER BY id DESC LIMIT 1").fetchone()[0]
+    repo_id = conn.execute("SELECT repository_id FROM snapshots WHERE id=?", (sid,)).fetchone()[0]
 
     # exact: HEAD ↔ snapshot do próprio commit
     b, d = bind(conn, repo, repo_id, "HEAD", sid)
     assert b.state == BindingState.EXACT, (b, d)
     # mismatch: pedir sha1 contra snapshot de sha2
-    b, d = bind(conn, repo, repo_id, sha1, sid,
-                allow_dirty_check=False)
+    b, d = bind(conn, repo, repo_id, sha1, sid, allow_dirty_check=False)
     assert b.state == BindingState.MISMATCH
     assert d is not None and d.code == "revision-binding-mismatch"
     # dirty: worktree sujo ≠ HEAD limpo
@@ -224,27 +219,25 @@ def test_binding_states(tmp_path) -> None:
 
 # ---- lf-0075: test-impact precision/recall medidos ------------------------
 
+
 def test_selector_precision_recall_measured(tmp_path) -> None:
     """lf-0075: fixture com aresta TESTS conhecida → P/R medidos."""
     root = tmp_path / "r"
     conn = build_eval_repo(root)
-    res = ImpactEngine(conn).analyze(
-        ImpactRequest(repository_root=str(root)))
+    res = ImpactEngine(conn).analyze(ImpactRequest(repository_root=str(root)))
     # mudança mínima para gerar candidatos
     (root / "pkg" / "orders.py").write_text(
-        "class OrderService:\n"
-        "    def cancel_order(self, o, reason=None):\n"
-        "        return True\n")
+        "class OrderService:\n    def cancel_order(self, o, reason=None):\n        return True\n"
+    )
     IndexCoordinator(conn).index(root)
-    res = ImpactEngine(conn).analyze(
-        ImpactRequest(repository_root=str(root)))
+    res = ImpactEngine(conn).analyze(ImpactRequest(repository_root=str(root)))
     cands = res.test_candidates
     if cands:
         relevant = [c for c in cands if "test" in c.test_file]
         precision = len(relevant) / len(cands)
         assert precision >= 0.9, (
-            f"precisão do selector {precision:.2f} em fixture "
-            f"({len(cands)} candidatos)")
+            f"precisão do selector {precision:.2f} em fixture ({len(cands)} candidatos)"
+        )
     # todo candidato declarado 'heuristic' tem strength possível/unknown
     for c in cands:
         if c.relationship == "heuristic":
@@ -252,6 +245,7 @@ def test_selector_precision_recall_measured(tmp_path) -> None:
 
 
 # ---- lf-0077: binding como invariante duro --------------------------------
+
 
 @pytest.mark.skipif(git_binary() is None, reason="git ausente")
 def test_mismatch_blocks_semantic(tmp_path) -> None:
@@ -271,13 +265,11 @@ def test_mismatch_blocks_semantic(tmp_path) -> None:
     conn = connect(tmp_path / "atlas2.db")
     migrate(conn)
     IndexCoordinator(conn).index(repo)
-    res = ImpactEngine(conn).analyze(ImpactRequest(
-        repository_root=str(repo), base_revision=sha1))
+    res = ImpactEngine(conn).analyze(ImpactRequest(repository_root=str(repo), base_revision=sha1))
     codes = {d.code for d in res.diagnostics}
     # snapshot alvo é do c2 — pedir base=sha1 diverge do snapshot base
     if "revision-binding-mismatch" in codes:
-        assert "semantic-blocked" in codes or \
-            "partial-analysis" in codes
+        assert "semantic-blocked" in codes or "partial-analysis" in codes
         assert res.symbol_changes == ()
         assert res.impacts == ()
     conn.close()
@@ -285,21 +277,21 @@ def test_mismatch_blocks_semantic(tmp_path) -> None:
 
 # ---- lf-0078: reconciliação de consumidores --------------------------------
 
+
 def test_reconcile_consumer_states(tmp_path) -> None:
     """lf-0078: consumidor preservado vs removido classificado."""
     root = tmp_path / "r"
     conn = build_eval_repo(root)
     # consumer continua (checkout usa cancel_order) — remover o serviço
-    (root / "pkg" / "orders.py").write_text(
-        "class OrderService:\n    pass\n")
+    (root / "pkg" / "orders.py").write_text("class OrderService:\n    pass\n")
     IndexCoordinator(conn).index(root)
-    res = ImpactEngine(conn).analyze(
-        ImpactRequest(repository_root=str(root)))
+    res = ImpactEngine(conn).analyze(ImpactRequest(repository_root=str(root)))
     hist = [i for i in res.impacts if i.consumer_state]
     assert hist, "consumidores históricos sem consumer_state"
     states = {i.consumer_state for i in hist}
     assert "still_present" in states or "consumer_modified" in states, (
-        f"esperado consumidor preservado, obtido {states}")
+        f"esperado consumidor preservado, obtido {states}"
+    )
 
 
 def test_reconcile_consumer_also_removed(tmp_path) -> None:
@@ -307,58 +299,55 @@ def test_reconcile_consumer_also_removed(tmp_path) -> None:
     root = tmp_path / "r"
     conn = build_eval_repo(root)
     # remove produtor E o arquivo consumidor
-    (root / "pkg" / "orders.py").write_text(
-        "class OrderService:\n    pass\n")
+    (root / "pkg" / "orders.py").write_text("class OrderService:\n    pass\n")
     for p in (root / "tests").rglob("*.py"):
         p.unlink()
     IndexCoordinator(conn).index(root)
-    res = ImpactEngine(conn).analyze(
-        ImpactRequest(repository_root=str(root)))
+    res = ImpactEngine(conn).analyze(ImpactRequest(repository_root=str(root)))
     hist = [i for i in res.impacts if i.consumer_state]
     for i in hist:
-        assert i.consumer_state != "still_present" or \
-            i.symbol_key not in {
-                s.symbol_key for s in res.symbol_changes
-                if s.change == SymbolChangeKind.REMOVED}
+        assert i.consumer_state != "still_present" or i.symbol_key not in {
+            s.symbol_key for s in res.symbol_changes if s.change == SymbolChangeKind.REMOVED
+        }
 
 
 # ---- lf-0079: multi-origem preserva caminhos -------------------------------
+
 
 def test_multi_origin_paths_preserved(tmp_path) -> None:
     """Duas origens distintas chegando ao mesmo consumidor."""
     from code_atlas.impact.blast_radius import blast
     from code_atlas.impact.contracts import ImpactLimits
+
     root = tmp_path / "r"
     conn = build_eval_repo(root)
-    snap = conn.execute(
-        "SELECT id FROM snapshots ORDER BY id DESC LIMIT 1"
-    ).fetchone()[0]
+    snap = conn.execute("SELECT id FROM snapshots ORDER BY id DESC LIMIT 1").fetchone()[0]
     # duas origens reais do fixture
     occs = conn.execute(
         "SELECT o.id, s.qualified_name FROM symbol_occurrences o"
         " JOIN symbols s ON s.id=o.logical_symbol_id"
-        " WHERE o.snapshot_id=? LIMIT 3", (snap,)).fetchall()
+        " WHERE o.snapshot_id=? LIMIT 3",
+        (snap,),
+    ).fetchall()
     origins = {r[1]: r[0] for r in occs[:2]}
     out, _ = blast(conn, snap, origins, ImpactLimits())
     by_origin = {}
     for c in out:
         if c.path:
-            by_origin.setdefault(
-                c.path.origin_symbol_key, []).append(c.symbol_key)
+            by_origin.setdefault(c.path.origin_symbol_key, []).append(c.symbol_key)
     # cada origem rastreou independentemente (visited inclui origem)
     assert len(origins) >= 1
 
 
 # ---- lf-0080: seleção revision-aware ---------------------------------------
 
+
 def test_selector_marks_revision(tmp_path) -> None:
     """lf-0080: candidatos carregam revision base/target."""
     root = tmp_path / "r"
     conn = build_eval_repo(root)
-    (root / "pkg" / "orders.py").write_text(
-        "class OrderService:\n    pass\n")
+    (root / "pkg" / "orders.py").write_text("class OrderService:\n    pass\n")
     IndexCoordinator(conn).index(root)
-    res = ImpactEngine(conn).analyze(
-        ImpactRequest(repository_root=str(root)))
+    res = ImpactEngine(conn).analyze(ImpactRequest(repository_root=str(root)))
     for t in res.test_candidates:
         assert t.revision in ("base", "target")

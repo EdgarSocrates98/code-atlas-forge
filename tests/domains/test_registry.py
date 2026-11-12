@@ -62,12 +62,8 @@ class _FakeAdapter:
     def discovery_rules(self) -> tuple[DiscoveryRule, ...]:
         return (DiscoveryRule(glob="*.sql", artifact_kind="sql-script"),)
 
-    def extract(
-        self, request: DomainExtractionRequest
-    ) -> DomainExtractionResult:
-        return DomainExtractionResult(
-            domain_id=self._id, adapter_version=self._version
-        )
+    def extract(self, request: DomainExtractionRequest) -> DomainExtractionResult:
+        return DomainExtractionResult(domain_id=self._id, adapter_version=self._version)
 
 
 def test_protocol_runtime_check() -> None:

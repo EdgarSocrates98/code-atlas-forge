@@ -38,12 +38,7 @@ _REPO_FILES = {
     "pkg/util.py": "def helper():\n    return 1\n",
     # `helper` não é importado nem definido localmente → syntactic
     # deixa unresolved; `mystery` ninguém resolve.
-    "pkg/engine.py": (
-        "def run():\n"
-        "    a = helper()\n"
-        "    b = mystery()\n"
-        "    return a + b\n"
-    ),
+    "pkg/engine.py": ("def run():\n    a = helper()\n    b = mystery()\n    return a + b\n"),
 }
 
 _HELPER_NID = symbol_node_id("python", "function", "pkg.util.helper")
@@ -132,9 +127,7 @@ class _ConflictingResolver(_FakeResolver):
     def resolve(self, request: ResolutionRequest) -> ResolutionResult:
         result = super().resolve(request)
         if result.reference is not None:
-            ref = dataclasses.replace(
-                result.reference, target_id=_RUN_NID
-            )
+            ref = dataclasses.replace(result.reference, target_id=_RUN_NID)
             return ResolutionResult(request=request, reference=ref)
         return result
 
@@ -146,20 +139,14 @@ class _ExplodingResolver(_FakeResolver):
         raise RuntimeError("boom")
 
 
-def _index(
-    db: sqlite3.Connection, repo: Path, factories: tuple = ()
-) -> object:
-    return IndexCoordinator(
-        db, resolver_factories=factories
-    ).index(repo)
+def _index(db: sqlite3.Connection, repo: Path, factories: tuple = ()) -> object:
+    return IndexCoordinator(db, resolver_factories=factories).index(repo)
 
 
 # -- comportamento sem resolvers (regressão) ---------------------------------
 
 
-def test_no_factories_zero_semantic_stats(
-    db: sqlite3.Connection, tmp_path: Path
-) -> None:
+def test_no_factories_zero_semantic_stats(db: sqlite3.Connection, tmp_path: Path) -> None:
     out = _index(db, _repo(tmp_path))
     assert out.status == "success"
     assert out.stats["semantic_attempted"] == 0
@@ -173,12 +160,8 @@ def test_no_factories_zero_semantic_stats(
 # -- promoção ----------------------------------------------------------------
 
 
-def test_unresolved_edge_promoted_by_resolver(
-    db: sqlite3.Connection, tmp_path: Path
-) -> None:
-    out = _index(
-        db, _repo(tmp_path), factories=(lambda u: _FakeResolver(),)
-    )
+def test_unresolved_edge_promoted_by_resolver(db: sqlite3.Connection, tmp_path: Path) -> None:
+    out = _index(db, _repo(tmp_path), factories=(lambda u: _FakeResolver(),))
     assert out.status == "success"
     assert out.stats["semantic_enriched"] >= 1
     rows = _rels(db)
@@ -189,9 +172,7 @@ def test_unresolved_edge_promoted_by_resolver(
     assert promoted["resolver"] == "fake-semantic"
 
 
-def test_promoted_edge_targets_persisted_node(
-    db: sqlite3.Connection, tmp_path: Path
-) -> None:
+def test_promoted_edge_targets_persisted_node(db: sqlite3.Connection, tmp_path: Path) -> None:
     _index(db, _repo(tmp_path), factories=(lambda u: _FakeResolver(),))
     db.row_factory = sqlite3.Row
     row = db.execute(
@@ -210,9 +191,7 @@ def test_promoted_edge_targets_persisted_node(
 # -- preservação de honestidade ----------------------------------------------
 
 
-def test_unresolved_result_preserves_edge(
-    db: sqlite3.Connection, tmp_path: Path
-) -> None:
+def test_unresolved_result_preserves_edge(db: sqlite3.Connection, tmp_path: Path) -> None:
     _index(db, _repo(tmp_path), factories=(lambda u: _FakeResolver(),))
     rows = _rels(db)
     calls = {r["to_unresolved"]: r for r in rows if r["type"] == "CALLS"}
@@ -222,9 +201,7 @@ def test_unresolved_result_preserves_edge(
     assert mystery["to_unresolved"] == "mystery"
 
 
-def test_resolved_edge_confirmed_by_higher_tier(
-    db: sqlite3.Connection, tmp_path: Path
-) -> None:
+def test_resolved_edge_confirmed_by_higher_tier(db: sqlite3.Connection, tmp_path: Path) -> None:
     """lf-0035: `helper` resolvido pelo syntactic é VERIFICADO pelo
     resolver de tier 1; mesmo alvo → proveniência sobe, aresta segue
     resolved e evidência ``confirmed`` é persistida."""
@@ -234,9 +211,7 @@ def test_resolved_edge_confirmed_by_higher_tier(
         p.parent.mkdir(parents=True, exist_ok=True)
         p.write_text(content)
     (repo / "pkg" / "engine.py").write_text(
-        "from pkg.util import helper\n\n"
-        "def run():\n"
-        "    return helper()\n"
+        "from pkg.util import helper\n\ndef run():\n    return helper()\n"
     )
     _index(db, repo, factories=(lambda u: _FakeResolver(),))
     rows = _rels(db)
@@ -264,9 +239,7 @@ def test_conflict_with_higher_tier_becomes_ambiguous(
         p.parent.mkdir(parents=True, exist_ok=True)
         p.write_text(content)
     (repo / "pkg" / "engine.py").write_text(
-        "from pkg.util import helper\n\n"
-        "def run():\n"
-        "    return helper()\n"
+        "from pkg.util import helper\n\ndef run():\n    return helper()\n"
     )
     out = _index(db, repo, factories=(lambda u: _ConflictingResolver(),))
     assert out.stats["semantic_conflicts"] >= 1
@@ -298,27 +271,19 @@ def test_resolved_edge_untouched_without_higher_tier(
         p.parent.mkdir(parents=True, exist_ok=True)
         p.write_text(content)
     (repo / "pkg" / "engine.py").write_text(
-        "from pkg.util import helper\n\n"
-        "def run():\n"
-        "    return helper()\n"
+        "from pkg.util import helper\n\ndef run():\n    return helper()\n"
     )
     out = _index(db, repo)
     assert out.stats.get("semantic_verified", 0) == 0
     calls = [r for r in _rels(db) if r["type"] == "CALLS"]
-    assert calls and all(
-        r["resolution_status"] == "resolved" for r in calls
-    )
+    assert calls and all(r["resolution_status"] == "resolved" for r in calls)
 
 
 # -- resiliência ---------------------------------------------------------------
 
 
-def test_resolver_exception_becomes_diagnostic(
-    db: sqlite3.Connection, tmp_path: Path
-) -> None:
-    out = _index(
-        db, _repo(tmp_path), factories=(lambda u: _ExplodingResolver(),)
-    )
+def test_resolver_exception_becomes_diagnostic(db: sqlite3.Connection, tmp_path: Path) -> None:
+    out = _index(db, _repo(tmp_path), factories=(lambda u: _ExplodingResolver(),))
     assert out.status == "success"
     assert out.stats["semantic_diagnostics"] >= 1
     rows = _rels(db)
@@ -326,9 +291,7 @@ def test_resolver_exception_becomes_diagnostic(
     assert calls["helper"]["resolution_status"] == "unresolved"
 
 
-def test_factory_exception_is_diagnostic_not_crash(
-    db: sqlite3.Connection, tmp_path: Path
-) -> None:
+def test_factory_exception_is_diagnostic_not_crash(db: sqlite3.Connection, tmp_path: Path) -> None:
     def bad_factory(universe: object) -> object:
         raise RuntimeError("scip exploded")
 
@@ -339,15 +302,13 @@ def test_factory_exception_is_diagnostic_not_crash(
 # -- determinismo --------------------------------------------------------------
 
 
-def test_enrichment_deterministic(
-    db: sqlite3.Connection, tmp_path: Path
-) -> None:
+def test_enrichment_deterministic(db: sqlite3.Connection, tmp_path: Path) -> None:
     repo = _repo(tmp_path)
     f = (lambda u: _FakeResolver(),)
     _index(db, repo, factories=f)
-    snap1 = db.execute(
-        "SELECT id FROM snapshots WHERE status='READY' ORDER BY id DESC"
-    ).fetchone()[0]
+    snap1 = db.execute("SELECT id FROM snapshots WHERE status='READY' ORDER BY id DESC").fetchone()[
+        0
+    ]
     canon1 = db.execute(
         "SELECT type, to_unresolved, resolution_status, confidence_class,"
         " resolver FROM relations ORDER BY 1,2"
@@ -368,10 +329,7 @@ def test_enrichment_deterministic(
 
 def test_config_resolvers_table_parsed(tmp_path: Path) -> None:
     cfg = tmp_path / "config.toml"
-    cfg.write_text(
-        '[workspace]\nroot = "."\n\n'
-        '[resolvers.scip]\nindex_path = "index.scip"\n'
-    )
+    cfg.write_text('[workspace]\nroot = "."\n\n[resolvers.scip]\nindex_path = "index.scip"\n')
     loaded = WorkspaceConfig.load(cfg)
     assert loaded.resolvers is not None
     assert loaded.resolvers["scip"]["index_path"] == "index.scip"
@@ -392,9 +350,7 @@ def test_bootstrap_no_table_no_factories(tmp_path: Path) -> None:
 
 
 def test_bootstrap_scip_missing_file_is_error(tmp_path: Path) -> None:
-    factories, errors = resolver_factories(
-        {"scip": {"index_path": "index.scip"}}, tmp_path
-    )
+    factories, errors = resolver_factories({"scip": {"index_path": "index.scip"}}, tmp_path)
     assert factories == []
     assert errors and "index.scip" in errors[0]
 
@@ -463,25 +419,18 @@ def test_scip_enrichment_end_to_end(tmp_path: Path) -> None:
         ],
     )
     scip_file = repo / "index.scip"
-    scip_file.write_bytes(
-        index_bytes(repo.as_uri(), [doc_util, doc_engine])
-    )
-    factories, errors = resolver_factories(
-        {"scip": {"index_path": "index.scip"}}, repo
-    )
+    scip_file.write_bytes(index_bytes(repo.as_uri(), [doc_util, doc_engine]))
+    factories, errors = resolver_factories({"scip": {"index_path": "index.scip"}}, repo)
     assert not errors and len(factories) == 1
 
     db = connect(tmp_path / "atlas.db")
     migrate(db)
     try:
-        out = IndexCoordinator(
-            db, resolver_factories=tuple(factories)
-        ).index(repo)
+        out = IndexCoordinator(db, resolver_factories=tuple(factories)).index(repo)
         assert out.status == "success"
         db.row_factory = sqlite3.Row
         rows = db.execute(
-            "SELECT to_unresolved, resolution_status, resolver"
-            " FROM relations WHERE type='CALLS'"
+            "SELECT to_unresolved, resolution_status, resolver FROM relations WHERE type='CALLS'"
         ).fetchall()
     finally:
         db.close()
@@ -501,35 +450,33 @@ def test_scip_index_change_invalidates_index_identity(
     repo = _repo(tmp_path)
     scip_file = repo / "index.scip"
     import sys as _sys
+
     _sys.path.insert(0, str(Path(__file__).parent.parent / "resolvers"))
     from scip_fixture import document, index_bytes
-    scip_file.write_bytes(
-        index_bytes(repo.as_uri(), [document("pkg/util.py")]))
+
+    scip_file.write_bytes(index_bytes(repo.as_uri(), [document("pkg/util.py")]))
     versions: dict = {}
-    factories, _errors = resolver_factories(
-        {"scip": {"index_path": "index.scip"}}, repo, versions)
+    factories, _errors = resolver_factories({"scip": {"index_path": "index.scip"}}, repo, versions)
     assert "resolver:scip" in versions
 
     db = connect(tmp_path / "atlas.db")
     migrate(db)
     try:
         coord = IndexCoordinator(
-            db, resolver_factories=tuple(factories),
-            resolver_versions=versions)
+            db, resolver_factories=tuple(factories), resolver_versions=versions
+        )
         out1 = coord.index(repo)
         assert out1.status == "success"
         # scip regenerado (conteúdo diferente → sha diferente)
         scip_file.write_bytes(
-            index_bytes(repo.as_uri(),
-                        [document("pkg/util.py"),
-                         document("pkg/engine.py")]))
+            index_bytes(repo.as_uri(), [document("pkg/util.py"), document("pkg/engine.py")])
+        )
         versions2: dict = {}
-        factories2, _ = resolver_factories(
-            {"scip": {"index_path": "index.scip"}}, repo, versions2)
+        factories2, _ = resolver_factories({"scip": {"index_path": "index.scip"}}, repo, versions2)
         assert versions2["resolver:scip"] != versions["resolver:scip"]
         coord2 = IndexCoordinator(
-            db, resolver_factories=tuple(factories2),
-            resolver_versions=versions2)
+            db, resolver_factories=tuple(factories2), resolver_versions=versions2
+        )
         out2 = coord2.index(repo)
         # identidade mudou → NÃO é noop
         assert not out2.noop

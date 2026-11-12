@@ -54,8 +54,7 @@ def project_obsidian_relations(note_ref: Mapping[str, Any]) -> dict[str, Any]:
         for target in note_ref.get("relative_links") or []
     )
     targets.extend(
-        ("attachments", str(target).strip())
-        for target in note_ref.get("attachments") or []
+        ("attachments", str(target).strip()) for target in note_ref.get("attachments") or []
     )
     seen: set[str] = set()
     for kind, target in targets:

@@ -42,7 +42,7 @@ class B:
 
 
 def test_py_overload_decorators_params(engine: ParseEngine) -> None:
-    src = b'''from typing import overload
+    src = b"""from typing import overload
 
 class S:
     @overload
@@ -51,11 +51,10 @@ class S:
     def get(self, k: bytes) -> str: ...
     @staticmethod
     def build(*args, **kw): pass
-'''
+"""
     names = _by_qname(engine.parse("svc.py", src))
     # duas assinaturas de overload — mesmo qname, spans distintos
-    overloads = [s for s in engine.parse("svc.py", src).symbols
-                 if s.qualified_name == "svc.S.get"]
+    overloads = [s for s in engine.parse("svc.py", src).symbols if s.qualified_name == "svc.S.get"]
     assert len(overloads) == 2
     assert overloads[0].span.start_line != overloads[1].span.start_line
     assert "overload" in overloads[0].modifiers or "overload" in overloads[0].decorators
@@ -143,6 +142,4 @@ def test_extraction_deterministic(engine: ParseEngine) -> None:
     src = b"class K: pass\ndef f(): pass\n"
     r1 = engine.parse("m.py", src)
     r2 = ParseEngine().parse("m.py", src)
-    assert [s.qualified_name for s in r1.symbols] == [
-        s.qualified_name for s in r2.symbols
-    ]
+    assert [s.qualified_name for s in r1.symbols] == [s.qualified_name for s in r2.symbols]

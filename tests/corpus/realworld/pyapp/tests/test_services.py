@@ -1,4 +1,5 @@
 """Testes dos serviços — sem I/O real."""
+
 from app.services import BillingService, UserService
 
 

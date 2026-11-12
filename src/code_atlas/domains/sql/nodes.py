@@ -164,7 +164,7 @@ class SelectStmt:
     items: list[SelectItem]
     sources: list[Source]
     set_branches: list[SelectStmt]  # membros UNION/INTERSECT/EXCEPT
-    set_ops: list[str]              # paralelo a set_branches
+    set_ops: list[str]  # paralelo a set_branches
     tail_subqueries: list[SelectStmt]  # subs achados em WHERE/ON/exprs
     span: SourceSpan
 
@@ -174,7 +174,7 @@ class SelectStmt:
 
 @dataclass
 class Statement:
-    kind: str            # select|insert|update|delete|merge|…|unsupported
+    kind: str  # select|insert|update|delete|merge|…|unsupported
     span: SourceSpan
     dynamic: bool = False
 
@@ -260,5 +260,5 @@ class STruncate(Statement):
 class SUnsupported(Statement):
     """Statement reconhecido como fora do escopo de extração."""
 
-    why: str = ""   # ex.: "drop", "alter", "dynamic-exec", "grant"
+    why: str = ""  # ex.: "drop", "alter", "dynamic-exec", "grant"
     head: str = ""  # primeira palavra do statement (diagnóstico)

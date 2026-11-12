@@ -25,8 +25,9 @@ def _params(sig: str) -> list[str]:
     m = _PARAM_RE.search(sig)
     if not m:
         return []
-    return [p.strip() for p in m.group(1).split(",") if p.strip()
-            and p.strip() not in ("self", "cls")]
+    return [
+        p.strip() for p in m.group(1).split(",") if p.strip() and p.strip() not in ("self", "cls")
+    ]
 
 
 def _required(params: list[str]) -> list[str]:
@@ -51,9 +52,11 @@ def classify_change(
             symbol_key=sc.symbol_key,
             classification="public-symbol-removed",
             compatibility="potential-risk",
-            old_signature=old or None, new_signature=None,
+            old_signature=old or None,
+            new_signature=None,
             strength=sc.strength,
-            detail="símbolo removido do grafo alvo")
+            detail="símbolo removido do grafo alvo",
+        )
     if sc.change == SymbolChangeKind.ADDED:
         return None  # adição não quebra contrato existente
     if sc.change != SymbolChangeKind.SIGNATURE_CHANGED:
@@ -70,8 +73,9 @@ def classify_change(
         detail = f"novos obrigatórios: {', '.join(added_req)}"
     elif removed_req:
         cls, compat = "required-parameter-removed", "likely-compatible"
-        detail = ("remoção de parâmetro obrigatório é compatível "
-                  "para chamadores que o passavam por nome")
+        detail = (
+            "remoção de parâmetro obrigatório é compatível para chamadores que o passavam por nome"
+        )
     elif len(pn) > len(po):
         cls, compat = "optional-parameter-added", "likely-compatible"
         detail = "apenas parâmetros opcionais adicionados"
@@ -88,13 +92,16 @@ def classify_change(
         cls, compat = "async-changed", "potential-risk"
         detail = "mudança sync↔async"
     return ContractChange(
-        symbol_key=sc.symbol_key, classification=cls,
-        compatibility=compat, old_signature=old or None,
+        symbol_key=sc.symbol_key,
+        classification=cls,
+        compatibility=compat,
+        old_signature=old or None,
         new_signature=new or None,
-        strength=(EvidenceStrength.VERIFIED
-                  if compat != "indeterminate"
-                  else EvidenceStrength.POSSIBLE),
-        detail=detail)
+        strength=(
+            EvidenceStrength.VERIFIED if compat != "indeterminate" else EvidenceStrength.POSSIBLE
+        ),
+        detail=detail,
+    )
 
 
 def analyze(

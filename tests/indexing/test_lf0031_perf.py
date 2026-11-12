@@ -105,10 +105,7 @@ def test_get_many_chunk_boundary(db, repo: Path) -> None:
     # 450 chaves: 1 real + 449 sintéticas → cruza o chunk de 400
     import dataclasses
 
-    fake = [
-        dataclasses.replace(real, path=f"fake{i}.py")
-        for i in range(449)
-    ]
+    fake = [dataclasses.replace(real, path=f"fake{i}.py") for i in range(449)]
     got = ParseResultCache(db, rid).get_many([real, *fake])
     assert list(got) == [real.path]
 
@@ -147,9 +144,7 @@ def test_snapshot_retention_prunes_stale(db, repo: Path) -> None:
         (repo / "solo.py").write_text(f"def isolated():\n    return {i}\n")
         out = coord.index(repo, incremental=(i > 0))
         assert out.status == "success"
-    rows = db.execute(
-        "SELECT status, COUNT(*) AS c FROM snapshots GROUP BY status"
-    ).fetchall()
+    rows = db.execute("SELECT status, COUNT(*) AS c FROM snapshots GROUP BY status").fetchall()
     counts = {r["status"]: r["c"] for r in rows}
     assert counts.get("READY") == 1
     assert counts.get("STALE", 0) <= 1
@@ -163,9 +158,7 @@ def test_snapshot_retention_disabled_by_default(db, repo: Path) -> None:
     for i in range(3):
         (repo / "solo.py").write_text(f"def isolated():\n    return {i}\n")
         coord.index(repo, incremental=(i > 0))
-    stale = db.execute(
-        "SELECT COUNT(*) AS c FROM snapshots WHERE status = 'STALE'"
-    ).fetchone()["c"]
+    stale = db.execute("SELECT COUNT(*) AS c FROM snapshots WHERE status = 'STALE'").fetchone()["c"]
     assert stale == 2  # histórico completo preservado
 
 
@@ -173,12 +166,15 @@ def test_gc_preserves_failed(db, repo: Path) -> None:
     store = Store(db)
     rid = store.get_or_create_repository("k", str(repo.resolve()))
     # semeadura manual: 1 READY + 1 STALE + 1 FAILED
-    s1 = store.insert_snapshot(rid, worktree_digest="a" * 64,
-                               analyzer_versions={}, parent_snapshot_id=None)
-    s2 = store.insert_snapshot(rid, worktree_digest="b" * 64,
-                               analyzer_versions={}, parent_snapshot_id=s1)
-    s3 = store.insert_snapshot(rid, worktree_digest="c" * 64,
-                               analyzer_versions={}, parent_snapshot_id=s2)
+    s1 = store.insert_snapshot(
+        rid, worktree_digest="a" * 64, analyzer_versions={}, parent_snapshot_id=None
+    )
+    s2 = store.insert_snapshot(
+        rid, worktree_digest="b" * 64, analyzer_versions={}, parent_snapshot_id=s1
+    )
+    s3 = store.insert_snapshot(
+        rid, worktree_digest="c" * 64, analyzer_versions={}, parent_snapshot_id=s2
+    )
     from code_atlas.contracts.enums import SnapshotStatus
 
     store.set_snapshot_status(s1, SnapshotStatus.STALE)
@@ -186,10 +182,7 @@ def test_gc_preserves_failed(db, repo: Path) -> None:
     store.set_snapshot_status(s3, SnapshotStatus.READY)
     removed = store.gc_stale_snapshots(rid, keep=0)
     assert removed == 1  # só o STALE
-    left = {
-        r["id"]: r["status"]
-        for r in db.execute("SELECT id, status FROM snapshots")
-    }
+    left = {r["id"]: r["status"] for r in db.execute("SELECT id, status FROM snapshots")}
     assert left[s2] == "FAILED"
     assert left[s3] == "READY"
 
@@ -197,14 +190,12 @@ def test_gc_preserves_failed(db, repo: Path) -> None:
 def test_config_retain_snapshots(tmp_path: Path) -> None:
     cfg = tmp_path / "config.toml"
     cfg.write_text(
-        'schema_version = 1\n[workspace]\nroot = "."\n'
-        "[indexing]\nretain_snapshots = 3\n",
+        'schema_version = 1\n[workspace]\nroot = "."\n[indexing]\nretain_snapshots = 3\n',
         encoding="utf-8",
     )
     assert WorkspaceConfig.load(cfg).retain_snapshots == 3
     cfg.write_text(
-        '[workspace]\nroot = "."\nretain_snapshots = -1\n'
-        "[indexing]\nretain_snapshots = -1\n",
+        '[workspace]\nroot = "."\nretain_snapshots = -1\n[indexing]\nretain_snapshots = -1\n',
         encoding="utf-8",
     )
     with pytest.raises(ConfigError):

@@ -32,8 +32,14 @@ _DOCSTRING_FTS_MAX = 4000
 # Kinds que ganham símbolo+ocorrência persistida.
 _PERSISTED_KINDS = frozenset(
     {
-        NodeKind.FILE, NodeKind.MODULE, NodeKind.CLASS, NodeKind.INTERFACE,
-        NodeKind.FUNCTION, NodeKind.METHOD, NodeKind.SYMBOL, NodeKind.CONFIG,
+        NodeKind.FILE,
+        NodeKind.MODULE,
+        NodeKind.CLASS,
+        NodeKind.INTERFACE,
+        NodeKind.FUNCTION,
+        NodeKind.METHOD,
+        NodeKind.SYMBOL,
+        NodeKind.CONFIG,
         NodeKind.UNKNOWN,
     }
 )
@@ -44,8 +50,12 @@ def _span_json(span: SourceSpan | None) -> str | None:
         return None
     return json.dumps(
         [
-            span.start_byte, span.end_byte,
-            span.start_line, span.start_col, span.end_line, span.end_col,
+            span.start_byte,
+            span.end_byte,
+            span.start_line,
+            span.start_col,
+            span.end_line,
+            span.end_col,
         ]
     )
 
@@ -71,10 +81,21 @@ def _persist_evidence(
         if fid is None:
             continue
         rows.append(
-            (snapshot_id, fid, rec.path, _span_json(rec.span),
-             rec.content_hash, rec.extractor, rec.extractor_version,
-             rec.notes, rec.resolver_id, rec.resolver_version,
-             rec.evidence_tier, rec.index_hash, rec.validation_status)
+            (
+                snapshot_id,
+                fid,
+                rec.path,
+                _span_json(rec.span),
+                rec.content_hash,
+                rec.extractor,
+                rec.extractor_version,
+                rec.notes,
+                rec.resolver_id,
+                rec.resolver_version,
+                rec.evidence_tier,
+                rec.index_hash,
+                rec.validation_status,
+            )
         )
         order.append(i)
     for idx, rid in zip(order, store.insert_evidence_batch(rows), strict=True):
@@ -99,8 +120,11 @@ def persist_graph(
     (``parsed`` | ``parsed-with-errors`` | ``parse-failed``).
     """
     counts = {
-        "evidence": 0, "symbols_new": 0, "occurrences": 0,
-        "relations": 0, "edges_skipped": 0,
+        "evidence": 0,
+        "symbols_new": 0,
+        "occurrences": 0,
+        "relations": 0,
+        "edges_skipped": 0,
     }
     status = file_status or {}
 
@@ -112,19 +136,14 @@ def persist_graph(
     # lf-0023: dedup em duas fases + multi-row INSERT…RETURNING — o
     # per-row upsert/insert era o custo dominante (~145k round-trips
     # num corpus de 5k arquivos).
-    persisted = [
-        n for n in graph.nodes
-        if n.kind in _PERSISTED_KINDS and n.path in file_ids
-    ]
+    persisted = [n for n in graph.nodes if n.kind in _PERSISTED_KINDS and n.path in file_ids]
     sym_ids, created = store.ensure_symbols(
         repo_id,
         [(n.language, n.qualified_name, str(n.kind)) for n in persisted],
     )
     counts["symbols_new"] = len(created)
     if fts5 and created:
-        store.insert_symbols_batch(
-            (sym_ids[k], k[1], k[0], k[2]) for k in sorted(created)
-        )
+        store.insert_symbols_batch((sym_ids[k], k[1], k[0], k[2]) for k in sorted(created))
     node_occ: dict[str, int] = {}
     occ_rows: list[tuple[object, ...]] = []
     occ_nodes: list[str] = []  # node_id alinhado a occ_rows
@@ -132,7 +151,8 @@ def persist_graph(
         span = n.span
         occ_rows.append(
             (
-                snapshot_id, sym_ids[(n.language, n.qualified_name, str(n.kind))],
+                snapshot_id,
+                sym_ids[(n.language, n.qualified_name, str(n.kind))],
                 file_ids[n.path],
                 span.start_byte if span else None,
                 span.end_byte if span else None,
@@ -143,9 +163,7 @@ def persist_graph(
             )
         )
         occ_nodes.append(n.node_id)
-    for nid, rid in zip(
-        occ_nodes, store.insert_occurrences_batch(occ_rows), strict=True
-    ):
+    for nid, rid in zip(occ_nodes, store.insert_occurrences_batch(occ_rows), strict=True):
         node_occ[nid] = rid
     counts["occurrences"] = len(node_occ)
 
@@ -158,11 +176,8 @@ def persist_graph(
             (
                 occ_id,
                 snapshot_id,
-                (n := node_by_id[nid]).name
-                or n.qualified_name.rsplit(".", 1)[-1],
-                index_terms(
-                    n.name, n.qualified_name, n.path
-                ),
+                (n := node_by_id[nid]).name or n.qualified_name.rsplit(".", 1)[-1],
+                index_terms(n.name, n.qualified_name, n.path),
                 n.signature or "",
                 (n.docstring or "")[:_DOCSTRING_FTS_MAX],
                 n.path,
@@ -184,12 +199,18 @@ def persist_graph(
         if e.to_id is not None and to is None:
             counts["edges_skipped"] += 1  # alvo estrutural não persistido
             continue
-        ev_ids = json.dumps([evi_row_ids[i] for i in e.evidence_index
-                             if i in evi_row_ids])
+        ev_ids = json.dumps([evi_row_ids[i] for i in e.evidence_index if i in evi_row_ids])
         rel_rows.append(
             (
-                snapshot_id, frm, to, e.to_text or None, str(e.type),
-                e.resolution_status, e.confidence_class, e.resolver, ev_ids,
+                snapshot_id,
+                frm,
+                to,
+                e.to_text or None,
+                str(e.type),
+                e.resolution_status,
+                e.confidence_class,
+                e.resolver,
+                ev_ids,
             )
         )
     store.insert_relations(rel_rows)
@@ -243,15 +264,16 @@ def _resolve_domain_target(
     status_override = rel.resolution.status if rel.resolution else None
     if rel.to_identity is not None:
         occ = _domain_occ_for_identity(
-            store, repo_id, snapshot_id, rel.to_identity.logical_key(),
+            store,
+            repo_id,
+            snapshot_id,
+            rel.to_identity.logical_key(),
             occ_by_key,
         )
         if occ is not None:
             return occ, None, None, "resolved"
         text = rel.to_identity.display()
-        status = (
-            "external" if status_override == "external" else "unresolved"
-        )
+        status = "external" if status_override == "external" else "unresolved"
         return None, None, text, status
     if rel.to_symbol:
         occs = store.symbol_occurrences_for_name(snapshot_id, rel.to_symbol)
@@ -280,8 +302,11 @@ def persist_domain_result(
     endpoint ausente conta em ``edges_skipped`` (nunca dangling).
     """
     counts = {
-        "evidence": 0, "entities": 0, "occurrences": 0,
-        "relations": 0, "edges_skipped": 0,
+        "evidence": 0,
+        "entities": 0,
+        "occurrences": 0,
+        "relations": 0,
+        "edges_skipped": 0,
     }
 
     # 1. evidências — mesma tabela/envelope do grafo de código.
@@ -291,7 +316,9 @@ def persist_domain_result(
     # 2. entidades lógicas (dedup por identity_key) + ocorrências.
     entity_rows = [
         DomainEntity(
-            identity=e.identity, kind=e.kind, name=e.name,
+            identity=e.identity,
+            kind=e.kind,
+            name=e.name,
             attributes=e.attributes,
         )
         for e in result.entities
@@ -313,18 +340,23 @@ def persist_domain_result(
         span = e.span
         occ_rows.append(
             (
-                snapshot_id, entity_id, file_ids.get(e.path),
+                snapshot_id,
+                entity_id,
+                file_ids.get(e.path),
                 span.start_byte if span else None,
                 span.end_byte if span else None,
                 span.start_line if span else None,
                 span.start_col if span else None,
-                e.content_hash or None, "{}", "extracted",
+                e.content_hash or None,
+                "{}",
+                "extracted",
             )
         )
         occ_keys.append(key)
     occ_by_key: dict[str, int] = {}
     for key, rid in zip(
-        occ_keys, store.insert_domain_occurrences_batch(occ_rows),
+        occ_keys,
+        store.insert_domain_occurrences_batch(occ_rows),
         strict=True,
     ):
         occ_by_key[key] = rid
@@ -349,12 +381,15 @@ def persist_domain_result(
             path = e.path if e.path in file_ids else ""
             fts_rows.append(
                 (
-                    occ_id, snapshot_id, ent_ids[key],
-                    e.name or "", e.identity.qualified_name,
-                    index_terms(
-                        e.name or "", e.identity.qualified_name, path
-                    ),
-                    path, e.identity.domain, str(e.kind),
+                    occ_id,
+                    snapshot_id,
+                    ent_ids[key],
+                    e.name or "",
+                    e.identity.qualified_name,
+                    index_terms(e.name or "", e.identity.qualified_name, path),
+                    path,
+                    e.identity.domain,
+                    str(e.kind),
                 )
             )
         store.insert_domain_fts_batch(fts_rows)
@@ -362,9 +397,7 @@ def persist_domain_result(
     # 3. relações — endpoints podem ser entidade OU símbolo de código.
     rel_rows: list[tuple[object, ...]] = []
     for r in result.relations:
-        row = _domain_relation_row(
-            store, repo_id, snapshot_id, result, r, occ_by_key, evi_row_ids
-        )
+        row = _domain_relation_row(store, repo_id, snapshot_id, result, r, occ_by_key, evi_row_ids)
         if row is None:
             counts["edges_skipped"] += 1  # origem sem âncora no snapshot
             continue
@@ -385,7 +418,10 @@ def _domain_from_endpoint(
     quando nenhum âncora existe no snapshot — caller conta como skip."""
     if rel.from_identity is not None:
         occ = _domain_occ_for_identity(
-            store, repo_id, snapshot_id, rel.from_identity.logical_key(),
+            store,
+            repo_id,
+            snapshot_id,
+            rel.from_identity.logical_key(),
             occ_by_key,
         )
         if occ is not None:
@@ -407,30 +443,29 @@ def _domain_relation_row(
     evi_row_ids: dict[int, int],
 ) -> tuple[object, ...] | None:
     """Monta a row de ``domain_relations``; ``None`` = origem sem âncora."""
-    frm_ent, frm_sym = _domain_from_endpoint(
-        store, repo_id, snapshot_id, rel, occ_by_key
-    )
+    frm_ent, frm_sym = _domain_from_endpoint(store, repo_id, snapshot_id, rel, occ_by_key)
     if frm_ent is None and frm_sym is None:
         return None
     to_ent, to_sym, to_text, status = _resolve_domain_target(
         store, repo_id, snapshot_id, rel, occ_by_key
     )
-    confidence = (
-        str(rel.resolution.confidence_class)
-        if rel.resolution is not None
-        else "syntactic"
-    )
+    confidence = str(rel.resolution.confidence_class) if rel.resolution is not None else "syntactic"
     if confidence == "inferred" and status == "resolved":
         raise ValueError("inferred evidence can never be reported resolved")
-    ev_ids = json.dumps(
-        [evi_row_ids[i] for i in rel.evidence if i in evi_row_ids]
-    )
+    ev_ids = json.dumps([evi_row_ids[i] for i in rel.evidence if i in evi_row_ids])
     resolver = (
-        rel.resolution.resolver
-        if rel.resolution is not None
-        else f"domain:{result.domain_id}"
+        rel.resolution.resolver if rel.resolution is not None else f"domain:{result.domain_id}"
     )
     return (
-        snapshot_id, frm_ent, frm_sym, to_ent, to_sym, to_text,
-        rel.relation_type, status, confidence, resolver, ev_ids,
+        snapshot_id,
+        frm_ent,
+        frm_sym,
+        to_ent,
+        to_sym,
+        to_text,
+        rel.relation_type,
+        status,
+        confidence,
+        resolver,
+        ev_ids,
     )

@@ -34,9 +34,7 @@ RESOLVER_ID = "domain:api"
 class Emit:
     """Acumulador determinístico da saída de ``extract``."""
 
-    def __init__(
-        self, request: DomainExtractionRequest, adapter_version: str
-    ) -> None:
+    def __init__(self, request: DomainExtractionRequest, adapter_version: str) -> None:
         self._request = request
         self._version = adapter_version
         self.entities: list[ExtractedDomainEntity] = []
@@ -96,8 +94,11 @@ class Emit:
     ) -> None:
         self.diagnostics.append(
             DomainDiagnostic(
-                code=code, severity=severity, message=message,
-                path=path, adapter_id=ADAPTER_DOMAIN,
+                code=code,
+                severity=severity,
+                message=message,
+                path=path,
+                adapter_id=ADAPTER_DOMAIN,
             )
         )
 
@@ -124,7 +125,8 @@ class Emit:
         key = ident.logical_key()
         if key in self._entity_keys:
             self.diag(
-                "duplicate-entity", "warning",
+                "duplicate-entity",
+                "warning",
                 f"entity {ident.display()} already emitted — first kept",
                 path,
             )

@@ -16,12 +16,8 @@ class ValidationError(Exception):
     """Violação de integridade do grafo."""
 
 
-_RESOLUTION_STATUSES = frozenset(
-    {"resolved", "ambiguous", "unresolved", "external"}
-)
-_CONFIDENCE_CLASSES = frozenset(
-    {"resolved", "syntactic", "heuristic", "inferred"}
-)
+_RESOLUTION_STATUSES = frozenset({"resolved", "ambiguous", "unresolved", "external"})
+_CONFIDENCE_CLASSES = frozenset({"resolved", "syntactic", "heuristic", "inferred"})
 
 
 def validate_graph(result: GraphBuildResult) -> list[str]:
@@ -49,9 +45,7 @@ def _check_nodes(result: GraphBuildResult) -> list[str]:
     return errors
 
 
-def _check_edge(
-    e: GraphEdge, node_ids: set[str], evi_len: int, errors: list[str]
-) -> None:
+def _check_edge(e: GraphEdge, node_ids: set[str], evi_len: int, errors: list[str]) -> None:
     if e.type not in set(EdgeKind):
         errors.append(f"invalid edge type: {e.type}")
     if e.from_id not in node_ids:

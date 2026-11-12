@@ -194,8 +194,7 @@ def _to_symbol_info(msg: dict[str, Any]) -> ScipSymbolInfo:
         symbol=msg.get("symbol", ""),
         kind=msg.get("kind", 0),
         documentation=tuple(msg.get("documentation", [])),
-        relationships=tuple(
-            _to_relationship(r) for r in msg.get("relationships", [])),
+        relationships=tuple(_to_relationship(r) for r in msg.get("relationships", [])),
         enclosing_symbol=msg.get("enclosing_symbol", ""),
     )
 
@@ -229,8 +228,7 @@ def parse_index(data: bytes) -> ScipIndex:
         tool_version=tool.get("version", ""),
         text_document_encoding=meta.get("text_document_encoding", 0),
         documents=tuple(docs),
-        external_symbols=tuple(
-            _to_symbol_info(s) for s in msg.get("external_symbols", [])),
+        external_symbols=tuple(_to_symbol_info(s) for s in msg.get("external_symbols", [])),
         raw_metadata=meta,
     )
 

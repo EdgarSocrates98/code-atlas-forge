@@ -12,16 +12,23 @@ def kinds(toks):
 def test_basic_statement_tokens() -> None:
     toks, problems = tokenize("SELECT a, b.c FROM t;")
     assert problems == []
-    assert kinds(toks) == ["word", "word", "punct", "word", "punct",
-                           "word", "word", "word", "punct"]
+    assert kinds(toks) == [
+        "word",
+        "word",
+        "punct",
+        "word",
+        "punct",
+        "word",
+        "word",
+        "word",
+        "punct",
+    ]
     assert toks[0].norm == "SELECT"
     assert toks[3].text == "b" and toks[5].text == "c"
 
 
 def test_line_and_block_comments_are_consumed() -> None:
-    toks, problems = tokenize(
-        "SELECT -- comentário\na /* bloco /* aninhado */ , b FROM t"
-    )
+    toks, problems = tokenize("SELECT -- comentário\na /* bloco /* aninhado */ , b FROM t")
     assert problems == []
     words = [t.norm for t in toks if t.kind == "word"]
     assert words == ["SELECT", "A", "B", "FROM", "T"]
@@ -80,5 +87,5 @@ def test_keyword_helpers() -> None:
     toks, _ = tokenize('SELECT "SELECT" FROM t')
     assert is_kw(toks[0], "SELECT")
     assert not is_kw(toks[1], "SELECT")  # quotado não é keyword
-    assert not is_name(toks[0])          # keyword não é nome
-    assert is_name(toks[1])              # qident é nome
+    assert not is_name(toks[0])  # keyword não é nome
+    assert is_name(toks[1])  # qident é nome

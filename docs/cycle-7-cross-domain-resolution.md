@@ -83,7 +83,7 @@ from code_atlas.indexing import IndexCoordinator
 
 coordinator = IndexCoordinator(
     conn,
-    domain_registry=registry,          # enabled domain adapters
+    domain_registry=registry,  # enabled domain adapters
     cross_resolver=CrossDomainResolver(),
 )
 ```

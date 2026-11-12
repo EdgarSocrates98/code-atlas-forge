@@ -76,19 +76,14 @@ class SemanticEnricher:
     def __init__(self, coordinator: ResolverCoordinator) -> None:
         self._coord = coordinator
 
-    def enrich(
-        self, build: GraphBuildResult
-    ) -> tuple[GraphBuildResult, dict[str, int]]:
+    def enrich(self, build: GraphBuildResult) -> tuple[GraphBuildResult, dict[str, int]]:
         """Devolve (build possivelmente enriquecido, stats).
 
         Stats: ``semantic_attempted``, ``semantic_enriched``,
         ``semantic_diagnostics``.
         """
         node_by_id = {n.node_id: n for n in build.nodes}
-        persistable = {
-            n.node_id for n in build.nodes
-            if n.kind not in _NON_PERSISTED and n.path
-        }
+        persistable = {n.node_id for n in build.nodes if n.kind not in _NON_PERSISTED and n.path}
         evidence: list[EvidenceRecord] = list(build.evidence)
         diagnostics: list[ParseDiagnostic] = list(build.diagnostics)
         stats = {
@@ -101,13 +96,9 @@ class SemanticEnricher:
         }
         edges: list[GraphEdge] = []
         for e in build.edges:
-            new_edge = self._enrich_edge(
-                e, node_by_id, persistable, evidence, diagnostics, stats
-            )
+            new_edge = self._enrich_edge(e, node_by_id, persistable, evidence, diagnostics, stats)
             edges.append(new_edge)
-        stats["semantic_diagnostics"] = (
-            len(diagnostics) - len(build.diagnostics)
-        )
+        stats["semantic_diagnostics"] = len(diagnostics) - len(build.diagnostics)
         enriched = dataclasses.replace(
             build,
             edges=tuple(edges),
@@ -132,8 +123,13 @@ class SemanticEnricher:
             return e
         if e.resolution_status == "resolved":
             return self._verify_edge(
-                e, kind, node_by_id, persistable, evidence,
-                diagnostics, stats,
+                e,
+                kind,
+                node_by_id,
+                persistable,
+                evidence,
+                diagnostics,
+                stats,
             )
         src = node_by_id.get(e.from_id)
         language = getattr(src, "language", "") if src is not None else ""
@@ -166,10 +162,7 @@ class SemanticEnricher:
                 content_hash="",
                 extractor=f"resolver:{prov.resolver_id}",
                 extractor_version=prov.resolver_version,
-                notes=(
-                    f"semantic enrichment tier={prov.evidence_tier} "
-                    f"{prov.detail}".strip()
-                ),
+                notes=(f"semantic enrichment tier={prov.evidence_tier} {prov.detail}".strip()),
                 resolver_id=prov.resolver_id,
                 resolver_version=prov.resolver_version,
                 evidence_tier=prov.evidence_tier,
@@ -217,13 +210,13 @@ class SemanticEnricher:
         src = node_by_id.get(e.from_id)
         language = getattr(src, "language", "") if src is not None else ""
         request = ResolutionRequest(
-            name=name, kind=kind, path=e.source_path,
-            language=str(language), span=e.span,
+            name=name,
+            kind=kind,
+            path=e.source_path,
+            language=str(language),
+            span=e.span,
         )
-        above = [
-            r for r in self._coord.candidates(request)
-            if r.capabilities().tier < current_tier
-        ]
+        above = [r for r in self._coord.candidates(request) if r.capabilities().tier < current_tier]
         if not above:
             return e  # sem resolvedor superior configurado — custo zero
         stats["semantic_verified"] += 1
@@ -237,13 +230,12 @@ class SemanticEnricher:
             ev_idx = len(evidence)
             evidence.append(
                 EvidenceRecord(
-                    path=e.source_path, span=e.span, content_hash="",
+                    path=e.source_path,
+                    span=e.span,
+                    content_hash="",
                     extractor=f"resolver:{prov.resolver_id}",
                     extractor_version=prov.resolver_version,
-                    notes=(
-                        f"semantic confirmed tier={prov.evidence_tier} "
-                        f"{prov.detail}".strip()
-                    ),
+                    notes=(f"semantic confirmed tier={prov.evidence_tier} {prov.detail}".strip()),
                     resolver_id=prov.resolver_id,
                     resolver_version=prov.resolver_version,
                     evidence_tier=prov.evidence_tier,
@@ -263,7 +255,9 @@ class SemanticEnricher:
         ev_idx = len(evidence)
         evidence.append(
             EvidenceRecord(
-                path=e.source_path, span=e.span, content_hash="",
+                path=e.source_path,
+                span=e.span,
+                content_hash="",
                 extractor=f"resolver:{prov.resolver_id}",
                 extractor_version=prov.resolver_version,
                 notes=(

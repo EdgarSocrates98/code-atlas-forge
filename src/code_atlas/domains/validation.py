@@ -25,17 +25,12 @@ from code_atlas.domains.contracts import (
 from code_atlas.domains.model import DOMAIN_RELATION_TYPES
 
 
-def _check_envelope(
-    adapter: DomainAdapter, result: DomainExtractionResult
-) -> list[str]:
+def _check_envelope(adapter: DomainAdapter, result: DomainExtractionResult) -> list[str]:
     errors: list[str] = []
     if result.schema_version != DOMAIN_CONTRACT_VERSION:
         errors.append(f"schema_version mismatch: {result.schema_version}")
     if result.domain_id != adapter.domain_id:
-        errors.append(
-            f"result.domain_id {result.domain_id!r} != adapter "
-            f"{adapter.domain_id!r}"
-        )
+        errors.append(f"result.domain_id {result.domain_id!r} != adapter {adapter.domain_id!r}")
     if result.adapter_version != adapter.adapter_version:
         errors.append(
             f"result.adapter_version {result.adapter_version!r} != adapter "
@@ -61,14 +56,10 @@ def _check_entities(
         if e.kind not in declared:
             errors.append(f"undeclared entity kind: {e.kind}")
         if e.identity.domain != adapter.domain_id:
-            errors.append(
-                f"entity domain {e.identity.domain!r} != adapter "
-                f"{adapter.domain_id!r}"
-            )
+            errors.append(f"entity domain {e.identity.domain!r} != adapter {adapter.domain_id!r}")
         if e.identity.repository != request.repository:
             errors.append(
-                f"entity repository {e.identity.repository!r} != request "
-                f"{request.repository!r}"
+                f"entity repository {e.identity.repository!r} != request {request.repository!r}"
             )
         for i in e.evidence:
             if not 0 <= i < evi_len:
@@ -76,9 +67,7 @@ def _check_entities(
     return errors
 
 
-def _check_relations(
-    adapter: DomainAdapter, result: DomainExtractionResult
-) -> list[str]:
+def _check_relations(adapter: DomainAdapter, result: DomainExtractionResult) -> list[str]:
     errors: list[str] = []
     declared = adapter.relation_kinds()
     confidence = adapter.confidence_model()

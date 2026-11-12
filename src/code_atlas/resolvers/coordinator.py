@@ -27,9 +27,7 @@ class ResolverCoordinator:
     def __init__(self, registry: ResolverRegistry) -> None:
         self._registry = registry
 
-    def candidates(
-        self, request: ResolutionRequest
-    ) -> list[SemanticResolver]:
+    def candidates(self, request: ResolutionRequest) -> list[SemanticResolver]:
         """Resolvers que cobrem o pedido, em ordem de evidência."""
         rel = relation_for_kind(request.kind)
         return self._registry.capable(request.language, rel)
@@ -49,10 +47,7 @@ class ResolverCoordinator:
         diagnostics: list[ResolutionDiagnostic] = []
         best: ResolutionResult | None = None
         for resolver in self.candidates(request):
-            if (
-                above_tier is not None
-                and resolver.capabilities().tier >= above_tier
-            ):
+            if above_tier is not None and resolver.capabilities().tier >= above_tier:
                 continue
             try:
                 result = resolver.resolve(request)
@@ -85,12 +80,12 @@ class ResolverCoordinator:
             )
         return ResolutionResult(
             request=request,
-            diagnostics=tuple(diagnostics) or (
+            diagnostics=tuple(diagnostics)
+            or (
                 ResolutionDiagnostic(
                     code="no-resolver",
                     severity="warning",
-                    message=f"no resolver covers '{request.kind}' "
-                            f"for '{request.language or '*'}'",
+                    message=f"no resolver covers '{request.kind}' for '{request.language or '*'}'",
                 ),
             ),
         )

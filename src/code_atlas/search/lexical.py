@@ -51,10 +51,7 @@ def fts_query(query: str) -> str | None:
     if not toks:
         return None
     or_terms = " OR ".join(fts_escape(t) for t in toks)
-    return (
-        f"{{name terms signature docstring}} : ({or_terms})"
-        f" OR name : {fts_escape(q)}"
-    )
+    return f"{{name terms signature docstring}} : ({or_terms}) OR name : {fts_escape(q)}"
 
 
 class LexicalSearch:
@@ -72,11 +69,15 @@ class LexicalSearch:
         """Retorna (hits, total_estimado, diagnostics)."""
         match = fts_query(req.query)
         if match is None:
-            return (), 0, (
-                SearchDiagnostic(
-                    code="empty-query",
-                    severity="warning",
-                    message="query vazia após tokenização",
+            return (
+                (),
+                0,
+                (
+                    SearchDiagnostic(
+                        code="empty-query",
+                        severity="warning",
+                        message="query vazia após tokenização",
+                    ),
                 ),
             )
         limit = max(1, min(req.limit or 20, _MAX_LIMIT))
@@ -115,18 +116,18 @@ class LexicalSearch:
             + " ORDER BY score LIMIT ? OFFSET ?"
         )
         try:
-            total = int(
-                self._conn.execute(count_sql, params).fetchone()[0]
-            )
-            rows = self._conn.execute(
-                select_sql, [*params, limit, offset]
-            ).fetchall()
+            total = int(self._conn.execute(count_sql, params).fetchone()[0])
+            rows = self._conn.execute(select_sql, [*params, limit, offset]).fetchall()
         except sqlite3.OperationalError as exc:
-            return (), 0, (
-                SearchDiagnostic(
-                    code="fts-query-error",
-                    severity="error",
-                    message=f"MATCH inválida: {exc}",
+            return (
+                (),
+                0,
+                (
+                    SearchDiagnostic(
+                        code="fts-query-error",
+                        severity="error",
+                        message=f"MATCH inválida: {exc}",
+                    ),
                 ),
             )
         hits = tuple(

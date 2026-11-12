@@ -4,6 +4,7 @@ This bootstrap deliberately has no dependency on The Forge or on a checkout
 being present after installation.  It is the small cross-platform entrypoint
 used by install.sh, install.windows.sh and install.ps1.
 """
+
 from __future__ import annotations
 
 import argparse
@@ -60,8 +61,7 @@ def _write_launcher(home: Path) -> Path:
         launcher.write_text(f'@echo off\r\n"{target}" %*\r\n', encoding="utf-8")
     else:
         launcher.write_text(
-            "#!/usr/bin/env sh\n"
-            f'exec {shlex.quote(str(target))} "$@"\n',
+            f'#!/usr/bin/env sh\nexec {shlex.quote(str(target))} "$@"\n',
             encoding="utf-8",
         )
         launcher.chmod(0o755)

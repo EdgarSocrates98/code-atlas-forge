@@ -22,15 +22,15 @@ from code_atlas.resolvers.syntactic.resolver import ScopeUniverse
 
 # sufixo de descriptor → separador qname
 _SUFFIX_SEP = {
-    1: "/",   # Namespace
-    2: "#",   # Type
-    3: ".",   # Term
-    4: ".",   # Method (com disambiguator)
+    1: "/",  # Namespace
+    2: "#",  # Type
+    3: ".",  # Term
+    4: ".",  # Method (com disambiguator)
     5: "[]",  # TypeParameter
     6: "()",  # Parameter
-    7: ":",   # Meta
-    8: ".",   # Local
-    9: "!",   # Macro
+    7: ":",  # Meta
+    8: ".",  # Local
+    9: "!",  # Macro
 }
 
 
@@ -86,8 +86,12 @@ def parse_symbol(raw: str) -> ScipSymbol | None:
     m = _LOCAL_RE.match(raw)
     if m:
         return ScipSymbol(
-            scheme="", manager="", package_name="", package_version="",
-            descriptors=(), local_id=m.group("id"),
+            scheme="",
+            manager="",
+            package_name="",
+            package_version="",
+            descriptors=(),
+            local_id=m.group("id"),
         )
     m = _SYMBOL_RE.match(raw)
     if not m:
@@ -96,8 +100,10 @@ def parse_symbol(raw: str) -> ScipSymbol | None:
     if descriptors is None:
         return None
     return ScipSymbol(
-        scheme=m.group("scheme"), manager=m.group("manager"),
-        package_name=m.group("pkg"), package_version=m.group("ver"),
+        scheme=m.group("scheme"),
+        manager=m.group("manager"),
+        package_name=m.group("pkg"),
+        package_version=m.group("ver"),
         descriptors=tuple(descriptors),
     )
 
@@ -127,10 +133,8 @@ def _parse_descriptors(text: str) -> list[Descriptor] | None:
         suffix, i = end
         if not name:
             return None
-        clean = name[1:-1] if name.startswith("`") and name.endswith("`") \
-            else name
-        out.append(Descriptor(name=clean, disambiguator=disambig,
-                              suffix=suffix))
+        clean = name[1:-1] if name.startswith("`") and name.endswith("`") else name
+        out.append(Descriptor(name=clean, disambiguator=disambig, suffix=suffix))
     return out
 
 
@@ -205,9 +209,7 @@ def symbol_parts(sym: ScipSymbol) -> tuple[str, tuple[str, ...]]:
     if sym.is_local:
         return "", ()
     ns_parts = [d.name for d in sym.descriptors if d.suffix == 1]
-    members = tuple(
-        d.name for d in sym.descriptors if d.suffix != 1
-    )
+    members = tuple(d.name for d in sym.descriptors if d.suffix != 1)
     doc = "/".join(ns_parts)
     return doc, members
 

@@ -40,9 +40,7 @@ DATA_FLOW_TYPES: frozenset[str] = frozenset(
 )
 
 # Tipos cujo endpoint ``to`` é o produtor (fluxo ``to → from``).
-_UPSTREAM_TARGET_TYPES: frozenset[str] = frozenset(
-    {"READS_FROM", "DERIVES_FROM"}
-)
+_UPSTREAM_TARGET_TYPES: frozenset[str] = frozenset({"READS_FROM", "DERIVES_FROM"})
 
 NOTE_OPT_IN = (
     "domain adapters are opt-in: no domain rows means extraction was "
@@ -131,9 +129,7 @@ def adapters_report(reg: DomainRegistry | None = None) -> list[dict[str, Any]]:
     """Inventário dos adapters registrados (``domains list``/``atlas_domains``)."""
     reg = reg or builtin_registry()
     out: list[dict[str, Any]] = []
-    for a in sorted(
-        reg.adapters(), key=lambda x: (x.domain_id, x.adapter_version)
-    ):
+    for a in sorted(reg.adapters(), key=lambda x: (x.domain_id, x.adapter_version)):
         sup = a.supported_artifacts()
         cm = a.confidence_model()
         out.append(
@@ -204,15 +200,12 @@ def repo_for_ident(conn: sqlite3.Connection, ident: str) -> tuple[int | None, st
     if len(rows) > 1:
         repos = ", ".join(str(int(r["repository_id"])) for r in rows)
         return None, (
-            f"entity ref {ident!r} exists in repositories {repos} — "
-            "pass --repo to disambiguate"
+            f"entity ref {ident!r} exists in repositories {repos} — pass --repo to disambiguate"
         )
     return None, ""
 
 
-def find_entities(
-    conn: sqlite3.Connection, repo_id: int | None, ident: str
-) -> list[sqlite3.Row]:
+def find_entities(conn: sqlite3.Connection, repo_id: int | None, ident: str) -> list[sqlite3.Row]:
     """Candidatos por id numérico, ``identity_key`` ou nome qualificado.
 
     Nome aceita ``qualified_name``, ``name`` e a forma humana
@@ -232,15 +225,10 @@ def find_entities(
         conds.append("identity_key = ?")
         params.append(ident)
     else:
-        conds.append(
-            "(qualified_name = ? OR name = ? "
-            "OR (namespace || '.' || qualified_name) = ?)"
-        )
+        conds.append("(qualified_name = ? OR name = ? OR (namespace || '.' || qualified_name) = ?)")
         params.extend([ident, ident, ident])
     where = " AND ".join(conds) if conds else "1=1"
-    entity_sql = (
-        "SELECT * FROM domain_entities WHERE " + where + " ORDER BY id"
-    )
+    entity_sql = "SELECT * FROM domain_entities WHERE " + where + " ORDER BY id"
     return conn.execute(entity_sql, params).fetchall()
 
 
@@ -251,13 +239,10 @@ def resolve_single_entity(
     rows = find_entities(conn, repo_id, ident)
     if not rows:
         scope = "" if repo_id is None else f" in repository {repo_id}"
-        return None, (
-            f"domain entity not found: {ident!r}{scope} — {NOTE_OPT_IN}"
-        )
+        return None, (f"domain entity not found: {ident!r}{scope} — {NOTE_OPT_IN}")
     if len(rows) > 1:
         cand = ", ".join(
-            f"#{int(r['id'])} {_display_name(r)}"
-            f" (repo={int(r['repository_id'])})"
+            f"#{int(r['id'])} {_display_name(r)} (repo={int(r['repository_id'])})"
             for r in rows[:10]
         )
         return None, f"ambiguous entity ref {ident!r}: {cand}"
@@ -306,16 +291,12 @@ def list_entities(
         f"WHERE {where}"
     )
     count_sql = "SELECT COUNT(DISTINCT de.id) AS c " + join
-    total = int(
-        conn.execute(count_sql, params).fetchone()["c"]
-    )
+    total = int(conn.execute(count_sql, params).fetchone()["c"])
     list_sql = (
         "SELECT de.id, de.domain, de.kind, de.qualified_name, de.name,"
         " de.catalog, de.namespace, de.environment, de.identity_key,"
         " COUNT(deo.id) AS occ_count,"
-        " MIN(sf.relative_path) AS first_path "
-        + join
-        + " GROUP BY de.id"
+        " MIN(sf.relative_path) AS first_path " + join + " GROUP BY de.id"
         " ORDER BY de.domain, de.kind, de.qualified_name, de.id"
         " LIMIT ? OFFSET ?"
     )
@@ -443,9 +424,7 @@ def entity_detail(
 # --- linhagem ---------------------------------------------------------------
 
 
-def _entity_label_map(
-    conn: sqlite3.Connection, entity_ids: set[int]
-) -> dict[int, sqlite3.Row]:
+def _entity_label_map(conn: sqlite3.Connection, entity_ids: set[int]) -> dict[int, sqlite3.Row]:
     if not entity_ids:
         return {}
     ph = ",".join("?" for _ in entity_ids)
@@ -458,9 +437,7 @@ def _entity_label_map(
     return {int(r["id"]): r for r in rows}
 
 
-def _node_key(
-    entity_id: int | None, symbol: str | None, unresolved: str | None
-) -> str:
+def _node_key(entity_id: int | None, symbol: str | None, unresolved: str | None) -> str:
     """Chave do nó no traversal — entidade, símbolo ou alvo honesto."""
     if entity_id is not None:
         return f"e:{entity_id}"
@@ -573,8 +550,8 @@ def _lineage_bfs(
     for d in range(1, depth + 1):
         candidates = _bfs_candidates(frontier, up_adj, down_adj, label)
         next_frontier, hit = _bfs_visit(
-            candidates, node_depth, node_via, out_edges,
-            limit=limit, label=label, depth_now=d)
+            candidates, node_depth, node_via, out_edges, limit=limit, label=label, depth_now=d
+        )
         truncated = truncated or hit
         frontier = next_frontier
         if truncated:
@@ -656,8 +633,7 @@ def _lineage_nodes(
             "ref": label(k),
             "entity_id": int(k[2:]) if k.startswith("e:") else None,
             "synthetic": (
-                None if k.startswith("e:")
-                else k.split(":", 1)[0]  # symbol|unresolved|missing
+                None if k.startswith("e:") else k.split(":", 1)[0]  # symbol|unresolved|missing
             ),
             "depth": node_depth[k],
             "via": node_via[k],
@@ -706,12 +682,12 @@ def lineage(
     up_adj: dict[str, list[dict[str, Any]]] = {}
     down_adj: dict[str, list[dict[str, Any]]] = {}
     for e in edges:
-        up_adj.setdefault(e["v"], []).append(e)   # u alimenta v
+        up_adj.setdefault(e["v"], []).append(e)  # u alimenta v
         down_adj.setdefault(e["u"], []).append(e)
 
     node_depth, node_via, out_edges, truncated = _lineage_bfs(
-        f"e:{seed}", up_adj, down_adj,
-        direction=direction, depth=depth, limit=limit, label=label)
+        f"e:{seed}", up_adj, down_adj, direction=direction, depth=depth, limit=limit, label=label
+    )
     nodes = _lineage_nodes(node_depth, node_via, labels, label)
     out_edges.sort(key=lambda e: (e["depth"], e["relation_id"], e["via"]))
     return {
@@ -730,10 +706,6 @@ def lineage(
         "truncated": truncated,
         "nodes": nodes,
         "edges": out_edges,
-        "upstream": [
-            n for n in nodes if n["via"] in ("up",)
-        ],
-        "downstream": [
-            n for n in nodes if n["via"] in ("down",)
-        ],
+        "upstream": [n for n in nodes if n["via"] in ("up",)],
+        "downstream": [n for n in nodes if n["via"] in ("down",)],
     }

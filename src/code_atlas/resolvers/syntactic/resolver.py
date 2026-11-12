@@ -82,10 +82,8 @@ class SyntacticResolver:
         return ResolverCapability(
             resolver_id=RESOLVER_ID,
             tier=EvidenceTier.SYNTACTIC,
-            languages=frozenset(),      # qualquer linguagem parseada
-            relation_types=frozenset(
-                {"IMPORTS", "CALLS", "REFERENCES", "EXTENDS", "IMPLEMENTS"}
-            ),
+            languages=frozenset(),  # qualquer linguagem parseada
+            relation_types=frozenset({"IMPORTS", "CALLS", "REFERENCES", "EXTENDS", "IMPLEMENTS"}),
             detail="local scope resolution (no type info)",
         )
 
@@ -130,9 +128,7 @@ class SyntacticResolver:
 
     # -- primitivas de resolução (extraídas de graph.builder) ------------
 
-    def scope_nid(
-        self, ctx: ModuleCtx, scope_path: tuple[str, ...]
-    ) -> str | None:
+    def scope_nid(self, ctx: ModuleCtx, scope_path: tuple[str, ...]) -> str | None:
         qname = ".".join((ctx.module_name, *scope_path))
         nids = self._universe.qname_nid.get(qname)
         return nids[0] if nids else ctx.nid
@@ -147,23 +143,17 @@ class SyntacticResolver:
             return nids[0]
         return ctx.nid  # fallback: origem = módulo
 
-    def resolve_import(
-        self, ctx: ModuleCtx, target: str
-    ) -> tuple[str | None, str]:
+    def resolve_import(self, ctx: ModuleCtx, target: str) -> tuple[str | None, str]:
         """IMPORTS: módulo local → resolved; relativo/path falho →
         unresolved; stdlib/site-packages → external."""
         mod, _rest = self.locate(ctx, target)
         if mod is not None:
             return mod.nid, "resolved"
-        if target.startswith(".") or (
-            target.rsplit(".", 1)[0] in self._universe.top_packages
-        ):
+        if target.startswith(".") or (target.rsplit(".", 1)[0] in self._universe.top_packages):
             return None, "unresolved"
         return None, "external"
 
-    def locate(
-        self, ctx: ModuleCtx, target: str
-    ) -> tuple[ModuleCtx | None, list[str]]:
+    def locate(self, ctx: ModuleCtx, target: str) -> tuple[ModuleCtx | None, list[str]]:
         """Alvo dotted/pathed → (ctx do módulo, segmentos-membro restantes).
 
         Cobre: python absoluto (``pkg.util``), python relativo (``.util``),
@@ -189,9 +179,7 @@ class SyntacticResolver:
             if posixpath.basename(ctx.path) == "__init__.py":
                 dots -= 1
             pkg_parts = parts[: max(len(parts) - dots, 0)]
-            cand = ".".join([*pkg_parts, rest_txt]) if rest_txt else ".".join(
-                pkg_parts
-            )
+            cand = ".".join([*pkg_parts, rest_txt]) if rest_txt else ".".join(pkg_parts)
         segs = cand.split(".")
         for i in range(len(segs), 0, -1):
             mod = self._universe.modules.get(".".join(segs[:i]))
@@ -207,17 +195,24 @@ class SyntacticResolver:
         norm = posixpath.normpath(posixpath.join(base_dir, target))
         # lf-0130: .d.mts/.d.cts e index.d.ts cobertos — mesma família de
         # extensões que o adapter TypeScript registra.
-        for ext in (".ts", ".tsx", ".d.ts", ".mts", ".cts",
-                    ".d.mts", ".d.cts",
-                    "/index.ts", "/index.tsx", "/index.d.ts"):
+        for ext in (
+            ".ts",
+            ".tsx",
+            ".d.ts",
+            ".mts",
+            ".cts",
+            ".d.mts",
+            ".d.cts",
+            "/index.ts",
+            "/index.tsx",
+            "/index.d.ts",
+        ):
             nid = self._universe.by_path.get(norm + ext)
             if nid:
                 return nid
         return self._universe.by_path.get(norm)
 
-    def resolve_name(
-        self, ctx: ModuleCtx, name: str
-    ) -> tuple[str | None, str]:
+    def resolve_name(self, ctx: ModuleCtx, name: str) -> tuple[str | None, str]:
         """Nome bare/dotted → nó local único, senão status defensável."""
         head, _, tail = name.partition(".")
         if not tail and name in ctx.defines and name in ctx.import_targets:
@@ -248,7 +243,5 @@ class SyntacticResolver:
             return None, "ambiguous"
         return None, "unresolved"
 
-    def resolve_call(
-        self, ctx: ModuleCtx, callee: str
-    ) -> tuple[str | None, str]:
+    def resolve_call(self, ctx: ModuleCtx, callee: str) -> tuple[str | None, str]:
         return self.resolve_name(ctx, callee)

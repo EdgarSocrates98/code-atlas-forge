@@ -124,8 +124,7 @@ class SqlDomainAdapter:
             ceiling=ConfidenceClass.SYNTACTIC,
             default=ConfidenceClass.SYNTACTIC,
             allows_inferred=False,
-            notes="static SQL lineage; star/ambiguous/dynamic are "
-            "diagnosed, never resolved",
+            notes="static SQL lineage; star/ambiguous/dynamic are diagnosed, never resolved",
         )
 
     def discovery_rules(self) -> tuple[DiscoveryRule, ...]:
@@ -150,9 +149,7 @@ class SqlDomainAdapter:
 
     # -- extract ---------------------------------------------------------
 
-    def extract(
-        self, request: DomainExtractionRequest
-    ) -> DomainExtractionResult:
+    def extract(self, request: DomainExtractionRequest) -> DomainExtractionResult:
         try:
             return _extract(request, self.adapter_version, self._base)
         except Exception as exc:  # última linha de defesa — nunca levanta
@@ -181,9 +178,11 @@ class SqlDomainAdapter:
             if fs is None:
                 diags.append(
                     DomainDiagnostic(
-                        code="artifact-outside-root", severity="error",
+                        code="artifact-outside-root",
+                        severity="error",
                         message=f"artifact path escapes repository root: {path}",
-                        path=path, adapter_id=DOMAIN_ID,
+                        path=path,
+                        adapter_id=DOMAIN_ID,
                     )
                 )
                 return None
@@ -191,9 +190,11 @@ class SqlDomainAdapter:
             if raw is None:
                 diags.append(
                     DomainDiagnostic(
-                        code="unreadable-artifact", severity="error",
+                        code="unreadable-artifact",
+                        severity="error",
                         message="cannot read artifact: unsafe or vanished",
-                        path=path, adapter_id=DOMAIN_ID,
+                        path=path,
+                        adapter_id=DOMAIN_ID,
                     )
                 )
                 return None
@@ -204,18 +205,22 @@ class SqlDomainAdapter:
             except OSError as exc:
                 diags.append(
                     DomainDiagnostic(
-                        code="unreadable-artifact", severity="error",
+                        code="unreadable-artifact",
+                        severity="error",
                         message=f"cannot read artifact: {exc}",
-                        path=path, adapter_id=DOMAIN_ID,
+                        path=path,
+                        adapter_id=DOMAIN_ID,
                     )
                 )
                 return None
         if len(raw) > _MAX_ARTIFACT:
             diags.append(
                 DomainDiagnostic(
-                    code="artifact-too-large", severity="error",
+                    code="artifact-too-large",
+                    severity="error",
                     message=f"{len(raw)} bytes exceeds {_MAX_ARTIFACT}",
-                    path=path, adapter_id=DOMAIN_ID,
+                    path=path,
+                    adapter_id=DOMAIN_ID,
                 )
             )
             return None
@@ -223,12 +228,11 @@ class SqlDomainAdapter:
         if sha256 and sha256 != real:
             diags.append(
                 DomainDiagnostic(
-                    code="artifact-hash-mismatch", severity="warning",
-                    message=(
-                        f"inventory sha256 {sha256[:12]}… != "
-                        f"computed {real[:12]}…"
-                    ),
-                    path=path, adapter_id=DOMAIN_ID,
+                    code="artifact-hash-mismatch",
+                    severity="warning",
+                    message=(f"inventory sha256 {sha256[:12]}… != computed {real[:12]}…"),
+                    path=path,
+                    adapter_id=DOMAIN_ID,
                 )
             )
         return raw.decode("utf-8", "replace"), real
@@ -256,9 +260,11 @@ def _extract(
         if ext != ".sql" and not looks_like_sql(text):
             diagnostics.append(
                 DomainDiagnostic(
-                    code="not-sql-artifact", severity="info",
+                    code="not-sql-artifact",
+                    severity="info",
                     message="content does not look like SQL — skipped",
-                    path=art.path, adapter_id=DOMAIN_ID,
+                    path=art.path,
+                    adapter_id=DOMAIN_ID,
                 )
             )
             continue
@@ -276,27 +282,37 @@ def _extract(
         except Exception as exc:  # isolamento por arquivo — nunca crash
             diagnostics.append(
                 DomainDiagnostic(
-                    code="adapter-crash", severity="error",
+                    code="adapter-crash",
+                    severity="error",
                     message=f"{type(exc).__name__}: {exc}",
-                    path=art.path, adapter_id=DOMAIN_ID,
+                    path=art.path,
+                    adapter_id=DOMAIN_ID,
                 )
             )
             continue
         if (
-            not fx.entities and not fx.relations
-            and not parsed.statements and not looks_like_sql(text)
+            not fx.entities
+            and not fx.relations
+            and not parsed.statements
+            and not looks_like_sql(text)
         ):
             diagnostics.append(
                 DomainDiagnostic(
-                    code="not-sql-artifact", severity="info",
+                    code="not-sql-artifact",
+                    severity="info",
                     message=".sql artifact with no SQL statements",
-                    path=art.path, adapter_id=DOMAIN_ID,
+                    path=art.path,
+                    adapter_id=DOMAIN_ID,
                 )
             )
             continue
         _merge_file(
-            fx, entities=entities, relations=relations,
-            evidence=evidence, diagnostics=diagnostics, stats=stats,
+            fx,
+            entities=entities,
+            relations=relations,
+            evidence=evidence,
+            diagnostics=diagnostics,
+            stats=stats,
         )
 
     return DomainExtractionResult(
@@ -337,37 +353,55 @@ def _merge_file(
         prev = entities.get(key)
         if prev is None:
             entities[key] = ExtractedDomainEntity(
-                identity=e.identity, kind=e.kind, name=e.name,
-                path=e.path, span=e.span, content_hash=e.content_hash,
-                attributes=e.attributes, evidence=remap(e.evidence),
+                identity=e.identity,
+                kind=e.kind,
+                name=e.name,
+                path=e.path,
+                span=e.span,
+                content_hash=e.content_hash,
+                attributes=e.attributes,
+                evidence=remap(e.evidence),
             )
             continue
         merged_ev = tuple(sorted({*prev.evidence, *remap(e.evidence)}))
         declared_wins = (
-            e.attributes.get("declared") == "create"
-            and prev.attributes.get("declared") != "create"
+            e.attributes.get("declared") == "create" and prev.attributes.get("declared") != "create"
         )
         if declared_wins:
             entities[key] = ExtractedDomainEntity(
-                identity=e.identity, kind=e.kind, name=e.name,
-                path=e.path, span=e.span, content_hash=e.content_hash,
-                attributes=e.attributes, evidence=merged_ev,
+                identity=e.identity,
+                kind=e.kind,
+                name=e.name,
+                path=e.path,
+                span=e.span,
+                content_hash=e.content_hash,
+                attributes=e.attributes,
+                evidence=merged_ev,
             )
         else:
             entities[key] = ExtractedDomainEntity(
-                identity=prev.identity, kind=prev.kind, name=prev.name,
-                path=prev.path, span=prev.span,
+                identity=prev.identity,
+                kind=prev.kind,
+                name=prev.name,
+                path=prev.path,
+                span=prev.span,
                 content_hash=prev.content_hash,
-                attributes=prev.attributes, evidence=merged_ev,
+                attributes=prev.attributes,
+                evidence=merged_ev,
             )
 
     relations.extend(
         ExtractedDomainRelation(
-            relation_type=r.relation_type, path=r.path,
-            from_identity=r.from_identity, from_symbol=r.from_symbol,
-            to_identity=r.to_identity, to_symbol=r.to_symbol,
-            to_unresolved=r.to_unresolved, resolution=r.resolution,
-            span=r.span, evidence=remap(r.evidence),
+            relation_type=r.relation_type,
+            path=r.path,
+            from_identity=r.from_identity,
+            from_symbol=r.from_symbol,
+            to_identity=r.to_identity,
+            to_symbol=r.to_symbol,
+            to_unresolved=r.to_unresolved,
+            resolution=r.resolution,
+            span=r.span,
+            evidence=remap(r.evidence),
         )
         for r in fx.relations
     )

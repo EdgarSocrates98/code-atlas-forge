@@ -68,10 +68,21 @@ from code_atlas.impact.contracts import (
 # ``from`` depende de ``to`` → mudança em ``to`` impacta ``from``.
 _DEPENDS_ON_TO: frozenset[str] = frozenset(
     {
-        "READS_FROM", "DERIVES_FROM", "DEPENDS_ON", "CALLS_ENDPOINT",
-        "IMPLEMENTS_CONTRACT", "USES_RESOURCE", "ASSUMES_ROLE",
-        "REFERENCES", "TESTS", "IMPORTS", "CALLS", "IMPLEMENTS",
-        "EXTENDS", "CONFIGURES", "CONTAINS",
+        "READS_FROM",
+        "DERIVES_FROM",
+        "DEPENDS_ON",
+        "CALLS_ENDPOINT",
+        "IMPLEMENTS_CONTRACT",
+        "USES_RESOURCE",
+        "ASSUMES_ROLE",
+        "REFERENCES",
+        "TESTS",
+        "IMPORTS",
+        "CALLS",
+        "IMPLEMENTS",
+        "EXTENDS",
+        "CONFIGURES",
+        "CONTAINS",
     }
 )
 
@@ -83,7 +94,11 @@ _DEPENDS_ON_TO: frozenset[str] = frozenset(
 # (o cicd `workflow TRIGGERS evento` é sempre ``to_unresolved``).
 _COUPLED: frozenset[str] = frozenset(
     {
-        "WRITES_TO", "TRANSFORMS", "PROVISIONS", "TRIGGERS", "DEPLOYS",
+        "WRITES_TO",
+        "TRANSFORMS",
+        "PROVISIONS",
+        "TRIGGERS",
+        "DEPLOYS",
         "DEFINES",
     }
 )
@@ -151,11 +166,11 @@ class _Hit:
     """Nó atingido — forma unificada símbolo/entidade."""
 
     node: _Node
-    key: str            # symbol_key (lang:kind:qname) ou identity_key
-    qname: str          # qualified_name ou display() da entidade
-    language: str       # linguagem ou domínio produtor
-    kind: str           # kind de símbolo ou DomainEntityKind
-    path: str           # path do artefato ("" quando sem arquivo)
+    key: str  # symbol_key (lang:kind:qname) ou identity_key
+    qname: str  # qualified_name ou display() da entidade
+    language: str  # linguagem ou domínio produtor
+    kind: str  # kind de símbolo ou DomainEntityKind
+    path: str  # path do artefato ("" quando sem arquivo)
     is_domain: bool
 
 
@@ -202,17 +217,19 @@ def _sym_hit(conn: sqlite3.Connection, occ_id: int) -> _Hit | None:
         return None
     key = f"{row['language']}:{row['kind']}:{row['qualified_name']}"
     return _Hit(
-        ("s", int(row["occ_id"])), key, str(row["qualified_name"]),
-        str(row["language"]), str(row["kind"]),
-        str(row["relative_path"]), False)
+        ("s", int(row["occ_id"])),
+        key,
+        str(row["qualified_name"]),
+        str(row["language"]),
+        str(row["kind"]),
+        str(row["relative_path"]),
+        False,
+    )
 
 
 def _display_of(row: sqlite3.Row) -> str:
-    head = ".".join(
-        p for p in (str(row["catalog"] or ""),
-                    str(row["namespace"] or "")) if p)
-    qn = (f"{head}.{row['qualified_name']}" if head
-          else str(row["qualified_name"]))
+    head = ".".join(p for p in (str(row["catalog"] or ""), str(row["namespace"] or "")) if p)
+    qn = f"{head}.{row['qualified_name']}" if head else str(row["qualified_name"])
     env = f"@{row['environment']}" if row["environment"] else ""
     return f"{row['domain']}:{qn}{env}"
 
@@ -222,16 +239,21 @@ def _ent_hit(conn: sqlite3.Connection, occ_id: int) -> _Hit | None:
     if row is None:
         return None
     return _Hit(
-        ("e", int(row["occ_id"])), str(row["identity_key"]),
-        _display_of(row), str(row["domain"]), str(row["kind"]),
-        str(row["relative_path"] or ""), True)
+        ("e", int(row["occ_id"])),
+        str(row["identity_key"]),
+        _display_of(row),
+        str(row["domain"]),
+        str(row["kind"]),
+        str(row["relative_path"] or ""),
+        True,
+    )
 
 
 def _hit_of(
-    conn: sqlite3.Connection, node: _Node,
+    conn: sqlite3.Connection,
+    node: _Node,
 ) -> _Hit | None:
-    return (_ent_hit(conn, node[1]) if node[0] == "e"
-            else _sym_hit(conn, node[1]))
+    return _ent_hit(conn, node[1]) if node[0] == "e" else _sym_hit(conn, node[1])
 
 
 def _identity_pair(fe_key: str | None, te_key: str | None) -> bool:
@@ -255,34 +277,26 @@ def _endpoints(row: sqlite3.Row) -> list[tuple[_Node, int | None]]:
     """Todos os endpoints concretos da row: ``(nó, occ_snapshot)``."""
     out: list[tuple[_Node, int | None]] = []
     if row["from_entity_occ_id"] is not None:
-        out.append(
-            (("e", int(row["from_entity_occ_id"])), row["fe_snap"]))
+        out.append((("e", int(row["from_entity_occ_id"])), row["fe_snap"]))
     if row["from_symbol_occ_id"] is not None:
-        out.append(
-            (("s", int(row["from_symbol_occ_id"])), row["fs_snap"]))
+        out.append((("s", int(row["from_symbol_occ_id"])), row["fs_snap"]))
     if row["to_entity_occ_id"] is not None:
-        out.append(
-            (("e", int(row["to_entity_occ_id"])), row["te_snap"]))
+        out.append((("e", int(row["to_entity_occ_id"])), row["te_snap"]))
     if row["to_symbol_occ_id"] is not None:
-        out.append(
-            (("s", int(row["to_symbol_occ_id"])), row["ts_snap"]))
+        out.append((("s", int(row["to_symbol_occ_id"])), row["ts_snap"]))
     return out
 
 
 def _from_side(row: sqlite3.Row, node: _Node) -> bool:
     kind, occ = node
-    return (
-        kind == "e" and row["from_entity_occ_id"] == occ
-    ) or (
+    return (kind == "e" and row["from_entity_occ_id"] == occ) or (
         kind == "s" and row["from_symbol_occ_id"] == occ
     )
 
 
 def _to_side(row: sqlite3.Row, node: _Node) -> bool:
     kind, occ = node
-    return (
-        kind == "e" and row["to_entity_occ_id"] == occ
-    ) or (
+    return (kind == "e" and row["to_entity_occ_id"] == occ) or (
         kind == "s" and row["to_symbol_occ_id"] == occ
     )
 
@@ -296,8 +310,13 @@ def _dom_params(node: _Node, snapshot_id: int, cap: int) -> tuple[object, ...]:
 # Um item de trabalho do BFS: nó, origem do caminho e acumuladores
 # (relation_ids, intermediate_keys, statuses, edge_refs) + profundidade.
 _Work = tuple[
-    _Node, str, tuple[int, ...], tuple[str, ...],
-    tuple[str, ...], tuple[str, ...], int,
+    _Node,
+    str,
+    tuple[int, ...],
+    tuple[str, ...],
+    tuple[str, ...],
+    tuple[str, ...],
+    int,
 ]
 
 
@@ -324,11 +343,20 @@ class _Ctx:
 
 
 def _emit(
-    ctx: _Ctx, hit: _Hit, origin_key: str,
-    rel_ids: tuple[int, ...], mids: tuple[str, ...],
-    statuses: tuple[str, ...], refs: tuple[str, ...],
-    depth: int, *, rel_id: int | None, edge_ref: str,
-    rtype: str, status: str, via: str,
+    ctx: _Ctx,
+    hit: _Hit,
+    origin_key: str,
+    rel_ids: tuple[int, ...],
+    mids: tuple[str, ...],
+    statuses: tuple[str, ...],
+    refs: tuple[str, ...],
+    depth: int,
+    *,
+    rel_id: int | None,
+    edge_ref: str,
+    rtype: str,
+    status: str,
+    via: str,
 ) -> None:
     """Registra candidato + enfileira continuação do caminho."""
     new_rels = (*rel_ids, rel_id) if rel_id is not None else rel_ids
@@ -337,31 +365,42 @@ def _emit(
     new_rf = (*refs, edge_ref)
     verified = all(s == "resolved" for s in new_st)
     hops = len(new_rf)
-    kind = (ImpactKind.DIRECT if hops == 1 and verified
-            else ImpactKind.TRANSITIVE if verified
-            else ImpactKind.POSSIBLE)
-    strength = (EvidenceStrength.VERIFIED if verified
-                else EvidenceStrength.POSSIBLE)
+    kind = (
+        ImpactKind.DIRECT
+        if hops == 1 and verified
+        else ImpactKind.TRANSITIVE
+        if verified
+        else ImpactKind.POSSIBLE
+    )
+    strength = EvidenceStrength.VERIFIED if verified else EvidenceStrength.POSSIBLE
     path = ImpactPath(
         origin_symbol_key=origin_key,
-        affected_symbol_key=hit.key, hops=hops,
+        affected_symbol_key=hit.key,
+        hops=hops,
         relation_ids=new_rels,
         intermediate_keys=new_mid,
         resolution_statuses=new_st,
         fully_verified=verified,
         reason=f"{rtype} via {via}{ctx.reason_suffix}",
-        edge_refs=new_rf)
-    ctx.out.append(ImpactCandidate(
-        symbol_key=hit.key, qualified_name=hit.qname,
-        language=hit.language, kind=hit.kind, impact=kind,
-        strength=strength, path=path,
-        source_path=hit.path or None,
-        occurrence_id=None if hit.is_domain else hit.node[1],
-        node_type="domain" if hit.is_domain else "symbol",
-        domain_occurrence_id=hit.node[1] if hit.is_domain else None))
+        edge_refs=new_rf,
+    )
+    ctx.out.append(
+        ImpactCandidate(
+            symbol_key=hit.key,
+            qualified_name=hit.qname,
+            language=hit.language,
+            kind=hit.kind,
+            impact=kind,
+            strength=strength,
+            path=path,
+            source_path=hit.path or None,
+            occurrence_id=None if hit.is_domain else hit.node[1],
+            node_type="domain" if hit.is_domain else "symbol",
+            domain_occurrence_id=hit.node[1] if hit.is_domain else None,
+        )
+    )
     if hops < ctx.limits.max_depth:
-        ctx.queue.append((hit.node, origin_key, new_rels,
-                          new_mid, new_st, new_rf, depth + 1))
+        ctx.queue.append((hit.node, origin_key, new_rels, new_mid, new_st, new_rf, depth + 1))
     else:
         # fronteira de depth: emitido mas nunca expandido — a sonda
         # pós-BFS decide se havia trabalho atravessável (lf-0151).
@@ -369,19 +408,23 @@ def _emit(
 
 
 def _expand_code(
-    conn: sqlite3.Connection, ctx: _Ctx, node: _Node,
-    origin_key: str, rel_ids: tuple[int, ...], mids: tuple[str, ...],
-    statuses: tuple[str, ...], refs: tuple[str, ...], depth: int,
+    conn: sqlite3.Connection,
+    ctx: _Ctx,
+    node: _Node,
+    origin_key: str,
+    rel_ids: tuple[int, ...],
+    mids: tuple[str, ...],
+    statuses: tuple[str, ...],
+    refs: tuple[str, ...],
+    depth: int,
 ) -> bool:
     """Arestas ``relations`` — consumidores (to→from). ``True`` = corte."""
     # +1 linha de sonda: distingue fit exato (nada cortado) de overflow
     # real — só o overflow declara ``max-nodes-edge-scan`` (lf-0151).
-    rows = conn.execute(
-        _IN_SQL, (ctx.snapshot_id, node[1],
-                  ctx.limits.max_nodes + 1)).fetchall()
+    rows = conn.execute(_IN_SQL, (ctx.snapshot_id, node[1], ctx.limits.max_nodes + 1)).fetchall()
     if len(rows) > ctx.limits.max_nodes:
         ctx.edge_scan_capped = True
-        rows = rows[:ctx.limits.max_nodes]
+        rows = rows[: ctx.limits.max_nodes]
     for r in rows:
         consumer = int(r["from_id"])
         if (("s", consumer), origin_key) in ctx.visited:
@@ -389,46 +432,64 @@ def _expand_code(
         hit = _sym_hit(conn, consumer)
         if hit is None or hit.key in ctx.origin_keys:
             continue
-        _emit(ctx, hit, origin_key, rel_ids, mids, statuses, refs,
-              depth, rel_id=int(r["id"]), edge_ref=f"rel:{r['id']}",
-              rtype=str(r["type"]),
-              status=str(r["resolution_status"]),
-              via=f"relation {r['id']}")
+        _emit(
+            ctx,
+            hit,
+            origin_key,
+            rel_ids,
+            mids,
+            statuses,
+            refs,
+            depth,
+            rel_id=int(r["id"]),
+            edge_ref=f"rel:{r['id']}",
+            rtype=str(r["type"]),
+            status=str(r["resolution_status"]),
+            via=f"relation {r['id']}",
+        )
         if len(ctx.out) >= ctx.limits.max_paths:
             return True
     return False
 
 
 def _dom_neighbors(
-    ctx: _Ctx, r: sqlite3.Row, rtype: str, node: _Node,
-    from_hit: bool, to_hit: bool,
+    ctx: _Ctx,
+    r: sqlite3.Row,
+    rtype: str,
+    node: _Node,
+    from_hit: bool,
+    to_hit: bool,
 ) -> list[tuple[_Node, int | None]]:
     """Vizinhos de uma aresta de domínio conforme a direção do tipo."""
-    if rtype == _REFERENCES and _identity_pair(
-            str(r["fe_key"] or ""), str(r["te_key"] or "")):
+    if rtype == _REFERENCES and _identity_pair(str(r["fe_key"] or ""), str(r["te_key"] or "")):
         # identidade simétrica — atravessa para o outro lado.
         return [(n, snap) for n, snap in _endpoints(r) if n != node]
     if rtype in _DEPENDS_ON_TO and to_hit:
-        return [(n, snap) for n, snap in _endpoints(r)
-                if _from_side(r, n)]
+        return [(n, snap) for n, snap in _endpoints(r) if _from_side(r, n)]
     if rtype in _COUPLED:
         return [(n, snap) for n, snap in _endpoints(r) if n != node]
     return []
 
 
 def _expand_domain(
-    conn: sqlite3.Connection, ctx: _Ctx, node: _Node,
-    origin_key: str, rel_ids: tuple[int, ...], mids: tuple[str, ...],
-    statuses: tuple[str, ...], refs: tuple[str, ...], depth: int,
+    conn: sqlite3.Connection,
+    ctx: _Ctx,
+    node: _Node,
+    origin_key: str,
+    rel_ids: tuple[int, ...],
+    mids: tuple[str, ...],
+    statuses: tuple[str, ...],
+    refs: tuple[str, ...],
+    depth: int,
 ) -> bool:
     """Arestas ``domain_relations`` — ``True`` = corte por max_paths."""
     node_unc = ctx.node_deps.setdefault(node, set())
     rows = conn.execute(
-        _DOM_SQL, _dom_params(node, ctx.snapshot_id,
-                              ctx.limits.max_nodes + 1)).fetchall()
+        _DOM_SQL, _dom_params(node, ctx.snapshot_id, ctx.limits.max_nodes + 1)
+    ).fetchall()
     if len(rows) > ctx.limits.max_nodes:
         ctx.edge_scan_capped = True
-        rows = rows[:ctx.limits.max_nodes]
+        rows = rows[: ctx.limits.max_nodes]
     for r in rows:
         rtype = str(r["type"])
         status = str(r["resolution_status"])
@@ -437,16 +498,18 @@ def _expand_domain(
 
         # Alvo não-traversável: row sem endpoint concreto em `to`. É
         # dependência/produto não localizado — incerteza do nó, nunca hop.
-        if (from_hit and r["to_entity_occ_id"] is None
-                and r["to_symbol_occ_id"] is None
-                and r["to_unresolved"]):
+        if (
+            from_hit
+            and r["to_entity_occ_id"] is None
+            and r["to_symbol_occ_id"] is None
+            and r["to_unresolved"]
+        ):
             dep = f"{rtype}→{str(r['to_unresolved'])[:80]} ({status})"
             if dep not in node_unc:
                 node_unc.add(dep)
                 ctx.uncertain[status] = ctx.uncertain.get(status, 0) + 1
 
-        for nnode, nsnap in _dom_neighbors(
-                ctx, r, rtype, node, from_hit, to_hit):
+        for nnode, nsnap in _dom_neighbors(ctx, r, rtype, node, from_hit, to_hit):
             if nnode == node or (nnode, origin_key) in ctx.visited:
                 continue
             if nsnap is not None and nsnap != ctx.snapshot_id:
@@ -457,23 +520,37 @@ def _expand_domain(
             hit = _hit_of(conn, nnode)
             if hit is None or hit.key in ctx.origin_keys:
                 continue
-            _emit(ctx, hit, origin_key, rel_ids, mids, statuses, refs,
-                  depth, rel_id=None, edge_ref=f"dom:{r['id']}",
-                  rtype=rtype, status=status,
-                  via=f"domain_relation {r['id']}")
+            _emit(
+                ctx,
+                hit,
+                origin_key,
+                rel_ids,
+                mids,
+                statuses,
+                refs,
+                depth,
+                rel_id=None,
+                edge_ref=f"dom:{r['id']}",
+                rtype=rtype,
+                status=status,
+                via=f"domain_relation {r['id']}",
+            )
             if len(ctx.out) >= ctx.limits.max_paths:
                 return True
     return False
 
 
 def _dom_frontier_pending(
-    conn: sqlite3.Connection, ctx: _Ctx, node: _Node, origin_key: str,
+    conn: sqlite3.Connection,
+    ctx: _Ctx,
+    node: _Node,
+    origin_key: str,
 ) -> bool:
     """Sonda de fronteira sobre ``domain_relations`` — usada por nós
     símbolo E entidade (``_expand_domain`` expande os dois)."""
     rows = conn.execute(
-        _DOM_SQL, _dom_params(node, ctx.snapshot_id,
-                              ctx.limits.max_nodes + 1)).fetchall()
+        _DOM_SQL, _dom_params(node, ctx.snapshot_id, ctx.limits.max_nodes + 1)
+    ).fetchall()
     if len(rows) > ctx.limits.max_nodes:
         ctx.edge_scan_capped = True
         return True
@@ -481,14 +558,16 @@ def _dom_frontier_pending(
         rtype = str(r["type"])
         from_hit = _from_side(r, node)
         to_hit = _to_side(r, node)
-        if (from_hit and r["to_entity_occ_id"] is None
-                and r["to_symbol_occ_id"] is None
-                and r["to_unresolved"]):
+        if (
+            from_hit
+            and r["to_entity_occ_id"] is None
+            and r["to_symbol_occ_id"] is None
+            and r["to_unresolved"]
+        ):
             # dependência não-traversável nunca contada — informação
             # de incerteza descartada pelo corte de depth.
             return True
-        for nnode, nsnap in _dom_neighbors(
-                ctx, r, rtype, node, from_hit, to_hit):
+        for nnode, nsnap in _dom_neighbors(ctx, r, rtype, node, from_hit, to_hit):
             if nnode == node or (nnode, origin_key) in ctx.visited:
                 continue
             if nsnap is not None and nsnap != ctx.snapshot_id:
@@ -504,7 +583,10 @@ def _dom_frontier_pending(
 
 
 def _frontier_pending(
-    conn: sqlite3.Connection, ctx: _Ctx, node: _Node, origin_key: str,
+    conn: sqlite3.Connection,
+    ctx: _Ctx,
+    node: _Node,
+    origin_key: str,
 ) -> bool:
     """``True`` se o nó de fronteira (``hops >= max_depth``) ainda tem
     trabalho atravessável para a origem dada: vizinho novo e
@@ -521,8 +603,8 @@ def _frontier_pending(
     """
     if node[0] == "s":
         rows = conn.execute(
-            _IN_SQL, (ctx.snapshot_id, node[1],
-                      ctx.limits.max_nodes + 1)).fetchall()
+            _IN_SQL, (ctx.snapshot_id, node[1], ctx.limits.max_nodes + 1)
+        ).fetchall()
         if len(rows) > ctx.limits.max_nodes:
             ctx.edge_scan_capped = True
             return True
@@ -541,7 +623,9 @@ def _frontier_pending(
 
 
 def _finish(
-    ctx: _Ctx, conn: sqlite3.Connection, paths_cut: bool,
+    ctx: _Ctx,
+    conn: sqlite3.Connection,
+    paths_cut: bool,
 ) -> BlastOutcome:
     """Anexa ``uncertain_deps`` por candidato e sonda a fronteira —
     pós-BFS.
@@ -557,11 +641,15 @@ def _finish(
     """
     depth_cut = any(
         _frontier_pending(conn, ctx, node, origin_key)
-        for node, origin_key in dict.fromkeys(ctx.frontier))
-    reasons = tuple(sorted(
-        ({"max-paths"} if paths_cut else set())
-        | ({"max-nodes-edge-scan"} if ctx.edge_scan_capped else set())
-        | ({"max-depth-frontier"} if depth_cut else set())))
+        for node, origin_key in dict.fromkeys(ctx.frontier)
+    )
+    reasons = tuple(
+        sorted(
+            ({"max-paths"} if paths_cut else set())
+            | ({"max-nodes-edge-scan"} if ctx.edge_scan_capped else set())
+            | ({"max-depth-frontier"} if depth_cut else set())
+        )
+    )
     deps = {n: tuple(sorted(s)) for n, s in ctx.node_deps.items() if s}
     done: list[ImpactCandidate] = []
     for c in ctx.out:
@@ -571,15 +659,13 @@ def _finish(
                 node = ("e", c.domain_occurrence_id)
         elif c.occurrence_id is not None:
             node = ("s", c.occurrence_id)
-        done.append(
-            replace(c, uncertain_deps=deps.get(node, ())
-                    if node is not None else ()))
-    return BlastOutcome(tuple(done), bool(reasons), ctx.uncertain,
-                        ctx.cross_snap, reasons)
+        done.append(replace(c, uncertain_deps=deps.get(node, ()) if node is not None else ()))
+    return BlastOutcome(tuple(done), bool(reasons), ctx.uncertain, ctx.cross_snap, reasons)
 
 
 def blast(
-    conn: sqlite3.Connection, snapshot_id: int,
+    conn: sqlite3.Connection,
+    snapshot_id: int,
     *,
     sym_origins: Mapping[str, int],
     ent_origins: Mapping[str, int],
@@ -603,26 +689,22 @@ def blast(
     fronteira com trabalho atravessável restante, sondado no fim).
     """
     conn.row_factory = sqlite3.Row
-    ctx = _Ctx(snapshot_id, limits, reason_suffix,
-               set(sym_origins) | set(ent_origins))
+    ctx = _Ctx(snapshot_id, limits, reason_suffix, set(sym_origins) | set(ent_origins))
     for key, occ in sym_origins.items():
         ctx.queue.append((("s", occ), key, (), (), (), (), 0))
     for key, occ in ent_origins.items():
         ctx.queue.append((("e", occ), key, (), (), (), (), 0))
 
     while ctx.queue:
-        node, origin_key, rel_ids, mids, statuses, refs, depth = \
-            ctx.queue.popleft()
-        if (node, origin_key) in ctx.visited \
-                or depth > ctx.limits.max_depth:
+        node, origin_key, rel_ids, mids, statuses, refs, depth = ctx.queue.popleft()
+        if (node, origin_key) in ctx.visited or depth > ctx.limits.max_depth:
             continue
         ctx.visited.add((node, origin_key))
         if node[0] == "s" and _expand_code(
-                conn, ctx, node, origin_key, rel_ids, mids,
-                statuses, refs, depth):
+            conn, ctx, node, origin_key, rel_ids, mids, statuses, refs, depth
+        ):
             return _finish(ctx, conn, True)
-        if _expand_domain(conn, ctx, node, origin_key, rel_ids,
-                          mids, statuses, refs, depth):
+        if _expand_domain(conn, ctx, node, origin_key, rel_ids, mids, statuses, refs, depth):
             return _finish(ctx, conn, True)
 
     return _finish(ctx, conn, False)
@@ -650,7 +732,9 @@ def _display_forms(row: sqlite3.Row) -> set[str]:
 
 
 def resolve_entity_refs(
-    conn: sqlite3.Connection, repository_id: int, ref: str,
+    conn: sqlite3.Connection,
+    repository_id: int,
+    ref: str,
 ) -> tuple[list[sqlite3.Row], str]:
     """Resolve uma ref de entidade → ``(rows de domain_entities, como)``.
 
@@ -665,30 +749,26 @@ def resolve_entity_refs(
         return [], "empty"
     if ref.startswith("dom:"):
         row = conn.execute(
-            "SELECT * FROM domain_entities"
-            " WHERE repository_id = ? AND identity_key = ?",
-            (repository_id, ref)).fetchone()
+            "SELECT * FROM domain_entities WHERE repository_id = ? AND identity_key = ?",
+            (repository_id, ref),
+        ).fetchone()
         return ([row] if row else []), "identity-key"
     m = _ID_REF_RE.fullmatch(ref)
     if m:
         row = conn.execute(
-            "SELECT * FROM domain_entities"
-            " WHERE id = ? AND repository_id = ?",
-            (int(m.group(1)), repository_id)).fetchone()
+            "SELECT * FROM domain_entities WHERE id = ? AND repository_id = ?",
+            (int(m.group(1)), repository_id),
+        ).fetchone()
         return ([row] if row else []), "row-id"
-    guesses = sorted(
-        g for g in {ref,
-                    ref.split(":")[-1].split("@")[0].split(".")[-1]}
-        if g)
+    guesses = sorted(g for g in {ref, ref.split(":")[-1].split("@")[0].split(".")[-1]} if g)
     hits: list[sqlite3.Row] = []
     seen: set[int] = set()
     for row in conn.execute(
-            "SELECT * FROM domain_entities WHERE repository_id = ?"
-            " AND (qualified_name = ? OR qualified_name = ?)"
-            " ORDER BY id",
-            (repository_id,
-             guesses[0] if guesses else "",
-             guesses[-1] if guesses else "")).fetchall():
+        "SELECT * FROM domain_entities WHERE repository_id = ?"
+        " AND (qualified_name = ? OR qualified_name = ?)"
+        " ORDER BY id",
+        (repository_id, guesses[0] if guesses else "", guesses[-1] if guesses else ""),
+    ).fetchall():
         if ref in _display_forms(row) and int(row["id"]) not in seen:
             seen.add(int(row["id"]))
             hits.append(row)
@@ -696,9 +776,11 @@ def resolve_entity_refs(
 
 
 def resolve_seeds(
-    conn: sqlite3.Connection, repository_id: int,
+    conn: sqlite3.Connection,
+    repository_id: int,
     refs: tuple[tuple[str, bool], ...],
-    base_sid: int, target_sid: int,
+    base_sid: int,
+    target_sid: int,
 ) -> SeedResolution:
     """Resolve refs de entidade → ocorrências-semente nos dois snapshots.
 
@@ -719,15 +801,20 @@ def resolve_seeds(
         rows, how = resolve_entity_refs(conn, repository_id, ref)
         if not rows:
             if explicit:
-                diags.append(ImpactDiagnostic(
-                    "entity-seed-not-found",
-                    f"entidade '{ref}' não encontrada no repositório"))
+                diags.append(
+                    ImpactDiagnostic(
+                        "entity-seed-not-found", f"entidade '{ref}' não encontrada no repositório"
+                    )
+                )
             continue
         if len(rows) > 1:
-            diags.append(ImpactDiagnostic(
-                "entity-seed-multi",
-                f"'{ref}' casa {len(rows)} entidades ({how}) — todas "
-                "viram seed (multiplicidade honesta)"))
+            diags.append(
+                ImpactDiagnostic(
+                    "entity-seed-multi",
+                    f"'{ref}' casa {len(rows)} entidades ({how}) — todas "
+                    "viram seed (multiplicidade honesta)",
+                )
+            )
         for row in rows:
             eid = int(row["id"])
             ikey = str(row["identity_key"])
@@ -736,19 +823,23 @@ def resolve_seeds(
                     "SELECT id FROM domain_entity_occurrences"
                     " WHERE snapshot_id = ? AND entity_id = ?"
                     " ORDER BY id LIMIT 1",
-                    (sid, eid)).fetchone()
+                    (sid, eid),
+                ).fetchone()
                 if occ is not None and ikey not in sink:
                     sink[ikey] = int(occ["id"])
             if ikey not in target and ikey not in base and explicit:
-                diags.append(ImpactDiagnostic(
-                    "entity-seed-no-occurrence",
-                    f"entidade '{ref}' ({ikey}) não tem ocorrência nos "
-                    "snapshots analisados"))
+                diags.append(
+                    ImpactDiagnostic(
+                        "entity-seed-no-occurrence",
+                        f"entidade '{ref}' ({ikey}) não tem ocorrência nos snapshots analisados",
+                    )
+                )
     return SeedResolution(target, base, tuple(diags))
 
 
 def domain_state(
-    conn: sqlite3.Connection, snapshot_id: int,
+    conn: sqlite3.Connection,
+    snapshot_id: int,
     analyzer_versions: Mapping[str, str] | None,
 ) -> str:
     """Estado dos dados de domínio no snapshot.
@@ -759,10 +850,9 @@ def domain_state(
     ausência de dados de domínio é configuração, não falha.
     """
     row = conn.execute(
-        "SELECT COUNT(*) AS c FROM domain_entity_occurrences"
-        " WHERE snapshot_id = ?", (snapshot_id,)).fetchone()
+        "SELECT COUNT(*) AS c FROM domain_entity_occurrences WHERE snapshot_id = ?", (snapshot_id,)
+    ).fetchone()
     if int(row["c"]):
         return "present"
-    enabled = any(
-        str(k).startswith("domain:") for k in (analyzer_versions or {}))
+    enabled = any(str(k).startswith("domain:") for k in (analyzer_versions or {}))
     return "empty" if enabled else "adapters-disabled"

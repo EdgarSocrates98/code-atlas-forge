@@ -123,36 +123,40 @@ class ApiContractAdapter:
     def discovery_rules(self) -> tuple[DiscoveryRule, ...]:
         return (
             DiscoveryRule(
-                glob="**/openapi.yaml", artifact_kind="openapi-spec",
+                glob="**/openapi.yaml",
+                artifact_kind="openapi-spec",
                 notes="canonical OpenAPI filename",
             ),
             DiscoveryRule(
-                glob="**/openapi.json", artifact_kind="openapi-spec",
+                glob="**/openapi.json",
+                artifact_kind="openapi-spec",
                 notes="canonical OpenAPI filename (JSON)",
             ),
             DiscoveryRule(
-                glob="**/*.yaml", artifact_kind="maybe-openapi",
+                glob="**/*.yaml",
+                artifact_kind="maybe-openapi",
                 notes="content-checked for openapi/swagger keys",
             ),
             DiscoveryRule(
-                glob="**/*.json", artifact_kind="maybe-openapi",
+                glob="**/*.json",
+                artifact_kind="maybe-openapi",
                 notes="content-checked for openapi/swagger keys",
             ),
             DiscoveryRule(
-                glob="**/*.py", artifact_kind="http-routes",
+                glob="**/*.py",
+                artifact_kind="http-routes",
                 notes="FastAPI decorators + python HTTP clients",
             ),
             DiscoveryRule(
-                glob="**/*.ts", artifact_kind="http-routes",
+                glob="**/*.ts",
+                artifact_kind="http-routes",
                 notes="Express routes + fetch/axios consumers",
             ),
         )
 
     # -- extract ---------------------------------------------------------
 
-    def extract(
-        self, request: DomainExtractionRequest
-    ) -> DomainExtractionResult:
+    def extract(self, request: DomainExtractionRequest) -> DomainExtractionResult:
         sink = Emit(request, self.adapter_version)
         # Dois passes: consumidores rodam depois de specs+rotas para que
         # ``candidates`` de CALLS_ENDPOINT vejam TODOS os endpoints do
@@ -165,15 +169,18 @@ class ApiContractAdapter:
                 self._extract_one(sink, art.path, art.sha256, ext, deferred)
             except Exception as exc:  # isolamento por arquivo — nunca crash
                 sink.diag(
-                    "adapter-crash", "error",
-                    f"{type(exc).__name__}: {exc}", art.path,
+                    "adapter-crash",
+                    "error",
+                    f"{type(exc).__name__}: {exc}",
+                    art.path,
                 )
         for fn in deferred:
             try:
                 fn()
             except Exception as exc:  # mesma isolação por arquivo
                 sink.diag(
-                    "adapter-crash", "error",
+                    "adapter-crash",
+                    "error",
                     f"deferred consumer pass: {type(exc).__name__}: {exc}",
                 )
         return sink.result()
@@ -188,27 +195,34 @@ class ApiContractAdapter:
         fs = artifact_path_confined(path, root)
         if fs is None:
             sink.diag(
-                "artifact-outside-root", "error",
-                f"artifact path escapes repository root: {path}", path,
+                "artifact-outside-root",
+                "error",
+                f"artifact path escapes repository root: {path}",
+                path,
             )
             return None
         raw = read_file_verified(fs, root)
         if raw is None:
             sink.diag(
-                "unreadable-artifact", "error",
-                "cannot read artifact: unsafe or vanished", path,
+                "unreadable-artifact",
+                "error",
+                "cannot read artifact: unsafe or vanished",
+                path,
             )
             return None
         if len(raw) > _MAX_ARTIFACT:
             sink.diag(
-                "artifact-too-large", "error",
-                f"{len(raw)} bytes exceeds {_MAX_ARTIFACT}", path,
+                "artifact-too-large",
+                "error",
+                f"{len(raw)} bytes exceeds {_MAX_ARTIFACT}",
+                path,
             )
             return None
         real = hashlib.sha256(raw).hexdigest()
         if sha256 and sha256 != real:
             sink.diag(
-                "artifact-hash-mismatch", "warning",
+                "artifact-hash-mismatch",
+                "warning",
                 f"inventory sha256 {sha256[:12]}… != computed {real[:12]}…",
                 path,
             )
@@ -239,63 +253,82 @@ class ApiContractAdapter:
             self._extract_js(sink, path, text, content_hash, deferred)
         else:
             sink.diag(
-                "unsupported-artifact", "info",
-                f"extension {ext!r} not handled", path,
+                "unsupported-artifact",
+                "info",
+                f"extension {ext!r} not handled",
+                path,
             )
 
     # -- specs -----------------------------------------------------------
 
     def _extract_yaml(
-        self, sink: Emit, path: str, text: str,
-        offsets: list[int], content_hash: str,
+        self,
+        sink: Emit,
+        path: str,
+        text: str,
+        offsets: list[int],
+        content_hash: str,
     ) -> None:
         doc = parse_yaml_subset(text)
         for issue in doc.issues:
             sink.diag(
-                issue.code, issue.severity,
-                f"line {issue.line}: {issue.message}" if issue.line
-                else issue.message,
+                issue.code,
+                issue.severity,
+                f"line {issue.line}: {issue.message}" if issue.line else issue.message,
                 path,
             )
         flavor = openapi.spec_flavor(doc.value)
         if flavor is None:
             if any(i.severity == "error" for i in doc.issues):
                 sink.diag(
-                    "malformed-spec", "error",
+                    "malformed-spec",
+                    "error",
                     "YAML did not parse into an OpenAPI/Swagger document",
                     path,
                 )
             else:
                 sink.diag(
-                    "not-openapi-artifact", "info",
+                    "not-openapi-artifact",
+                    "info",
                     "YAML is not an OpenAPI/Swagger document — skipped",
                     path,
                 )
             return
         openapi.extract_spec(
-            sink=sink, path=path, fmt="yaml", doc=doc.value,
+            sink=sink,
+            path=path,
+            fmt="yaml",
+            doc=doc.value,
             flavor=flavor,
             key_line=openapi.make_key_line(doc.key_lines),
-            text=text, offsets=offsets, content_hash=content_hash,
+            text=text,
+            offsets=offsets,
+            content_hash=content_hash,
         )
         sink.bump("openapi_specs")
 
     def _extract_json(
-        self, sink: Emit, path: str, text: str,
-        offsets: list[int], content_hash: str,
+        self,
+        sink: Emit,
+        path: str,
+        text: str,
+        offsets: list[int],
+        content_hash: str,
     ) -> None:
         try:
             doc = json.loads(text)
         except json.JSONDecodeError as exc:
             if '"openapi"' in text or '"swagger"' in text:
                 sink.diag(
-                    "malformed-spec", "error",
+                    "malformed-spec",
+                    "error",
                     f"JSON looks like a spec but does not parse: {exc}",
                     path,
                 )
             else:
                 sink.diag(
-                    "not-openapi-artifact", "info",
+                    "not-openapi-artifact",
+                    "info",
                     "JSON is not an OpenAPI/Swagger document — skipped",
                     path,
                 )
@@ -303,24 +336,28 @@ class ApiContractAdapter:
         flavor = openapi.spec_flavor(doc)
         if flavor is None:
             sink.diag(
-                "not-openapi-artifact", "info",
+                "not-openapi-artifact",
+                "info",
                 "JSON is not an OpenAPI/Swagger document — skipped",
                 path,
             )
             return
         openapi.extract_spec(
-            sink=sink, path=path, fmt="json", doc=doc,
+            sink=sink,
+            path=path,
+            fmt="json",
+            doc=doc,
             flavor=flavor,
             key_line=openapi.make_json_key_line(text),
-            text=text, offsets=offsets, content_hash=content_hash,
+            text=text,
+            offsets=offsets,
+            content_hash=content_hash,
         )
         sink.bump("openapi_specs")
 
     # -- código ------------------------------------------------------------
 
-    def _parse_result(
-        self, sink: Emit, path: str, text: str
-    ) -> ParseResult | None:
+    def _parse_result(self, sink: Emit, path: str, text: str) -> ParseResult | None:
         result = self._engine.parse(path, text.encode("utf-8"))
         for d in result.diagnostics:
             sink.diag(d.code, d.severity, d.message, path)
@@ -341,14 +378,23 @@ class ApiContractAdapter:
             return
         module = common.module_name(path, common.PY_MODULE_SUFFIXES)
         routes.extract_py_routes(
-            sink=sink, path=path, text=text, result=result,
-            module=module, content_hash=content_hash,
+            sink=sink,
+            path=path,
+            text=text,
+            result=result,
+            module=module,
+            content_hash=content_hash,
         )
         deferred.append(
             lambda: consumers.extract_consumers(
-                sink=sink, path=path, text=text, result=result,
-                module=module, content_hash=content_hash,
-                table=consumers.PY_URL_ARG, lang="py",
+                sink=sink,
+                path=path,
+                text=text,
+                result=result,
+                module=module,
+                content_hash=content_hash,
+                table=consumers.PY_URL_ARG,
+                lang="py",
                 confidence=ConfidenceClass.SYNTACTIC,
             )
         )
@@ -366,14 +412,23 @@ class ApiContractAdapter:
             return
         module = common.module_name(path, common.TS_MODULE_SUFFIXES)
         routes.extract_ts_routes(
-            sink=sink, path=path, text=text, result=result,
-            module=module, content_hash=content_hash,
+            sink=sink,
+            path=path,
+            text=text,
+            result=result,
+            module=module,
+            content_hash=content_hash,
         )
         deferred.append(
             lambda: consumers.extract_consumers(
-                sink=sink, path=path, text=text, result=result,
-                module=module, content_hash=content_hash,
-                table=consumers.TS_URL_ARG, lang="ts",
+                sink=sink,
+                path=path,
+                text=text,
+                result=result,
+                module=module,
+                content_hash=content_hash,
+                table=consumers.TS_URL_ARG,
+                lang="ts",
                 confidence=ConfidenceClass.SYNTACTIC,
             )
         )
@@ -388,13 +443,19 @@ class ApiContractAdapter:
     ) -> None:
         module = common.module_name(path, common.TS_MODULE_SUFFIXES)
         routes.extract_js_routes(
-            sink=sink, path=path, text=text,
-            module=module, content_hash=content_hash,
+            sink=sink,
+            path=path,
+            text=text,
+            module=module,
+            content_hash=content_hash,
         )
         deferred.append(
             lambda: consumers.extract_js_consumers(
-                sink=sink, path=path, text=text,
-                module=module, content_hash=content_hash,
+                sink=sink,
+                path=path,
+                text=text,
+                module=module,
+                content_hash=content_hash,
             )
         )
 

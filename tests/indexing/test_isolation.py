@@ -47,8 +47,14 @@ def _canonical(db: sqlite3.Connection, snapshot_id: int) -> dict[str, set]:
         (snapshot_id,),
     ).fetchall()
     nodes = {
-        (r["kind"], r["qualified_name"], r["language"],
-         r["relative_path"], r["parse_status"], r["content_hash"])
+        (
+            r["kind"],
+            r["qualified_name"],
+            r["language"],
+            r["relative_path"],
+            r["parse_status"],
+            r["content_hash"],
+        )
         for r in occs
     }
     rels = db.execute(
@@ -71,9 +77,16 @@ def _canonical(db: sqlite3.Connection, snapshot_id: int) -> dict[str, set]:
         (snapshot_id,),
     ).fetchall()
     edges = {
-        (r["type"], r["fp"], r["fq"], r["tp"], r["tq"],
-         r["to_unresolved"] or "", r["resolution_status"],
-         r["confidence_class"])
+        (
+            r["type"],
+            r["fp"],
+            r["fq"],
+            r["tp"],
+            r["tq"],
+            r["to_unresolved"] or "",
+            r["resolution_status"],
+            r["confidence_class"],
+        )
         for r in rels
     }
     return {"nodes": nodes, "edges": edges}
@@ -93,9 +106,7 @@ def _dep_repo(root: Path) -> Path:
 # --- cross-repo / cross-snapshot contamination -------------------------
 
 
-def test_identical_repos_no_cross_contamination(
-    db: sqlite3.Connection, tmp_path: Path
-) -> None:
+def test_identical_repos_no_cross_contamination(db: sqlite3.Connection, tmp_path: Path) -> None:
     """Duas cópias do MESMO corpus no mesmo banco: qnames colidem mas
     nenhuma relação cruza snapshots/repositórios."""
     a = tmp_path / "repo_a"
@@ -108,15 +119,17 @@ def test_identical_repos_no_cross_contamination(
     assert out_a.snapshot_id != out_b.snapshot_id  # type: ignore[attr-defined]
     for sid in (out_a.snapshot_id, out_b.snapshot_id):  # type: ignore[attr-defined]
         assert store.cross_snapshot_relations(int(sid)) == []
-    ca, cb = _canonical(db, int(out_a.snapshot_id)), _canonical(  # type: ignore[attr-defined]
-        db, int(out_b.snapshot_id)  # type: ignore[attr-defined]
+    ca, cb = (
+        _canonical(db, int(out_a.snapshot_id)),
+        _canonical(  # type: ignore[attr-defined]
+            db,
+            int(out_b.snapshot_id),  # type: ignore[attr-defined]
+        ),
     )
     assert ca == cb
 
 
-def test_relations_scoped_to_own_snapshot(
-    db: sqlite3.Connection, tmp_path: Path
-) -> None:
+def test_relations_scoped_to_own_snapshot(db: sqlite3.Connection, tmp_path: Path) -> None:
     """Conteúdo distinto: toda aresta tem endpoints no próprio snapshot."""
     a = _dep_repo(tmp_path / "one")
     a.parent.mkdir(parents=True, exist_ok=True)
@@ -138,30 +151,23 @@ def test_relations_scoped_to_own_snapshot(
     assert na > 0 and nb > 0 and na != nb
 
 
-def test_stale_snapshot_invisible_to_queries(
-    db: sqlite3.Connection, tmp_path: Path
-) -> None:
+def test_stale_snapshot_invisible_to_queries(db: sqlite3.Connection, tmp_path: Path) -> None:
     """Após reindex incremental, o snapshot antigo vira STALE e as
     consultas (latest_ready) veem só o novo READY."""
     repo = _dep_repo(tmp_path)
     out1 = IndexCoordinator(db).index(repo)
     sid1 = int(out1.snapshot_id)  # type: ignore[attr-defined]
-    (repo / "pkg" / "util.py").write_text(
-        "def helper():\n    return 2\n"
-    )
+    (repo / "pkg" / "util.py").write_text("def helper():\n    return 2\n")
     out2 = IndexCoordinator(db).index(repo)
     sid2 = int(out2.snapshot_id)  # type: ignore[attr-defined]
     assert sid2 != sid1
     status = {
-        r["id"]: r["status"]
-        for r in db.execute("SELECT id, status FROM snapshots").fetchall()
+        r["id"]: r["status"] for r in db.execute("SELECT id, status FROM snapshots").fetchall()
     }
     assert status[sid1] == "STALE" and status[sid2] == "READY"
     # consulta direta: somente o READY corrente é exposto
     store = Store(db)
-    repo_row = db.execute(
-        "SELECT id FROM repositories LIMIT 1"
-    ).fetchone()
+    repo_row = db.execute("SELECT id FROM repositories LIMIT 1").fetchone()
     assert int(store.latest_ready_snapshot(int(repo_row["id"])).id) == sid2  # type: ignore[attr-defined]
 
 

@@ -26,8 +26,8 @@ class TfvarsAssignment:
     """Atribuição ``name = value`` de um arquivo tfvars."""
 
     name: str
-    value: str          # texto bruto (sanitizado/redigido pelo caller via flags)
-    redacted: bool      # True quando a chave é sensível — value == "[REDACTED]"
+    value: str  # texto bruto (sanitizado/redigido pelo caller via flags)
+    redacted: bool  # True quando a chave é sensível — value == "[REDACTED]"
     line: int = 0
 
 
@@ -57,10 +57,7 @@ def _assignment(name: str, raw: str, line: int) -> TfvarsAssignment:
 def parse_tfvars(text: str) -> TfvarsFile:
     """Parse de ``*.tfvars`` (HCL assignments) — nunca levanta."""
     hcl = parse_hcl(text)
-    out = [
-        _assignment(a.name, a.value, a.span.start_line)
-        for a in hcl.attributes
-    ]
+    out = [_assignment(a.name, a.value, a.span.start_line) for a in hcl.attributes]
     diags = list(hcl.diagnostics)
     for b in hcl.blocks:  # tfvars não tem blocos — honesto, não crash
         diags.append(
@@ -78,21 +75,10 @@ def parse_tfvars_json(text: str) -> TfvarsFile:
     try:
         data = json.loads(text)
     except (ValueError, json.JSONDecodeError) as exc:
-        return TfvarsFile(
-            diagnostics=(
-                HclDiagnostic("json-parse-error", str(exc)),
-            )
-        )
+        return TfvarsFile(diagnostics=(HclDiagnostic("json-parse-error", str(exc)),))
     if not isinstance(data, dict):
         return TfvarsFile(
-            diagnostics=(
-                HclDiagnostic(
-                    "json-parse-error", "tfvars.json root must be an object"
-                ),
-            )
+            diagnostics=(HclDiagnostic("json-parse-error", "tfvars.json root must be an object"),)
         )
-    out = [
-        _assignment(str(k), json.dumps(v, ensure_ascii=False), 0)
-        for k, v in data.items()
-    ]
+    out = [_assignment(str(k), json.dumps(v, ensure_ascii=False), 0) for k, v in data.items()]
     return TfvarsFile(assignments=tuple(out))

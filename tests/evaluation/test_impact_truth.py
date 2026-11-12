@@ -97,7 +97,8 @@ def _diff_lines(rep: dict[str, Any]) -> list[str]:
 
 @pytest.mark.parametrize("scenario_id", IDS)
 def test_scenario_precision_recall(
-    scenario_id: str, all_scored: dict[str, Any],
+    scenario_id: str,
+    all_scored: dict[str, Any],
 ) -> None:
     """P/R do conjunto verificado ≥ pisos medidos (ou blast vazio
     rotulado — honesto, não deficit)."""
@@ -106,8 +107,7 @@ def test_scenario_precision_recall(
     if floor.get("expected_empty"):
         assert rep["candidates"]["unique"] == 0, (
             f"{scenario_id}: blast rotulado vazio mas "
-            f"{rep['candidates']['unique']} nós alcançados\n  - "
-            + "\n  - ".join(_diff_lines(rep))
+            f"{rep['candidates']['unique']} nós alcançados\n  - " + "\n  - ".join(_diff_lines(rep))
         )
         return
     ver = rep["verified"]
@@ -125,7 +125,8 @@ def test_scenario_precision_recall(
 
 @pytest.mark.parametrize("scenario_id", IDS)
 def test_per_class_recall(
-    scenario_id: str, all_scored: dict[str, Any],
+    scenario_id: str,
+    all_scored: dict[str, Any],
 ) -> None:
     """Recall por classe (direct/transitive) — nenhum esperado some
     e nenhum esperado muda de classe silenciosamente."""
@@ -136,46 +137,45 @@ def test_per_class_recall(
             assert block["tp"] == 0 and block["fp"] == 0
             continue
         assert block["fn"] == 0, (
-            f"{scenario_id}.{cls}: {block['fn']} esperados não "
-            f"alcançados: {block['missing']}"
+            f"{scenario_id}.{cls}: {block['fn']} esperados não alcançados: {block['missing']}"
         )
         assert not block["class_mismatches"], (
-            f"{scenario_id}.{cls}: alcançados na classe errada: "
-            f"{block['class_mismatches']}"
+            f"{scenario_id}.{cls}: alcançados na classe errada: {block['class_mismatches']}"
         )
 
 
 @pytest.mark.parametrize("scenario_id", IDS)
 def test_no_false_confidence_leaks(
-    scenario_id: str, all_scored: dict[str, Any],
+    scenario_id: str,
+    all_scored: dict[str, Any],
 ) -> None:
     """ORÇAMENTO ZERO: nenhum candidato promove possible→verified;
     todo ``verified`` tem path com todos os hops ``resolved``."""
     rep = _report(all_scored, scenario_id)
     fc = rep["false_confidence"]
     assert fc["count"] == 0, (
-        f"{scenario_id}: {fc['count']} leak(s) de confiança\n  - "
-        + "\n  - ".join(fc["leaks"])
+        f"{scenario_id}: {fc['count']} leak(s) de confiança\n  - " + "\n  - ".join(fc["leaks"])
     )
     assert fc["rate"] == 0.0
 
 
 @pytest.mark.parametrize("scenario_id", IDS)
 def test_no_absent_violations(
-    scenario_id: str, all_scored: dict[str, Any],
+    scenario_id: str,
+    all_scored: dict[str, Any],
 ) -> None:
     """Anti-alucinação: nenhum nó rotulado ``absent`` é alcançado."""
     rep = _report(all_scored, scenario_id)
     assert rep["absent_violations"] == [], (
         f"{scenario_id}: {len(rep['absent_violations'])} nós "
-        "proibidos alcançados\n  - "
-        + "\n  - ".join(rep["absent_violations"])
+        "proibidos alcançados\n  - " + "\n  - ".join(rep["absent_violations"])
     )
 
 
 @pytest.mark.parametrize("scenario_id", IDS)
 def test_evidence_validity(
-    scenario_id: str, all_scored: dict[str, Any],
+    scenario_id: str,
+    all_scored: dict[str, Any],
 ) -> None:
     """Todo candidato carrega prova real: path íntegro, edge_refs
     resolvíveis em rows do snapshot alvo, ocorrência existente."""
@@ -188,42 +188,46 @@ def test_evidence_validity(
 
 @pytest.mark.parametrize("scenario_id", IDS)
 def test_truncation_honesty(
-    scenario_id: str, all_scored: dict[str, Any],
+    scenario_id: str,
+    all_scored: dict[str, Any],
 ) -> None:
     """Sondas de truncamento: no cap exato declara; com folga não
     declara e emite o conjunto completo."""
     rep = _report(all_scored, scenario_id)
     assert rep["truncation"].get("honest") is True, (
-        f"{scenario_id}: truncamento desonesto — "
-        f"{rep['truncation']}"
+        f"{scenario_id}: truncamento desonesto — {rep['truncation']}"
     )
 
 
 @pytest.mark.parametrize("scenario_id", IDS)
 def test_seed_resolved(
-    scenario_id: str, all_scored: dict[str, Any],
+    scenario_id: str,
+    all_scored: dict[str, Any],
 ) -> None:
     """O seed casou ≥1 entidade — um blast vazio por seed não
     resolvida seria medição inválida, não recall."""
     rep = _report(all_scored, scenario_id)
     chk = rep["index_independent_check"]
     assert chk["seed_entity_rows"] >= 1, (
-        f"{scenario_id}: seed {rep['seed']!r} não casou nenhuma "
-        "entidade — cenário inválido"
+        f"{scenario_id}: seed {rep['seed']!r} não casou nenhuma entidade — cenário inválido"
     )
 
 
 def test_corpus_covers_prompt_classes() -> None:
     """O corpus cobre as classes de tarefa pedidas pelo spec."""
     classes = {sc.prompt_class for sc in _SCENARIOS}
-    for wanted in ("SQL table change", "Iceberg table change",
-                   "API endpoint removal", "OpenAPI schema change",
-                   "Terraform module change", "IAM role removal",
-                   "GH Actions change", "PySpark job change"):
-        assert any(wanted in c for c in classes), (
-            f"classe '{wanted}' sem cenário")
-    assert len(_SCENARIOS) >= 8, (
-        f"spec pede ~8 cenários; corpus tem {len(_SCENARIOS)}")
+    for wanted in (
+        "SQL table change",
+        "Iceberg table change",
+        "API endpoint removal",
+        "OpenAPI schema change",
+        "Terraform module change",
+        "IAM role removal",
+        "GH Actions change",
+        "PySpark job change",
+    ):
+        assert any(wanted in c for c in classes), f"classe '{wanted}' sem cenário"
+    assert len(_SCENARIOS) >= 8, f"spec pede ~8 cenários; corpus tem {len(_SCENARIOS)}"
 
 
 def test_corpus_labels_validate() -> None:
@@ -238,7 +242,8 @@ def test_every_scenario_labels_absent() -> None:
     for sc in _SCENARIOS:
         assert len(sc.expected_absent) >= 2, (
             f"{sc.scenario_id}: só {len(sc.expected_absent)} "
-            "rótulos absent — anti-alucinação submedida")
+            "rótulos absent — anti-alucinação submedida"
+        )
 
 
 def test_summary_aggregates(all_scored: dict[str, Any]) -> None:
@@ -247,9 +252,7 @@ def test_summary_aggregates(all_scored: dict[str, Any]) -> None:
     s = all_scored["summary"]
     micro = s["verified_micro"]
     assert micro["fp"] == 0, f"FP agregado: {micro['fp']}"
-    assert micro["fn"] == 0, (
-        f"FN agregado: {micro['fn']} — revisar cenários"
-    )
+    assert micro["fn"] == 0, f"FN agregado: {micro['fn']} — revisar cenários"
     assert s["false_confidence_leaks"] == 0
     assert s["evidence_errors"] == 0
     assert s["absent_violations"] == 0
@@ -261,10 +264,7 @@ def test_unknown_coverage_is_surfaced(
 ) -> None:
     """Os cenários com deps externos/não-resolvidos reportam
     ``unknown_coverage`` — a incerteza é contabilizada, não omitida."""
-    flagged = {
-        sid for sid in IDS
-        if (all_scored["scenarios"][sid].get("unknown_coverage"))
-    }
+    flagged = {sid for sid in IDS if (all_scored["scenarios"][sid].get("unknown_coverage"))}
     # medido: api-contract (unresolved dep), iam-role e gh-actions
     # (external deps) — três cenários carregam cobertura desconhecida.
     assert flagged >= {

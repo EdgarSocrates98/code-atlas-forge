@@ -74,9 +74,7 @@ MAX_WORKSPACE_NAME = 120
 # Snapshots que uma view pode ler: READY (publicado) ou STALE (pin
 # legítimo — congelar uma versão antiga é o propósito do pin). BUILDING
 # é transiente; FAILED não tem dados confiáveis.
-_READABLE_STATUSES = frozenset(
-    {str(SnapshotStatus.READY), str(SnapshotStatus.STALE)}
-)
+_READABLE_STATUSES = frozenset({str(SnapshotStatus.READY), str(SnapshotStatus.STALE)})
 
 
 def shared_key_of(identity_key: str) -> str | None:
@@ -109,9 +107,7 @@ def normalize_lookup_key(key: str) -> str:
         return key
     if len(parts) in (7, 8):
         return "/".join([parts[0], *parts[2:7]])
-    raise InvalidKeyError(
-        f"domain identity key expects 6-8 segments, got {len(parts)}"
-    )
+    raise InvalidKeyError(f"domain identity key expects 6-8 segments, got {len(parts)}")
 
 
 class Federation:
@@ -133,9 +129,7 @@ class Federation:
         """Cria workspace nomeado; nome duplicado → ``WorkspaceExistsError``."""
         clean = name.strip()
         if not clean or len(clean) > MAX_WORKSPACE_NAME:
-            raise InvalidPinError(
-                f"workspace name must be 1..{MAX_WORKSPACE_NAME} chars"
-            )
+            raise InvalidPinError(f"workspace name must be 1..{MAX_WORKSPACE_NAME} chars")
         with self._conn:
             try:
                 ws_id = self._fstore.create_workspace(clean)
@@ -164,9 +158,7 @@ class Federation:
 
     # --- members ------------------------------------------------------
 
-    def add_member(
-        self, ws: FederationWorkspace, repository_id: int
-    ) -> FederationMember:
+    def add_member(self, ws: FederationWorkspace, repository_id: int) -> FederationMember:
         """Registra repo no workspace — idempotente (UNIQUE + OR IGNORE).
 
         Rejeita repo inexistente: federação só agrupa repositórios **já
@@ -174,23 +166,18 @@ class Federation:
         implícito.
         """
         if self._store.repository_by_id(repository_id) is None:
-            raise RepositoryNotFoundError(
-                f"repository not indexed: {repository_id}"
-            )
+            raise RepositoryNotFoundError(f"repository not indexed: {repository_id}")
         with self._conn:
             self._fstore.add_member(ws.id, repository_id)
         member = self._fstore.member_for(ws.id, repository_id)
         assert member is not None
         return member
 
-    def remove_member(
-        self, ws: FederationWorkspace, repository_id: int
-    ) -> None:
+    def remove_member(self, ws: FederationWorkspace, repository_id: int) -> None:
         with self._conn:
             if not self._fstore.remove_member(ws.id, repository_id):
                 raise MemberNotFoundError(
-                    f"repository {repository_id} is not a member of "
-                    f"{ws.name!r}"
+                    f"repository {repository_id} is not a member of {ws.name!r}"
                 )
 
     def pin_member(
@@ -205,19 +192,15 @@ class Federation:
         FAILED são rejeitados — pin nunca aponta para dado incompleto.
         """
         if self._fstore.member_for(ws.id, repository_id) is None:
-            raise MemberNotFoundError(
-                f"repository {repository_id} is not a member of {ws.name!r}"
-            )
+            raise MemberNotFoundError(f"repository {repository_id} is not a member of {ws.name!r}")
         snap = self._store.snapshot_by_id(snapshot_id)
         if snap is None or snap.repository_id != repository_id:
             raise SnapshotNotFoundError(
-                f"snapshot {snapshot_id} not found for repository "
-                f"{repository_id}"
+                f"snapshot {snapshot_id} not found for repository {repository_id}"
             )
         if str(snap.status) not in _READABLE_STATUSES:
             raise SnapshotNotReadyError(
-                f"snapshot {snapshot_id} is {snap.status}, "
-                "cannot pin an unreadable snapshot"
+                f"snapshot {snapshot_id} is {snap.status}, cannot pin an unreadable snapshot"
             )
         with self._conn:
             self._fstore.set_pinned_snapshot(ws.id, repository_id, snapshot_id)
@@ -225,14 +208,10 @@ class Federation:
         assert member is not None
         return member
 
-    def unpin_member(
-        self, ws: FederationWorkspace, repository_id: int
-    ) -> FederationMember:
+    def unpin_member(self, ws: FederationWorkspace, repository_id: int) -> FederationMember:
         """Limpa o pin — membro volta a seguir o READY mais recente."""
         if self._fstore.member_for(ws.id, repository_id) is None:
-            raise MemberNotFoundError(
-                f"repository {repository_id} is not a member of {ws.name!r}"
-            )
+            raise MemberNotFoundError(f"repository {repository_id} is not a member of {ws.name!r}")
         with self._conn:
             self._fstore.set_pinned_snapshot(ws.id, repository_id, None)
         member = self._fstore.member_for(ws.id, repository_id)
@@ -259,16 +238,13 @@ class Federation:
         if not candidate.is_absolute():
             candidate = Path.cwd() / candidate
         candidate = candidate.resolve()
-        resolved = self._store.repository_id_for(
-            identity_key_for_root(candidate))
+        resolved = self._store.repository_id_for(identity_key_for_root(candidate))
         if resolved is not None:
             return resolved
         resolved = self._store.repository_id_for(str(candidate))
         if resolved is not None:
             return resolved
-        raise RepositoryNotFoundError(
-            f"no indexed repository for {ref!r} — index it first"
-        )
+        raise RepositoryNotFoundError(f"no indexed repository for {ref!r} — index it first")
 
     # --- view -----------------------------------------------------------
 
@@ -296,15 +272,12 @@ class Federation:
         member_repos = {m.repository_id for m in members}
         extra = sorted(set(overrides) - member_repos)
         if extra:
-            raise InvalidPinError(
-                f"pin override for non-member repositories: {extra}"
-            )
+            raise InvalidPinError(f"pin override for non-member repositories: {extra}")
         view_members: list[ViewMember] = []
         resolved: dict[int, int | None] = {}
         resolved_snaps: dict[int, Snapshot | None] = {}
         for m in members:
-            vm, snap = self._resolve_member(
-                m, overrides.get(m.repository_id))
+            vm, snap = self._resolve_member(m, overrides.get(m.repository_id))
             view_members.append(vm)
             resolved[m.repository_id] = vm.snapshot_id
             resolved_snaps[m.repository_id] = snap
@@ -315,8 +288,7 @@ class Federation:
                 resolved,
                 identities=self._fstore.repo_identities(resolved),
                 member_versions={
-                    rid: _analyzer_digest(resolved_snaps.get(rid))
-                    for rid in resolved
+                    rid: _analyzer_digest(resolved_snaps.get(rid)) for rid in resolved
                 },
                 schema=schema_version(self._conn),
             ),
@@ -337,14 +309,10 @@ class Federation:
             snap = self._store.snapshot_by_id(override)
             if snap is None or snap.repository_id != member.repository_id:
                 raise SnapshotNotFoundError(
-                    f"snapshot {override} not found for repository "
-                    f"{member.repository_id}"
+                    f"snapshot {override} not found for repository {member.repository_id}"
                 )
             if str(snap.status) not in _READABLE_STATUSES:
-                raise SnapshotNotReadyError(
-                    f"snapshot {override} is {snap.status}, "
-                    "not readable"
-                )
+                raise SnapshotNotReadyError(f"snapshot {override} is {snap.status}, not readable")
             return ViewMember(
                 repository_id=member.repository_id,
                 snapshot_id=snap.id,
@@ -390,9 +358,7 @@ class Federation:
 
     # --- leitura federada -------------------------------------------------
 
-    def _member_occurrences(
-        self, view: FederatedView
-    ) -> dict[int, list[SharedOccurrence]]:
+    def _member_occurrences(self, view: FederatedView) -> dict[int, list[SharedOccurrence]]:
         """Ocorrências de domínio por membro — ancoradas no snapshot da view."""
         out: dict[int, list[SharedOccurrence]] = {}
         for repo_id, snap_id in view.snapshot_map.items():
@@ -417,9 +383,7 @@ class Federation:
                         namespace=str(row["namespace"]),
                         environment=str(row["environment"]),
                         path=str(row["source_path"] or ""),
-                        line=(
-                            None if row["line"] is None else int(row["line"])
-                        ),
+                        line=(None if row["line"] is None else int(row["line"])),
                         col=(None if row["col"] is None else int(row["col"])),
                         extraction_status=str(row["extraction_status"]),
                     )
@@ -472,22 +436,23 @@ class Federation:
         depth = max(0, min(int(depth), MAX_GRAPH_DEPTH))
         view = self.resolve_view(ws, pins)
         per_repo = self._member_occurrences(view)
-        entities, entity_repo, entity_paths, shared_repos, occ_to_entity = (
-            _collect_entities(per_repo))
+        entities, entity_repo, entity_paths, shared_repos, occ_to_entity = _collect_entities(
+            per_repo
+        )
 
         # arestas intra-snapshot (entidade↔entidade apenas — a camada de
         # domínio desta fase não expande endpoints de símbolo)
         adjacency: dict[int, set[int]] = {}
         intra = self._intra_edges(view, occ_to_entity, adjacency)
-        shared_edges, seeds = _shared_edges(
-            per_repo, shared_repos, adjacency)
+        shared_edges, seeds = _shared_edges(per_repo, shared_repos, adjacency)
 
         # BFS a partir das sementes — hops contam intra e shared.
         visited, truncated = _bfs_expand(seeds, adjacency, depth, limit)
         node_ids = sorted(visited)[:limit]
         node_set = set(node_ids)
         edges = [
-            e for e in intra + shared_edges
+            e
+            for e in intra + shared_edges
             if e.from_entity_id in node_set and e.to_entity_id in node_set
         ]
         if len(edges) > limit:
@@ -615,17 +580,12 @@ def _shared_edges(
     edges: list[FederatedEdge] = []
     seeds: set[int] = set()
     seen: set[frozenset[int]] = set()
-    shared_entities = {
-        skey for skey, repos in shared_repos.items() if len(repos) > 1
-    }
+    shared_entities = {skey for skey, repos in shared_repos.items() if len(repos) > 1}
     for skey in sorted(shared_entities):
-        members = [
-            o for occs in per_repo.values()
-            for o in occs if o.shared_key == skey
-        ]
+        members = [o for occs in per_repo.values() for o in occs if o.shared_key == skey]
         for i, a in enumerate(members):
             seeds.add(a.entity_id)
-            for b in members[i + 1:]:
+            for b in members[i + 1 :]:
                 if a.repository_id == b.repository_id:
                     continue
                 pair = frozenset((a.entity_id, b.entity_id))
@@ -673,4 +633,3 @@ def _bfs_expand(
                     nxt.add(nb)
         frontier = nxt
     return visited, False
-

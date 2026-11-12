@@ -35,9 +35,20 @@ def env(tmp_path):
 
 def _call(srv: AtlasMcpServer, name: str, args: dict) -> dict:
     out = io.StringIO()
-    srv.serve(io.StringIO(json.dumps(
-        {"jsonrpc": "2.0", "id": 1, "method": "tools/call",
-         "params": {"name": name, "arguments": args}}) + "\n"), out)
+    srv.serve(
+        io.StringIO(
+            json.dumps(
+                {
+                    "jsonrpc": "2.0",
+                    "id": 1,
+                    "method": "tools/call",
+                    "params": {"name": name, "arguments": args},
+                }
+            )
+            + "\n"
+        ),
+        out,
+    )
     return json.loads(out.getvalue().strip())
 
 
@@ -46,12 +57,14 @@ def _server_on(conn: sqlite3.Connection, root: str) -> AtlasMcpServer:
     real (``finally: ctx.conn.close()`` fecha a conexão a cada call)."""
     from code_atlas.mcp import _Ctx
     from code_atlas.storage import connect
+
     db = Path(root).parent / "atlas.db"  # build_eval_repo grava aqui
 
     def fake_ctx(_pr) -> _Ctx:
         c = connect(db)
         c.row_factory = sqlite3.Row
         return _Ctx(conn=c, root=root, repo_id=1, snapshot_id=1)
+
     srv = AtlasMcpServer()
     srv._ctx = fake_ctx
     return srv
@@ -83,8 +96,7 @@ def test_evidence_never_fabricated_for_missing_symbol(env) -> None:
 def test_cross_snapshot_ref_rejected(env) -> None:
     conn, _ = env
     grounder = EvidenceGrounder(conn)
-    occ = int(conn.execute(
-        "SELECT MIN(id) FROM symbol_occurrences").fetchone()[0])
+    occ = int(conn.execute("SELECT MIN(id) FROM symbol_occurrences").fetchone()[0])
     # ref válida no snapshot 1
     assert grounder.occurrence_ref(1, 1, occ) is not None
     # mesma ocorrência declarada em snapshot/repo errados → rejeitada
@@ -94,8 +106,9 @@ def test_cross_snapshot_ref_rejected(env) -> None:
 
 def test_payload_budget_declares_overflow(env) -> None:
     conn, root = env
-    pack = ContextEngine(conn).build(ContextRequest(
-        task="charge", repository_root=root, budget_tokens=64))
+    pack = ContextEngine(conn).build(
+        ContextRequest(task="charge", repository_root=root, budget_tokens=64)
+    )
     # envelope sozinho > 64 → declarado, nunca truncado silencioso
     assert pack.manifest.tokens_payload > 64
     assert "payload-over-budget" in pack.diagnostics.codes
@@ -109,5 +122,4 @@ def test_evidence_refs_bounded(env) -> None:
     res = _call(srv, "atlas_evidence", {"name": "pkg.orders.validate_total"})
     payload = json.loads(res["result"]["content"][0]["text"])
     assert len(payload["refs"]) <= 25
-    assert all(r["snapshot_id"] == payload["snapshot_id"]
-               for r in payload["refs"])
+    assert all(r["snapshot_id"] == payload["snapshot_id"] for r in payload["refs"])

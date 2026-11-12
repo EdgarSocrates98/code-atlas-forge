@@ -40,13 +40,13 @@ class IndexProvenance:
     """Proveniência de um índice externo — inspecionável e serializável."""
 
     index_format: str = "scip"
-    index_sha256: str = ""          # sha256 dos bytes do arquivo
-    producer_name: str = ""         # metadata.tool_info.name
-    producer_version: str = ""      # metadata.tool_info.version
-    repository_identity: str = ""   # metadata.project_root (URI)
-    source_revision: str = ""       # revisão do repo indexado, se provável
-    worktree_digest: str = ""       # digest dos arquivos indexados vistos
-    indexed_at: str = ""            # mtime do arquivo .scip (evidência host)
+    index_sha256: str = ""  # sha256 dos bytes do arquivo
+    producer_name: str = ""  # metadata.tool_info.name
+    producer_version: str = ""  # metadata.tool_info.version
+    repository_identity: str = ""  # metadata.project_root (URI)
+    source_revision: str = ""  # revisão do repo indexado, se provável
+    worktree_digest: str = ""  # digest dos arquivos indexados vistos
+    indexed_at: str = ""  # mtime do arquivo .scip (evidência host)
     validation_status: str = STATUS_REJECTED
     validation_evidence: tuple[str, ...] = ()
 
@@ -111,8 +111,7 @@ def assess_revision(
                 f"identify workspace {workspace_root}",
             ),
         )
-    degraded, digest = _check_docs(
-        index, Path(workspace_root).resolve(), index_mtime)
+    degraded, digest = _check_docs(index, Path(workspace_root).resolve(), index_mtime)
     degraded += _check_completeness(index, index_mtime)
     status = STATUS_DEGRADED if degraded else STATUS_CURRENT
     return RevisionAssessment(
@@ -121,11 +120,9 @@ def assess_revision(
             source_revision="",  # scip metadata não prova commit
             worktree_digest=digest,
             validation_status=status,
-            validation_evidence=(
-                "project_root matches workspace", *degraded),
+            validation_evidence=("project_root matches workspace", *degraded),
         ),
-        warnings=tuple(degraded)
-        + (() if index_mtime else ("index mtime unavailable",)),
+        warnings=tuple(degraded) + (() if index_mtime else ("index mtime unavailable",)),
     )
 
 
@@ -134,13 +131,10 @@ def _index_stamp(index_path: Path) -> tuple[float, str]:
         mtime = index_path.stat().st_mtime
     except OSError:
         return 0.0, ""
-    return mtime, datetime.fromtimestamp(
-        mtime, tz=UTC).isoformat()
+    return mtime, datetime.fromtimestamp(mtime, tz=UTC).isoformat()
 
 
-def _check_docs(
-    index: ScipIndex, root: Path, index_mtime: float
-) -> tuple[list[str], str]:
+def _check_docs(index: ScipIndex, root: Path, index_mtime: float) -> tuple[list[str], str]:
     """staleness + paths + spans + encoding + símbolos duplicados."""
     degraded: list[str] = []
     defined_in: dict[str, str] = {}
@@ -150,24 +144,22 @@ def _check_docs(
         if "\\" in p or "//" in p or p.startswith("./"):
             degraded.append(f"non-normalized path: {p!r}")
         if doc.position_encoding not in TRUSTED_ENCODINGS:
-            degraded.append(f"doc {p}: position_encoding="
-                            f"{doc.position_encoding} untrusted")
+            degraded.append(f"doc {p}: position_encoding={doc.position_encoding} untrusted")
         for s in doc.symbols:
             prev = defined_in.get(s.symbol)
             if prev is not None and prev != p:
-                degraded.append(
-                    f"symbol {s.symbol!r} defined in {prev} and {p}")
+                degraded.append(f"symbol {s.symbol!r} defined in {prev} and {p}")
             else:
                 defined_in[s.symbol] = p
-        degraded += _check_doc_file(doc, root / p, index_mtime,
-                                    digest_parts)
-    digest = hashlib.sha256(
-        "\n".join(sorted(digest_parts)).encode()).hexdigest()
+        degraded += _check_doc_file(doc, root / p, index_mtime, digest_parts)
+    digest = hashlib.sha256("\n".join(sorted(digest_parts)).encode()).hexdigest()
     return degraded, digest
 
 
 def _check_doc_file(
-    doc: ScipDocument, target: Path, index_mtime: float,
+    doc: ScipDocument,
+    target: Path,
+    index_mtime: float,
     digest_parts: list[str],
 ) -> list[str]:
     """staleness e spans de um documento contra o arquivo atual."""
@@ -185,17 +177,13 @@ def _check_doc_file(
         out.append(f"file newer than index: {p}")
     if doc.occurrences:
         try:
-            n_lines = len(
-                target.read_text(encoding="utf-8").splitlines())
+            n_lines = len(target.read_text(encoding="utf-8").splitlines())
         except (OSError, UnicodeDecodeError):
             n_lines = -1
         if n_lines >= 0:
-            max_line = max(
-                (o.range.start_line if o.range else 0)
-                for o in doc.occurrences)
+            max_line = max((o.range.start_line if o.range else 0) for o in doc.occurrences)
             if max_line > n_lines:
-                out.append(f"doc {p}: occurrence span line {max_line} "
-                           f"beyond file end {n_lines}")
+                out.append(f"doc {p}: occurrence span line {max_line} beyond file end {n_lines}")
     return out
 
 

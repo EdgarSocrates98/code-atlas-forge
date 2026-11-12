@@ -27,7 +27,6 @@ class ResolverRegistry:
     def capable(self, language: str, relation_type: str) -> list[SemanticResolver]:
         """Resolvers que cobrem a linguagem+relação, ordenados por tier."""
         ok = [
-            r for r in self._resolvers.values()
-            if r.capabilities().covers(language, relation_type)
+            r for r in self._resolvers.values() if r.capabilities().covers(language, relation_type)
         ]
         return sorted(ok, key=lambda r: r.capabilities().tier)

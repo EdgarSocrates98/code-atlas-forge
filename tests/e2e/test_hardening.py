@@ -22,9 +22,10 @@ def test_subprocess_confined_to_gitbin() -> None:
             continue
         tree = ast.parse(py.read_text(encoding="utf-8"))
         for node in ast.walk(tree):
-            if (isinstance(node, ast.Import) and any(
-                a.name.split(".")[0] == "subprocess" for a in node.names
-            )) or (isinstance(node, ast.ImportFrom) and node.module == "subprocess"):
+            if (
+                isinstance(node, ast.Import)
+                and any(a.name.split(".")[0] == "subprocess" for a in node.names)
+            ) or (isinstance(node, ast.ImportFrom) and node.module == "subprocess"):
                 offenders.append(f"{py.name}:{node.lineno}")
     assert offenders == []
 
@@ -33,8 +34,18 @@ def test_no_network_or_shell_exec_in_src() -> None:
     # lf-0086: src/code_atlas/api/ é a fronteira HTTP deliberada do
     # Explorer (loopback read-only) — única exceção permitida e auditada.
     api_boundary = (SRC / "code_atlas" / "api").resolve()
-    banned = {"socket", "urllib", "requests", "http", "ftplib", "smtplib",
-              "telnetlib", "asyncio", "pty", "eval"}
+    banned = {
+        "socket",
+        "urllib",
+        "requests",
+        "http",
+        "ftplib",
+        "smtplib",
+        "telnetlib",
+        "asyncio",
+        "pty",
+        "eval",
+    }
     offenders: list[str] = []
     for py in SRC.rglob("*.py"):
         if api_boundary in py.resolve().parents:
@@ -43,8 +54,7 @@ def test_no_network_or_shell_exec_in_src() -> None:
         for node in ast.walk(tree):
             if isinstance(node, ast.Import):
                 offenders.extend(
-                    f"{py.name}:{a.name}" for a in node.names
-                    if a.name.split(".")[0] in banned
+                    f"{py.name}:{a.name}" for a in node.names if a.name.split(".")[0] in banned
                 )
             elif isinstance(node, ast.ImportFrom) and node.module:
                 if node.module.split(".")[0] in banned:
@@ -96,8 +106,7 @@ def test_zero_byte_and_oversize_files(tmp_path: Path, monkeypatch: pytest.Monkey
     assert by["big.bin"].sha256 is None
 
 
-@pytest.mark.skipif(sys.platform == "win32",
-                    reason="os.symlink exige privilégio no Windows")
+@pytest.mark.skipif(sys.platform == "win32", reason="os.symlink exige privilégio no Windows")
 def test_symlink_to_etc_warns_not_follows(tmp_path: Path) -> None:
     if not Path("/etc").exists():
         pytest.skip("/etc absent")
@@ -137,17 +146,21 @@ def test_lsp_spawn_env_redacts_secrets(monkeypatch: pytest.MonkeyPatch) -> None:
 
     env = _leak_env()
     for k in env:
-        assert not any(
-            s in k
-            for s in ("SECRET", "TOKEN", "KEY", "PASS", "CRED", "AUTH")
-        ), k
+        assert not any(s in k for s in ("SECRET", "TOKEN", "KEY", "PASS", "CRED", "AUTH")), k
 
 
 def test_no_auto_download_or_install_in_src() -> None:
     """Nenhum caminho baixa/instala nada — nem LSP server, nem SCIP
     indexer, nem dependências."""
-    banned_tokens = ("download", "pip install", "npm install",
-                     "curl ", "wget ", "install_cmd", "auto_install")
+    banned_tokens = (
+        "download",
+        "pip install",
+        "npm install",
+        "curl ",
+        "wget ",
+        "install_cmd",
+        "auto_install",
+    )
     offenders: list[str] = []
     for py in SRC.rglob("*.py"):
         tree = ast.parse(py.read_text(encoding="utf-8"))
@@ -176,18 +189,19 @@ def test_no_unix_only_apis_in_src() -> None:
     de testes (resource já é guardado por try/except no bench)."""
     banned = {"fcntl", "pwd", "grp", "termios", "resource", "syslog"}
     ui_vendored = (SRC / "code_atlas" / "ui").resolve()
+    obs_vendored = (SRC / "code_atlas" / "_forge_obsidian").resolve()
     offenders: list[str] = []
     for py in SRC.rglob("*.py"):
         # Vendored Forge UI kit — termios/tty ficam atrás de guarda
         # `sys.platform != "win32"`; byte-parity com a fonte canônica.
-        if ui_vendored in py.resolve().parents:
+        # Mesmo caso para o engine _forge_obsidian (fcntl com fallback msvcrt).
+        if ui_vendored in py.resolve().parents or obs_vendored in py.resolve().parents:
             continue
         tree = ast.parse(py.read_text(encoding="utf-8"))
         for node in ast.walk(tree):
             if isinstance(node, ast.Import):
                 offenders.extend(
-                    f"{py.name}:{a.name}" for a in node.names
-                    if a.name.split(".")[0] in banned
+                    f"{py.name}:{a.name}" for a in node.names if a.name.split(".")[0] in banned
                 )
             elif isinstance(node, ast.ImportFrom) and node.module:
                 if node.module.split(".")[0] in banned:

@@ -35,7 +35,9 @@ def _report_json(rep) -> str:
             "count_mismatches": rep.count_mismatches,
             "file_status_mismatches": rep.file_status_mismatches,
         },
-        indent=2, ensure_ascii=False, sort_keys=True,
+        indent=2,
+        ensure_ascii=False,
+        sort_keys=True,
     )
 
 
@@ -69,9 +71,7 @@ def test_metrics_report_resolved_and_syntactic_buckets(
     assert "resolved" in rel and "syntactic" in rel
     assert rel["resolved"]["tp"] > 0 and rel["syntactic"]["tp"] > 0
     # buckets não se misturam: soma dos tps = tp geral
-    assert (
-        rel["resolved"]["tp"] + rel["syntactic"]["tp"] == rel["all"]["tp"]
-    )
+    assert rel["resolved"]["tp"] + rel["syntactic"]["tp"] == rel["all"]["tp"]
 
 
 def test_determinism_two_independent_runs(tmp_path: Path) -> None:
@@ -100,16 +100,26 @@ def test_rename_rescan_new_snapshot(tmp_path: Path) -> None:
     assert second.status == "success"
     assert second.snapshot_id != first.snapshot_id
 
-    q2 = {r["q"] for r in conn.execute(
-        "SELECT s.qualified_name q FROM symbols s "
-        "JOIN symbol_occurrences o ON o.logical_symbol_id=s.id "
-        "WHERE o.snapshot_id=?", (second.snapshot_id,))}
+    q2 = {
+        r["q"]
+        for r in conn.execute(
+            "SELECT s.qualified_name q FROM symbols s "
+            "JOIN symbol_occurrences o ON o.logical_symbol_id=s.id "
+            "WHERE o.snapshot_id=?",
+            (second.snapshot_id,),
+        )
+    }
     assert "pkg.util2.helper" in q2
     # snapshot novo não carrega ocorrência do path antigo
-    paths = {r["p"] for r in conn.execute(
-        "SELECT DISTINCT f.relative_path p FROM symbol_occurrences o "
-        "JOIN source_files f ON f.id=o.source_file_id "
-        "WHERE o.snapshot_id=?", (second.snapshot_id,))}
+    paths = {
+        r["p"]
+        for r in conn.execute(
+            "SELECT DISTINCT f.relative_path p FROM symbol_occurrences o "
+            "JOIN source_files f ON f.id=o.source_file_id "
+            "WHERE o.snapshot_id=?",
+            (second.snapshot_id,),
+        )
+    }
     assert "pkg/util2.py" in paths and "pkg/util.py" not in paths
     conn.close()
 

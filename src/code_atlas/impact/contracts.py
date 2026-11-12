@@ -82,7 +82,7 @@ class FileChange:
     new_path: str | None
     old_hash: str | None = None
     new_hash: str | None = None
-    similarity: int | None = None   # 0-100 em renomes/cópias git
+    similarity: int | None = None  # 0-100 em renomes/cópias git
     binary: bool = False
 
 
@@ -93,7 +93,7 @@ class ChangeSet:
     base_revision: str
     target_revision: str
     files: tuple[FileChange, ...]
-    source: str = "git"             # git | snapshots | explicit
+    source: str = "git"  # git | snapshots | explicit
     dirty_worktree: bool = False
     commit_ids: tuple[str, ...] = ()
 
@@ -102,7 +102,7 @@ class ChangeSet:
 class SymbolChange:
     """Mudança detectada num símbolo entre dois snapshots (Phase 3)."""
 
-    symbol_key: str                 # lang:kind:qname (mesma forma do search)
+    symbol_key: str  # lang:kind:qname (mesma forma do search)
     qualified_name: str
     language: str
     kind: str
@@ -122,9 +122,9 @@ class ContractChange:
     """Alteração de contrato público classificada (Phase 4)."""
 
     symbol_key: str
-    classification: str             # ex.: required-parameter-added
-    compatibility: str              # potential-risk | likely-compatible
-                                    # | no-contract-impact | indeterminate
+    classification: str  # ex.: required-parameter-added
+    compatibility: str  # potential-risk | likely-compatible
+    # | no-contract-impact | indeterminate
     old_signature: str | None
     new_signature: str | None
     strength: EvidenceStrength
@@ -188,11 +188,11 @@ class TestCandidate:
 
     test_file: str
     test_symbol: str | None
-    relationship: str               # direct | transitive | heuristic | unknown
+    relationship: str  # direct | transitive | heuristic | unknown
     reason: str
     strength: EvidenceStrength
     occurrence_id: int | None = None
-    revision: str = ""              # lf-0080: "base" | "target" | ""
+    revision: str = ""  # lf-0080: "base" | "target" | ""
 
 
 @dataclass(frozen=True)
@@ -200,7 +200,7 @@ class RiskAssessment:
     """Avaliação determinística de risco (Phase 6)."""
 
     category: RiskCategory
-    uncertainty: str                # low|moderate|high — separado do risco
+    uncertainty: str  # low|moderate|high — separado do risco
     reasons: tuple[str, ...]
     formula_version: str = "risk-rules-v1"
 
@@ -245,10 +245,10 @@ class ImpactRequest:
     """Pedido de análise — todas as superfícies (CLI/MCP) viram isto."""
 
     repository_root: str
-    base_revision: str = ""         # HEAD~1, sha, branch, snapshot:N
-    target_revision: str = ""       # vazio = worktree
-    symbol: str | None = None       # seleção explícita (também aceita
-                                    # ref de entidade — ver ``entity``)
+    base_revision: str = ""  # HEAD~1, sha, branch, snapshot:N
+    target_revision: str = ""  # vazio = worktree
+    symbol: str | None = None  # seleção explícita (também aceita
+    # ref de entidade — ver ``entity``)
     file: str | None = None
     # lf-0120 (Cycle 7 Phase 12): seed de entidade de domínio — a
     # análise passa a responder "se esta tabela/job/recurso mudar".
@@ -312,4 +312,4 @@ class ImpactReport:
 
     schema_version: int
     result: ImpactResult
-    format: str                     # json | markdown | cli
+    format: str  # json | markdown | cli

@@ -18,17 +18,20 @@ from code_atlas.impact.contracts import (
 )
 
 _KIND_BY_STATUS = {
-    "A": ChangeKind.ADDED, "M": ChangeKind.MODIFIED,
-    "D": ChangeKind.DELETED, "R": ChangeKind.RENAMED,
-    "C": ChangeKind.COPIED, "T": ChangeKind.TYPE_CHANGED,
-    "B": ChangeKind.BINARY, "X": ChangeKind.UNAVAILABLE,
+    "A": ChangeKind.ADDED,
+    "M": ChangeKind.MODIFIED,
+    "D": ChangeKind.DELETED,
+    "R": ChangeKind.RENAMED,
+    "C": ChangeKind.COPIED,
+    "T": ChangeKind.TYPE_CHANGED,
+    "B": ChangeKind.BINARY,
+    "X": ChangeKind.UNAVAILABLE,
 }
 
 
 def resolve_revision(root: Path, expr: str) -> str | None:
     """Resolve HEAD~N/branch/sha → sha completo; None se inválido."""
-    res = gitbin.run_git(["rev-parse", "--verify", "--quiet",
-                          f"{expr}^{{commit}}"], cwd=root)
+    res = gitbin.run_git(["rev-parse", "--verify", "--quiet", f"{expr}^{{commit}}"], cwd=root)
     if res.returncode != 0:
         return None
     return res.stdout.decode("utf-8", "replace").strip() or None
@@ -62,17 +65,18 @@ def _parse_name_status_z(raw: bytes) -> list[FileChange]:
             if letter == "A":
                 old_p, new_p = None, fields[i].decode("utf-8", "replace")
             i += 1
-        out.append(FileChange(kind=kind, old_path=old_p,
-                              new_path=new_p, similarity=sim,
-                              binary=letter == "B"))
+        out.append(
+            FileChange(
+                kind=kind, old_path=old_p, new_path=new_p, similarity=sim, binary=letter == "B"
+            )
+        )
     return out
 
 
 def _binary_paths(root: Path, args: list[str]) -> set[str]:
     """`--numstat -z`: linhas '-'/'-' marcam binários (name-status
     não distingue — Phase 2 exige kind BINARY real)."""
-    res = gitbin.run_git([args[0], "--numstat", "-z", *args[1:]],
-                         cwd=root)
+    res = gitbin.run_git([args[0], "--numstat", "-z", *args[1:]], cwd=root)
     if res.returncode != 0:
         return set()
     fields = [f for f in res.stdout.split(b"\0") if f]
@@ -95,20 +99,20 @@ def _binary_paths(root: Path, args: list[str]) -> set[str]:
 
 
 def read_diff(
-    root: Path, base: str, target: str | None, *,
+    root: Path,
+    base: str,
+    target: str | None,
+    *,
     staged: bool = False,
 ) -> tuple[ChangeSet | None, tuple[ImpactDiagnostic, ...]]:
     """ChangeSet para base e target; target=None → worktree (dirty)."""
     diags: list[ImpactDiagnostic] = []
     base_sha = resolve_revision(root, base)
     if base_sha is None:
-        return None, (ImpactDiagnostic(
-            "invalid-revision", f"revisão base inválida: {base!r}"),)
-    target_sha = (
-        resolve_revision(root, target) if target else None)
+        return None, (ImpactDiagnostic("invalid-revision", f"revisão base inválida: {base!r}"),)
+    target_sha = resolve_revision(root, target) if target else None
     if target and target_sha is None:
-        return None, (ImpactDiagnostic(
-            "invalid-revision", f"revisão alvo inválida: {target!r}"),)
+        return None, (ImpactDiagnostic("invalid-revision", f"revisão alvo inválida: {target!r}"),)
 
     args = ["diff", "--name-status", "-M", "-z"]
     if staged:
@@ -119,24 +123,27 @@ def read_diff(
         args.append(base_sha)
     res = gitbin.run_git(args, cwd=root)
     if res.returncode != 0:
-        return None, (ImpactDiagnostic(
-            "git-error",
-            res.stderr.decode("utf-8", "replace")[:200]),)
+        return None, (ImpactDiagnostic("git-error", res.stderr.decode("utf-8", "replace")[:200]),)
     binary = _binary_paths(root, args)
     files = tuple(
         FileChange(
-            kind=(ChangeKind.BINARY
-                  if (f.new_path or f.old_path) in binary else f.kind),
-            old_path=f.old_path, new_path=f.new_path,
-            old_hash=f.old_hash, new_hash=f.new_hash,
+            kind=(ChangeKind.BINARY if (f.new_path or f.old_path) in binary else f.kind),
+            old_path=f.old_path,
+            new_path=f.new_path,
+            old_hash=f.old_hash,
+            new_hash=f.new_hash,
             similarity=f.similarity,
-            binary=True) if (f.new_path or f.old_path) in binary else f
-        for f in _parse_name_status_z(res.stdout))
+            binary=True,
+        )
+        if (f.new_path or f.old_path) in binary
+        else f
+        for f in _parse_name_status_z(res.stdout)
+    )
     return ChangeSet(
         base_revision=base_sha,
         target_revision=target_sha or "worktree",
         files=files,
         source="git",
         dirty_worktree=dirty_worktree(root),
-        commit_ids=(base_sha, *( (target_sha,) if target_sha else ())),
+        commit_ids=(base_sha, *((target_sha,) if target_sha else ())),
     ), tuple(diags)

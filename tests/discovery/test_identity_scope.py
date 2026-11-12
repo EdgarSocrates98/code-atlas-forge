@@ -8,9 +8,14 @@ from code_atlas.discovery.models import GitInfo
 
 def _git(toplevel: str) -> GitInfo:
     return GitInfo(
-        available=True, is_repo=True, branch="main",
-        head_sha="abc", remote_url="git@x:mono.git",
-        root_commit="root1", toplevel=toplevel)
+        available=True,
+        is_repo=True,
+        branch="main",
+        head_sha="abc",
+        remote_url="git@x:mono.git",
+        root_commit="root1",
+        toplevel=toplevel,
+    )
 
 
 def test_repo_root_keeps_legacy_key(tmp_path) -> None:
@@ -49,8 +54,7 @@ def test_relocation_preserves_scoped_key(tmp_path) -> None:
 def test_no_remote_subroot_uses_root_commit(tmp_path) -> None:
     mono = tmp_path / "mono"
     (mono / "sub").mkdir(parents=True)
-    g = GitInfo(available=True, is_repo=True, root_commit="r9",
-                toplevel=str(mono))
+    g = GitInfo(available=True, is_repo=True, root_commit="r9", toplevel=str(mono))
     assert identity_key(g, mono / "sub") == "git-root:r9@sub"
 
 

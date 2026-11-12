@@ -7,6 +7,7 @@ differences: no host payloads and no gateway profile (a local-first
 engine, not a content forge), so those steps are skipped by passing
 empty vocabularies to the wizard.
 """
+
 from __future__ import annotations
 
 import json
@@ -66,9 +67,7 @@ def run_guided_install() -> int:
         component_order=lifecycle.COMPONENTS,
         component_labels=_COMPONENT_LABELS,
         component_details=_COMPONENT_DETAILS,
-        component_defaults={
-            p: set(c) for p, c in lifecycle.PROFILE_COMPONENTS.items()
-        },
+        component_defaults={p: set(c) for p, c in lifecycle.PROFILE_COMPONENTS.items()},
         env_hosts=(),
         next_hint="code-atlas doctor · code-atlas index",
         ctx=UIContext.detect(),
@@ -85,11 +84,7 @@ def run_flag_install(
     yes: bool,
 ) -> dict[str, Any]:
     """Non-interactive flag path — returns the receipt doc."""
-    comps = (
-        tuple(c.strip() for c in components.split(",") if c.strip())
-        if components
-        else None
-    )
+    comps = tuple(c.strip() for c in components.split(",") if c.strip()) if components else None
     return lifecycle.install(
         scope=scope,
         profile=profile,

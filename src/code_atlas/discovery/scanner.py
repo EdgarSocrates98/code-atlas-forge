@@ -70,9 +70,7 @@ def probe_git(root: Path, git_available: bool | None = None) -> GitInfo:
     # fallback (repo sem remote). ``rev-list --max-parents=0`` pode ter
     # múltiplas raízes em históricos merged — ordenado para estabilidade.
     remote_url = _out(["config", "--get", "remote.origin.url"])
-    roots = sorted(
-        x for x in _out(["rev-list", "--max-parents=0", "HEAD"]).splitlines() if x
-    )
+    roots = sorted(x for x in _out(["rev-list", "--max-parents=0", "HEAD"]).splitlines() if x)
     return GitInfo(
         available=True,
         is_repo=True,
@@ -312,8 +310,13 @@ def _symlink_escapes(path: Path, root_real: Path) -> bool:
 
 
 def _filter_dirs(
-    d: Path, rel_dir: str, dirnames: list[str], stack: GitIgnoreStack,
-    root_real: Path, options: ScanOptions, budget: _Budget,
+    d: Path,
+    rel_dir: str,
+    dirnames: list[str],
+    stack: GitIgnoreStack,
+    root_real: Path,
+    options: ScanOptions,
+    budget: _Budget,
 ) -> list[str]:
     """Prune de diretórios: symlinks de dir, ignores e profundidade."""
     kept = []
@@ -357,9 +360,7 @@ def _walk_paths(
             rel = f"{rel_dir}/{name}" if rel_dir else name
             if f.is_symlink() and _symlink_escapes(f, root_real):
                 budget.warnings.append(
-                    ScanWarning(
-                        WarningKind.SYMLINK_ESCAPE, "file symlink escapes root", rel
-                    )
+                    ScanWarning(WarningKind.SYMLINK_ESCAPE, "file symlink escapes root", rel)
                 )
                 continue
             # symlink quebrado/ausente não é descartado aqui — scan()
@@ -394,8 +395,11 @@ def _git_paths(
 
 
 def _on_stat_failure(
-    abs_path: Path, rel: str, exc: OSError,
-    acc: _Accumulator, budget: _Budget,
+    abs_path: Path,
+    rel: str,
+    exc: OSError,
+    acc: _Accumulator,
+    budget: _Budget,
 ) -> None:
     """Stat falhou — última chance de alias-de-segredo (Windows:
     symlink com alvo relativo POSIX cujo stat falha mas o readlink
@@ -417,9 +421,7 @@ def _symlink_targets_secret(path: Path) -> bool:
     with contextlib.suppress(OSError, RuntimeError):
         names.add(path.resolve().name)
     with contextlib.suppress(OSError):
-        names.add(
-            os.readlink(path).rsplit("/", 1)[-1].rsplit("\\", 1)[-1]
-        )
+        names.add(os.readlink(path).rsplit("/", 1)[-1].rsplit("\\", 1)[-1])
     return any(is_secret(n) for n in names)
 
 
@@ -442,11 +444,7 @@ def scan(
         mode = ScanMode.GIT
         path_iter = _git_paths(root, options, budget, git_info)
     else:
-        mode = (
-            ScanMode.GIT_REPO_NO_BINARY
-            if git_info.is_repo
-            else ScanMode.NO_GIT
-        )
+        mode = ScanMode.GIT_REPO_NO_BINARY if git_info.is_repo else ScanMode.NO_GIT
         path_iter = _walk_paths(root, root_real, options, budget)
 
     partial = False
@@ -460,9 +458,7 @@ def scan(
             if abs_path.is_symlink():
                 if _symlink_escapes(abs_path, root_real):
                     budget.warnings.append(
-                        ScanWarning(
-                            WarningKind.SYMLINK_ESCAPE, "symlink escapes root", rel
-                        )
+                        ScanWarning(WarningKind.SYMLINK_ESCAPE, "symlink escapes root", rel)
                     )
                     continue
                 # Alias para segredo: nome benigno apontando para arquivo
@@ -477,9 +473,7 @@ def scan(
             _classify_and_hash(abs_path, rel, ignored, options, acc, budget, root_real)
     except KeyboardInterrupt:
         partial = True
-        budget.warnings.append(
-            ScanWarning(WarningKind.TIMEOUT, "interrupted (KeyboardInterrupt)")
-        )
+        budget.warnings.append(ScanWarning(WarningKind.TIMEOUT, "interrupted (KeyboardInterrupt)"))
     partial = partial or budget.timed_out
 
     return ScanResult(

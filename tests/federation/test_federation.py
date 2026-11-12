@@ -46,9 +46,7 @@ def _workspace(fed: Federation, ids: Ids) -> int:
     return ws.id
 
 
-def _shared_key_for(
-    conn: sqlite3.Connection, namespace: str, qname: str
-) -> str:
+def _shared_key_for(conn: sqlite3.Connection, namespace: str, qname: str) -> str:
     row = conn.execute(
         "SELECT identity_key FROM domain_entities"
         " WHERE namespace = ? AND qualified_name = ? LIMIT 1",
@@ -61,27 +59,21 @@ def _shared_key_for(
 
 
 class TestWorkspaceCrud:
-    def test_create_and_list(
-        self, fed_db: tuple[sqlite3.Connection, Ids]
-    ) -> None:
+    def test_create_and_list(self, fed_db: tuple[sqlite3.Connection, Ids]) -> None:
         conn, _ = fed_db
         fed = _fed(conn)
         ws = fed.create_workspace("alpha")
         assert ws.id > 0 and ws.name == "alpha"
         assert [w.name for w in fed.list_workspaces()] == ["alpha"]
 
-    def test_duplicate_name_rejected(
-        self, fed_db: tuple[sqlite3.Connection, Ids]
-    ) -> None:
+    def test_duplicate_name_rejected(self, fed_db: tuple[sqlite3.Connection, Ids]) -> None:
         conn, _ = fed_db
         fed = _fed(conn)
         fed.create_workspace("dup")
         with pytest.raises(WorkspaceExistsError):
             fed.create_workspace("dup")
 
-    def test_workspace_not_found(
-        self, fed_db: tuple[sqlite3.Connection, Ids]
-    ) -> None:
+    def test_workspace_not_found(self, fed_db: tuple[sqlite3.Connection, Ids]) -> None:
         conn, _ = fed_db
         with pytest.raises(WorkspaceNotFoundError):
             _fed(conn).get_workspace("nope")
@@ -90,9 +82,7 @@ class TestWorkspaceCrud:
 
 
 class TestMembers:
-    def test_add_only_indexed_repositories(
-        self, fed_db: tuple[sqlite3.Connection, Ids]
-    ) -> None:
+    def test_add_only_indexed_repositories(self, fed_db: tuple[sqlite3.Connection, Ids]) -> None:
         conn, ids = fed_db
         fed = _fed(conn)
         ws = fed.create_workspace("w")
@@ -112,9 +102,7 @@ class TestMembers:
         fed = _fed(conn)
         repo_a = int(ids["repo_a"])  # type: ignore[arg-type]
         assert fed.resolve_repository(str(repo_a)) == repo_a
-        assert (
-            fed.resolve_repository(str(ids["root_a"])) == repo_a
-        )
+        assert fed.resolve_repository(str(ids["root_a"])) == repo_a
         row = conn.execute(
             "SELECT identity_key FROM repositories WHERE id = ?",
             (repo_a,),
@@ -125,9 +113,7 @@ class TestMembers:
         with pytest.raises(RepositoryNotFoundError):
             fed.resolve_repository("777777")
 
-    def test_workspace_requires_two_members(
-        self, fed_db: tuple[sqlite3.Connection, Ids]
-    ) -> None:
+    def test_workspace_requires_two_members(self, fed_db: tuple[sqlite3.Connection, Ids]) -> None:
         conn, ids = fed_db
         fed = _fed(conn)
         ws = fed.create_workspace("thin")
@@ -137,9 +123,7 @@ class TestMembers:
 
 
 class TestPinning:
-    def test_pin_member_and_unpin(
-        self, fed_db: tuple[sqlite3.Connection, Ids]
-    ) -> None:
+    def test_pin_member_and_unpin(self, fed_db: tuple[sqlite3.Connection, Ids]) -> None:
         conn, ids = fed_db
         fed = _fed(conn)
         ws = fed.get_workspace(_workspace(fed, ids))
@@ -196,12 +180,11 @@ class TestView:
         # snapshot_map está gravado no payload — ausência nunca presumida
         payload = view.to_dict()
         assert {m["repository_id"] for m in payload["members"]} == {
-            int(ids["repo_a"]), int(ids["repo_b"])  # type: ignore[arg-type]
+            int(ids["repo_a"]),
+            int(ids["repo_b"]),  # type: ignore[arg-type]
         }
 
-    def test_view_identity_changes_with_pin(
-        self, fed_db: tuple[sqlite3.Connection, Ids]
-    ) -> None:
+    def test_view_identity_changes_with_pin(self, fed_db: tuple[sqlite3.Connection, Ids]) -> None:
         conn, ids = fed_db
         fed = _fed(conn)
         ws = fed.get_workspace(_workspace(fed, ids))
@@ -211,9 +194,7 @@ class TestView:
         assert v1.view_id == v2.view_id  # mesmo snapshot → mesma view
         # override de pin para snapshot diferente do membro
         root_a = Path(str(ids["root_a"]))
-        (root_a / "q.sql").write_text(
-            "SELECT * FROM mart.orders;\nSELECT * FROM mart.extra;\n"
-        )
+        (root_a / "q.sql").write_text("SELECT * FROM mart.orders;\nSELECT * FROM mart.extra;\n")
         snap_a2 = index_repo(conn, root_a)
         v3 = fed.resolve_view(ws, {int(ids["repo_a"]): snap_a2})  # type: ignore[arg-type]
         assert v3.view_id != v2.view_id
@@ -264,19 +245,21 @@ class TestEntityLookup:
         out = fed.entity_occurrences(ws, skey)
         assert out["total"] >= 2
         assert set(out["repositories_with_entity"]) == {
-            int(ids["repo_a"]), int(ids["repo_b"])  # type: ignore[arg-type]
+            int(ids["repo_a"]),
+            int(ids["repo_b"]),  # type: ignore[arg-type]
         }
         for item in out["items"]:
             assert item["namespace"] == "mart"
             assert item["qualified_name"] == "orders"
-            assert item["snapshot_id"] == {
-                int(ids["repo_a"]): int(ids["snap_a"]),  # type: ignore[arg-type]
-                int(ids["repo_b"]): int(ids["snap_b"]),  # type: ignore[arg-type]
-            }[item["repository_id"]]
+            assert (
+                item["snapshot_id"]
+                == {
+                    int(ids["repo_a"]): int(ids["snap_a"]),  # type: ignore[arg-type]
+                    int(ids["repo_b"]): int(ids["snap_b"]),  # type: ignore[arg-type]
+                }[item["repository_id"]]
+            )
 
-    def test_lookup_accepts_full_identity_key(
-        self, fed_db: tuple[sqlite3.Connection, Ids]
-    ) -> None:
+    def test_lookup_accepts_full_identity_key(self, fed_db: tuple[sqlite3.Connection, Ids]) -> None:
         conn, ids = fed_db
         fed = _fed(conn)
         ws = fed.get_workspace(_workspace(fed, ids))
@@ -309,14 +292,11 @@ class TestEntityLookup:
         conn, ids = fed_db
         fed = _fed(conn)
         ws = fed.get_workspace(_workspace(fed, ids))
-        for bad in ("orders", "mart.orders", "dom:sql/too/short",
-                    "", "notakey"):
+        for bad in ("orders", "mart.orders", "dom:sql/too/short", "", "notakey"):
             with pytest.raises(InvalidKeyError):
                 fed.entity_occurrences(ws, bad)
 
-    def test_shared_openapi_endpoint(
-        self, fed_db: tuple[sqlite3.Connection, Ids]
-    ) -> None:
+    def test_shared_openapi_endpoint(self, fed_db: tuple[sqlite3.Connection, Ids]) -> None:
         conn, ids = fed_db
         fed = _fed(conn)
         ws = fed.get_workspace(_workspace(fed, ids))
@@ -328,11 +308,10 @@ class TestEntityLookup:
         out = fed.entity_occurrences(ws, str(row["identity_key"]))
         assert out["total"] >= 2
         assert set(out["repositories_with_entity"]) == {
-            int(ids["repo_a"]), int(ids["repo_b"])  # type: ignore[arg-type]
+            int(ids["repo_a"]),
+            int(ids["repo_b"]),  # type: ignore[arg-type]
         }
-        assert all(
-            "orders" in i["qualified_name"] for i in out["items"]
-        )
+        assert all("orders" in i["qualified_name"] for i in out["items"])
 
 
 class TestSnapshotIsolation:
@@ -369,7 +348,8 @@ class TestSnapshotIsolation:
         # B segue no snapshot original — nada de "drift" implícito
         assert v.snapshot_map[int(ids["repo_b"])] == int(ids["snap_b"])  # type: ignore[arg-type]
         m_b = next(
-            m for m in v.members
+            m
+            for m in v.members
             if m.repository_id == int(ids["repo_b"])  # type: ignore[arg-type]
         )
         assert m_b.resolution == "latest-ready"
@@ -391,14 +371,12 @@ class TestGraph:
         assert all(e.from_repo != e.to_repo for e in shared)
         # nada escrito em domain_relations pelo grafo
         row = conn.execute(
-            "SELECT COUNT(*) AS c FROM domain_relations"
-            " WHERE resolver = ?", (FEDERATION_RESOLVER_ID,)
+            "SELECT COUNT(*) AS c FROM domain_relations WHERE resolver = ?",
+            (FEDERATION_RESOLVER_ID,),
         ).fetchone()
         assert row["c"] == 0
 
-    def test_depth_zero_returns_seeds_only(
-        self, fed_db: tuple[sqlite3.Connection, Ids]
-    ) -> None:
+    def test_depth_zero_returns_seeds_only(self, fed_db: tuple[sqlite3.Connection, Ids]) -> None:
         conn, ids = fed_db
         fed = _fed(conn)
         ws = fed.get_workspace(_workspace(fed, ids))
@@ -425,9 +403,7 @@ class TestGraph:
         # mart.v_orders (view em A) é vizinho intra de mart.orders
         assert "v_orders" in qnames1 or len(g1.edges) > len(g0.edges)
 
-    def test_depth_is_capped(
-        self, fed_db: tuple[sqlite3.Connection, Ids]
-    ) -> None:
+    def test_depth_is_capped(self, fed_db: tuple[sqlite3.Connection, Ids]) -> None:
         conn, ids = fed_db
         fed = _fed(conn)
         ws = fed.get_workspace(_workspace(fed, ids))
@@ -441,9 +417,7 @@ class TestGraph:
         fed = _fed(conn)
         ws = fed.get_workspace(_workspace(fed, ids))
         g = fed.graph(ws, depth=8, limit=5000)
-        cross = [
-            e for e in g.edges if e.from_repo != e.to_repo
-        ]
+        cross = [e for e in g.edges if e.from_repo != e.to_repo]
         # o único vínculo cross-repo permitido é shared_entity computado
         assert all(e.kind == "shared_entity" and e.computed for e in cross)
         # nós sempre carregam o snapshot do próprio membro

@@ -55,12 +55,19 @@ def _ident(domain: str, **kw: object) -> DomainIdentity:
 
 
 def _entity(
-    ident: DomainIdentity, kind: DomainEntityKind, name: str,
-    path: str, attrs: dict[str, str] | None = None,
+    ident: DomainIdentity,
+    kind: DomainEntityKind,
+    name: str,
+    path: str,
+    attrs: dict[str, str] | None = None,
 ) -> ExtractedDomainEntity:
     return ExtractedDomainEntity(
-        identity=ident, kind=kind, name=name, path=path,
-        attributes=attrs or {}, evidence=(0,),
+        identity=ident,
+        kind=kind,
+        name=name,
+        path=path,
+        attributes=attrs or {},
+        evidence=(0,),
     )
 
 
@@ -79,8 +86,11 @@ def _result(
         relations=relations,
         evidence=tuple(
             evidence_record(
-                adapter_domain=domain_id, adapter_version="0.1.0",
-                path=p, content_hash=f"sha256:{p}", notes=notes,
+                adapter_domain=domain_id,
+                adapter_version="0.1.0",
+                path=p,
+                content_hash=f"sha256:{p}",
+                notes=notes,
             )
             for p, notes in evidence_paths
         ),
@@ -143,8 +153,7 @@ def workspace(
     file_ids = {
         r["relative_path"]: int(r["id"])
         for r in conn.execute(
-            "SELECT id, relative_path FROM source_files"
-            " WHERE repository_id = ?",
+            "SELECT id, relative_path FROM source_files WHERE repository_id = ?",
             (snap.repository_id,),
         )
     }
@@ -163,41 +172,50 @@ def test_qualified_identity_resolves_cross_domain(
     qualificado → row ``READS_FROM`` vira resolved na entidade SQL."""
     conn, store, repo_id, snap, file_ids = workspace
     table = _ident(
-        "sql", catalog="cat1", namespace="analytics",
+        "sql",
+        catalog="cat1",
+        namespace="analytics",
         qualified_name="orders",
     )
     job = _ident("pyspark", qualified_name="daily_load")
-    _persist(store, repo_id, snap, file_ids, _result(
-        "sql",
-        entities=(
-            _entity(table, DomainEntityKind.DATA_TABLE, "orders", "q.sql"),
+    _persist(
+        store,
+        repo_id,
+        snap,
+        file_ids,
+        _result(
+            "sql",
+            entities=(_entity(table, DomainEntityKind.DATA_TABLE, "orders", "q.sql"),),
+            evidence_paths=(("q.sql", ""),),
         ),
-        evidence_paths=(("q.sql", ""),),
-    ))
-    _persist(store, repo_id, snap, file_ids, _result(
-        "pyspark",
-        entities=(
-            _entity(job, DomainEntityKind.SPARK_JOB, "daily_load",
-                    "jobs/etl.py"),
-        ),
-        relations=(
-            ExtractedDomainRelation(
-                relation_type="READS_FROM", path="jobs/etl.py",
-                from_identity=job, to_unresolved="cat1.analytics.orders",
-                evidence=(0,),
+    )
+    _persist(
+        store,
+        repo_id,
+        snap,
+        file_ids,
+        _result(
+            "pyspark",
+            entities=(_entity(job, DomainEntityKind.SPARK_JOB, "daily_load", "jobs/etl.py"),),
+            relations=(
+                ExtractedDomainRelation(
+                    relation_type="READS_FROM",
+                    path="jobs/etl.py",
+                    from_identity=job,
+                    to_unresolved="cat1.analytics.orders",
+                    evidence=(0,),
+                ),
             ),
+            evidence_paths=(("jobs/etl.py", ""),),
         ),
-        evidence_paths=(("jobs/etl.py", ""),),
-    ))
+    )
 
     plan = CrossDomainResolver().plan(store, snap)
     assert len(plan.updates) == 1
     upd = plan.updates[0]
     assert upd.resolution_status is ResolutionStatus.RESOLVED
     assert upd.to_entity_occ_id == _occ_id(store, repo_id, snap, table)
-    counts = store.persist_cross_resolutions(
-        snap, plan.update_rows(), plan.insert_rows(snap)
-    )
+    counts = store.persist_cross_resolutions(snap, plan.update_rows(), plan.insert_rows(snap))
     assert counts["cross_updated"] == 1
 
     row = _rel_rows(conn)[0]
@@ -209,9 +227,7 @@ def test_qualified_identity_resolves_cross_domain(
     # evidência dos DOIS lados: call-site pyspark + observação sql.
     ev = json.loads(row["evidence_ids"])
     extractors = {
-        conn.execute(
-            "SELECT extractor FROM evidence WHERE id = ?", (e,)
-        ).fetchone()["extractor"]
+        conn.execute("SELECT extractor FROM evidence WHERE id = ?", (e,)).fetchone()["extractor"]
         for e in ev
     }
     assert extractors == {"domain:sql", "domain:pyspark"}
@@ -226,49 +242,63 @@ def test_same_name_different_catalog_is_ambiguous_not_resolved(
     preservados, NUNCA resolved."""
     conn, store, repo_id, snap, file_ids = workspace
     t_sql = _ident(
-        "sql", catalog="catA", namespace="analytics",
+        "sql",
+        catalog="catA",
+        namespace="analytics",
         qualified_name="orders",
     )
     t_glue = _ident(
-        "glue", catalog="catB", namespace="analytics",
+        "glue",
+        catalog="catB",
+        namespace="analytics",
         qualified_name="orders",
     )
     job = _ident("pyspark", qualified_name="daily_load")
-    _persist(store, repo_id, snap, file_ids, _result(
-        "sql",
-        entities=(
-            _entity(t_sql, DomainEntityKind.DATA_TABLE, "orders", "q.sql"),
+    _persist(
+        store,
+        repo_id,
+        snap,
+        file_ids,
+        _result(
+            "sql",
+            entities=(_entity(t_sql, DomainEntityKind.DATA_TABLE, "orders", "q.sql"),),
+            evidence_paths=(("q.sql", ""),),
         ),
-        evidence_paths=(("q.sql", ""),),
-    ))
-    _persist(store, repo_id, snap, file_ids, _result(
-        "glue",
-        entities=(
-            _entity(t_glue, DomainEntityKind.ICEBERG_TABLE, "orders",
-                    "q.sql"),
+    )
+    _persist(
+        store,
+        repo_id,
+        snap,
+        file_ids,
+        _result(
+            "glue",
+            entities=(_entity(t_glue, DomainEntityKind.ICEBERG_TABLE, "orders", "q.sql"),),
+            evidence_paths=(("q.sql", ""),),
         ),
-        evidence_paths=(("q.sql", ""),),
-    ))
-    _persist(store, repo_id, snap, file_ids, _result(
-        "pyspark",
-        entities=(
-            _entity(job, DomainEntityKind.SPARK_JOB, "daily_load",
-                    "jobs/etl.py"),
-        ),
-        relations=(
-            ExtractedDomainRelation(
-                relation_type="READS_FROM", path="jobs/etl.py",
-                from_identity=job, to_unresolved="analytics.orders",
-                evidence=(0,),
+    )
+    _persist(
+        store,
+        repo_id,
+        snap,
+        file_ids,
+        _result(
+            "pyspark",
+            entities=(_entity(job, DomainEntityKind.SPARK_JOB, "daily_load", "jobs/etl.py"),),
+            relations=(
+                ExtractedDomainRelation(
+                    relation_type="READS_FROM",
+                    path="jobs/etl.py",
+                    from_identity=job,
+                    to_unresolved="analytics.orders",
+                    evidence=(0,),
+                ),
             ),
+            evidence_paths=(("jobs/etl.py", ""),),
         ),
-        evidence_paths=(("jobs/etl.py", ""),),
-    ))
+    )
 
     plan = CrossDomainResolver().plan(store, snap)
-    store.persist_cross_resolutions(
-        snap, plan.update_rows(), plan.insert_rows(snap)
-    )
+    store.persist_cross_resolutions(snap, plan.update_rows(), plan.insert_rows(snap))
     rows = _rel_rows(conn)
     rel = next(r for r in rows if r["type"] == "READS_FROM")
     assert rel["resolution_status"] == "ambiguous"
@@ -279,8 +309,7 @@ def test_same_name_different_catalog_is_ambiguous_not_resolved(
     # nenhuma aresta resolved entre as duas tabelas — catálogos
     # divergentes são identidades distintas por construção.
     resolved_refs = [
-        r for r in rows
-        if r["type"] == "REFERENCES" and r["resolution_status"] == "resolved"
+        r for r in rows if r["type"] == "REFERENCES" and r["resolution_status"] == "resolved"
     ]
     assert resolved_refs == []
 
@@ -293,38 +322,49 @@ def test_terraform_provisions_spark_job_via_qualified_path(
     vínculo por path qualificado, ``PROVISIONS`` resolved."""
     conn, store, repo_id, snap, file_ids = workspace
     glue_res = _ident(
-        "terraform", qualified_name="aws_glue_job.etl",
+        "terraform",
+        qualified_name="aws_glue_job.etl",
     )
     job = _ident("pyspark", qualified_name="etl")
-    _persist(store, repo_id, snap, file_ids, _result(
-        "terraform",
-        entities=(
-            _entity(
-                glue_res, DomainEntityKind.TERRAFORM_RESOURCE,
-                "aws_glue_job.etl", "infra/main.tf",
-                attrs={
-                    "resource_type": "aws_glue_job",
-                    "resource_name": "etl",
-                    "resource_class": "glue",
-                    "provider": "aws",
-                    "script_location": "jobs/etl.py",
-                },
+    _persist(
+        store,
+        repo_id,
+        snap,
+        file_ids,
+        _result(
+            "terraform",
+            entities=(
+                _entity(
+                    glue_res,
+                    DomainEntityKind.TERRAFORM_RESOURCE,
+                    "aws_glue_job.etl",
+                    "infra/main.tf",
+                    attrs={
+                        "resource_type": "aws_glue_job",
+                        "resource_name": "etl",
+                        "resource_class": "glue",
+                        "provider": "aws",
+                        "script_location": "jobs/etl.py",
+                    },
+                ),
             ),
+            evidence_paths=(("infra/main.tf", ""),),
         ),
-        evidence_paths=(("infra/main.tf", ""),),
-    ))
-    _persist(store, repo_id, snap, file_ids, _result(
-        "pyspark",
-        entities=(
-            _entity(job, DomainEntityKind.SPARK_JOB, "etl", "jobs/etl.py"),
+    )
+    _persist(
+        store,
+        repo_id,
+        snap,
+        file_ids,
+        _result(
+            "pyspark",
+            entities=(_entity(job, DomainEntityKind.SPARK_JOB, "etl", "jobs/etl.py"),),
+            evidence_paths=(("jobs/etl.py", ""),),
         ),
-        evidence_paths=(("jobs/etl.py", ""),),
-    ))
+    )
 
     plan = CrossDomainResolver().plan(store, snap)
-    store.persist_cross_resolutions(
-        snap, plan.update_rows(), plan.insert_rows(snap)
-    )
+    store.persist_cross_resolutions(snap, plan.update_rows(), plan.insert_rows(snap))
     rows = _rel_rows(conn)
     prov = [r for r in rows if r["type"] == "PROVISIONS"]
     assert len(prov) == 1
@@ -335,10 +375,7 @@ def test_terraform_provisions_spark_job_via_qualified_path(
     assert row["to_entity_occ_id"] == _occ_id(store, repo_id, snap, job)
     ev = json.loads(row["evidence_ids"])
     paths = {
-        conn.execute(
-            "SELECT path FROM evidence WHERE id = ?", (e,)
-        ).fetchone()["path"]
-        for e in ev
+        conn.execute("SELECT path FROM evidence WHERE id = ?", (e,)).fetchone()["path"] for e in ev
     }
     assert paths == {"infra/main.tf", "jobs/etl.py"}
 
@@ -350,35 +387,46 @@ def test_consumer_literal_resolves_to_contract_endpoint(
     casa literal method+path com o ``APIEndpoint`` do contrato."""
     conn, store, repo_id, snap, file_ids = workspace
     ep = _ident(
-        "api", qualified_name="GET /v1/pets", namespace="petstore",
+        "api",
+        qualified_name="GET /v1/pets",
+        namespace="petstore",
     )
     sym_occ = store.symbol_occurrences_for_name(snap, "mod.target")
     assert len(sym_occ) == 1
-    _persist(store, repo_id, snap, file_ids, _result(
-        "api",
-        entities=(
-            _entity(
-                ep, DomainEntityKind.API_ENDPOINT, "GET /v1/pets",
-                "openapi/spec.yaml",
-                attrs={"method": "GET", "full_path": "/v1/pets"},
+    _persist(
+        store,
+        repo_id,
+        snap,
+        file_ids,
+        _result(
+            "api",
+            entities=(
+                _entity(
+                    ep,
+                    DomainEntityKind.API_ENDPOINT,
+                    "GET /v1/pets",
+                    "openapi/spec.yaml",
+                    attrs={"method": "GET", "full_path": "/v1/pets"},
+                ),
+            ),
+            relations=(
+                ExtractedDomainRelation(
+                    relation_type="CALLS_ENDPOINT",
+                    path="mod.py",
+                    from_symbol="mod.target",
+                    to_unresolved="/v1/pets",
+                    evidence=(1,),
+                ),
+            ),
+            evidence_paths=(
+                ("openapi/spec.yaml", ""),
+                ("mod.py", "method=GET"),
             ),
         ),
-        relations=(
-            ExtractedDomainRelation(
-                relation_type="CALLS_ENDPOINT", path="mod.py",
-                from_symbol="mod.target", to_unresolved="/v1/pets",
-                evidence=(1,),
-            ),
-        ),
-        evidence_paths=(
-            ("openapi/spec.yaml", ""), ("mod.py", "method=GET"),
-        ),
-    ))
+    )
 
     plan = CrossDomainResolver().plan(store, snap)
-    store.persist_cross_resolutions(
-        snap, plan.update_rows(), plan.insert_rows(snap)
-    )
+    store.persist_cross_resolutions(snap, plan.update_rows(), plan.insert_rows(snap))
     row = next(r for r in _rel_rows(conn) if r["type"] == "CALLS_ENDPOINT")
     assert row["resolution_status"] == "resolved"
     assert row["resolver"] == CROSS_RESOLVER_ID
@@ -393,35 +441,53 @@ def test_consumer_literal_without_method_is_ambiguous(
     (GET e POST no mesmo path) → ambiguous com ambos os candidatos."""
     conn, store, repo_id, snap, file_ids = workspace
     ep_get = _ident(
-        "api", qualified_name="GET /v1/pets", namespace="petstore",
+        "api",
+        qualified_name="GET /v1/pets",
+        namespace="petstore",
     )
     ep_post = _ident(
-        "api", qualified_name="POST /v1/pets", namespace="petstore",
-    )
-    _persist(store, repo_id, snap, file_ids, _result(
         "api",
-        entities=(
-            _entity(ep_get, DomainEntityKind.API_ENDPOINT, "GET /v1/pets",
+        qualified_name="POST /v1/pets",
+        namespace="petstore",
+    )
+    _persist(
+        store,
+        repo_id,
+        snap,
+        file_ids,
+        _result(
+            "api",
+            entities=(
+                _entity(
+                    ep_get,
+                    DomainEntityKind.API_ENDPOINT,
+                    "GET /v1/pets",
                     "openapi/spec.yaml",
-                    attrs={"method": "GET", "full_path": "/v1/pets"}),
-            _entity(ep_post, DomainEntityKind.API_ENDPOINT,
-                    "POST /v1/pets", "openapi/spec.yaml",
-                    attrs={"method": "POST", "full_path": "/v1/pets"}),
-        ),
-        relations=(
-            ExtractedDomainRelation(
-                relation_type="CALLS_ENDPOINT", path="mod.py",
-                from_symbol="mod.target", to_unresolved="/v1/pets",
-                evidence=(1,),
+                    attrs={"method": "GET", "full_path": "/v1/pets"},
+                ),
+                _entity(
+                    ep_post,
+                    DomainEntityKind.API_ENDPOINT,
+                    "POST /v1/pets",
+                    "openapi/spec.yaml",
+                    attrs={"method": "POST", "full_path": "/v1/pets"},
+                ),
             ),
+            relations=(
+                ExtractedDomainRelation(
+                    relation_type="CALLS_ENDPOINT",
+                    path="mod.py",
+                    from_symbol="mod.target",
+                    to_unresolved="/v1/pets",
+                    evidence=(1,),
+                ),
+            ),
+            evidence_paths=(("openapi/spec.yaml", ""), ("mod.py", "")),
         ),
-        evidence_paths=(("openapi/spec.yaml", ""), ("mod.py", "")),
-    ))
+    )
 
     plan = CrossDomainResolver().plan(store, snap)
-    store.persist_cross_resolutions(
-        snap, plan.update_rows(), plan.insert_rows(snap)
-    )
+    store.persist_cross_resolutions(snap, plan.update_rows(), plan.insert_rows(snap))
     row = next(r for r in _rel_rows(conn) if r["type"] == "CALLS_ENDPOINT")
     assert row["resolution_status"] == "ambiguous"
     assert row["to_entity_occ_id"] is None
@@ -436,27 +502,36 @@ def test_absolute_url_stays_external(
     com endpoint local de mesmo path."""
     conn, store, repo_id, snap, file_ids = workspace
     ep = _ident("api", qualified_name="GET /v1/pets", namespace="petstore")
-    _persist(store, repo_id, snap, file_ids, _result(
-        "api",
-        entities=(
-            _entity(ep, DomainEntityKind.API_ENDPOINT, "GET /v1/pets",
+    _persist(
+        store,
+        repo_id,
+        snap,
+        file_ids,
+        _result(
+            "api",
+            entities=(
+                _entity(
+                    ep,
+                    DomainEntityKind.API_ENDPOINT,
+                    "GET /v1/pets",
                     "openapi/spec.yaml",
-                    attrs={"method": "GET", "full_path": "/v1/pets"}),
-        ),
-        relations=(
-            ExtractedDomainRelation(
-                relation_type="CALLS_ENDPOINT", path="mod.py",
-                from_symbol="mod.target",
-                to_unresolved="https://api.other.example/v1/pets",
-                evidence=(1,),
+                    attrs={"method": "GET", "full_path": "/v1/pets"},
+                ),
             ),
+            relations=(
+                ExtractedDomainRelation(
+                    relation_type="CALLS_ENDPOINT",
+                    path="mod.py",
+                    from_symbol="mod.target",
+                    to_unresolved="https://api.other.example/v1/pets",
+                    evidence=(1,),
+                ),
+            ),
+            evidence_paths=(("openapi/spec.yaml", ""), ("mod.py", "")),
         ),
-        evidence_paths=(("openapi/spec.yaml", ""), ("mod.py", "")),
-    ))
-    plan = CrossDomainResolver().plan(store, snap)
-    store.persist_cross_resolutions(
-        snap, plan.update_rows(), plan.insert_rows(snap)
     )
+    plan = CrossDomainResolver().plan(store, snap)
+    store.persist_cross_resolutions(snap, plan.update_rows(), plan.insert_rows(snap))
     row = next(r for r in _rel_rows(conn) if r["type"] == "CALLS_ENDPOINT")
     assert row["resolution_status"] == "external"
     assert row["to_entity_occ_id"] is None
@@ -469,36 +544,44 @@ def test_arn_resolves_by_account_region_resource(
     carrega conta+região e cujo nome é o recurso — resolved."""
     conn, store, repo_id, snap, file_ids = workspace
     job_ent = _ident(
-        "awsdata", catalog="aws:123:us-east-1", qualified_name="etl",
+        "awsdata",
+        catalog="aws:123:us-east-1",
+        qualified_name="etl",
     )
     job = _ident("pyspark", qualified_name="daily_load")
-    _persist(store, repo_id, snap, file_ids, _result(
-        "awsdata",
-        entities=(
-            _entity(job_ent, DomainEntityKind.GLUE_JOB, "etl", "q.sql"),
+    _persist(
+        store,
+        repo_id,
+        snap,
+        file_ids,
+        _result(
+            "awsdata",
+            entities=(_entity(job_ent, DomainEntityKind.GLUE_JOB, "etl", "q.sql"),),
+            evidence_paths=(("q.sql", ""),),
         ),
-        evidence_paths=(("q.sql", ""),),
-    ))
-    _persist(store, repo_id, snap, file_ids, _result(
-        "pyspark",
-        entities=(
-            _entity(job, DomainEntityKind.SPARK_JOB, "daily_load",
-                    "jobs/etl.py"),
-        ),
-        relations=(
-            ExtractedDomainRelation(
-                relation_type="USES_RESOURCE", path="jobs/etl.py",
-                from_identity=job,
-                to_unresolved="arn:aws:glue:us-east-1:123:job/etl",
-                evidence=(0,),
-            ),
-        ),
-        evidence_paths=(("jobs/etl.py", ""),),
-    ))
-    plan = CrossDomainResolver().plan(store, snap)
-    store.persist_cross_resolutions(
-        snap, plan.update_rows(), plan.insert_rows(snap)
     )
+    _persist(
+        store,
+        repo_id,
+        snap,
+        file_ids,
+        _result(
+            "pyspark",
+            entities=(_entity(job, DomainEntityKind.SPARK_JOB, "daily_load", "jobs/etl.py"),),
+            relations=(
+                ExtractedDomainRelation(
+                    relation_type="USES_RESOURCE",
+                    path="jobs/etl.py",
+                    from_identity=job,
+                    to_unresolved="arn:aws:glue:us-east-1:123:job/etl",
+                    evidence=(0,),
+                ),
+            ),
+            evidence_paths=(("jobs/etl.py", ""),),
+        ),
+    )
+    plan = CrossDomainResolver().plan(store, snap)
+    store.persist_cross_resolutions(snap, plan.update_rows(), plan.insert_rows(snap))
     row = next(r for r in _rel_rows(conn) if r["type"] == "USES_RESOURCE")
     assert row["resolution_status"] == "resolved"
     assert row["to_entity_occ_id"] == _occ_id(store, repo_id, snap, job_ent)
@@ -513,39 +596,51 @@ def test_name_only_collision_stays_unresolved_diagnostic(
     t_sql = _ident("sql", qualified_name="orders")
     t_glue = _ident("glue", qualified_name="orders")
     job = _ident("pyspark", qualified_name="daily_load")
-    _persist(store, repo_id, snap, file_ids, _result(
-        "sql",
-        entities=(
-            _entity(t_sql, DomainEntityKind.DATA_TABLE, "orders", "q.sql"),
+    _persist(
+        store,
+        repo_id,
+        snap,
+        file_ids,
+        _result(
+            "sql",
+            entities=(_entity(t_sql, DomainEntityKind.DATA_TABLE, "orders", "q.sql"),),
+            evidence_paths=(("q.sql", ""),),
         ),
-        evidence_paths=(("q.sql", ""),),
-    ))
-    _persist(store, repo_id, snap, file_ids, _result(
-        "glue",
-        entities=(
-            _entity(t_glue, DomainEntityKind.DATA_TABLE, "orders", "q.sql"),
+    )
+    _persist(
+        store,
+        repo_id,
+        snap,
+        file_ids,
+        _result(
+            "glue",
+            entities=(_entity(t_glue, DomainEntityKind.DATA_TABLE, "orders", "q.sql"),),
+            evidence_paths=(("q.sql", ""),),
         ),
-        evidence_paths=(("q.sql", ""),),
-    ))
-    _persist(store, repo_id, snap, file_ids, _result(
-        "pyspark",
-        entities=(
-            _entity(job, DomainEntityKind.SPARK_JOB, "daily_load",
-                    "jobs/etl.py"),
-        ),
-        relations=(
-            ExtractedDomainRelation(
-                relation_type="READS_FROM", path="jobs/etl.py",
-                from_identity=job, to_unresolved="orders", evidence=(0,),
+    )
+    _persist(
+        store,
+        repo_id,
+        snap,
+        file_ids,
+        _result(
+            "pyspark",
+            entities=(_entity(job, DomainEntityKind.SPARK_JOB, "daily_load", "jobs/etl.py"),),
+            relations=(
+                ExtractedDomainRelation(
+                    relation_type="READS_FROM",
+                    path="jobs/etl.py",
+                    from_identity=job,
+                    to_unresolved="orders",
+                    evidence=(0,),
+                ),
             ),
+            evidence_paths=(("jobs/etl.py", ""),),
         ),
-        evidence_paths=(("jobs/etl.py", ""),),
-    ))
+    )
 
     plan = CrossDomainResolver().plan(store, snap)
-    counts = store.persist_cross_resolutions(
-        snap, plan.update_rows(), plan.insert_rows(snap)
-    )
+    counts = store.persist_cross_resolutions(snap, plan.update_rows(), plan.insert_rows(snap))
     assert counts == {"cross_updated": 0, "cross_inserted": 0}
     codes = {d.code for d in plan.diagnostics}
     assert "unqualified-target" in codes
@@ -562,26 +657,30 @@ def test_repo_path_target_resolves_to_file_symbol(
     naquele arquivo → ocorrência do símbolo FILE (ponte domínio→código)."""
     conn, store, repo_id, snap, file_ids = workspace
     job = _ident("cicd", qualified_name="build")
-    _persist(store, repo_id, snap, file_ids, _result(
-        "cicd",
-        entities=(
-            _entity(job, DomainEntityKind.CICD_JOB, "build",
-                    "jobs/etl.py"),
-        ),
-        relations=(
-            ExtractedDomainRelation(
-                relation_type="DEPLOYS", path="jobs/etl.py",
-                from_identity=job, to_unresolved="q.sql", evidence=(0,),
+    _persist(
+        store,
+        repo_id,
+        snap,
+        file_ids,
+        _result(
+            "cicd",
+            entities=(_entity(job, DomainEntityKind.CICD_JOB, "build", "jobs/etl.py"),),
+            relations=(
+                ExtractedDomainRelation(
+                    relation_type="DEPLOYS",
+                    path="jobs/etl.py",
+                    from_identity=job,
+                    to_unresolved="q.sql",
+                    evidence=(0,),
+                ),
             ),
+            evidence_paths=(("jobs/etl.py", ""),),
         ),
-        evidence_paths=(("jobs/etl.py", ""),),
-    ))
+    )
     file_occ = store.symbol_occurrences_for_name(snap, "q.sql")
     assert len(file_occ) == 1
     plan = CrossDomainResolver().plan(store, snap)
-    store.persist_cross_resolutions(
-        snap, plan.update_rows(), plan.insert_rows(snap)
-    )
+    store.persist_cross_resolutions(snap, plan.update_rows(), plan.insert_rows(snap))
     row = next(r for r in _rel_rows(conn) if r["type"] == "DEPLOYS")
     assert row["resolution_status"] == "resolved"
     assert row["to_symbol_occ_id"] == file_occ[0]
@@ -594,30 +693,37 @@ def test_same_domain_target_not_cross_resolved(
     cross-domain (decisão do próprio adapter), fica unresolved."""
     conn, store, repo_id, snap, file_ids = workspace
     table = _ident(
-        "sql", catalog="cat1", namespace="analytics",
+        "sql",
+        catalog="cat1",
+        namespace="analytics",
         qualified_name="orders",
     )
     job = _ident("sql", qualified_name="daily_load")
-    _persist(store, repo_id, snap, file_ids, _result(
-        "sql",
-        entities=(
-            _entity(table, DomainEntityKind.DATA_TABLE, "orders", "q.sql"),
-            _entity(job, DomainEntityKind.DATA_PIPELINE, "daily_load",
-                    "q.sql"),
-        ),
-        relations=(
-            ExtractedDomainRelation(
-                relation_type="READS_FROM", path="q.sql",
-                from_identity=job, to_unresolved="cat1.analytics.orders",
-                evidence=(0,),
+    _persist(
+        store,
+        repo_id,
+        snap,
+        file_ids,
+        _result(
+            "sql",
+            entities=(
+                _entity(table, DomainEntityKind.DATA_TABLE, "orders", "q.sql"),
+                _entity(job, DomainEntityKind.DATA_PIPELINE, "daily_load", "q.sql"),
             ),
+            relations=(
+                ExtractedDomainRelation(
+                    relation_type="READS_FROM",
+                    path="q.sql",
+                    from_identity=job,
+                    to_unresolved="cat1.analytics.orders",
+                    evidence=(0,),
+                ),
+            ),
+            evidence_paths=(("q.sql", ""),),
         ),
-        evidence_paths=(("q.sql", ""),),
-    ))
-    plan = CrossDomainResolver().plan(store, snap)
-    store.persist_cross_resolutions(
-        snap, plan.update_rows(), plan.insert_rows(snap)
     )
+    plan = CrossDomainResolver().plan(store, snap)
+    store.persist_cross_resolutions(snap, plan.update_rows(), plan.insert_rows(snap))
     row = _rel_rows(conn)[0]
     assert row["resolution_status"] == "unresolved"
 
@@ -648,37 +754,46 @@ def test_resolution_confined_to_one_snapshot(tmp_path: Path) -> None:
         for r in conn.execute("SELECT id, relative_path FROM source_files")
     }
     table = _ident(
-        "sql", catalog="cat1", namespace="analytics",
+        "sql",
+        catalog="cat1",
+        namespace="analytics",
         qualified_name="orders",
     )
-    _persist(store, repo_id, snap1, fids, _result(
-        "sql",
-        entities=(
-            _entity(table, DomainEntityKind.DATA_TABLE, "orders", "q.sql"),
+    _persist(
+        store,
+        repo_id,
+        snap1,
+        fids,
+        _result(
+            "sql",
+            entities=(_entity(table, DomainEntityKind.DATA_TABLE, "orders", "q.sql"),),
+            evidence_paths=(("q.sql", ""),),
         ),
-        evidence_paths=(("q.sql", ""),),
-    ))
+    )
     job = _ident("pyspark", qualified_name="daily_load")
-    _persist(store, repo_id, snap1, fids, _result(
-        "pyspark",
-        entities=(
-            _entity(job, DomainEntityKind.SPARK_JOB, "daily_load",
-                    "job.py"),
-        ),
-        relations=(
-            ExtractedDomainRelation(
-                relation_type="READS_FROM", path="job.py",
-                from_identity=job, to_unresolved="cat1.analytics.orders",
-                evidence=(0,),
+    _persist(
+        store,
+        repo_id,
+        snap1,
+        fids,
+        _result(
+            "pyspark",
+            entities=(_entity(job, DomainEntityKind.SPARK_JOB, "daily_load", "job.py"),),
+            relations=(
+                ExtractedDomainRelation(
+                    relation_type="READS_FROM",
+                    path="job.py",
+                    from_identity=job,
+                    to_unresolved="cat1.analytics.orders",
+                    evidence=(0,),
+                ),
             ),
+            evidence_paths=(("job.py", ""),),
         ),
-        evidence_paths=(("job.py", ""),),
-    ))
+    )
     plan1 = CrossDomainResolver().plan(store, snap1)
     assert len(plan1.updates) == 1
-    store.persist_cross_resolutions(
-        snap1, plan1.update_rows(), plan1.insert_rows(snap1)
-    )
+    store.persist_cross_resolutions(snap1, plan1.update_rows(), plan1.insert_rows(snap1))
     conn.commit()
 
     # segundo snapshot — conteúdo novo; a entidade sql existe logicamente
@@ -688,27 +803,31 @@ def test_resolution_confined_to_one_snapshot(tmp_path: Path) -> None:
     assert out2.status == "success" and out2.snapshot_id is not None
     snap2 = out2.snapshot_id
     assert snap2 != snap1
-    _persist(store, repo_id, snap2, fids, _result(
-        "pyspark",
-        entities=(
-            _entity(job, DomainEntityKind.SPARK_JOB, "daily_load",
-                    "job.py"),
-        ),
-        relations=(
-            ExtractedDomainRelation(
-                relation_type="READS_FROM", path="job.py",
-                from_identity=job, to_unresolved="cat1.analytics.orders",
-                evidence=(0,),
+    _persist(
+        store,
+        repo_id,
+        snap2,
+        fids,
+        _result(
+            "pyspark",
+            entities=(_entity(job, DomainEntityKind.SPARK_JOB, "daily_load", "job.py"),),
+            relations=(
+                ExtractedDomainRelation(
+                    relation_type="READS_FROM",
+                    path="job.py",
+                    from_identity=job,
+                    to_unresolved="cat1.analytics.orders",
+                    evidence=(0,),
+                ),
             ),
+            evidence_paths=(("job.py", ""),),
         ),
-        evidence_paths=(("job.py", ""),),
-    ))
+    )
     plan2 = CrossDomainResolver().plan(store, snap2)
     assert plan2.updates == ()
     assert plan2.edges == ()
     row2 = conn.execute(
-        "SELECT resolution_status FROM domain_relations"
-        " WHERE snapshot_id = ?",
+        "SELECT resolution_status FROM domain_relations WHERE snapshot_id = ?",
         (snap2,),
     ).fetchone()
     assert row2["resolution_status"] == "unresolved"
@@ -725,9 +844,7 @@ def test_resolution_confined_to_one_snapshot(tmp_path: Path) -> None:
 class _StubAdapter:
     """Adapter mínimo do contrato — devolve resultado fixo do teste."""
 
-    def __init__(
-        self, domain_id: str, ext: str, result_kind: str
-    ) -> None:
+    def __init__(self, domain_id: str, ext: str, result_kind: str) -> None:
         self._domain = domain_id
         self._ext = ext
         self._kind = result_kind
@@ -760,36 +877,33 @@ class _StubAdapter:
     def discovery_rules(self) -> tuple[DiscoveryRule, ...]:
         return ()
 
-    def extract(
-        self, request: DomainExtractionRequest
-    ) -> DomainExtractionResult:
+    def extract(self, request: DomainExtractionRequest) -> DomainExtractionResult:
         repo = request.repository
         if self._kind == "sql":
             table = DomainIdentity(
-                domain="sql", repository=repo, catalog="cat1",
-                namespace="analytics", qualified_name="orders",
+                domain="sql",
+                repository=repo,
+                catalog="cat1",
+                namespace="analytics",
+                qualified_name="orders",
             )
             return _result(
                 "sql",
-                entities=(
-                    _entity(table, DomainEntityKind.DATA_TABLE,
-                            "orders", "a.sqx"),
-                ),
+                entities=(_entity(table, DomainEntityKind.DATA_TABLE, "orders", "a.sqx"),),
                 evidence_paths=(("a.sqx", ""),),
             )
         job = DomainIdentity(
-            domain="pyspark", repository=repo,
+            domain="pyspark",
+            repository=repo,
             qualified_name="daily_load",
         )
         return _result(
             "pyspark",
-            entities=(
-                _entity(job, DomainEntityKind.SPARK_JOB, "daily_load",
-                        "b.pyx"),
-            ),
+            entities=(_entity(job, DomainEntityKind.SPARK_JOB, "daily_load", "b.pyx"),),
             relations=(
                 ExtractedDomainRelation(
-                    relation_type="READS_FROM", path="b.pyx",
+                    relation_type="READS_FROM",
+                    path="b.pyx",
                     from_identity=job,
                     to_unresolved="cat1.analytics.orders",
                     evidence=(0,),
@@ -819,7 +933,8 @@ def test_coordinator_runs_cross_resolution_when_opted_in(
     reg.register(_StubAdapter("sql", ".sqx", "sql"))
     reg.register(_StubAdapter("pyspark", ".pyx", "pyspark"))
     out = IndexCoordinator(
-        conn, domain_registry=reg,
+        conn,
+        domain_registry=reg,
         cross_resolver=CrossDomainResolver(),
     ).index(root)
     assert out.status == "success", out.error
@@ -848,8 +963,7 @@ def test_coordinator_leaves_unresolved_without_opt_in(
     out = IndexCoordinator(conn, domain_registry=reg).index(root)
     assert out.status == "success", out.error
     row = conn.execute(
-        "SELECT resolution_status, resolver FROM domain_relations"
-        " WHERE type = 'READS_FROM'"
+        "SELECT resolution_status, resolver FROM domain_relations WHERE type = 'READS_FROM'"
     ).fetchone()
     assert row["resolution_status"] == "unresolved"
     assert row["resolver"] != CROSS_RESOLVER_ID
@@ -862,36 +976,45 @@ def test_plan_is_idempotent_on_persisted_state(
     vazio — nenhum update repetido, nenhuma aresta duplicada."""
     _conn, store, repo_id, snap, file_ids = workspace
     table = _ident(
-        "sql", catalog="cat1", namespace="analytics",
+        "sql",
+        catalog="cat1",
+        namespace="analytics",
         qualified_name="orders",
     )
     job = _ident("pyspark", qualified_name="daily_load")
-    _persist(store, repo_id, snap, file_ids, _result(
-        "sql",
-        entities=(
-            _entity(table, DomainEntityKind.DATA_TABLE, "orders", "q.sql"),
+    _persist(
+        store,
+        repo_id,
+        snap,
+        file_ids,
+        _result(
+            "sql",
+            entities=(_entity(table, DomainEntityKind.DATA_TABLE, "orders", "q.sql"),),
+            evidence_paths=(("q.sql", ""),),
         ),
-        evidence_paths=(("q.sql", ""),),
-    ))
-    _persist(store, repo_id, snap, file_ids, _result(
-        "pyspark",
-        entities=(
-            _entity(job, DomainEntityKind.SPARK_JOB, "daily_load",
-                    "jobs/etl.py"),
-        ),
-        relations=(
-            ExtractedDomainRelation(
-                relation_type="READS_FROM", path="jobs/etl.py",
-                from_identity=job, to_unresolved="cat1.analytics.orders",
+    )
+    _persist(
+        store,
+        repo_id,
+        snap,
+        file_ids,
+        _result(
+            "pyspark",
+            entities=(_entity(job, DomainEntityKind.SPARK_JOB, "daily_load", "jobs/etl.py"),),
+            relations=(
+                ExtractedDomainRelation(
+                    relation_type="READS_FROM",
+                    path="jobs/etl.py",
+                    from_identity=job,
+                    to_unresolved="cat1.analytics.orders",
+                ),
             ),
+            evidence_paths=(("jobs/etl.py", ""),),
         ),
-        evidence_paths=(("jobs/etl.py", ""),),
-    ))
+    )
     resolver = CrossDomainResolver()
     plan = resolver.plan(store, snap)
-    store.persist_cross_resolutions(
-        snap, plan.update_rows(), plan.insert_rows(snap)
-    )
+    store.persist_cross_resolutions(snap, plan.update_rows(), plan.insert_rows(snap))
     again = resolver.plan(store, snap)
     assert again.updates == ()
     assert again.edges == ()

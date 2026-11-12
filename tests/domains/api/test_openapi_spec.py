@@ -41,7 +41,9 @@ def test_petstore_contract_service_endpoints(extract) -> None:
     assert svc.attributes["source"] == "openapi-spec"
 
     assert {_qn(e) for e in endpoints} == {
-        "GET /v1/pets", "POST /v1/pets", "GET /v1/pets/{petId}",
+        "GET /v1/pets",
+        "POST /v1/pets",
+        "GET /v1/pets/{petId}",
     }
     for e in endpoints:
         assert e.identity.namespace == "openapi/petstore.yaml#pet-store"

@@ -130,15 +130,15 @@ class JsonRpcTransport:
         try:
             fd = reader.fileno()
         except (OSError, AttributeError) as exc:
-            raise TransportError(
-                f"reader has no usable fileno: {exc}") from exc
+            raise TransportError(f"reader has no usable fileno: {exc}") from exc
         # guarda o objeto reader — se ele for coletado, o fd morre junto
         # e o transport fica surdo silenciosamente
         self._reader = reader
         self._reader_fd = fd
         self._fd_reader = _FdReader(fd, self._closed)
         self._reader_thread = threading.Thread(
-            target=self._read_loop, daemon=True, name="atlas-lsp-reader")
+            target=self._read_loop, daemon=True, name="atlas-lsp-reader"
+        )
         self._reader_thread.start()
 
     # -- leitura ---------------------------------------------------------
@@ -169,8 +169,7 @@ class JsonRpcTransport:
                 try:
                     length = int(line.split(b":", 1)[1].strip())
                 except ValueError as exc:
-                    raise TransportError(
-                        f"bad Content-Length: {line!r}") from exc
+                    raise TransportError(f"bad Content-Length: {line!r}") from exc
         if length is None:
             raise TransportError("missing Content-Length header")
         if length > self._max or length <= 0:
@@ -217,8 +216,7 @@ class JsonRpcTransport:
         try:
             item = self._inbox.get(timeout=timeout)
         except queue.Empty as exc:
-            raise TimeoutError(
-                f"no LSP message within {timeout}s") from exc
+            raise TimeoutError(f"no LSP message within {timeout}s") from exc
         if isinstance(item, BaseException):
             raise item
         return item

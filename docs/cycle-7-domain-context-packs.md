@@ -86,9 +86,16 @@ CLI/MCP/API domain commands). The integration point, when it lands:
 
 ```python
 # POST /context/domain  (api/handlers.py — DO NOT wire in this spec)
-pack = DomainContextEngine(conn).build_domain(DomainPackRequest(
-    seed=..., repository_root=..., snapshot_id=..., level=...,
-    budget_tokens=min(budget, 64000), max_neighbors=...))
+pack = DomainContextEngine(conn).build_domain(
+    DomainPackRequest(
+        seed=...,
+        repository_root=...,
+        snapshot_id=...,
+        level=...,
+        budget_tokens=min(budget, 64000),
+        max_neighbors=...,
+    )
+)
 return pack.to_dict()
 
 # GET /domains/entities?identity_key=…&repository_root=…&snapshot_id=…

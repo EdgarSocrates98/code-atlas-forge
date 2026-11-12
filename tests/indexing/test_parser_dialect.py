@@ -58,9 +58,7 @@ def test_import_equals_require_and_export_equals_index(
     publica READY e as arestas IMPORTS saem com alvo real."""
     repo = tmp_path / "axioslike"
     repo.mkdir()
-    (repo / "index.d.cts").write_text(
-        "declare const axios: number;\nexport = axios;\n"
-    )
+    (repo / "index.d.cts").write_text("declare const axios: number;\nexport = axios;\n")
     (repo / "use.ts").write_text("import axios = require('axios');\n")
     (repo / "mod.ts").write_text("export function f(): number {\n  return 1;\n}\n")
 
@@ -69,9 +67,7 @@ def test_import_equals_require_and_export_equals_index(
 
     rels = _relations(db, out.snapshot_id)
     imports = [r for r in rels if r["t"] == "IMPORTS"]
-    assert any(
-        r["fq"] == "use" and r["tu"] == "axios" for r in imports
-    )
+    assert any(r["fq"] == "use" and r["tu"] == "axios" for r in imports)
     # nenhuma aresta sem alvo textual persistida
     assert all(r["tq"] is not None or r["tu"] for r in rels)
 
@@ -87,8 +83,7 @@ def test_degenerate_relation_drops_edge_not_snapshot(tmp_path: Path) -> None:
     repo.mkdir()
     (repo / "ok.ts").write_text("export function ok() {}\n")
     s = scan(repo)
-    res = ParseEngine().parse(
-        "ok.ts", (repo / "ok.ts").read_bytes())
+    res = ParseEngine().parse("ok.ts", (repo / "ok.ts").read_bytes())
     bad = ParseResult(
         path="bad.ts",
         language="typescript",
@@ -99,7 +94,9 @@ def test_degenerate_relation_drops_edge_not_snapshot(tmp_path: Path) -> None:
         symbols=res.symbols[:1],  # módulo
         relations=(
             ExtractedRelation(
-                "IMPORTS", "bad", "",
+                "IMPORTS",
+                "bad",
+                "",
                 SourceSpan(0, 0, 1, 0, 1, 0),
             ),
         ),
@@ -107,23 +104,16 @@ def test_degenerate_relation_drops_edge_not_snapshot(tmp_path: Path) -> None:
     g = GraphBuilder().build("r", s, [res, bad])
     assert validate_graph(g) == []
     assert any(d.code == "empty-edge-target" for d in g.diagnostics)
-    assert not any(
-        e.type == "IMPORTS" and not e.to_text and e.to_id is None
-        for e in g.edges
-    )
+    assert not any(e.type == "IMPORTS" and not e.to_text and e.to_id is None for e in g.edges)
 
 
-def test_init_py_relative_import_resolves(
-    db: sqlite3.Connection, tmp_path: Path
-) -> None:
+def test_init_py_relative_import_resolves(db: sqlite3.Connection, tmp_path: Path) -> None:
     """`from .api import x` dentro de `pkg/__init__.py` — `.` é o
     próprio pacote: IMPORTS resolve para ``pkg.api`` (antes ficava
     unresolved — bug auditado no requests real)."""
     repo = tmp_path / "pyre"
     (repo / "pkg").mkdir(parents=True)
-    (repo / "pkg" / "__init__.py").write_text(
-        "from .api import helper\nfrom . import util\n"
-    )
+    (repo / "pkg" / "__init__.py").write_text("from .api import helper\nfrom . import util\n")
     (repo / "pkg" / "api.py").write_text("def helper(): return 1\n")
     (repo / "pkg" / "util.py").write_text("def u(): return 2\n")
 
@@ -132,28 +122,20 @@ def test_init_py_relative_import_resolves(
     rels = _relations(db, out.snapshot_id)
     imports = [r for r in rels if r["t"] == "IMPORTS"]
     assert any(
-        r["fq"] == "pkg" and r["tq"] == "pkg.api"
-        and r["rs"] == "resolved"
-        for r in imports
+        r["fq"] == "pkg" and r["tq"] == "pkg.api" and r["rs"] == "resolved" for r in imports
     ), imports
     assert any(
-        r["fq"] == "pkg" and r["tq"] == "pkg.util"
-        and r["rs"] == "resolved"
-        for r in imports
+        r["fq"] == "pkg" and r["tq"] == "pkg.util" and r["rs"] == "resolved" for r in imports
     ), imports
 
 
-def test_one_bad_file_does_not_abort_others(
-    db: sqlite3.Connection, tmp_path: Path
-) -> None:
+def test_one_bad_file_does_not_abort_others(db: sqlite3.Connection, tmp_path: Path) -> None:
     """Arquivo com sintaxe quebrada → parse-failed auditável; os demais
     arquivos publicam símbolos e arestas normalmente."""
     repo = tmp_path / "mixed"
     repo.mkdir()
     (repo / "bad.ts").write_text("import { from ;\nexport function x( {\n")
-    (repo / "ok1.ts").write_text(
-        "import {f} from './ok2';\nexport function a() { return f(); }\n"
-    )
+    (repo / "ok1.ts").write_text("import {f} from './ok2';\nexport function a() { return f(); }\n")
     (repo / "ok2.ts").write_text("export function f(): number {\n  return 1;\n}\n")
 
     out = IndexCoordinator(db).index(repo)

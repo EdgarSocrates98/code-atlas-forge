@@ -5,6 +5,7 @@ Cobre /domains, /domains/entities (+filtros/paginação), ego
 travessia bounded /domains/lineage — incluindo isolamento de snapshot,
 erros tipados e a recusa honesta de mutação (POST → 404).
 """
+
 from __future__ import annotations
 
 import json
@@ -75,8 +76,7 @@ resource "aws_iam_role" "etl" {
 def _index(tmp: Path) -> tuple[Path, int]:
     root = tmp / "repo"
     (root / "q.sql").parent.mkdir(parents=True, exist_ok=True)
-    (root / "q.sql").write_text(
-        "CREATE VIEW mart.v_orders AS SELECT * FROM mart.orders;\n")
+    (root / "q.sql").write_text("CREATE VIEW mart.v_orders AS SELECT * FROM mart.orders;\n")
     (root / "spec").mkdir(exist_ok=True)
     (root / "spec" / "openapi.yaml").write_text(OPENAPI_SPEC)
     (root / "infra").mkdir(exist_ok=True)
@@ -100,11 +100,11 @@ def _index(tmp: Path) -> tuple[Path, int]:
     return db, snap_id
 
 
-def _req(url: str, path: str, method: str = "GET",
-         body: dict | None = None) -> tuple[int, dict]:
+def _req(url: str, path: str, method: str = "GET", body: dict | None = None) -> tuple[int, dict]:
     data = json.dumps(body).encode() if body is not None else None
-    r = urllib.request.Request(url + path, data=data, method=method,
-                               headers={"Content-Type": "application/json"})
+    r = urllib.request.Request(
+        url + path, data=data, method=method, headers={"Content-Type": "application/json"}
+    )
     try:
         with urllib.request.urlopen(r, timeout=10) as resp:
             return resp.status, json.loads(resp.read())
@@ -132,8 +132,7 @@ class TestDomainApi(unittest.TestCase):
         db, cls.snap = _index(Path(cls._tmp.name))
         cls.db_path = db
         cls.server = serve(str(db), port=0)
-        cls.thread = threading.Thread(target=cls.server.serve_forever,
-                                      daemon=True)
+        cls.thread = threading.Thread(target=cls.server.serve_forever, daemon=True)
         cls.thread.start()
 
     @classmethod
@@ -151,9 +150,7 @@ class TestDomainApi(unittest.TestCase):
         sql_kinds = {k["kind"] for k in domains["sql"]["kinds"]}
         self.assertIn("data_table", sql_kinds)
         api_kinds = {k["kind"] for k in domains["api"]["kinds"]}
-        self.assertEqual(
-            {"api_contract", "api_service", "api_endpoint"} <= api_kinds,
-            True)
+        self.assertEqual({"api_contract", "api_service", "api_endpoint"} <= api_kinds, True)
         for dom in body["items"]:
             for k in dom["kinds"]:
                 self.assertGreaterEqual(k["entities"], 1)
@@ -169,41 +166,32 @@ class TestDomainApi(unittest.TestCase):
         code, body = _req(self.server.url, "/domains/entities?domain=sql")
         self.assertEqual(code, 200, body)
         self.assertTrue(body["items"])
-        self.assertTrue(
-            all(i["domain"] == "sql" for i in body["items"]))
-        code, body = _req(
-            self.server.url, "/domains/entities?kind=data_table")
+        self.assertTrue(all(i["domain"] == "sql" for i in body["items"]))
+        code, body = _req(self.server.url, "/domains/entities?kind=data_table")
         self.assertEqual(code, 200)
-        self.assertTrue(
-            all(i["kind"] == "data_table" for i in body["items"]))
+        self.assertTrue(all(i["kind"] == "data_table" for i in body["items"]))
 
     def test_entities_search_and_pagination(self) -> None:
         code, body = _req(self.server.url, "/domains/entities?q=v_orders")
         self.assertEqual(code, 200, body)
-        self.assertTrue(
-            any("v_orders" in i["qualified_name"] for i in body["items"]))
-        code, page = _req(
-            self.server.url, "/domains/entities?limit=1&offset=0")
+        self.assertTrue(any("v_orders" in i["qualified_name"] for i in body["items"]))
+        code, page = _req(self.server.url, "/domains/entities?limit=1&offset=0")
         self.assertEqual(code, 200)
         self.assertEqual(len(page["items"]), 1)
         self.assertTrue(page["truncated"])
         self.assertGreater(page["total"], 1)
-        code, page2 = _req(
-            self.server.url, "/domains/entities?limit=1&offset=1")
-        self.assertNotEqual(
-            page["items"][0]["id"], page2["items"][0]["id"])
+        code, page2 = _req(self.server.url, "/domains/entities?limit=1&offset=1")
+        self.assertNotEqual(page["items"][0]["id"], page2["items"][0]["id"])
 
     def test_entities_bad_filter_is_typed_error(self) -> None:
-        code, body = _req(
-            self.server.url, "/domains/entities?domain=sql%20OR%201=1")
+        code, body = _req(self.server.url, "/domains/entities?domain=sql%20OR%201=1")
         self.assertEqual(code, 400)
         self.assertEqual(body["error"]["code"], "bad-param")
 
     # --- /domains/entities/{id}/neighbors ------------------------------
     def test_entity_neighbors_ego(self) -> None:
         eid = _entity_id(self.server.url, "data_view", "v_orders")
-        code, body = _req(
-            self.server.url, f"/domains/entities/{eid}/neighbors")
+        code, body = _req(self.server.url, f"/domains/entities/{eid}/neighbors")
         self.assertEqual(code, 200, body)
         self.assertEqual(body["entity"]["qualified_name"], "v_orders")
         self.assertEqual(body["entity"]["namespace"], "mart")
@@ -215,25 +203,20 @@ class TestDomainApi(unittest.TestCase):
         self.assertTrue(edge["evidence_ids"])
 
     def test_entity_neighbors_404_and_scope(self) -> None:
-        code, body = _req(
-            self.server.url, "/domains/entities/999999/neighbors")
+        code, body = _req(self.server.url, "/domains/entities/999999/neighbors")
         self.assertEqual(code, 404)
         self.assertEqual(body["error"]["code"], "domain-entity-not-found")
         eid = _entity_id(self.server.url, "data_view", "v_orders")
-        code, body = _req(
-            self.server.url,
-            f"/domains/entities/{eid}/neighbors?repository_id=99999")
+        code, body = _req(self.server.url, f"/domains/entities/{eid}/neighbors?repository_id=99999")
         self.assertEqual(code, 404)
         self.assertEqual(body["error"]["code"], "repo-not-found")
 
     # --- /domains/relations --------------------------------------------
     def test_relations_filtered_by_type(self) -> None:
-        code, body = _req(
-            self.server.url, "/domains/relations?type=DEPENDS_ON")
+        code, body = _req(self.server.url, "/domains/relations?type=DEPENDS_ON")
         self.assertEqual(code, 200, body)
         self.assertTrue(body["edges"])
-        self.assertTrue(
-            all(e["type"] == "DEPENDS_ON" for e in body["edges"]))
+        self.assertTrue(all(e["type"] == "DEPENDS_ON" for e in body["edges"]))
         dep = body["edges"][0]
         self.assertIn("ci.yml#ci/jobs/deploy", dep["from"]["qualified_name"])
         self.assertIn("ci.yml#ci/jobs/build", dep["to"]["qualified_name"])
@@ -243,8 +226,7 @@ class TestDomainApi(unittest.TestCase):
         # quebravam sorted() — ``A | B - {None}`` deixava None no set.
 
         eid = _entity_id(self.server.url, "data_view", "v_orders")
-        code, body = _req(
-            self.server.url, f"/domains/entities/{eid}/neighbors")
+        code, body = _req(self.server.url, f"/domains/entities/{eid}/neighbors")
         self.assertEqual(code, 200, body)
         edge = next(e for e in body["edges"] if e["type"] == "DERIVES_FROM")
         row = {
@@ -263,15 +245,14 @@ class TestDomainApi(unittest.TestCase):
         conn = connect(self.db_path)
         try:
             sid = conn.execute(
-                "SELECT id FROM snapshots WHERE status='READY' "
-                "ORDER BY id DESC LIMIT 1").fetchone()[0]
+                "SELECT id FROM snapshots WHERE status='READY' ORDER BY id DESC LIMIT 1"
+            ).fetchone()[0]
             return _hydrate_domain_endpoints(conn, sid, [row])
         finally:
             conn.close()
 
     def test_relations_unresolved_targets_stay_textual(self) -> None:
-        code, body = _req(
-            self.server.url, "/domains/relations?type=TRIGGERS")
+        code, body = _req(self.server.url, "/domains/relations?type=TRIGGERS")
         self.assertEqual(code, 200, body)
         self.assertTrue(body["edges"])
         trig = body["edges"][0]
@@ -282,8 +263,7 @@ class TestDomainApi(unittest.TestCase):
     # --- /domains/lineage -----------------------------------------------
     def test_lineage_upstream_and_downstream(self) -> None:
         vid = _entity_id(self.server.url, "data_view", "v_orders")
-        code, body = _req(
-            self.server.url, f"/domains/lineage?table={vid}")
+        code, body = _req(self.server.url, f"/domains/lineage?table={vid}")
         self.assertEqual(code, 200, body)
         self.assertEqual(body["root"]["qualified_name"], "v_orders")
         upstream = [n for n in body["nodes"] if n["lane"] == "upstream"]
@@ -291,41 +271,36 @@ class TestDomainApi(unittest.TestCase):
         self.assertIn("orders", names)
         orders_id = _entity_id(self.server.url, "data_table", "orders")
         code, down = _req(
-            self.server.url,
-            f"/domains/lineage?table={orders_id}&direction=downstream")
+            self.server.url, f"/domains/lineage?table={orders_id}&direction=downstream"
+        )
         self.assertEqual(code, 200)
         down_names = {n.get("qualified_name") for n in down["nodes"]}
         self.assertIn("v_orders", down_names)
 
     def test_lineage_by_qualified_name_and_errors(self) -> None:
         code, body = _req(
-            self.server.url,
-            "/domains/lineage?table=" + urllib.parse.quote("v_orders"))
+            self.server.url, "/domains/lineage?table=" + urllib.parse.quote("v_orders")
+        )
         self.assertEqual(code, 200, body)
         code, body = _req(self.server.url, "/domains/lineage?table=nope")
         self.assertEqual(code, 404)
         self.assertEqual(body["error"]["code"], "lineage-target-not-found")
         code, body = _req(self.server.url, "/domains/lineage")
         self.assertEqual(code, 400)
-        code, body = _req(
-            self.server.url, "/domains/lineage?table=v_orders"
-            "&direction=sideways")
+        code, body = _req(self.server.url, "/domains/lineage?table=v_orders&direction=sideways")
         self.assertEqual(code, 400)
 
     def test_lineage_depth_zero_returns_root_only(self) -> None:
         vid = _entity_id(self.server.url, "data_view", "v_orders")
-        code, body = _req(
-            self.server.url, f"/domains/lineage?table={vid}&depth=0")
+        code, body = _req(self.server.url, f"/domains/lineage?table={vid}&depth=0")
         self.assertEqual(code, 200, body)
         self.assertEqual(body["nodes"], [])
         self.assertEqual(body["edges"], [])
 
     # --- superfície é somente leitura ------------------------------------
     def test_mutation_methods_are_rejected(self) -> None:
-        for route in ("/domains", "/domains/entities",
-                      "/domains/relations", "/domains/lineage"):
-            code, _ = _req(self.server.url, route, method="POST",
-                           body={"x": 1})
+        for route in ("/domains", "/domains/entities", "/domains/relations", "/domains/lineage"):
+            code, _ = _req(self.server.url, route, method="POST", body={"x": 1})
             self.assertEqual(code, 404, route)
 
 

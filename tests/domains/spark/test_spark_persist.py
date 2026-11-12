@@ -40,8 +40,7 @@ def workspace(
     file_ids = {
         r["relative_path"]: int(r["id"])
         for r in conn.execute(
-            "SELECT id, relative_path FROM source_files"
-            " WHERE repository_id = ?",
+            "SELECT id, relative_path FROM source_files WHERE repository_id = ?",
             (snap.repository_id,),
         )
     }
@@ -70,9 +69,12 @@ def _rel_edges(conn: sqlite3.Connection) -> set[tuple[str, str, str, str]]:
         return f"{ns}.{name}" if ns else name
 
     return {
-        (_q(r["fns"], r["fqn"]), r["relation_type"],
-         _q(r["tns"], r["tgt"]) or r["to_unresolved"],
-         r["resolution_status"])
+        (
+            _q(r["fns"], r["fqn"]),
+            r["relation_type"],
+            _q(r["tns"], r["tgt"]) or r["to_unresolved"],
+            r["resolution_status"],
+        )
         for r in rows
     }
 
@@ -91,22 +93,30 @@ def test_persist_domain_result_end_to_end(
     edges = _rel_edges(conn)
     # pipeline staging → mart resolvido contra ocorrências do snapshot
     assert (
-        "mart.enriched_orders", "DERIVES_FROM",
-        "staging.orders", "resolved",
+        "mart.enriched_orders",
+        "DERIVES_FROM",
+        "staging.orders",
+        "resolved",
     ) in edges
     assert (
-        "mart.enriched_orders", "DERIVES_FROM",
-        "s3://datalake/customers/", "resolved",
+        "mart.enriched_orders",
+        "DERIVES_FROM",
+        "s3://datalake/customers/",
+        "resolved",
     ) in edges
     # write → sink resolvido
     assert (
-        "etl_orders.py#enriched@24", "WRITES_TO",
-        "mart.enriched_orders", "resolved",
+        "etl_orders.py#enriched@24",
+        "WRITES_TO",
+        "mart.enriched_orders",
+        "resolved",
     ) in edges
     # iceberg-style write persistido
     assert (
-        "sql_job.py#region_counts@11", "WRITES_TO",
-        "mart.customer_region_counts", "resolved",
+        "sql_job.py#region_counts@11",
+        "WRITES_TO",
+        "mart.customer_region_counts",
+        "resolved",
     ) in edges
 
 
@@ -133,13 +143,9 @@ def test_snapshot_isolation_and_dedup(
     res = PySparkAdapter(base_path=FIXTURE).extract(make_request())
     store = Store(conn)
     persist_domain_result(store, repo_id, snap, file_ids, res)
-    c1 = conn.execute(
-        "SELECT COUNT(*) AS c FROM domain_entities"
-    ).fetchone()["c"]
+    c1 = conn.execute("SELECT COUNT(*) AS c FROM domain_entities").fetchone()["c"]
     persist_domain_result(store, repo_id, snap, file_ids, res)
-    c2 = conn.execute(
-        "SELECT COUNT(*) AS c FROM domain_entities"
-    ).fetchone()["c"]
+    c2 = conn.execute("SELECT COUNT(*) AS c FROM domain_entities").fetchone()["c"]
     assert c1 == c2
 
 
@@ -148,12 +154,11 @@ def test_coordinator_without_registry_persists_no_domain_rows(
 ) -> None:
     conn, _repo_id, _snap, _file_ids = workspace
     for table in (
-        "domain_entities", "domain_entity_occurrences",
+        "domain_entities",
+        "domain_entity_occurrences",
         "domain_relations",
     ):
-        n = conn.execute(
-            f"SELECT COUNT(*) AS c FROM {table}"
-        ).fetchone()["c"]
+        n = conn.execute(f"SELECT COUNT(*) AS c FROM {table}").fetchone()["c"]
         assert n == 0, table
 
 

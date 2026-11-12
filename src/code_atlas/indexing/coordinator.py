@@ -91,8 +91,7 @@ ANALYZER_VERSION = "0.1.0"
 ProgressFn = Callable[[str, Mapping[str, Any]], None]
 
 
-def _emit_progress(progress: ProgressFn | None, event: str,
-                   **fields: Any) -> None:
+def _emit_progress(progress: ProgressFn | None, event: str, **fields: Any) -> None:
     """Emite um evento de progresso quando o caller registra callback."""
     if progress is not None:
         progress(event, fields)
@@ -107,20 +106,28 @@ def _files_per_sec(done: int, t0: float) -> float:
     return round(done / eff, 1)
 
 
-def _parse_tick(progress: ProgressFn | None, done: int, total: int,
-                t0: float) -> None:
+def _parse_tick(progress: ProgressFn | None, done: int, total: int, t0: float) -> None:
     """Tick periódico do parse — a cada 64 arquivos, sem custo default."""
     if progress is not None and done % 64 == 0:
-        _emit_progress(progress, "parse-progress", parsed=done,
-                       total=total, files_per_sec=_files_per_sec(done, t0))
+        _emit_progress(
+            progress,
+            "parse-progress",
+            parsed=done,
+            total=total,
+            files_per_sec=_files_per_sec(done, t0),
+        )
 
 
-def _parse_tick_final(progress: ProgressFn | None, total: int,
-                      t0: float) -> None:
+def _parse_tick_final(progress: ProgressFn | None, total: int, t0: float) -> None:
     """Tick final do parse — fecha sempre em ``parsed == total``."""
     if progress is not None and total:
-        _emit_progress(progress, "parse-progress", parsed=total,
-                       total=total, files_per_sec=_files_per_sec(total, t0))
+        _emit_progress(
+            progress,
+            "parse-progress",
+            parsed=total,
+            total=total,
+            files_per_sec=_files_per_sec(total, t0),
+        )
 
 
 @dataclass(frozen=True)
@@ -195,8 +202,7 @@ class IndexCoordinator:
             adapter = reg.for_language(lang)
             if adapter is not None:
                 versions[f"parser:{lang}"] = (
-                    f"{adapter.adapter_id}/{adapter.parser_version}"
-                    f"+{adapter.grammar_version}"
+                    f"{adapter.adapter_id}/{adapter.parser_version}+{adapter.grammar_version}"
                 )
         # O SyntacticResolver é fixo no builder — sua versão define a
         # extração de relações e deve invalidar o índice (lf-0023).
@@ -213,20 +219,14 @@ class IndexCoordinator:
         # por design, exatamente como um parser novo.
         if self._domain_registry is not None:
             for dom in self._domain_registry.enabled():
-                versions[f"domain:{dom.domain_id}"] = (
-                    dom.adapter_version
-                )
+                versions[f"domain:{dom.domain_id}"] = dom.adapter_version
         # Cross-resolution opt-in (lf-0117): ligar/desligar ou trocar a
         # versão muda as rows de domínio — derrota o no-op por design.
         if self._cross_resolver is not None:
-            versions["resolver:cross-domain"] = (
-                self._cross_resolver.resolver_version
-            )
+            versions["resolver:cross-domain"] = self._cross_resolver.resolver_version
         return versions
 
-    def _enrich_semantic(
-        self, graph: GraphBuildResult
-    ) -> tuple[GraphBuildResult, dict[str, int]]:
+    def _enrich_semantic(self, graph: GraphBuildResult) -> tuple[GraphBuildResult, dict[str, int]]:
         """Etapa de enriquecimento semântico (lf-0027): resolvers opt-in
         (factories injetadas) re-resolvem arestas não-resolvidas via
         ``ResolverCoordinator`` por tier de evidência. Falha de resolver
@@ -254,9 +254,7 @@ class IndexCoordinator:
         for r in resolvers:
             registry.register(r)
         try:
-            enriched, stats = SemanticEnricher(
-                ResolverCoordinator(registry)
-            ).enrich(graph)
+            enriched, stats = SemanticEnricher(ResolverCoordinator(registry)).enrich(graph)
         finally:
             # LSP e outros resolvers com lifecycle fecham ao fim do
             # enriquecimento — nenhum processo sobrevive ao index().
@@ -277,9 +275,7 @@ class IndexCoordinator:
         scan: ScanResult,
         repository: str,
         digest: str,
-    ) -> tuple[
-        list[tuple[DomainAdapter, DomainExtractionResult]], list[str]
-    ]:
+    ) -> tuple[list[tuple[DomainAdapter, DomainExtractionResult]], list[str]]:
         """Fase de domínio opt-in (lf-0111, Cycle 7 — ADR-0010).
 
         Só roda quando o caller injeta um ``DomainRegistry`` — default
@@ -306,36 +302,29 @@ class IndexCoordinator:
                 continue
             request = DomainExtractionRequest(
                 repository=repository,
-                artifacts=tuple(
-                    DiscoveredArtifact(path=p, sha256=sha[p])
-                    for p in paths
-                ),
+                artifacts=tuple(DiscoveredArtifact(path=p, sha256=sha[p]) for p in paths),
                 snapshot=digest,
             )
             try:
                 result = adapter.extract(request)
             except Exception as exc:
-                failures.append(
-                    f"domain:{adapter.domain_id}:extract-crash:{exc}"
-                )
+                failures.append(f"domain:{adapter.domain_id}:extract-crash:{exc}")
                 continue
             violations = validate_extraction(adapter, request, result)
             if violations:
-                failures.append(
-                    f"domain:{adapter.domain_id}:contract-violation:"
-                    f"{violations[0]}"
-                )
+                failures.append(f"domain:{adapter.domain_id}:contract-violation:{violations[0]}")
                 continue
             for d in result.diagnostics:
                 if d.severity == "error":
-                    failures.append(
-                        f"{d.path or adapter.domain_id}:domain-{d.code}"
-                    )
+                    failures.append(f"{d.path or adapter.domain_id}:domain-{d.code}")
             out.append((adapter, result))
         return out, failures
 
     def index(
-        self, root: Path, force: bool = False, incremental: bool = False,
+        self,
+        root: Path,
+        force: bool = False,
+        incremental: bool = False,
         progress: ProgressFn | None = None,
     ) -> IndexOutcome:
         """Escaneia `root` e publica snapshot READY (ou no-op) atomicamente.
@@ -363,14 +352,17 @@ class IndexCoordinator:
         digest = scan.manifest_sha256()
         versions = self._analyzer_versions(scan)
         store = self._store
-        stage_ms["discovery"] = int(
-            (time.monotonic() - t_scan) * 1000)
+        stage_ms["discovery"] = int((time.monotonic() - t_scan) * 1000)
         stage_ms["hashing"] = scan.hash_ms
-        _emit_progress(progress, "stage", stage="discovery",
-                       ms=stage_ms["discovery"], files=len(scan.files),
-                       secrets=scan.secret_count)
-        _emit_progress(progress, "stage", stage="hashing",
-                       ms=stage_ms["hashing"])
+        _emit_progress(
+            progress,
+            "stage",
+            stage="discovery",
+            ms=stage_ms["discovery"],
+            files=len(scan.files),
+            secrets=scan.secret_count,
+        )
+        _emit_progress(progress, "stage", stage="hashing", ms=stage_ms["hashing"])
 
         # Job registrado em transação própria para sobreviver a rollback —
         # falhas precisam ficar inspecionáveis. Sob lock de escrita preso,
@@ -380,13 +372,15 @@ class IndexCoordinator:
                 # lf-0021: identidade lógica (git remote/raiz/path) —
                 # realocação do diretório mantém o mesmo repo_id.
                 ikey = identity_key(scan.git, Path(root))
-                repo_id = store.get_or_create_repository(
-                    ikey, str(Path(root).resolve()))
+                repo_id = store.get_or_create_repository(ikey, str(Path(root).resolve()))
                 job_id = store.insert_index_job(repo_id, digest)
         except sqlite3.OperationalError as exc:
             return IndexOutcome(
-                snapshot_id=None, job_id=None, status="failed",
-                files_indexed=len(scan.files), error=str(exc),
+                snapshot_id=None,
+                job_id=None,
+                status="failed",
+                files_indexed=len(scan.files),
+                error=str(exc),
                 secrets_skipped=scan.secret_count,
             )
 
@@ -394,8 +388,11 @@ class IndexCoordinator:
             error = "scan incomplete (partial or truncated; not publishing READY)"
             snap_id = self._mark_failed(repo_id, job_id, error)
             return IndexOutcome(
-                snapshot_id=snap_id, job_id=job_id, status="failed",
-                files_indexed=len(scan.files), error=error,
+                snapshot_id=snap_id,
+                job_id=job_id,
+                status="failed",
+                files_indexed=len(scan.files),
+                error=error,
                 secrets_skipped=scan.secret_count,
                 warnings=tuple(str(w.kind) for w in scan.warnings),
             )
@@ -407,8 +404,11 @@ class IndexCoordinator:
         if not force and self._is_unchanged(current, digest, versions):
             with self._conn:
                 store.finish_index_job(
-                    job_id, "noop", snapshot_id=current.id,
-                    counts={"files": 0}, failures=(),
+                    job_id,
+                    "noop",
+                    snapshot_id=current.id,
+                    counts={"files": 0},
+                    failures=(),
                 )
             _emit_progress(progress, "noop", snapshot_id=current.id)
             return self._noop_outcome(current.id, job_id)
@@ -426,65 +426,57 @@ class IndexCoordinator:
         cache_paths: set[str] = set()
         t_plan = time.monotonic()
         if incremental and not force:
-            plan, reparse_paths, cache_paths = self._plan_incremental(
-                scan, repo_id, versions
-            )
-        stage_ms["invalidation"] = int(
-            (time.monotonic() - t_plan) * 1000)
-        _emit_progress(progress, "stage", stage="invalidation",
-                       ms=stage_ms["invalidation"])
+            plan, reparse_paths, cache_paths = self._plan_incremental(scan, repo_id, versions)
+        stage_ms["invalidation"] = int((time.monotonic() - t_plan) * 1000)
+        _emit_progress(progress, "stage", stage="invalidation", ms=stage_ms["invalidation"])
 
         cfg_digest = config_digest(self._engine)
         cache = ParseResultCache(self._conn, repo_id)
 
         # Fase de análise FORA do lock de escrita: parse + grafo + validação.
         t_parse = time.monotonic()
-        results, file_status, read_failures, cache_puts, cache_hits = (
-            self._parse_files(
-                root, scan, cache, cfg_digest,
-                reparse=reparse_paths, cache_candidates=cache_paths,
-                incremental=plan is not None,
-                timings=stage_ms,
-                progress=progress,
-            )
+        results, file_status, read_failures, cache_puts, cache_hits = self._parse_files(
+            root,
+            scan,
+            cache,
+            cfg_digest,
+            reparse=reparse_paths,
+            cache_candidates=cache_paths,
+            incremental=plan is not None,
+            timings=stage_ms,
+            progress=progress,
         )
         stage_ms["parse"] = int((time.monotonic() - t_parse) * 1000)
-        _emit_progress(progress, "stage", stage="parse",
-                       ms=stage_ms["parse"])
+        _emit_progress(progress, "stage", stage="parse", ms=stage_ms["parse"])
         t_graph = time.monotonic()
         graph = self._builder.build(Path(root).name, scan, results)
-        stage_ms["graph_build"] = int(
-            (time.monotonic() - t_graph) * 1000)
-        _emit_progress(progress, "stage", stage="graph_build",
-                       ms=stage_ms["graph_build"])
+        stage_ms["graph_build"] = int((time.monotonic() - t_graph) * 1000)
+        _emit_progress(progress, "stage", stage="graph_build", ms=stage_ms["graph_build"])
         t_sem = time.monotonic()
         graph, sem_stats = self._enrich_semantic(graph)
         stage_ms["semantic"] = int((time.monotonic() - t_sem) * 1000)
-        _emit_progress(progress, "stage", stage="semantic",
-                       ms=stage_ms["semantic"])
+        _emit_progress(progress, "stage", stage="semantic", ms=stage_ms["semantic"])
         # Domínio opt-in (lf-0111): extração fora do lock de escrita,
         # mesmo desenho do parse — adapters leem os artefatos do
         # request dentro do workspace; nada é executado.
         t_dom = time.monotonic()
-        domain_results, domain_failures = self._extract_domains(
-            scan, ikey, digest
-        )
+        domain_results, domain_failures = self._extract_domains(scan, ikey, digest)
         stage_ms["domains"] = int((time.monotonic() - t_dom) * 1000)
-        _emit_progress(progress, "stage", stage="domains",
-                       ms=stage_ms["domains"])
+        _emit_progress(progress, "stage", stage="domains", ms=stage_ms["domains"])
         t_val = time.monotonic()
         g_errors = validate_graph(graph)
-        stage_ms["validation"] = int(
-            (time.monotonic() - t_val) * 1000)
-        _emit_progress(progress, "stage", stage="validation",
-                       ms=stage_ms["validation"])
+        stage_ms["validation"] = int((time.monotonic() - t_val) * 1000)
+        _emit_progress(progress, "stage", stage="validation", ms=stage_ms["validation"])
         if g_errors:
             # invariante violada = bug/violação interna → FAILED, READY salvo
             error = f"graph integrity violated: {'; '.join(g_errors[:3])}"
             snap_id = self._mark_failed(repo_id, job_id, error)
             return IndexOutcome(
-                snapshot_id=snap_id, job_id=job_id, status="failed",
-                files_indexed=len(scan.files), error=error,
+                snapshot_id=snap_id,
+                job_id=job_id,
+                status="failed",
+                files_indexed=len(scan.files),
+                error=error,
                 secrets_skipped=scan.secret_count,
             )
 
@@ -496,8 +488,11 @@ class IndexCoordinator:
         if begin_err is not None:
             snap_id = self._mark_failed(repo_id, job_id, str(begin_err))
             return IndexOutcome(
-                snapshot_id=snap_id, job_id=job_id, status="failed",
-                files_indexed=len(scan.files), error=str(begin_err),
+                snapshot_id=snap_id,
+                job_id=job_id,
+                status="failed",
+                files_indexed=len(scan.files),
+                error=str(begin_err),
                 secrets_skipped=scan.secret_count,
             )
         t_persist = time.monotonic()
@@ -506,8 +501,11 @@ class IndexCoordinator:
 
             if not force and self._is_unchanged(current, digest, versions):
                 store.finish_index_job(
-                    job_id, "noop", snapshot_id=current.id,
-                    counts={"files": 0}, failures=(),
+                    job_id,
+                    "noop",
+                    snapshot_id=current.id,
+                    counts={"files": 0},
+                    failures=(),
                 )
                 self._conn.commit()
                 _emit_progress(progress, "noop", snapshot_id=current.id)
@@ -527,8 +525,13 @@ class IndexCoordinator:
             store.insert_inventory_rows(snapshot_id, rows)
             t_w = time.monotonic()
             pcounts = persist_graph(
-                store, repo_id, snapshot_id, file_ids, graph,
-                fts5=fts5_available(self._conn), file_status=file_status,
+                store,
+                repo_id,
+                snapshot_id,
+                file_ids,
+                graph,
+                fts5=fts5_available(self._conn),
+                file_status=file_status,
             )
             # evidência explícita para arquivos que falharam no parse —
             # nenhuma perda silenciosa vira READY
@@ -541,37 +544,32 @@ class IndexCoordinator:
             # qualquer outra escrita (rollback completo, READY anterior
             # intacto).
             dcounts = _persist_domains(
-                store, repo_id, snapshot_id, file_ids,
-                domain_results, domain_failures,
+                store,
+                repo_id,
+                snapshot_id,
+                file_ids,
+                domain_results,
+                domain_failures,
             )
             # lf-0117 (Cycle 7 Ph.9): pós-extração opt-in — depois de
             # TODOS os adapters persistirem, dentro da mesma transação.
-            self._run_cross_resolution(
-                store, snapshot_id, dcounts, domain_failures
-            )
-            stage_ms["persist_rows"] = int(
-                (time.monotonic() - t_w) * 1000)
-            _emit_progress(progress, "stage", stage="persist_rows",
-                           ms=stage_ms["persist_rows"])
+            self._run_cross_resolution(store, snapshot_id, dcounts, domain_failures)
+            stage_ms["persist_rows"] = int((time.monotonic() - t_w) * 1000)
+            _emit_progress(progress, "stage", stage="persist_rows", ms=stage_ms["persist_rows"])
             t_fk = time.monotonic()
             self._validate(snapshot_id)
-            stage_ms["fk_check"] = int(
-                (time.monotonic() - t_fk) * 1000)
-            _emit_progress(progress, "stage", stage="fk_check",
-                           ms=stage_ms["fk_check"])
+            stage_ms["fk_check"] = int((time.monotonic() - t_fk) * 1000)
+            _emit_progress(progress, "stage", stage="fk_check", ms=stage_ms["fk_check"])
             t_pub = time.monotonic()
             store.publish_snapshot(repo_id, snapshot_id)
             snaps_pruned = (
                 store.gc_stale_snapshots(repo_id, self._snapshot_retention)
-                if self._snapshot_retention > 0 else 0
+                if self._snapshot_retention > 0
+                else 0
             )
-            pruned = self._apply_cache(
-                cache, repo_id, snapshot_id, cache_puts, cache_hits
-            )
-            stage_ms["publish_gc"] = int(
-                (time.monotonic() - t_pub) * 1000)
-            _emit_progress(progress, "stage", stage="publish_gc",
-                           ms=stage_ms["publish_gc"])
+            pruned = self._apply_cache(cache, repo_id, snapshot_id, cache_puts, cache_hits)
+            stage_ms["publish_gc"] = int((time.monotonic() - t_pub) * 1000)
+            _emit_progress(progress, "stage", stage="publish_gc", ms=stage_ms["publish_gc"])
             counts = {
                 "files": len(rows),
                 "files_parsed": len(results) - len(cache_hits),
@@ -579,38 +577,37 @@ class IndexCoordinator:
                 "cache_puts": len(cache_puts),
                 "cache_pruned": pruned,
                 "snapshots_pruned": snaps_pruned,
-                "files_failed": sum(
-                    1 for x in read_failures
-                    if not x.endswith(":syntax-errors")
-                ),
-                "files_with_errors": sum(
-                    1 for x in read_failures
-                    if x.endswith(":syntax-errors")
-                ),
+                "files_failed": sum(1 for x in read_failures if not x.endswith(":syntax-errors")),
+                "files_with_errors": sum(1 for x in read_failures if x.endswith(":syntax-errors")),
                 "secrets_skipped": scan.secret_count,
                 **sem_stats,
                 **pcounts,
                 **dcounts,
             }
-            stage_ms["persist_publish"] = int(
-                (time.monotonic() - t_persist) * 1000)
-            _emit_progress(progress, "stage", stage="persist_publish",
-                           ms=stage_ms["persist_publish"])
-            counts.update({f"stage_ms_{k}": v
-                           for k, v in stage_ms.items()})
+            stage_ms["persist_publish"] = int((time.monotonic() - t_persist) * 1000)
+            _emit_progress(
+                progress, "stage", stage="persist_publish", ms=stage_ms["persist_publish"]
+            )
+            counts.update({f"stage_ms_{k}": v for k, v in stage_ms.items()})
             failures = (
                 tuple(str(w.kind) for w in scan.warnings)
                 + tuple(read_failures)
                 + tuple(domain_failures)
             )
             store.finish_index_job(
-                job_id, "success", snapshot_id=snapshot_id,
-                counts=counts, failures=failures,
+                job_id,
+                "success",
+                snapshot_id=snapshot_id,
+                counts=counts,
+                failures=failures,
             )
             self._conn.commit()
             return IndexOutcome(
-                snapshot_id=snapshot_id, job_id=job_id, status="success",
-                files_indexed=len(rows), secrets_skipped=scan.secret_count,
+                snapshot_id=snapshot_id,
+                job_id=job_id,
+                status="success",
+                files_indexed=len(rows),
+                secrets_skipped=scan.secret_count,
                 warnings=tuple(str(w.kind) for w in scan.warnings),
                 stats=counts,
             )
@@ -618,8 +615,11 @@ class IndexCoordinator:
             self._conn.rollback()
             failed_snap = self._mark_failed(repo_id=repo_id, job_id=job_id, error=str(exc))
             return IndexOutcome(
-                snapshot_id=failed_snap, job_id=job_id, status="failed",
-                files_indexed=0, error=str(exc),
+                snapshot_id=failed_snap,
+                job_id=job_id,
+                status="failed",
+                files_indexed=0,
+                error=str(exc),
             )
 
     @staticmethod
@@ -642,9 +642,7 @@ class IndexCoordinator:
             cache.mark_used(key, snapshot_id)
         return cache.gc(repo_id)
 
-    def plan_dry_run(
-        self, root: Path
-    ) -> tuple[IndexPlan | None, dict[str, str]]:
+    def plan_dry_run(self, root: Path) -> tuple[IndexPlan | None, dict[str, str]]:
         """``index-plan`` (lf-0022): scan + diff + plano, **zero writes**.
 
         Retorna ``(plan, diagnostics)``. ``plan=None`` quando não há
@@ -658,8 +656,7 @@ class IndexCoordinator:
         repo_id = store.repository_id_for(ikey)
         if repo_id is None:
             # compat: repo indexado por path antes do v5
-            repo_id = store.repository_id_for(str(Path(root).resolve())
-            )
+            repo_id = store.repository_id_for(str(Path(root).resolve()))
         if repo_id is not None:
             plan, _, _ = self._plan_incremental(scan, repo_id, versions)
             if plan is not None:
@@ -668,8 +665,7 @@ class IndexCoordinator:
         # seria full — sintetiza tudo como reparse, marcado incremental.
         full = IndexPlan(
             files=tuple(
-                PlannedFile(f.path, PlanAction.REPARSE,
-                            "no prior READY snapshot — full build")
+                PlannedFile(f.path, PlanAction.REPARSE, "no prior READY snapshot — full build")
                 for f in scan.files
             ),
             incremental=False,
@@ -695,11 +691,12 @@ class IndexCoordinator:
         prior_id = prior_snap.id
         prior_inv = store.snapshot_inventory(prior_id)
         changeset = detect_changes(
-            scan, prior_inv, dict(prior_snap.analyzer_versions), versions,
+            scan,
+            prior_inv,
+            dict(prior_snap.analyzer_versions),
+            versions,
         )
-        prior_status = {
-            str(r["path"]): str(r["parse_status"]) for r in prior_inv
-        }
+        prior_status = {str(r["path"]): str(r["parse_status"]) for r in prior_inv}
         plan = self._planner.plan(
             changeset,
             store.module_import_edges(prior_id),
@@ -731,9 +728,14 @@ class IndexCoordinator:
             fid = file_ids.get(path)
             if fid is not None:
                 store.insert_evidence(
-                    snapshot_id, fid, path, None,
-                    sha_by_path.get(path) or "", "parse-engine",
-                    ANALYZER_VERSION, notes=f"parse-failure:{code}",
+                    snapshot_id,
+                    fid,
+                    path,
+                    None,
+                    sha_by_path.get(path) or "",
+                    "parse-engine",
+                    ANALYZER_VERSION,
+                    notes=f"parse-failure:{code}",
                 )
                 n += 1
         return n
@@ -741,8 +743,11 @@ class IndexCoordinator:
     @staticmethod
     def _noop_outcome(snapshot_id: int | None, job_id: int) -> IndexOutcome:
         return IndexOutcome(
-            snapshot_id=snapshot_id, job_id=job_id, status="noop",
-            files_indexed=0, noop=True,
+            snapshot_id=snapshot_id,
+            job_id=job_id,
+            status="noop",
+            files_indexed=0,
+            noop=True,
         )
 
     @staticmethod
@@ -788,20 +793,22 @@ class IndexCoordinator:
         prefetched: dict[str, ParseResult] = {}
         if incremental:
             wanted = [
-                k for p, k in keys.items()
-                if k is not None
-                and p in cache_candidates and p not in reparse
+                k
+                for p, k in keys.items()
+                if k is not None and p in cache_candidates and p not in reparse
             ]
             if wanted:
                 t_cl = time.monotonic()
                 prefetched = cache.get_many(wanted)
                 if timings is not None:
-                    timings["cache_lookup"] = int(
-                        (time.monotonic() - t_cl) * 1000)
-                    _emit_progress(progress, "stage",
-                                   stage="cache_lookup",
-                                   ms=timings["cache_lookup"],
-                                   keys=len(wanted))
+                    timings["cache_lookup"] = int((time.monotonic() - t_cl) * 1000)
+                    _emit_progress(
+                        progress,
+                        "stage",
+                        stage="cache_lookup",
+                        ms=timings["cache_lookup"],
+                        keys=len(wanted),
+                    )
         return prefetched
 
     def _parse_files(
@@ -817,7 +824,9 @@ class IndexCoordinator:
         timings: dict[str, int] | None = None,
         progress: ProgressFn | None = None,
     ) -> tuple[
-        list[ParseResult], dict[str, str], list[str],
+        list[ParseResult],
+        dict[str, str],
+        list[str],
         dict[str, tuple[CacheKey, ParseResult]],
         dict[str, CacheKey],
     ]:
@@ -851,16 +860,15 @@ class IndexCoordinator:
         puts: dict[str, tuple[CacheKey, ParseResult]] = {}
         hits: dict[str, CacheKey] = {}
         by_path = {f.path: f for f in scan.files}
-        adapters = {
-            p: self._engine.registry.for_path(p) for p in by_path
-        }
+        adapters = {p: self._engine.registry.for_path(p) for p in by_path}
         keys = {
             p: cache_key_for(by_path[p], a, cfg_digest)
-            for p, a in adapters.items() if a is not None
+            for p, a in adapters.items()
+            if a is not None
         }
         prefetched = self._prefetch_cache(
-            cache, keys, cache_candidates, reparse, incremental, timings,
-            progress)
+            cache, keys, cache_candidates, reparse, incremental, timings, progress
+        )
         total_files = len(scan.files)
         t_files = time.monotonic()
         for i, f in enumerate(scan.files, 1):
@@ -923,9 +931,7 @@ class IndexCoordinator:
     ) -> None:
         """Deriva parse_status + failure string de um ParseResult."""
         if not res.supported:
-            failures.append(
-                f"{path}:{res.diagnostics[0].code if res.diagnostics else 'parse'}"
-            )
+            failures.append(f"{path}:{res.diagnostics[0].code if res.diagnostics else 'parse'}")
             file_status[path] = "parse-failed"
         elif res.has_error:
             failures.append(f"{path}:syntax-errors")
@@ -950,8 +956,7 @@ class IndexCoordinator:
         cross_dom = self._store.cross_snapshot_domain_relations(snapshot_id)
         if cross_dom:
             raise sqlite3.IntegrityError(
-                f"cross-snapshot domain relations {cross_dom[:5]} "
-                f"in snapshot {snapshot_id}"
+                f"cross-snapshot domain relations {cross_dom[:5]} in snapshot {snapshot_id}"
             )
 
     def _run_cross_resolution(
@@ -974,7 +979,8 @@ class IndexCoordinator:
             return
         xplan = self._cross_resolver.plan(store, snapshot_id)
         xc = store.persist_cross_resolutions(
-            snapshot_id, xplan.update_rows(),
+            snapshot_id,
+            xplan.update_rows(),
             xplan.insert_rows(snapshot_id),
         )
         for k, v in xplan.stats.items():
@@ -1021,9 +1027,7 @@ def _persist_domains(
     """
     counts: dict[str, int] = {}
     for adapter, dres in domain_results:
-        dc = persist_domain_result(
-            store, repo_id, snapshot_id, file_ids, dres
-        )
+        dc = persist_domain_result(store, repo_id, snapshot_id, file_ids, dres)
         for k, v in dc.items():
             key = f"domain_{adapter.domain_id}_{k}"
             counts[key] = counts.get(key, 0) + v

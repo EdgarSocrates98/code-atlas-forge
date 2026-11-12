@@ -51,9 +51,7 @@ def db(tmp_path: Path) -> sqlite3.Connection:
 # --- 0.2: scan→parse content identity ----------------------------------
 
 
-def test_content_mismatch_between_scan_and_parse(
-    db: sqlite3.Connection, tiny_repo: Path
-) -> None:
+def test_content_mismatch_between_scan_and_parse(db: sqlite3.Connection, tiny_repo: Path) -> None:
     """Arquivo alterado entre scan e parse nunca vira READY silencioso."""
     stale = scan(tiny_repo)
     (tiny_repo / "a.py").write_text("def mudado(): return 99\n")
@@ -67,27 +65,25 @@ def test_content_mismatch_between_scan_and_parse(
         "SELECT o.parse_status FROM symbol_occurrences o "
         "JOIN source_files f ON f.id=o.source_file_id "
         "WHERE f.relative_path='a.py' AND o.snapshot_id=?",
-        (out.snapshot_id,)).fetchall()
+        (out.snapshot_id,),
+    ).fetchall()
     assert occ and all(r["parse_status"] == "parse-failed" for r in occ)
     ev = db.execute(
-        "SELECT notes FROM evidence WHERE path='a.py' AND snapshot_id=?",
-        (out.snapshot_id,)).fetchall()
-    assert any("parse-failure:content-mismatch" in (r["notes"] or "")
-               for r in ev)
+        "SELECT notes FROM evidence WHERE path='a.py' AND snapshot_id=?", (out.snapshot_id,)
+    ).fetchall()
+    assert any("parse-failure:content-mismatch" in (r["notes"] or "") for r in ev)
     # b.py (inalterada) parseou normalmente
     ok = db.execute(
         "SELECT o.parse_status FROM symbol_occurrences o "
         "JOIN source_files f ON f.id=o.source_file_id "
         "WHERE f.relative_path='b.py' AND o.snapshot_id=?",
-        (out.snapshot_id,)).fetchall()
+        (out.snapshot_id,),
+    ).fetchall()
     assert ok and all(r["parse_status"] == "parsed" for r in ok)
 
 
-@pytest.mark.skipif(sys.platform == "win32",
-                    reason="os.symlink exige privilégio no Windows")
-def test_symlink_swap_between_scan_and_parse(
-    db: sqlite3.Connection, tiny_repo: Path
-) -> None:
+@pytest.mark.skipif(sys.platform == "win32", reason="os.symlink exige privilégio no Windows")
+def test_symlink_swap_between_scan_and_parse(db: sqlite3.Connection, tiny_repo: Path) -> None:
     """Arquivo trocado por symlink-para-fora entre scan e parse → falha."""
     stale = scan(tiny_repo)
     outside = tiny_repo.parent / "outside.txt"
@@ -102,24 +98,20 @@ def test_symlink_swap_between_scan_and_parse(
         "SELECT o.parse_status FROM symbol_occurrences o "
         "JOIN source_files f ON f.id=o.source_file_id "
         "WHERE f.relative_path='a.py' AND o.snapshot_id=?",
-        (out.snapshot_id,)).fetchall()
+        (out.snapshot_id,),
+    ).fetchall()
     # symlink escape recusado OU hash divergente — nunca parse do alvo
     assert occ and all(r["parse_status"] == "parse-failed" for r in occ)
     ev = db.execute(
-        "SELECT notes FROM evidence WHERE path='a.py' AND snapshot_id=?",
-        (out.snapshot_id,)).fetchall()
+        "SELECT notes FROM evidence WHERE path='a.py' AND snapshot_id=?", (out.snapshot_id,)
+    ).fetchall()
     assert any("parse-failure:" in (r["notes"] or "") for r in ev)
 
 
-def test_unhashed_file_is_parse_failed(
-    db: sqlite3.Connection, tiny_repo: Path
-) -> None:
+def test_unhashed_file_is_parse_failed(db: sqlite3.Connection, tiny_repo: Path) -> None:
     """sha256 None (oversize/erro) → parse-failed, nunca identidade cega."""
     real = scan(tiny_repo)
-    files = tuple(
-        replace(f, sha256=None) if f.path == "a.py" else f
-        for f in real.files
-    )
+    files = tuple(replace(f, sha256=None) if f.path == "a.py" else f for f in real.files)
     tampered = replace(real, files=files)
     coord = IndexCoordinator(db, scanner=lambda _root: tampered)
     out = coord.index(tiny_repo)
@@ -128,16 +120,15 @@ def test_unhashed_file_is_parse_failed(
         "SELECT o.parse_status FROM symbol_occurrences o "
         "JOIN source_files f ON f.id=o.source_file_id "
         "WHERE f.relative_path='a.py' AND o.snapshot_id=?",
-        (out.snapshot_id,)).fetchall()
+        (out.snapshot_id,),
+    ).fetchall()
     assert occ and all(r["parse_status"] == "parse-failed" for r in occ)
 
 
 # --- 0.3: mapeamento explícito de evidências ----------------------------
 
 
-def test_evidence_index_survives_filtered_records(
-    db: sqlite3.Connection, tmp_path: Path
-) -> None:
+def test_evidence_index_survives_filtered_records(db: sqlite3.Connection, tmp_path: Path) -> None:
     """Evidência com path fora do inventário não desloca as demais."""
     repo = tmp_path / "r"
     repo.mkdir()
@@ -151,39 +142,52 @@ def test_evidence_index_survives_filtered_records(
     file_ids = {f.path: fid for fid, f in rows}
 
     file_node = GraphNode(
-        node_id="file:x.py", kind="file", name="x.py",
-        qualified_name="x.py", path="x.py",
+        node_id="file:x.py",
+        kind="file",
+        name="x.py",
+        qualified_name="x.py",
+        path="x.py",
     )
     sym_node = GraphNode(
-        node_id="sym:x.py.f", kind="function", name="f",
-        qualified_name="x.py.f", language="python", path="x.py",
+        node_id="sym:x.py.f",
+        kind="function",
+        name="f",
+        qualified_name="x.py.f",
+        language="python",
+        path="x.py",
     )
     evidence = (
         # idx 0 → path FORA do inventário (filtrado na persistência)
-        EvidenceRecord(path="ausente.py", span=None, content_hash="h0",
-                       extractor="t", extractor_version="1"),
+        EvidenceRecord(
+            path="ausente.py", span=None, content_hash="h0", extractor="t", extractor_version="1"
+        ),
         # idx 1 → evidência real referenciada pela aresta
-        EvidenceRecord(path="x.py", span=None, content_hash="h1",
-                       extractor="t", extractor_version="1"),
+        EvidenceRecord(
+            path="x.py", span=None, content_hash="h1", extractor="t", extractor_version="1"
+        ),
     )
     edge = GraphEdge(
-        type="DEFINES", from_id="file:x.py", to_id="sym:x.py.f",
-        resolution_status="resolved", evidence_index=(1,),
+        type="DEFINES",
+        from_id="file:x.py",
+        to_id="sym:x.py.f",
+        resolution_status="resolved",
+        evidence_index=(1,),
     )
     graph = GraphBuildResult(
-        nodes=(file_node, sym_node), edges=(edge,), evidence=evidence,
+        nodes=(file_node, sym_node),
+        edges=(edge,),
+        evidence=evidence,
         diagnostics=(),
     )
     persist_graph(store, repo_id, snap_id, file_ids, graph, fts5=False)
 
     rel = db.execute(
-        "SELECT evidence_ids FROM relations WHERE snapshot_id=?",
-        (snap_id,)).fetchone()
+        "SELECT evidence_ids FROM relations WHERE snapshot_id=?", (snap_id,)
+    ).fetchone()
     ev_ids = json.loads(rel["evidence_ids"])
     assert len(ev_ids) == 1
     # o id persistido corresponde à evidência do path x.py, não a outra
-    got = db.execute(
-        "SELECT path FROM evidence WHERE id=?", (ev_ids[0],)).fetchone()
+    got = db.execute("SELECT path FROM evidence WHERE id=?", (ev_ids[0],)).fetchone()
     assert got["path"] == "x.py"
     # e a evidência filtrada sequer existe na tabela
     n = db.execute("SELECT COUNT(*) AS c FROM evidence").fetchone()
@@ -193,9 +197,7 @@ def test_evidence_index_survives_filtered_records(
 # --- 0.4: consistência concorrente ---------------------------------------
 
 
-def test_concurrent_indexers_single_ready(
-    tmp_path: Path, tiny_repo: Path
-) -> None:
+def test_concurrent_indexers_single_ready(tmp_path: Path, tiny_repo: Path) -> None:
     """Dois coordenadores no mesmo DB: só uma publicação READY."""
     db_path = tmp_path / "shared.db"
     boot = connect(db_path)
@@ -209,10 +211,12 @@ def test_concurrent_indexers_single_ready(
     def worker() -> None:
         conn = connect(db_path)  # conexão própria por thread (sqlite)
         try:
+
             def gated_scanner(root: Path):
                 res = scan(root)
                 barrier.wait(timeout=30)  # ambos prontos p/ escrever juntos
                 return res
+
             out = IndexCoordinator(conn, scanner=gated_scanner).index(tiny_repo)
             outcomes.append(out)
         except BaseException as exc:
@@ -233,16 +237,12 @@ def test_concurrent_indexers_single_ready(
     assert statuses == ["noop", "success"], statuses
 
     check = connect(db_path)
-    ready = check.execute(
-        "SELECT COUNT(*) AS c FROM snapshots WHERE status='READY'"
-    ).fetchone()
+    ready = check.execute("SELECT COUNT(*) AS c FROM snapshots WHERE status='READY'").fetchone()
     assert ready["c"] == 1
     check.close()
 
 
-def test_repository_dedup_under_concurrency(
-    tmp_path: Path, tiny_repo: Path
-) -> None:
+def test_repository_dedup_under_concurrency(tmp_path: Path, tiny_repo: Path) -> None:
     """Dois indexadores não criam dois repositórios p/ o mesmo handle."""
     db_path = tmp_path / "dedup.db"
     conn0 = connect(db_path)
@@ -278,17 +278,14 @@ def test_repository_dedup_under_concurrency(
     check.close()
 
 
-def test_lost_write_lock_marks_failed_not_crash(
-    tmp_path: Path, tiny_repo: Path
-) -> None:
+def test_lost_write_lock_marks_failed_not_crash(tmp_path: Path, tiny_repo: Path) -> None:
     """BEGIN IMMEDIATE negado além do retry → FAILED, nunca exceção nua."""
     db_path = tmp_path / "lock.db"
     holder = connect(db_path)
     migrate(holder)
     # segura o lock de escrita permanentemente durante o teste
     holder.execute("BEGIN IMMEDIATE")
-    holder.execute(
-        "INSERT INTO repositories (root_handle) VALUES ('holder')")
+    holder.execute("INSERT INTO repositories (root_handle) VALUES ('holder')")
 
     waiter = connect(db_path)
     waiter.execute("PRAGMA busy_timeout = 50")  # falha rápida no teste
@@ -300,9 +297,7 @@ def test_lost_write_lock_marks_failed_not_crash(
         assert out.job_id is None
         assert out.error
         # nenhum READY publicado por este caminho
-        row = waiter.execute(
-            "SELECT COUNT(*) AS c FROM snapshots WHERE status='READY'"
-        ).fetchone()
+        row = waiter.execute("SELECT COUNT(*) AS c FROM snapshots WHERE status='READY'").fetchone()
         assert row["c"] == 0
     finally:
         waiter.close()
@@ -310,9 +305,7 @@ def test_lost_write_lock_marks_failed_not_crash(
         holder.close()
 
 
-def test_acquire_write_lock_retries_then_reports(
-    tmp_path: Path, tiny_repo: Path
-) -> None:
+def test_acquire_write_lock_retries_then_reports(tmp_path: Path, tiny_repo: Path) -> None:
     """Lock negado em BEGIN IMMEDIATE → erro tipado após retries."""
     db_path = tmp_path / "lock2.db"
     holder = connect(db_path)
@@ -334,16 +327,15 @@ def test_acquire_write_lock_retries_then_reports(
         holder.close()
 
 
-def test_begin_lock_denied_fails_with_failed_snapshot(
-    tmp_path: Path, tiny_repo: Path
-) -> None:
+def test_begin_lock_denied_fails_with_failed_snapshot(tmp_path: Path, tiny_repo: Path) -> None:
     """Falha em _acquire_write_lock → FAILED + snapshot diagnóstico."""
     db_path = tmp_path / "lock3.db"
     conn = connect(db_path)
     migrate(conn)
     coord = IndexCoordinator(conn)
     coord._acquire_write_lock = lambda: sqlite3.OperationalError(  # type: ignore[method-assign]
-        "database is locked")
+        "database is locked"
+    )
     out = coord.index(tiny_repo)
     try:
         assert out.status == "failed"
@@ -351,9 +343,7 @@ def test_begin_lock_denied_fails_with_failed_snapshot(
         # snapshot FAILED registrado; job finalizado como failed
         snap = Store(conn).snapshot_by_id(out.snapshot_id)  # type: ignore[arg-type]
         assert snap is not None and str(snap.status).endswith("FAILED")
-        job = conn.execute(
-            "SELECT status FROM index_jobs WHERE id=?",
-            (out.job_id,)).fetchone()
+        job = conn.execute("SELECT status FROM index_jobs WHERE id=?", (out.job_id,)).fetchone()
         assert job["status"] == "failed"
     finally:
         conn.close()

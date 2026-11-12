@@ -132,9 +132,7 @@ class GitHubActionsAdapter:
         return ArtifactSupport(globs=_WORKFLOW_GLOBS)
 
     def entity_kinds(self) -> frozenset[DomainEntityKind]:
-        return frozenset(
-            {DomainEntityKind.CICD_WORKFLOW, DomainEntityKind.CICD_JOB}
-        )
+        return frozenset({DomainEntityKind.CICD_WORKFLOW, DomainEntityKind.CICD_JOB})
 
     def relation_kinds(self) -> frozenset[str]:
         return frozenset(
@@ -187,18 +185,21 @@ class GitHubActionsAdapter:
 
     # --- extração ---------------------------------------------------------
 
-    def extract(
-        self, request: DomainExtractionRequest
-    ) -> DomainExtractionResult:
+    def extract(self, request: DomainExtractionRequest) -> DomainExtractionResult:
         artifacts = sorted(request.artifacts, key=lambda a: a.path)
         entities: list[ExtractedDomainEntity] = []
         relations: list[ExtractedDomainRelation] = []
         evidence: list[EvidenceRecord] = []
         diagnostics: list[DomainDiagnostic] = []
         stats: dict[str, int] = {
-            "files_seen": len(artifacts), "files_parsed": 0,
-            "workflows": 0, "jobs": 0, "steps": 0, "triggers": 0,
-            "secrets_redacted": 0, "expressions_masked": 0,
+            "files_seen": len(artifacts),
+            "files_parsed": 0,
+            "workflows": 0,
+            "jobs": 0,
+            "steps": 0,
+            "triggers": 0,
+            "secrets_redacted": 0,
+            "expressions_masked": 0,
             "diagnostics": 0,
         }
 
@@ -208,20 +209,30 @@ class GitHubActionsAdapter:
         # path -> (obs, sha256, evidence_index)
         for art in artifacts:
             out = self._extract_file(
-                art, request, entities, evidence, diagnostics, stats,
+                art,
+                request,
+                entities,
+                evidence,
+                diagnostics,
+                stats,
             )
             if out is not None:
                 parsed[art.path] = out
 
         # Fase 2 — relações por workflow/jobs já com identidades certas.
         wf_identity: dict[str, DomainIdentity] = {
-            path: self._wf_identity(request, path, obs)
-            for path, (obs, _sha, _ev) in parsed.items()
+            path: self._wf_identity(request, path, obs) for path, (obs, _sha, _ev) in parsed.items()
         }
         for path, (obs, _sha, evi) in parsed.items():
             self._emit_workflow_relations(
-                request, obs, path, evi, wf_identity,
-                relations, diagnostics, stats,
+                request,
+                obs,
+                path,
+                evi,
+                wf_identity,
+                relations,
+                diagnostics,
+                stats,
             )
 
         diagnostics = self._dedup_diags(diagnostics)
@@ -249,18 +260,21 @@ class GitHubActionsAdapter:
         falha — nunca exceção.
         """
         if self._read is None:
-            _d("missing-content-reader", "warning",
-               "no content reader configured; artifact not parsed")
+            _d(
+                "missing-content-reader",
+                "warning",
+                "no content reader configured; artifact not parsed",
+            )
             return None
         content = self._read(art.path)
         if content is None:
-            _d("missing-content", "warning",
-               "artifact declared but content unavailable")
+            _d("missing-content", "warning", "artifact declared but content unavailable")
             return None
         sha = hashlib.sha256(content).hexdigest()
         if art.sha256 and art.sha256 != sha:
             _d(
-                "artifact-hash-mismatch", "error",
+                "artifact-hash-mismatch",
+                "error",
                 "discovered sha256 does not match content; artifact "
                 "skipped to keep evidence honest",
             )
@@ -278,14 +292,15 @@ class GitHubActionsAdapter:
             else:
                 for yd in result.diagnostics:
                     _d(
-                        f"yaml-{yd.code}", yd.severity,
-                        f"line {yd.line}: {yd.message}"
-                        if yd.line else yd.message,
+                        f"yaml-{yd.code}",
+                        yd.severity,
+                        f"line {yd.line}: {yd.message}" if yd.line else yd.message,
                     )
             return None
         for yd in result.diagnostics:
             _d(
-                f"yaml-{yd.code}", yd.severity,
+                f"yaml-{yd.code}",
+                yd.severity,
                 f"line {yd.line}: {yd.message}" if yd.line else yd.message,
             )
         return result.root, sha
@@ -300,9 +315,7 @@ class GitHubActionsAdapter:
         stats: dict[str, int],
     ) -> tuple[WorkflowObs, str, int] | None:
         def _d(code: str, sev: str, msg: str) -> None:
-            diagnostics.append(
-                DomainDiagnostic(code, sev, msg, art.path, DOMAIN_ID)
-            )
+            diagnostics.append(DomainDiagnostic(code, sev, msg, art.path, DOMAIN_ID))
 
         loaded = self._load_document(art, _d)
         if loaded is None:
@@ -313,9 +326,11 @@ class GitHubActionsAdapter:
         for yd in parsed.diagnostics:
             diagnostics.append(
                 DomainDiagnostic(
-                    f"gha-{yd.code}", yd.severity,
+                    f"gha-{yd.code}",
+                    yd.severity,
                     f"line {yd.line}: {yd.message}" if yd.line else yd.message,
-                    art.path, DOMAIN_ID,
+                    art.path,
+                    DOMAIN_ID,
                 )
             )
         obs = parsed.obs
@@ -323,7 +338,8 @@ class GitHubActionsAdapter:
             return None
         if not obs.triggers and not obs.jobs:
             _d(
-                "not-a-gha-workflow", "info",
+                "not-a-gha-workflow",
+                "info",
                 "YAML document has neither 'on:' triggers nor 'jobs:' — "
                 "not a GitHub Actions workflow; no facts emitted",
             )
@@ -335,7 +351,9 @@ class GitHubActionsAdapter:
             evidence_record(
                 adapter_domain=DOMAIN_ID,
                 adapter_version=ADAPTER_VERSION,
-                path=art.path, content_hash=sha, span=root_node.span,
+                path=art.path,
+                content_hash=sha,
+                span=root_node.span,
                 notes=f"platform={PLATFORM}",
             )
         )
@@ -344,20 +362,21 @@ class GitHubActionsAdapter:
         wf_attrs = self._wf_attrs(obs, stats)
         entities.append(
             ExtractedDomainEntity(
-                identity=wf_id, kind=DomainEntityKind.CICD_WORKFLOW,
-                name=obs.name, path=art.path, span=obs.span,
-                content_hash=sha, attributes=wf_attrs, evidence=(evi,),
+                identity=wf_id,
+                kind=DomainEntityKind.CICD_WORKFLOW,
+                name=obs.name,
+                path=art.path,
+                span=obs.span,
+                content_hash=sha,
+                attributes=wf_attrs,
+                evidence=(evi,),
             )
         )
         stats["workflows"] += 1
         stats["triggers"] += len(obs.triggers)
 
         for job in obs.jobs:
-            entities.append(
-                self._job_entity(
-                    request, art.path, obs, job, sha, evi, stats
-                )
-            )
+            entities.append(self._job_entity(request, art.path, obs, job, sha, evi, stats))
         return obs, sha, evi
 
     @staticmethod
@@ -405,13 +424,14 @@ class GitHubActionsAdapter:
             qualified_name=f"{PurePosixPath(path).name}#{obs.name}",
         )
 
-    def _job_identity(
-        self, wf_id: DomainIdentity, job: JobObs
-    ) -> DomainIdentity:
+    def _job_identity(self, wf_id: DomainIdentity, job: JobObs) -> DomainIdentity:
         return DomainIdentity(
-            domain=wf_id.domain, repository=wf_id.repository,
-            root=wf_id.root, catalog=wf_id.catalog,
-            namespace=wf_id.namespace, environment=wf_id.environment,
+            domain=wf_id.domain,
+            repository=wf_id.repository,
+            root=wf_id.root,
+            catalog=wf_id.catalog,
+            namespace=wf_id.namespace,
+            environment=wf_id.environment,
             qualified_name=f"{wf_id.qualified_name}/jobs/{job.job_id}",
             snapshot=wf_id.snapshot,
         )
@@ -432,20 +452,17 @@ class GitHubActionsAdapter:
         stats["steps"] += len(job.steps)
         attrs = self._job_static_attrs(job)
         attrs.update(self._job_class_attrs(job))
-        stats["expressions_masked"] += sum(
-            v.count("<expr>") for v in attrs.values()
-        )
-        stats["secrets_redacted"] += sum(
-            v.count("<secret>") for v in attrs.values()
-        )
+        stats["expressions_masked"] += sum(v.count("<expr>") for v in attrs.values())
+        stats["secrets_redacted"] += sum(v.count("<secret>") for v in attrs.values())
         return ExtractedDomainEntity(
-            identity=self._job_identity(
-                self._wf_identity(request, path, obs), job
-            ),
+            identity=self._job_identity(self._wf_identity(request, path, obs), job),
             kind=DomainEntityKind.CICD_JOB,
             name=job.display_name or job.job_id,
-            path=path, span=job.span, content_hash=sha,
-            attributes=attrs, evidence=(evi,),
+            path=path,
+            span=job.span,
+            content_hash=sha,
+            attributes=attrs,
+            evidence=(evi,),
         )
 
     @staticmethod
@@ -492,8 +509,10 @@ class GitHubActionsAdapter:
         """
         attrs: dict[str, str] = {"step_count": str(len(job.steps))}
         for label, key in (
-            ("test", "test_steps"), ("deploy", "deploy_steps"),
-            ("build", "build_steps"), ("publish", "publish_steps"),
+            ("test", "test_steps"),
+            ("deploy", "deploy_steps"),
+            ("build", "build_steps"),
+            ("publish", "publish_steps"),
         ):
             n = sum(1 for s in job.steps if label in s.classes)
             if n:
@@ -529,8 +548,11 @@ class GitHubActionsAdapter:
             text: str = "",
         ) -> DomainResolution:
             return DomainResolution(
-                status=status, confidence_class=conf, resolver=resolver,
-                target=target, unresolved_text=text,
+                status=status,
+                confidence_class=conf,
+                resolver=resolver,
+                target=target,
+                unresolved_text=text,
             )
 
         # TRIGGERS: workflow → evento externo (GitHub event bus fora do
@@ -539,14 +561,16 @@ class GitHubActionsAdapter:
             relations.append(
                 ExtractedDomainRelation(
                     relation_type=str(DomainRelationKind.TRIGGERS),
-                    path=path, from_identity=wf_id,
+                    path=path,
+                    from_identity=wf_id,
                     to_unresolved=trig.descriptor,
                     resolution=_res(
                         ResolutionStatus.EXTERNAL,
                         ConfidenceClass.SYNTACTIC,
                         text=trig.descriptor,
                     ),
-                    span=trig.span, evidence=(evi,),
+                    span=trig.span,
+                    evidence=(evi,),
                 )
             )
 
@@ -557,30 +581,34 @@ class GitHubActionsAdapter:
             relations.append(
                 ExtractedDomainRelation(
                     relation_type="CONTAINS",
-                    path=path, from_identity=wf_id, to_identity=job_id,
+                    path=path,
+                    from_identity=wf_id,
+                    to_identity=job_id,
                     resolution=_res(
                         ResolutionStatus.RESOLVED,
-                        ConfidenceClass.SYNTACTIC, target=job_id,
+                        ConfidenceClass.SYNTACTIC,
+                        target=job_id,
                     ),
-                    span=job.span, evidence=(evi,),
+                    span=job.span,
+                    evidence=(evi,),
                 )
             )
 
             # DEPENDS_ON: needs: → job(s) do mesmo workflow.
             for need in job.needs:
-                target_obs = next(
-                    (j for j in obs.jobs if j.job_id == need), None
-                )
+                target_obs = next((j for j in obs.jobs if j.job_id == need), None)
                 if target_obs is not None:
                     tgt = self._job_identity(wf_id, target_obs)
                     relations.append(
                         ExtractedDomainRelation(
                             relation_type=str(DomainRelationKind.DEPENDS_ON),
-                            path=path, from_identity=job_id,
+                            path=path,
+                            from_identity=job_id,
                             to_identity=tgt,
                             resolution=_res(
                                 ResolutionStatus.RESOLVED,
-                                ConfidenceClass.SYNTACTIC, target=tgt,
+                                ConfidenceClass.SYNTACTIC,
+                                target=tgt,
                             ),
                             span=job.needs_span or job.span,
                             evidence=(evi,),
@@ -589,20 +617,24 @@ class GitHubActionsAdapter:
                 else:
                     diagnostics.append(
                         DomainDiagnostic(
-                            "unresolved-needs", "warning",
+                            "unresolved-needs",
+                            "warning",
                             f"job {job.job_id!r} needs {need!r} which is "
                             "not a declared job in this workflow",
-                            path, DOMAIN_ID,
+                            path,
+                            DOMAIN_ID,
                         )
                     )
                     relations.append(
                         ExtractedDomainRelation(
                             relation_type=str(DomainRelationKind.DEPENDS_ON),
-                            path=path, from_identity=job_id,
+                            path=path,
+                            from_identity=job_id,
                             to_unresolved=need,
                             resolution=_res(
                                 ResolutionStatus.UNRESOLVED,
-                                ConfidenceClass.SYNTACTIC, text=need,
+                                ConfidenceClass.SYNTACTIC,
+                                text=need,
                             ),
                             span=job.needs_span or job.span,
                             evidence=(evi,),
@@ -612,8 +644,15 @@ class GitHubActionsAdapter:
             # REFERENCES: job-level ``uses:`` = reusable workflow.
             if job.uses:
                 self._emit_uses(
-                    job.uses, job_id, path, evi, wf_identity,
-                    relations, diagnostics, _res, job.span,
+                    job.uses,
+                    job_id,
+                    path,
+                    evi,
+                    wf_identity,
+                    relations,
+                    diagnostics,
+                    _res,
+                    job.span,
                 )
 
             # DEPLOYS: environment estático → alvo externo nomeado.
@@ -621,22 +660,30 @@ class GitHubActionsAdapter:
                 relations.append(
                     ExtractedDomainRelation(
                         relation_type=str(DomainRelationKind.DEPLOYS),
-                        path=path, from_identity=job_id,
+                        path=path,
+                        from_identity=job_id,
                         to_unresolved=f"environment:{job.environment}",
                         resolution=_res(
                             ResolutionStatus.EXTERNAL,
                             ConfidenceClass.SYNTACTIC,
                             text=f"environment:{job.environment}",
                         ),
-                        span=job.span, evidence=(evi,),
+                        span=job.span,
+                        evidence=(evi,),
                     )
                 )
 
             # arestas por passo: TESTS/DEPLOYS/REFERENCES
             for step in job.steps:
                 self._emit_step_relations(
-                    step, job_id, path, evi, wf_identity,
-                    relations, diagnostics, _res,
+                    step,
+                    job_id,
+                    path,
+                    evi,
+                    wf_identity,
+                    relations,
+                    diagnostics,
+                    _res,
                 )
 
     def _emit_uses(
@@ -659,33 +706,42 @@ class GitHubActionsAdapter:
                 relations.append(
                     ExtractedDomainRelation(
                         relation_type=str(DomainRelationKind.REFERENCES),
-                        path=path, from_identity=from_id, to_identity=tgt,
+                        path=path,
+                        from_identity=from_id,
+                        to_identity=tgt,
                         resolution=_res(
                             ResolutionStatus.RESOLVED,
-                            ConfidenceClass.SYNTACTIC, target=tgt,
+                            ConfidenceClass.SYNTACTIC,
+                            target=tgt,
                         ),
-                        span=span, evidence=(evi,),
+                        span=span,
+                        evidence=(evi,),
                     )
                 )
             else:
                 diagnostics.append(
                     DomainDiagnostic(
-                        "local-ref-not-in-artifacts", "info",
+                        "local-ref-not-in-artifacts",
+                        "info",
                         f"local 'uses:' {uses!r} not among discovered "
                         "artifacts — reported unresolved",
-                        path, DOMAIN_ID,
+                        path,
+                        DOMAIN_ID,
                     )
                 )
                 relations.append(
                     ExtractedDomainRelation(
                         relation_type=str(DomainRelationKind.REFERENCES),
-                        path=path, from_identity=from_id,
+                        path=path,
+                        from_identity=from_id,
                         to_unresolved=f"local:{uses}",
                         resolution=_res(
                             ResolutionStatus.UNRESOLVED,
-                            ConfidenceClass.SYNTACTIC, text=uses,
+                            ConfidenceClass.SYNTACTIC,
+                            text=uses,
                         ),
-                        span=span, evidence=(evi,),
+                        span=span,
+                        evidence=(evi,),
                     )
                 )
             return
@@ -693,13 +749,16 @@ class GitHubActionsAdapter:
         relations.append(
             ExtractedDomainRelation(
                 relation_type=str(DomainRelationKind.REFERENCES),
-                path=path, from_identity=from_id,
+                path=path,
+                from_identity=from_id,
                 to_unresolved=uses,
                 resolution=_res(
                     ResolutionStatus.EXTERNAL,
-                    ConfidenceClass.SYNTACTIC, text=uses,
+                    ConfidenceClass.SYNTACTIC,
+                    text=uses,
                 ),
-                span=span, evidence=(evi,),
+                span=span,
+                evidence=(evi,),
             )
         )
 
@@ -716,34 +775,47 @@ class GitHubActionsAdapter:
     ) -> None:
         if step.uses:
             self._emit_uses(
-                step.uses, job_id, path, evi, wf_identity,
-                relations, diagnostics, _res, step.span,
+                step.uses,
+                job_id,
+                path,
+                evi,
+                wf_identity,
+                relations,
+                diagnostics,
+                _res,
+                step.span,
             )
         desc = step_descriptor(step)
         if "test" in step.classes:
             relations.append(
                 ExtractedDomainRelation(
                     relation_type=str(DomainRelationKind.TESTS),
-                    path=path, from_identity=job_id,
+                    path=path,
+                    from_identity=job_id,
                     to_unresolved=desc,
                     resolution=_res(
                         ResolutionStatus.UNRESOLVED,
-                        ConfidenceClass.HEURISTIC, text=desc,
+                        ConfidenceClass.HEURISTIC,
+                        text=desc,
                     ),
-                    span=step.span, evidence=(evi,),
+                    span=step.span,
+                    evidence=(evi,),
                 )
             )
         if "deploy" in step.classes:
             relations.append(
                 ExtractedDomainRelation(
                     relation_type=str(DomainRelationKind.DEPLOYS),
-                    path=path, from_identity=job_id,
+                    path=path,
+                    from_identity=job_id,
                     to_unresolved=desc,
                     resolution=_res(
                         ResolutionStatus.UNRESOLVED,
-                        ConfidenceClass.HEURISTIC, text=desc,
+                        ConfidenceClass.HEURISTIC,
+                        text=desc,
                     ),
-                    span=step.span, evidence=(evi,),
+                    span=step.span,
+                    evidence=(evi,),
                 )
             )
 

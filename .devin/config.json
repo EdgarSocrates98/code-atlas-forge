@@ -1,0 +1,13 @@
+{
+  "permissions": {
+    "allow": [
+      "Exec(code-atlas --version)",
+      "Exec(code-atlas doctor)",
+      "Exec(code-atlas obsidian status)",
+      "Exec(code-atlas obsidian scan)",
+      "Exec(code-atlas obsidian preview)",
+      "Exec(code-atlas obsidian sync-plan)",
+      "Exec(code-atlas obsidian history)"
+    ]
+  }
+}

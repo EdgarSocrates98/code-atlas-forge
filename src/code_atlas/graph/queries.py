@@ -31,9 +31,7 @@ class GraphView:
         return [n for n in self.result.nodes if n.name == name]
 
     def find(self, qualified_name: str) -> list[GraphNode]:
-        return [
-            n for n in self.result.nodes if n.qualified_name == qualified_name
-        ]
+        return [n for n in self.result.nodes if n.qualified_name == qualified_name]
 
     def edges_from(self, node_id: str, type_: str | None = None) -> list[GraphEdge]:
         out = self._from.get(node_id, [])

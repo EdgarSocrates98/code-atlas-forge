@@ -40,8 +40,7 @@ SYM = f"{PKG} `pkg/util.py`/helper()."
 def _repo(tmp_path: Path) -> Path:
     r = tmp_path / "repo"
     (r / "pkg").mkdir(parents=True)
-    (r / "pkg" / "util.py").write_text(
-        "def helper():\n    return 1\n")
+    (r / "pkg" / "util.py").write_text("def helper():\n    return 1\n")
     return r
 
 
@@ -69,7 +68,7 @@ def test_current_index_full_provenance(tmp_path: Path) -> None:
     assert p.producer_version == "0.11.0"
     assert p.repository_identity == repo.as_uri()
     assert p.worktree_digest  # digest sobre arquivos indexados
-    assert p.indexed_at      # mtime do .scip (evidência host)
+    assert p.indexed_at  # mtime do .scip (evidência host)
     assert "project_root matches workspace" in p.validation_evidence
     assert not a.errors
 
@@ -122,8 +121,7 @@ def test_span_beyond_file_end_degraded(tmp_path: Path) -> None:
 def test_missing_tool_version_degraded(tmp_path: Path) -> None:
     repo = _repo(tmp_path)
     # producer sem versão → evidência de revisão insuficiente
-    scip = _scip(tmp_path, repo,
-                 tool=tool_info("scip-python", ""))
+    scip = _scip(tmp_path, repo, tool=tool_info("scip-python", ""))
     a = assess_revision(parse_index(scip.read_bytes()), scip, repo)
     assert a.provenance.validation_status == STATUS_DEGRADED
     assert any("tool_info.version missing" in w for w in a.warnings)
@@ -142,10 +140,8 @@ def test_non_normalized_path_degraded(tmp_path: Path) -> None:
 def test_duplicate_symbol_across_docs_degraded(tmp_path: Path) -> None:
     repo = _repo(tmp_path)
     (repo / "pkg" / "dup.py").write_text("x = 1\n")
-    doc_a = document("pkg/util.py",
-                     syms=[symbol_info(SYM, kind=17)])
-    doc_b = document("pkg/dup.py",
-                     syms=[symbol_info(SYM, kind=17)])
+    doc_a = document("pkg/util.py", syms=[symbol_info(SYM, kind=17)])
+    doc_b = document("pkg/dup.py", syms=[symbol_info(SYM, kind=17)])
     f = tmp_path / "index.scip"
     f.write_bytes(index_bytes(repo.as_uri(), [doc_a, doc_b]))
     a = assess_revision(parse_index(f.read_bytes()), f, repo)
@@ -159,8 +155,8 @@ def test_untrusted_position_encoding_degraded(tmp_path: Path) -> None:
     # position_encoding é o field 6 do Document — fixture fixa 3;
     # reconstruo com encoding=2 (UTF-16, não suportado pelo mapper).
     from scip_fixture import f_msg, f_string, f_varint
-    raw_doc = (f_string(1, "pkg/util.py") + f_string(4, "python")
-               + f_varint(6, 2))
+
+    raw_doc = f_string(1, "pkg/util.py") + f_string(4, "python") + f_varint(6, 2)
     doc_bytes = f_msg(2, raw_doc) if False else raw_doc
     _ = doc  # fixture-based doc não usado — raw acima é o alvo
     idx = index_bytes(repo.as_uri(), [doc_bytes])
@@ -176,6 +172,7 @@ def test_corrupted_index_no_provenance(tmp_path: Path) -> None:
     f = tmp_path / "index.scip"
     f.write_bytes(b"\xff\xff\xff")
     from code_atlas.resolvers.scip.importer import DecodeError
+
     with pytest.raises(DecodeError):
         parse_index(f.read_bytes())
 
@@ -201,8 +198,7 @@ def _universe(tmp_path: Path) -> object:
 
     repo = _repo(tmp_path)
     s = scan(repo)
-    results = ParseEngine().parse_batch(
-        [(f.path, (repo / f.path).read_bytes()) for f in s.files])
+    results = ParseEngine().parse_batch([(f.path, (repo / f.path).read_bytes()) for f in s.files])
     b = GraphBuilder()
     b.build("repo", s, results)
     return b.universe
@@ -218,14 +214,17 @@ def test_degraded_never_promotes_as_proven(tmp_path: Path) -> None:
         validation_evidence=("stale",),
     )
     idx = parse_index(
-        index_bytes("file:///repo", [
-            document("pkg/util.py",
-                     occs=[occurrence(
-                         SYM, slr(0, 4, 10), roles=ROLE_DEFINITION)]),
-        ]))
+        index_bytes(
+            "file:///repo",
+            [
+                document(
+                    "pkg/util.py", occs=[occurrence(SYM, slr(0, 4, 10), roles=ROLE_DEFINITION)]
+                ),
+            ],
+        )
+    )
     r = ScipResolver(idx, uni, prov)
-    req = ResolutionRequest(name="helper", kind="call",
-                            path="pkg/util.py")
+    req = ResolutionRequest(name="helper", kind="call", path="pkg/util.py")
     res = r.resolve_symbol(req, SYM)
     assert res.reference is not None
     if res.reference.status == "resolved":
@@ -239,10 +238,8 @@ def test_rejected_index_never_resolves(tmp_path: Path) -> None:
         validation_status=STATUS_REJECTED,
         validation_evidence=("project_root mismatch",),
     )
-    r = ScipResolver(parse_index(index_bytes("file:///repo", [])),
-                     uni, prov)
-    res = r.resolve(
-        ResolutionRequest(name="x", kind="call", path="pkg/util.py"))
+    r = ScipResolver(parse_index(index_bytes("file:///repo", [])), uni, prov)
+    res = r.resolve(ResolutionRequest(name="x", kind="call", path="pkg/util.py"))
     assert res.reference is not None
     assert res.reference.status == "unresolved"
     assert res.diagnostics[0].code == "index-rejected"
@@ -252,8 +249,7 @@ def test_rejected_index_never_resolves(tmp_path: Path) -> None:
 def test_no_assessment_is_degraded_by_default(tmp_path: Path) -> None:
     """Sem assessment explícito, índice é não-verificado → degraded."""
     uni = _universe(tmp_path)
-    r = ScipResolver(
-        parse_index(index_bytes("file:///repo", [])), uni)
+    r = ScipResolver(parse_index(index_bytes("file:///repo", [])), uni)
     assert r.provenance.validation_status == STATUS_DEGRADED
     assert "no revision assessment" in r.provenance.validation_evidence
 

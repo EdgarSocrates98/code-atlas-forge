@@ -30,18 +30,34 @@ from code_atlas.parsers.contracts import ParseResult, SourceSpan
 
 # callee → índice do argumento que carrega a URL.
 PY_URL_ARG: dict[str, int] = {
-    "requests.get": 0, "requests.post": 0, "requests.put": 0,
-    "requests.delete": 0, "requests.patch": 0, "requests.head": 0,
-    "requests.options": 0, "requests.request": 1,
-    "httpx.get": 0, "httpx.post": 0, "httpx.put": 0,
-    "httpx.delete": 0, "httpx.patch": 0, "httpx.head": 0,
-    "httpx.options": 0, "httpx.request": 1,
+    "requests.get": 0,
+    "requests.post": 0,
+    "requests.put": 0,
+    "requests.delete": 0,
+    "requests.patch": 0,
+    "requests.head": 0,
+    "requests.options": 0,
+    "requests.request": 1,
+    "httpx.get": 0,
+    "httpx.post": 0,
+    "httpx.put": 0,
+    "httpx.delete": 0,
+    "httpx.patch": 0,
+    "httpx.head": 0,
+    "httpx.options": 0,
+    "httpx.request": 1,
     "urllib.request.urlopen": 0,
 }
 TS_URL_ARG: dict[str, int] = {
-    "fetch": 0, "axios": 0, "axios.request": 0,
-    "axios.get": 0, "axios.post": 0, "axios.put": 0,
-    "axios.delete": 0, "axios.patch": 0, "axios.head": 0,
+    "fetch": 0,
+    "axios": 0,
+    "axios.request": 0,
+    "axios.get": 0,
+    "axios.post": 0,
+    "axios.put": 0,
+    "axios.delete": 0,
+    "axios.patch": 0,
+    "axios.head": 0,
     "axios.options": 0,
 }
 _AXIOS_URL_PROP = re.compile(r"\burl\s*:\s*('([^']*)'|\"([^\"]*)\")")
@@ -99,7 +115,8 @@ def emit_call(
     args = common.split_args(args_text or "")
     if len(args) <= url_idx:
         sink.diag(
-            "call-args-unparsed", "info",
+            "call-args-unparsed",
+            "info",
             f"{callee}(...) without readable args at {path}",
             path,
         )
@@ -122,16 +139,17 @@ def emit_call(
             from_symbol=caller,
             to_unresolved=f"dynamic:{marker}",
             resolution=sink.resolution(
-                ResolutionStatus.UNRESOLVED, ConfidenceClass.HEURISTIC,
+                ResolutionStatus.UNRESOLVED,
+                ConfidenceClass.HEURISTIC,
                 unresolved_text=f"dynamic:{marker}",
             ),
             span=span,
             evidence=(evi,),
         )
         sink.diag(
-            "dynamic-url", "info",
-            f"{callee} call with dynamic URL marker — never resolved "
-            f"({marker[:60]!r})",
+            "dynamic-url",
+            "info",
+            f"{callee} call with dynamic URL marker — never resolved ({marker[:60]!r})",
             path,
         )
         sink.bump("consumer_calls_dynamic")
@@ -140,8 +158,10 @@ def emit_call(
     url = lit.value
     if not url.strip():
         sink.diag(
-            "empty-url", "warning",
-            f"{callee} call with empty URL literal", path,
+            "empty-url",
+            "warning",
+            f"{callee} call with empty URL literal",
+            path,
         )
         return
     candidates = _candidates(sink, url)
@@ -155,7 +175,8 @@ def emit_call(
         from_symbol=caller,
         to_unresolved=url,
         resolution=sink.resolution(
-            status, confidence,
+            status,
+            confidence,
             candidates=candidates,
             unresolved_text=url,
         ),
@@ -188,13 +209,16 @@ def extract_consumers(
         scope = ".".join(ref.scope_path)
         caller = f"{module}.{scope}" if scope else module
         emit_call(
-            sink=sink, path=path, caller=caller, callee=callee,
-            args_text=common.args_after(
-                text, common.byte_to_char(text, ref.span.end_byte)
-            ),
-            url_idx=url_idx, span=ref.span,
+            sink=sink,
+            path=path,
+            caller=caller,
+            callee=callee,
+            args_text=common.args_after(text, common.byte_to_char(text, ref.span.end_byte)),
+            url_idx=url_idx,
+            span=ref.span,
             content_hash=content_hash,
-            confidence=confidence, lang=lang,
+            confidence=confidence,
+            lang=lang,
         )
 
 
@@ -216,9 +240,14 @@ def extract_js_consumers(
                 continue
             span = common.line_span(text, byte_offs, lineno)
             emit_call(
-                sink=sink, path=path, caller=module, callee=callee,
+                sink=sink,
+                path=path,
+                caller=module,
+                callee=callee,
                 args_text=common.scan_args(line, m.end() - 1),
-                url_idx=url_idx, span=span,
+                url_idx=url_idx,
+                span=span,
                 content_hash=content_hash,
-                confidence=ConfidenceClass.HEURISTIC, lang="ts",
+                confidence=ConfidenceClass.HEURISTIC,
+                lang="ts",
             )

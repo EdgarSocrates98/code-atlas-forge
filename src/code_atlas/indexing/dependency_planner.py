@@ -72,8 +72,7 @@ class IndexPlan:
             "incremental": self.incremental,
             "counts": self.counts(),
             "files": [
-                {"path": f.path, "action": str(f.action), "reason": f.reason}
-                for f in ordered
+                {"path": f.path, "action": str(f.action), "reason": f.reason} for f in ordered
             ],
         }
 
@@ -100,9 +99,7 @@ def _candidate_paths(importer: str, text: str) -> set[str]:
             cands.add(base + "/__init__.py")
 
     if text.startswith(("./", "../")):
-        base = posixpath.normpath(
-            posixpath.join(posixpath.dirname(importer), text)
-        )
+        base = posixpath.normpath(posixpath.join(posixpath.dirname(importer), text))
         for ext in _TS_EXTS:
             cands.add(base + ext)
         cands.add(base)
@@ -140,37 +137,24 @@ class InvalidationPlanner:
         arquivos com parse incompleto têm dependências desconhecidas.
         """
         actions, affected = self._primary_actions(changeset)
-        self._propagate_dependents(changeset, prior_import_edges,
-                                   actions, affected)
-        self._revalidate_unresolved(changeset, prior_import_edges,
-                                    actions, affected)
-        self._revalidate_incomplete(changeset, prior_parse_status or {},
-                                    actions, affected)
+        self._propagate_dependents(changeset, prior_import_edges, actions, affected)
+        self._revalidate_unresolved(changeset, prior_import_edges, actions, affected)
+        self._revalidate_incomplete(changeset, prior_parse_status or {}, actions, affected)
         self._revalidate_resolver_bump(changeset, actions)
-        return IndexPlan(
-            files=tuple(sorted(actions.values(), key=lambda f: f.path))
-        )
+        return IndexPlan(files=tuple(sorted(actions.values(), key=lambda f: f.path)))
 
-    def _primary_actions(
-        self, changeset: ChangeSet
-    ) -> tuple[dict[str, PlannedFile], set[str]]:
+    def _primary_actions(self, changeset: ChangeSet) -> tuple[dict[str, PlannedFile], set[str]]:
         """1. ações primárias: DROP/REUSE/REPARSE + conjunto afetado."""
         actions: dict[str, PlannedFile] = {}
         affected: set[str] = set()
         for c in changeset.changes:
             if c.kind == ChangeKind.DELETED:
-                actions[c.path] = PlannedFile(
-                    c.path, PlanAction.DROP, f"deleted: {c.reason}"
-                )
+                actions[c.path] = PlannedFile(c.path, PlanAction.DROP, f"deleted: {c.reason}")
                 affected.add(c.path)
             elif c.kind == ChangeKind.UNCHANGED:
-                actions[c.path] = PlannedFile(
-                    c.path, PlanAction.REUSE, "unchanged and unaffected"
-                )
+                actions[c.path] = PlannedFile(c.path, PlanAction.REUSE, "unchanged and unaffected")
             else:
-                actions[c.path] = PlannedFile(
-                    c.path, PlanAction.REPARSE, f"{c.kind}: {c.reason}"
-                )
+                actions[c.path] = PlannedFile(c.path, PlanAction.REPARSE, f"{c.kind}: {c.reason}")
                 affected.add(c.path)
         return actions, affected
 
@@ -199,11 +183,13 @@ class InvalidationPlanner:
                 seen.add(importer)
                 cur = actions.get(importer)
                 if cur is not None and cur.action in (
-                    PlanAction.REPARSE, PlanAction.DROP,
+                    PlanAction.REPARSE,
+                    PlanAction.DROP,
                 ):
                     continue  # já coberto por ação mais forte
                 actions[importer] = PlannedFile(
-                    importer, PlanAction.REVALIDATE_RELATIONS,
+                    importer,
+                    PlanAction.REVALIDATE_RELATIONS,
                     f"imports changed module {target}",
                 )
                 frontier.add(importer)
@@ -227,7 +213,8 @@ class InvalidationPlanner:
                 cur = actions.get(importer)
                 if cur is None or cur.action == PlanAction.REUSE:
                     actions[importer] = PlannedFile(
-                        importer, PlanAction.REVALIDATE_RELATIONS,
+                        importer,
+                        PlanAction.REVALIDATE_RELATIONS,
                         f"unresolved import '{text}' may now match {hit}",
                     )
 
@@ -248,7 +235,8 @@ class InvalidationPlanner:
             st = prior_status.get(c.path)
             if st in ("parse-failed", "parsed-with-errors", "unparsed"):
                 actions[c.path] = PlannedFile(
-                    c.path, PlanAction.REVALIDATE_RELATIONS,
+                    c.path,
+                    PlanAction.REVALIDATE_RELATIONS,
                     f"incomplete dependency info (previous {st})",
                 )
 
@@ -262,7 +250,7 @@ class InvalidationPlanner:
             cur = actions.get(c.path)
             if cur is not None and cur.action == PlanAction.REUSE:
                 actions[c.path] = PlannedFile(
-                    c.path, PlanAction.REVALIDATE_RELATIONS,
-                    "resolver version changed "
-                    f"({', '.join(changeset.resolver_changes)})",
+                    c.path,
+                    PlanAction.REVALIDATE_RELATIONS,
+                    f"resolver version changed ({', '.join(changeset.resolver_changes)})",
                 )

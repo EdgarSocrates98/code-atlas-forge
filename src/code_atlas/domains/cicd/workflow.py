@@ -64,8 +64,8 @@ def has_interpolation(text: str) -> bool:
 class TriggerObs:
     """Um evento ``on:`` observado estaticamente."""
 
-    kind: str                 # push | pull_request | schedule | …
-    descriptor: str           # alvo textual honesto p/ to_unresolved
+    kind: str  # push | pull_request | schedule | …
+    descriptor: str  # alvo textual honesto p/ to_unresolved
     span: SourceSpan
     details: tuple[tuple[str, str], ...] = ()  # ex.: ("branches","main,dev")
 
@@ -75,11 +75,11 @@ class StepObs:
     """Passo observado: ``run``/``uses`` + classificação declarada."""
 
     index: int
-    name: str                 # ``name:`` declarado; "" quando ausente
-    uses: str                 # ref de action (sanitizado) ou ""
-    run: str                  # primeiro comando (sanitizado, truncado) ou ""
+    name: str  # ``name:`` declarado; "" quando ausente
+    uses: str  # ref de action (sanitizado) ou ""
+    run: str  # primeiro comando (sanitizado, truncado) ou ""
     env_keys: tuple[str, ...] = ()
-    classes: frozenset[str] = frozenset()   # rótulos classify.py
+    classes: frozenset[str] = frozenset()  # rótulos classify.py
     artifacts_out: tuple[str, ...] = ()
     artifacts_in: tuple[str, ...] = ()
     span: SourceSpan | None = None
@@ -91,22 +91,22 @@ class JobObs:
 
     job_id: str
     display_name: str
-    uses: str                 # reusable-workflow call ou ""
+    uses: str  # reusable-workflow call ou ""
     needs: tuple[str, ...] = ()
-    runs_on: str = ""         # sanitizado; seq → csv
-    environment: str = ""     # nome estático; "" quando ausente/dinâmico
+    runs_on: str = ""  # sanitizado; seq → csv
+    environment: str = ""  # nome estático; "" quando ausente/dinâmico
     environment_dynamic: bool = False
-    if_expr: str = ""         # sanitizado
-    matrix_axes: tuple[str, ...] = ()       # "os=3" multiplicidade declarada
+    if_expr: str = ""  # sanitizado
+    matrix_axes: tuple[str, ...] = ()  # "os=3" multiplicidade declarada
     matrix_dynamic: bool = False
-    matrix_extras: tuple[str, ...] = ()     # include|exclude presentes
+    matrix_extras: tuple[str, ...] = ()  # include|exclude presentes
     fail_fast: str = ""
     max_parallel: str = ""
     permissions: str = ""
     env_keys: tuple[str, ...] = ()
-    secrets_mode: str = ""    # "inherit" | "declared" | ""
+    secrets_mode: str = ""  # "inherit" | "declared" | ""
     concurrency: str = ""
-    outputs: int = 0          # nº de outputs declarados (workflow_call)
+    outputs: int = 0  # nº de outputs declarados (workflow_call)
     steps: tuple[StepObs, ...] = ()
     needs_span: SourceSpan | None = None
     span: SourceSpan | None = None
@@ -117,7 +117,7 @@ class WorkflowObs:
     """Observação completa de um arquivo de workflow."""
 
     path: str
-    name: str                 # ``name:`` ou stem do arquivo (fallback)
+    name: str  # ``name:`` ou stem do arquivo (fallback)
     name_declared: bool
     triggers: tuple[TriggerObs, ...] = ()
     jobs: tuple[JobObs, ...] = ()
@@ -161,7 +161,8 @@ def _map_summary(node: YNode | None) -> str:
             continue
         val = v.scalar_text()
         parts.append(
-            f"{sanitize(k.value)}:{sanitize(val)}" if val is not None
+            f"{sanitize(k.value)}:{sanitize(val)}"
+            if val is not None
             else f"{sanitize(k.value)}:<{v.kind}>"
         )
     return ",".join(parts)
@@ -219,20 +220,18 @@ def _schedule_triggers(node: YNode) -> tuple[TriggerObs, ...]:
         if cs:
             out.append(
                 TriggerObs(
-                    SCHEDULE, f"schedule:cron={cs}", it.span,
+                    SCHEDULE,
+                    f"schedule:cron={cs}",
+                    it.span,
                     (("cron", cs),),
                 )
             )
         else:
-            out.append(
-                TriggerObs(SCHEDULE, "schedule:<unparsed>", it.span, ())
-            )
+            out.append(TriggerObs(SCHEDULE, "schedule:<unparsed>", it.span, ()))
     return tuple(out)
 
 
-def _mk_trigger(
-    kind: str, node: YNode | None, span: SourceSpan
-) -> tuple[TriggerObs, ...]:
+def _mk_trigger(kind: str, node: YNode | None, span: SourceSpan) -> tuple[TriggerObs, ...]:
     if kind == SCHEDULE and node is not None and node.kind == "seq":
         return _schedule_triggers(node)
     return (TriggerObs(kind, kind, span, _trigger_details(node)),)
@@ -252,7 +251,8 @@ def _triggers(on_node: YNode | None, diags: list[YamlDiagnostic]) -> tuple[Trigg
             else:
                 diags.append(
                     YamlDiagnostic(
-                        "trigger-non-scalar", "warning",
+                        "trigger-non-scalar",
+                        "warning",
                         "non-scalar entry in 'on:' sequence skipped",
                         it.span.start_line,
                     )
@@ -264,7 +264,8 @@ def _triggers(on_node: YNode | None, diags: list[YamlDiagnostic]) -> tuple[Trigg
     else:
         diags.append(
             YamlDiagnostic(
-                "trigger-unparsed", "warning",
+                "trigger-unparsed",
+                "warning",
                 f"'on:' has unsupported node kind {on_node.kind}",
                 on_node.span.start_line,
             )
@@ -335,7 +336,8 @@ def _steps(job: YNode, diags: list[YamlDiagnostic]) -> tuple[StepObs, ...]:
     if seq.kind != "seq":
         diags.append(
             YamlDiagnostic(
-                "steps-not-seq", "warning",
+                "steps-not-seq",
+                "warning",
                 "'steps:' is not a sequence — no steps extracted",
                 seq.span.start_line,
             )
@@ -346,7 +348,8 @@ def _steps(job: YNode, diags: list[YamlDiagnostic]) -> tuple[StepObs, ...]:
         if item.kind != "map":
             diags.append(
                 YamlDiagnostic(
-                    "step-not-map", "warning",
+                    "step-not-map",
+                    "warning",
                     "step entry is not a mapping — skipped",
                     item.span.start_line,
                 )
@@ -371,7 +374,10 @@ def _steps(job: YNode, diags: list[YamlDiagnostic]) -> tuple[StepObs, ...]:
         classes = classify_step(uses=uses, run=run_raw)
         out.append(
             StepObs(
-                index=idx, name=name, uses=uses, run=run,
+                index=idx,
+                name=name,
+                uses=uses,
+                run=run,
                 env_keys=_csv_keys(item.get("env")),
                 classes=classes,
                 artifacts_out=tuple(artifacts_out),
@@ -395,7 +401,8 @@ def _jobs(jobs_node: YNode | None, diags: list[YamlDiagnostic]) -> tuple[JobObs,
     if jobs_node.kind != "map":
         diags.append(
             YamlDiagnostic(
-                "jobs-not-map", "error",
+                "jobs-not-map",
+                "error",
                 "'jobs:' is not a mapping — no jobs extracted",
                 jobs_node.span.start_line,
             )
@@ -408,7 +415,8 @@ def _jobs(jobs_node: YNode | None, diags: list[YamlDiagnostic]) -> tuple[JobObs,
         if job.kind != "map":
             diags.append(
                 YamlDiagnostic(
-                    "job-not-map", "warning",
+                    "job-not-map",
+                    "warning",
                     f"job {sanitize(k.value)!r} is not a mapping — skipped",
                     job.span.start_line,
                 )
@@ -432,10 +440,7 @@ def _jobs(jobs_node: YNode | None, diags: list[YamlDiagnostic]) -> tuple[JobObs,
                 needs=needs,
                 runs_on=",".join(
                     sanitize(t)
-                    for t in (
-                        runs_on_node.scalar_list()
-                        if runs_on_node is not None else ()
-                    )
+                    for t in (runs_on_node.scalar_list() if runs_on_node is not None else ())
                 ),
                 environment=env,
                 environment_dynamic=env_dyn,
@@ -450,9 +455,7 @@ def _jobs(jobs_node: YNode | None, diags: list[YamlDiagnostic]) -> tuple[JobObs,
                 secrets_mode=secrets_mode,
                 concurrency=_scalar(job.get("concurrency")),
                 outputs=(
-                    len(outputs.pairs)
-                    if outputs is not None and outputs.kind == "map"
-                    else 0
+                    len(outputs.pairs) if outputs is not None and outputs.kind == "map" else 0
                 ),
                 steps=_steps(job, diags),
                 needs_span=needs_span,
@@ -462,9 +465,7 @@ def _jobs(jobs_node: YNode | None, diags: list[YamlDiagnostic]) -> tuple[JobObs,
     return tuple(out)
 
 
-def parse_workflow(
-    root: YNode | None, path: str
-) -> WorkflowParse:
+def parse_workflow(root: YNode | None, path: str) -> WorkflowParse:
     """Observação semântica de um workflow; ``None`` se não-executável."""
     diags: list[YamlDiagnostic] = []
     if root is None:
@@ -472,7 +473,8 @@ def parse_workflow(
     if root.kind != "map":
         diags.append(
             YamlDiagnostic(
-                "workflow-not-map", "error",
+                "workflow-not-map",
+                "error",
                 "workflow document is not a mapping — no extraction",
                 root.span.start_line,
             )
@@ -488,14 +490,18 @@ def parse_workflow(
     if not jobs:
         diags.append(
             YamlDiagnostic(
-                "no-jobs", "warning",
+                "no-jobs",
+                "warning",
                 "workflow declares no usable 'jobs:' mapping",
                 root.span.start_line,
             )
         )
     obs = WorkflowObs(
-        path=path, name=name, name_declared=bool(declared),
-        triggers=triggers, jobs=jobs,
+        path=path,
+        name=name,
+        name_declared=bool(declared),
+        triggers=triggers,
+        jobs=jobs,
         permissions=_map_summary(root.get("permissions")),
         env_keys=_csv_keys(root.get("env")),
         concurrency=_scalar(root.get("concurrency")),

@@ -28,15 +28,13 @@ class DomainResolution:
 
     status: ResolutionStatus
     confidence_class: ConfidenceClass
-    resolver: str                       # id do adapter/resolver produtor
+    resolver: str  # id do adapter/resolver produtor
     target: DomainIdentity | None = None
     candidates: tuple[DomainIdentity, ...] = field(default_factory=tuple)
-    unresolved_text: str = ""           # alvo textual preservado
+    unresolved_text: str = ""  # alvo textual preservado
 
     def __post_init__(self) -> None:
-        object.__setattr__(
-            self, "status", _coerce(ResolutionStatus, self.status, "status")
-        )
+        object.__setattr__(self, "status", _coerce(ResolutionStatus, self.status, "status"))
         object.__setattr__(
             self,
             "confidence_class",
@@ -46,20 +44,12 @@ class DomainResolution:
             raise ValueError("domain resolution requires resolver provenance")
         if self.status is ResolutionStatus.RESOLVED and self.target is None:
             raise ValueError("resolved status requires target identity")
-        if (
-            self.status is ResolutionStatus.AMBIGUOUS
-            and len(self.candidates) < 2
-        ):
+        if self.status is ResolutionStatus.AMBIGUOUS and len(self.candidates) < 2:
             raise ValueError("ambiguous status requires >=2 candidates")
-        if (
-            self.status in (ResolutionStatus.UNRESOLVED,)
-            and self.target is not None
-        ):
+        if self.status in (ResolutionStatus.UNRESOLVED,) and self.target is not None:
             raise ValueError("unresolved status cannot carry a target")
         if (
             self.confidence_class is ConfidenceClass.INFERRED
             and self.status is ResolutionStatus.RESOLVED
         ):
-            raise ValueError(
-                "inferred evidence can never be reported resolved"
-            )
+            raise ValueError("inferred evidence can never be reported resolved")

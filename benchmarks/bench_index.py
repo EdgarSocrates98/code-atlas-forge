@@ -176,15 +176,9 @@ def bench_size(tmp: Path, n_files: int) -> dict[str, object]:
             "p95": round(_p(lat, 0.95), 6),
             "n": len(lat),
         },
-        "peak_rss_mb": (
-            round(rss, 1) if (rss := _peak_rss_mb()) is not None else None
-        ),
+        "peak_rss_mb": (round(rss, 1) if (rss := _peak_rss_mb()) is not None else None),
         "db_size_mb": round(
-            sum(
-                p.stat().st_size
-                for p in (db_path, Path(str(db_path) + "-wal"))
-                if p.exists()
-            )
+            sum(p.stat().st_size for p in (db_path, Path(str(db_path) + "-wal")) if p.exists())
             / 1e6,
             2,
         ),
@@ -201,8 +195,7 @@ def bench_size(tmp: Path, n_files: int) -> dict[str, object]:
 def main() -> int:
     p = argparse.ArgumentParser(description="Benchmark do índice Code Atlas")
     p.add_argument("--sizes", type=int, nargs="+", default=[100, 1000, 5000])
-    p.add_argument("--json", type=Path, default=None,
-                   help="grava resultado em arquivo JSON")
+    p.add_argument("--json", type=Path, default=None, help="grava resultado em arquivo JSON")
     args = p.parse_args()
 
     env = {
@@ -212,8 +205,7 @@ def main() -> int:
         "machine": platform.machine(),
         "python": platform.python_version(),
         "baseline_note": (
-            "Cycle-1 bench_scan media discovery+hash apenas; comparável "
-            "somente em discovery_s."
+            "Cycle-1 bench_scan media discovery+hash apenas; comparável somente em discovery_s."
         ),
         "runs": [],
     }

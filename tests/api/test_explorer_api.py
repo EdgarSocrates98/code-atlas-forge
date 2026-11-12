@@ -1,4 +1,5 @@
 """Contrato da API Explorer — servidor HTTP real, porta efêmera, read-only."""
+
 from __future__ import annotations
 
 import json
@@ -19,12 +20,15 @@ def _index_db(tmp: Path) -> tuple[Path, Path]:
     root.mkdir()
     (root / "mod.py").write_text(
         "def helper(x):\n    return x + 1\n\n"
-        "class Service:\n    def run(self):\n        return helper(1)\n")
+        "class Service:\n    def run(self):\n        return helper(1)\n"
+    )
     (root / "caller.py").write_text(
-        "from mod import Service\n\ndef main():\n    return Service().run()\n")
+        "from mod import Service\n\ndef main():\n    return Service().run()\n"
+    )
     db = tmp / "atlas.db"
     from code_atlas.indexing.coordinator import IndexCoordinator
     from code_atlas.storage import connect, migrate
+
     conn = connect(db)
     migrate(conn)
     IndexCoordinator(conn).index(root)
@@ -32,12 +36,16 @@ def _index_db(tmp: Path) -> tuple[Path, Path]:
     return db, root
 
 
-def _req(url: str, path: str, method: str = "GET",
-         body: dict | None = None, headers: dict | None = None) -> tuple[int, dict]:
+def _req(
+    url: str, path: str, method: str = "GET", body: dict | None = None, headers: dict | None = None
+) -> tuple[int, dict]:
     data = json.dumps(body).encode() if body is not None else None
-    r = urllib.request.Request(url + path, data=data, method=method,
-                               headers={"Content-Type": "application/json",
-                                        **(headers or {})})
+    r = urllib.request.Request(
+        url + path,
+        data=data,
+        method=method,
+        headers={"Content-Type": "application/json", **(headers or {})},
+    )
     try:
         with urllib.request.urlopen(r, timeout=10) as resp:
             return resp.status, json.loads(resp.read())
@@ -51,8 +59,7 @@ class TestExplorerApi(unittest.TestCase):
         cls._tmp = tempfile.TemporaryDirectory()
         db, cls.root = _index_db(Path(cls._tmp.name))
         cls.server = serve(str(db), port=0)
-        cls.thread = threading.Thread(target=cls.server.serve_forever,
-                                      daemon=True)
+        cls.thread = threading.Thread(target=cls.server.serve_forever, daemon=True)
         cls.thread.start()
 
     @classmethod
@@ -97,20 +104,20 @@ class TestExplorerApi(unittest.TestCase):
             self.skipTest("sem hits")
         code, body = _req(
             self.server.url,
-            f"/graph/neighbors?occurrence_id={occ[0]['occurrence_id']}"
-            "&direction=out")
+            f"/graph/neighbors?occurrence_id={occ[0]['occurrence_id']}&direction=out",
+        )
         self.assertEqual(code, 200)
         self.assertIn("edges", body)
 
     def test_impact_analyze(self) -> None:
-        code, body = _req(self.server.url, "/impact/analyze", "POST",
-                          {"repository_root": str(self.root)})
+        code, body = _req(
+            self.server.url, "/impact/analyze", "POST", {"repository_root": str(self.root)}
+        )
         self.assertEqual(code, 200)
         self.assertIn("diagnostics", body)
 
     def test_context_pack(self) -> None:
-        code, body = _req(self.server.url, "/context", "POST",
-                          {"task": "entender Service"})
+        code, body = _req(self.server.url, "/context", "POST", {"task": "entender Service"})
         self.assertEqual(code, 200)
         self.assertIn("manifest", body)
         self.assertIn("items", body)
@@ -122,13 +129,11 @@ class TestExplorerApi(unittest.TestCase):
 
     # --- segurança -------------------------------------------------------
     def test_bad_host_rejected(self) -> None:
-        code, _ = _req(self.server.url, "/health",
-                       headers={"Host": "evil.example.com"})
+        code, _ = _req(self.server.url, "/health", headers={"Host": "evil.example.com"})
         self.assertEqual(code, 403)
 
     def test_bad_origin_rejected(self) -> None:
-        code, _ = _req(self.server.url, "/health",
-                       headers={"Origin": "http://evil.example.com"})
+        code, _ = _req(self.server.url, "/health", headers={"Origin": "http://evil.example.com"})
         self.assertEqual(code, 403)
 
     def test_unknown_route_404(self) -> None:
@@ -139,8 +144,11 @@ class TestExplorerApi(unittest.TestCase):
     def test_oversized_body_413(self) -> None:
         big = "x" * (70 * 1024)
         r = urllib.request.Request(
-            self.server.url + "/context", data=big.encode(), method="POST",
-            headers={"Content-Type": "application/json"})
+            self.server.url + "/context",
+            data=big.encode(),
+            method="POST",
+            headers={"Content-Type": "application/json"},
+        )
         try:
             urllib.request.urlopen(r, timeout=10)
             self.fail("deveria rejeitar")
@@ -149,6 +157,7 @@ class TestExplorerApi(unittest.TestCase):
 
     def test_unsafe_bind_rejected(self) -> None:
         from code_atlas.api.server import ApiError, AtlasApiServer
+
         with self.assertRaises(ApiError):
             AtlasApiServer("x.db", host="0.0.0.0")
 

@@ -54,10 +54,10 @@ DEFAULT_OUT = REPO_ROOT / "benchmarks" / "results" / "realworld-latest.json"
 ATLAS_BIN = REPO_ROOT / ".venv" / "bin" / "code-atlas"
 ATLAS_PY = REPO_ROOT / ".venv" / "bin" / "python"
 
-INDEX_TIMEOUT_S = 900          # teto por `code-atlas index`
-API_REQ_TIMEOUT_S = 15         # teto por request HTTP
-API_BOOT_TIMEOUT_S = 30        # teto para o servidor imprimir a URL
-API_REPEATS_DEFAULT = 25       # requests por endpoint (após warmup)
+INDEX_TIMEOUT_S = 900  # teto por `code-atlas index`
+API_REQ_TIMEOUT_S = 15  # teto por request HTTP
+API_BOOT_TIMEOUT_S = 30  # teto para o servidor imprimir a URL
+API_REPEATS_DEFAULT = 25  # requests por endpoint (após warmup)
 # tabela → coluna de escopo do count (snapshot-scoped salvo domain_entities,
 # que é repo-scoped por design — identidade estável entre snapshots).
 TABLE_SCOPES = (
@@ -80,8 +80,7 @@ def _env(data_dir: Path, config_dir: Path) -> dict[str, str]:
     return env
 
 
-def run_index(repo_path: Path, work_dir: Path, *, domains: bool,
-              log: list[str]) -> dict:
+def run_index(repo_path: Path, work_dir: Path, *, domains: bool, log: list[str]) -> dict:
     """Roda `code-atlas index` real (subprocesso) e mede wall time."""
     data_dir = work_dir / "data"
     config_dir = work_dir / "config"
@@ -92,15 +91,14 @@ def run_index(repo_path: Path, work_dir: Path, *, domains: bool,
         cmd += ["--domains", "all"]
     t0 = time.monotonic()
     proc = subprocess.run(
-        cmd, env=_env(data_dir, config_dir), capture_output=True,
-        text=True, timeout=INDEX_TIMEOUT_S)
+        cmd, env=_env(data_dir, config_dir), capture_output=True, text=True, timeout=INDEX_TIMEOUT_S
+    )
     wall_s = time.monotonic() - t0
     if proc.stderr.strip():
         log.append(f"{repo_path.name}: stderr: {proc.stderr.strip()[:400]}")
     payload = json.loads(proc.stdout.strip().splitlines()[-1])
     stats = payload.get("stats") or {}
-    stage_ms = {k[len("stage_ms_"):]: v for k, v in stats.items()
-                if k.startswith("stage_ms_")}
+    stage_ms = {k[len("stage_ms_") :]: v for k, v in stats.items() if k.startswith("stage_ms_")}
     return {
         "cmd": " ".join(cmd),
         "exit_code": proc.returncode,
@@ -114,16 +112,14 @@ def run_index(repo_path: Path, work_dir: Path, *, domains: bool,
         "warnings": payload.get("warnings"),
         "diagnostics": payload.get("diagnostics"),
         "domains_enabled": payload.get("domains"),
-        "stats": {k: v for k, v in stats.items()
-                  if not k.startswith("stage_ms_")},
+        "stats": {k: v for k, v in stats.items() if not k.startswith("stage_ms_")},
         "stage_ms": stage_ms,
         "data_dir": str(data_dir),
         "db_path": str(data_dir / "atlas.db"),
     }
 
 
-def db_snapshot_counts(db_path: Path, snapshot_id: int,
-                       repository_id: int) -> dict[str, int]:
+def db_snapshot_counts(db_path: Path, snapshot_id: int, repository_id: int) -> dict[str, int]:
     """Contagens por escopo lidas do banco (read-only) — fonte da verdade.
 
     Tabelas snapshot-scoped usam ``snapshot_id``; ``domain_entities`` é
@@ -134,18 +130,23 @@ def db_snapshot_counts(db_path: Path, snapshot_id: int,
     conn = sqlite3.connect(uri, uri=True)
     try:
         out: dict[str, int] = {}
-        existing = {r[0] for r in conn.execute(
-            "SELECT name FROM sqlite_master WHERE type='table'")}
+        existing = {r[0] for r in conn.execute("SELECT name FROM sqlite_master WHERE type='table'")}
         for table, col in TABLE_SCOPES:
             if table not in existing:
                 continue
             scope = repository_id if col == "repository_id" else snapshot_id
-            out[table] = int(conn.execute(
-                f"SELECT COUNT(*) FROM {table} WHERE {col} = ?",
-                (scope,)).fetchone()[0])
-        out["symbols"] = int(conn.execute(
-            "SELECT COUNT(DISTINCT logical_symbol_id) FROM symbol_occurrences "
-            "WHERE snapshot_id = ?", (snapshot_id,)).fetchone()[0])
+            out[table] = int(
+                conn.execute(f"SELECT COUNT(*) FROM {table} WHERE {col} = ?", (scope,)).fetchone()[
+                    0
+                ]
+            )
+        out["symbols"] = int(
+            conn.execute(
+                "SELECT COUNT(DISTINCT logical_symbol_id) FROM symbol_occurrences "
+                "WHERE snapshot_id = ?",
+                (snapshot_id,),
+            ).fetchone()[0]
+        )
         return out
     finally:
         conn.close()
@@ -160,12 +161,14 @@ def _pick_neighbor_occurrence(db_path: Path, snapshot_id: int) -> int | None:
             "SELECT from_id, COUNT(*) AS c FROM relations "
             "WHERE snapshot_id = ? AND from_id IS NOT NULL "
             "GROUP BY from_id ORDER BY c DESC, from_id LIMIT 1",
-            (snapshot_id,)).fetchone()
+            (snapshot_id,),
+        ).fetchone()
         if row:
             return int(row[0])
         row = conn.execute(
-            "SELECT id FROM symbol_occurrences WHERE snapshot_id = ? "
-            "ORDER BY id LIMIT 1", (snapshot_id,)).fetchone()
+            "SELECT id FROM symbol_occurrences WHERE snapshot_id = ? ORDER BY id LIMIT 1",
+            (snapshot_id,),
+        ).fetchone()
         return int(row[0]) if row else None
     finally:
         conn.close()
@@ -180,8 +183,7 @@ def _wait_url(proc: subprocess.Popen, timeout: float) -> str:
     line = ""
     while time.monotonic() < deadline:
         if proc.poll() is not None:
-            raise RuntimeError(
-                f"servidor API morreu no boot: {proc.stderr.read()[:300]}")
+            raise RuntimeError(f"servidor API morreu no boot: {proc.stderr.read()[:300]}")
         ready, _, _ = select.select([proc.stdout], [], [], 0.25)
         if ready:
             line = proc.stdout.readline()
@@ -200,8 +202,7 @@ def _timed_get(url: str) -> tuple[float, int, int]:
     """GET simples → (latência_s, http_status, bytes). Sem retry."""
     t0 = time.monotonic()
     try:
-        with urllib.request.urlopen(
-                url, timeout=API_REQ_TIMEOUT_S) as resp:
+        with urllib.request.urlopen(url, timeout=API_REQ_TIMEOUT_S) as resp:
             body = resp.read()
             return time.monotonic() - t0, resp.status, len(body)
     except urllib.error.HTTPError as e:
@@ -216,9 +217,14 @@ def _percentile(sorted_vals: list[float], q: float) -> float:
     return sorted_vals[idx]
 
 
-def api_latency(db_path: Path, repo_id: str, search_term: str,
-                neighbor_occ: int | None, repeats: int,
-                log: list[str]) -> dict:
+def api_latency(
+    db_path: Path,
+    repo_id: str,
+    search_term: str,
+    neighbor_occ: int | None,
+    repeats: int,
+    log: list[str],
+) -> dict:
     """Sobe `code-atlas api` real e mede latência dos 3 endpoints da spec."""
     config_dir = db_path.parent.parent / "config"
     env = os.environ.copy()
@@ -227,19 +233,18 @@ def api_latency(db_path: Path, repo_id: str, search_term: str,
     env["PYTHONHASHSEED"] = "0"
     cmd = [str(ATLAS_PY), "-u", "-m", "code_atlas", "api", "--port", "0"]
     proc = subprocess.Popen(
-        cmd, env=env, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
-        text=True, cwd=REPO_ROOT)
+        cmd, env=env, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, cwd=REPO_ROOT
+    )
     try:
         base = _wait_url(proc, API_BOOT_TIMEOUT_S)
         endpoints: dict[str, str] = {
             "/graph/overview": f"{base}/graph/overview?repository_id={repo_id}",
-            "/search": f"{base}/search?q={search_term}"
-                       f"&repository_id={repo_id}",
+            "/search": f"{base}/search?q={search_term}&repository_id={repo_id}",
         }
         if neighbor_occ is not None:
             endpoints["/graph/neighbors"] = (
-                f"{base}/graph/neighbors?occurrence_id={neighbor_occ}"
-                f"&repository_id={repo_id}")
+                f"{base}/graph/neighbors?occurrence_id={neighbor_occ}&repository_id={repo_id}"
+            )
         results: dict[str, dict] = {}
         for name, url in endpoints.items():
             # warmup fora da medição (JIT/imports/conexão)
@@ -253,16 +258,14 @@ def api_latency(db_path: Path, repo_id: str, search_term: str,
                 dt, status, body_bytes = _timed_get(url)
                 samples.append(dt)
             if name == "/search" and status == 200:
-                with urllib.request.urlopen(
-                        url, timeout=API_REQ_TIMEOUT_S) as resp:
+                with urllib.request.urlopen(url, timeout=API_REQ_TIMEOUT_S) as resp:
                     payload = json.loads(resp.read())
                 hits = {
                     "items": len(payload.get("items") or []),
                     "domain_items": len(payload.get("domain_items") or []),
                 }
             if name == "/graph/neighbors" and status == 200:
-                with urllib.request.urlopen(
-                        url, timeout=API_REQ_TIMEOUT_S) as resp:
+                with urllib.request.urlopen(url, timeout=API_REQ_TIMEOUT_S) as resp:
                     payload = json.loads(resp.read())
                 hits = len(payload.get("edges") or [])
             s = sorted(samples)
@@ -279,10 +282,10 @@ def api_latency(db_path: Path, repo_id: str, search_term: str,
         if neighbor_occ is None:
             results["/graph/neighbors"] = {
                 "skipped": "sem symbol_occurrences no snapshot — "
-                           "repo sem arquivos em linguagens parseáveis "
-                           "(.py/.ts)"}
-        return {"base_url": base, "cmd": " ".join(cmd),
-                "endpoints": results}
+                "repo sem arquivos em linguagens parseáveis "
+                "(.py/.ts)"
+            }
+        return {"base_url": base, "cmd": " ".join(cmd), "endpoints": results}
     finally:
         proc.terminate()
         try:
@@ -313,8 +316,7 @@ def repo_db_id(db_path: Path) -> int | None:
     uri = f"file:{db_path}?mode=ro"
     conn = sqlite3.connect(uri, uri=True)
     try:
-        row = conn.execute("SELECT id FROM repositories ORDER BY id LIMIT 1"
-                           ).fetchone()
+        row = conn.execute("SELECT id FROM repositories ORDER BY id LIMIT 1").fetchone()
         return int(row[0]) if row else None
     finally:
         conn.close()
@@ -326,15 +328,14 @@ def main() -> int:
     ap.add_argument("--manifest", type=Path, default=DEFAULT_MANIFEST)
     ap.add_argument("--out", type=Path, default=DEFAULT_OUT)
     ap.add_argument("--repeats", type=int, default=API_REPEATS_DEFAULT)
-    ap.add_argument("--keep-data", action="store_true",
-                    help="mantém os data dirs (default: apaga ao final)")
-    ap.add_argument("--only", nargs="*", default=None,
-                    help="roda só os ids listados")
+    ap.add_argument(
+        "--keep-data", action="store_true", help="mantém os data dirs (default: apaga ao final)"
+    )
+    ap.add_argument("--only", nargs="*", default=None, help="roda só os ids listados")
     args = ap.parse_args()
 
     manifest = json.loads(args.manifest.read_text())
-    repos = [r for r in manifest["repos"]
-             if args.only is None or r["id"] in args.only]
+    repos = [r for r in manifest["repos"] if args.only is None or r["id"] in args.only]
     if not repos:
         print("nenhum repo no manifest casou --only", file=sys.stderr)
         return 2
@@ -347,8 +348,10 @@ def main() -> int:
         for spec in repos:
             repo_path = args.corpus / spec["id"]
             entry: dict = {
-                "id": spec["id"], "url": spec["url"],
-                "sha_expected": spec["sha"], "shape": spec["shape"],
+                "id": spec["id"],
+                "url": spec["url"],
+                "sha_expected": spec["sha"],
+                "shape": spec["shape"],
             }
             if not repo_path.is_dir():
                 entry["error"] = f"corpus ausente: {repo_path} — rode "
@@ -361,42 +364,40 @@ def main() -> int:
                 continue
             sha = subprocess.run(
                 ["git", "-C", str(repo_path), "rev-parse", "HEAD"],
-                capture_output=True, text=True, check=True).stdout.strip()
+                capture_output=True,
+                text=True,
+                check=True,
+            ).stdout.strip()
             entry["sha_actual"] = sha
             entry["sha_match"] = sha == spec["sha"]
             entry["corpus"] = corpus_stats(repo_path)
 
             print(f"[bench] {spec['id']} index(default)...", flush=True)
             work = run_tmp / spec["id"]
-            default = run_index(repo_path, work / "default",
-                                domains=False, log=log)
+            default = run_index(repo_path, work / "default", domains=False, log=log)
             default.pop("data_dir")
             snap_default = default.get("snapshot_id")
             rid_d = repo_db_id(Path(default["db_path"]))
             if default.get("status") == "success" and snap_default and rid_d:
                 default["db_counts"] = db_snapshot_counts(
-                    Path(default["db_path"]), int(snap_default), rid_d)
+                    Path(default["db_path"]), int(snap_default), rid_d
+                )
                 default["db_bytes"] = Path(default["db_path"]).stat().st_size
             entry["index_default"] = default
 
             print(f"[bench] {spec['id']} index(--domains all)...", flush=True)
-            doms = run_index(repo_path, work / "domains",
-                             domains=True, log=log)
+            doms = run_index(repo_path, work / "domains", domains=True, log=log)
             doms.pop("data_dir")
             snap_doms = doms.get("snapshot_id")
             rid = repo_db_id(Path(doms["db_path"]))
             if doms.get("status") == "success" and snap_doms and rid:
-                doms["db_counts"] = db_snapshot_counts(
-                    Path(doms["db_path"]), int(snap_doms), rid)
+                doms["db_counts"] = db_snapshot_counts(Path(doms["db_path"]), int(snap_doms), rid)
                 doms["db_bytes"] = Path(doms["db_path"]).stat().st_size
             entry["index_domains_all"] = doms
             entry["domains_delta"] = {
-                "wall_s": round(
-                    (doms.get("wall_s") or 0) - (default.get("wall_s") or 0), 3),
-                "domain_entities": (doms.get("db_counts") or {}).get(
-                    "domain_entities", 0),
-                "domain_relations": (doms.get("db_counts") or {}).get(
-                    "domain_relations", 0),
+                "wall_s": round((doms.get("wall_s") or 0) - (default.get("wall_s") or 0), 3),
+                "domain_entities": (doms.get("db_counts") or {}).get("domain_entities", 0),
+                "domain_relations": (doms.get("db_counts") or {}).get("domain_relations", 0),
             }
 
             # API: serve o banco do modo --domains all (snapshot mais rico).
@@ -406,8 +407,8 @@ def main() -> int:
                 print(f"[bench] {spec['id']} api latency...", flush=True)
                 try:
                     entry["api"] = api_latency(
-                        db_path, str(rid), spec["search_term"], occ,
-                        args.repeats, log)
+                        db_path, str(rid), spec["search_term"], occ, args.repeats, log
+                    )
                 except Exception as exc:  # honesto: mede ou declara
                     entry["api"] = {"error": f"{type(exc).__name__}: {exc}"}
                     log.append(f"{spec['id']}: api falhou: {exc}")
@@ -433,21 +434,19 @@ def main() -> int:
         },
         "method": {
             "index": "subprocesso `code-atlas index <repo> --full --json` "
-                     "com CODE_ATLAS_DATA_DIR/CONFIG_DIR isolados e "
-                     "PYTHONHASHSEED=0; stage_ms_* vem do coordinator",
+            "com CODE_ATLAS_DATA_DIR/CONFIG_DIR isolados e "
+            "PYTHONHASHSEED=0; stage_ms_* vem do coordinator",
             "api": "subprocesso `python -u -m code_atlas api --port 0` "
-                   "sobre o db do modo --domains all; 3 warmups + N "
-                   "requests por endpoint, latência client-side",
-            "counts": "contagens por snapshot lidas do SQLite (mode=ro), "
-                      "não só do payload do CLI",
+            "sobre o db do modo --domains all; 3 warmups + N "
+            "requests por endpoint, latência client-side",
+            "counts": "contagens por snapshot lidas do SQLite (mode=ro), não só do payload do CLI",
         },
         "guardrails": {
             "executes_indexed_repo_code": False,
             "secrets_indexed": False,
             "secrets_note": "SECRET_PATTERNS do scanner excluídos antes de "
-                            "hash/inventory; secrets_skipped registrado",
-            "bounded": {"index_timeout_s": INDEX_TIMEOUT_S,
-                        "api_req_timeout_s": API_REQ_TIMEOUT_S},
+            "hash/inventory; secrets_skipped registrado",
+            "bounded": {"index_timeout_s": INDEX_TIMEOUT_S, "api_req_timeout_s": API_REQ_TIMEOUT_S},
             "isolation": "data/config dirs temporários por repo/modo",
         },
         "repos": results,
@@ -455,15 +454,15 @@ def main() -> int:
     }
     args.out.parent.mkdir(parents=True, exist_ok=True)
     args.out.write_text(json.dumps(payload, indent=2, ensure_ascii=False) + "\n")
-    print(f"[done] {args.out} ({len(results)} repos, "
-          f"{payload['total_wall_s']}s)")
+    print(f"[done] {args.out} ({len(results)} repos, {payload['total_wall_s']}s)")
     return 0
 
 
 def _atlas_version(log: list[str]) -> str:
     try:
-        out = subprocess.run([str(ATLAS_BIN), "--version"],
-                             capture_output=True, text=True, timeout=15)
+        out = subprocess.run(
+            [str(ATLAS_BIN), "--version"], capture_output=True, text=True, timeout=15
+        )
         return out.stdout.strip() or out.stderr.strip()
     except Exception as exc:
         log.append(f"--version falhou: {exc}")

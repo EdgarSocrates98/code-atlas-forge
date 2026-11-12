@@ -55,11 +55,7 @@ def _extract(*paths: str, **kw: object) -> object:
 
 def _inline_adapter(files: dict[str, str]) -> GitHubActionsAdapter:
     """Adapter com reader em memória — conteúdo injetado, nunca disco."""
-    return GitHubActionsAdapter(
-        lambda rel: (
-            files[rel].encode("utf-8") if rel in files else None
-        )
-    )
+    return GitHubActionsAdapter(lambda rel: files[rel].encode("utf-8") if rel in files else None)
 
 
 def _inline_req(*paths: str) -> DomainExtractionRequest:
@@ -109,9 +105,7 @@ def test_extract_entities_and_kinds() -> None:
     res = _extract(CI, RELEASE, REUSABLE)
     assert not res.diagnostics
     kinds = {e.kind for e in res.entities}
-    assert kinds == {
-        DomainEntityKind.CICD_WORKFLOW, DomainEntityKind.CICD_JOB
-    }
+    assert kinds == {DomainEntityKind.CICD_WORKFLOW, DomainEntityKind.CICD_JOB}
     wfs = [e for e in res.entities if e.kind == "cicd_workflow"]
     assert {e.name for e in wfs} == {"CI", "Release", "Reusable Checks"}
     jobs = [e for e in res.entities if e.kind == "cicd_job"]
@@ -124,29 +118,20 @@ def test_identity_includes_repo_path_and_name() -> None:
     wf = next(e for e in res.entities if e.kind == "cicd_workflow")
     ident = wf.identity
     assert ident.repository == "git-remote:test/repo"
-    assert ident.namespace == WF_DIR                       # path dir
-    assert ident.qualified_name == "ci.yml#CI"             # file + name
-    job = next(
-        e for e in res.entities if e.attributes.get("job_id") == "test"
-    )
+    assert ident.namespace == WF_DIR  # path dir
+    assert ident.qualified_name == "ci.yml#CI"  # file + name
+    job = next(e for e in res.entities if e.attributes.get("job_id") == "test")
     assert job.identity.qualified_name == "ci.yml#CI/jobs/test"
     # isolamento: outra repo → chave lógica distinta
-    res2 = _adapter().extract(
-        _req(CI, repository="git-remote:other/repo")
-    )
+    res2 = _adapter().extract(_req(CI, repository="git-remote:other/repo"))
     wf2 = next(e for e in res2.entities if e.kind == "cicd_workflow")
     assert wf2.identity.logical_key() != ident.logical_key()
 
 
 def test_multi_job_needs_graph() -> None:
     res = _extract(CI)
-    deps = [
-        r for r in res.relations if r.relation_type == "DEPENDS_ON"
-    ]
-    by_src = {
-        (r.from_identity.qualified_name, r.resolution.status)
-        for r in deps
-    }
+    deps = [r for r in res.relations if r.relation_type == "DEPENDS_ON"]
+    by_src = {(r.from_identity.qualified_name, r.resolution.status) for r in deps}
     assert by_src == {
         ("ci.yml#CI/jobs/test", ResolutionStatus.RESOLVED),
         ("ci.yml#CI/jobs/build", ResolutionStatus.RESOLVED),
@@ -159,7 +144,8 @@ def test_triggers_push_pr_cron_dispatch() -> None:
     res = _extract(CI, RELEASE)
     trig = [
         (r.from_identity.qualified_name, r.to_unresolved)
-        for r in res.relations if r.relation_type == "TRIGGERS"
+        for r in res.relations
+        if r.relation_type == "TRIGGERS"
     ]
     assert ("ci.yml#CI", "push") in trig
     assert ("ci.yml#CI", "pull_request") in trig
@@ -168,20 +154,16 @@ def test_triggers_push_pr_cron_dispatch() -> None:
     # triggers são externos — o event bus não está no snapshot
     assert all(
         r.resolution.status is ResolutionStatus.EXTERNAL
-        for r in res.relations if r.relation_type == "TRIGGERS"
+        for r in res.relations
+        if r.relation_type == "TRIGGERS"
     )
-    wf = next(
-        e for e in res.entities
-        if e.kind == "cicd_workflow" and e.name == "Release"
-    )
+    wf = next(e for e in res.entities if e.kind == "cicd_workflow" and e.name == "Release")
     assert wf.attributes["trigger.schedule.cron"] == "17 3 * * 1"
 
 
 def test_matrix_declared_multiplicity_only() -> None:
     res = _extract(CI)
-    job = next(
-        e for e in res.entities if e.attributes.get("job_id") == "test"
-    )
+    job = next(e for e in res.entities if e.attributes.get("job_id") == "test")
     # multiplicidade DECLARADA: 2 os x 2 python — nunca expandida
     assert job.attributes["matrix_axes"] == "os=2,python=2"
     assert job.attributes["runs_on"] == "<expr>"  # ${{ matrix.os }}
@@ -190,61 +172,35 @@ def test_matrix_declared_multiplicity_only() -> None:
 
 def test_reusable_workflow_local_resolves_external_stays() -> None:
     res = _extract(RELEASE, REUSABLE)
-    refs = [
-        r for r in res.relations if r.relation_type == "REFERENCES"
-    ]
-    local = next(
-        r for r in refs
-        if r.from_identity.qualified_name.endswith("call-reusable")
-    )
+    refs = [r for r in res.relations if r.relation_type == "REFERENCES"]
+    local = next(r for r in refs if r.from_identity.qualified_name.endswith("call-reusable"))
     assert local.resolution.status is ResolutionStatus.RESOLVED
-    assert (
-        local.to_identity.qualified_name == "reusable.yml#Reusable Checks"
-    )
-    ext = next(
-        r for r in refs
-        if r.from_identity.qualified_name.endswith("call-external")
-    )
+    assert local.to_identity.qualified_name == "reusable.yml#Reusable Checks"
+    ext = next(r for r in refs if r.from_identity.qualified_name.endswith("call-external"))
     assert ext.resolution.status is ResolutionStatus.EXTERNAL
-    assert ext.to_unresolved == (
-        "octocat/hello-world/.github/workflows/reusable.yml@v1"
-    )
+    assert ext.to_unresolved == ("octocat/hello-world/.github/workflows/reusable.yml@v1")
 
 
 def test_local_ref_missing_stays_unresolved() -> None:
     res = _extract(RELEASE)  # reusable.yml ausente do request
-    refs = [
-        r for r in res.relations if r.relation_type == "REFERENCES"
-    ]
-    local = next(
-        r for r in refs
-        if r.from_identity.qualified_name.endswith("call-reusable")
-    )
+    refs = [r for r in res.relations if r.relation_type == "REFERENCES"]
+    local = next(r for r in refs if r.from_identity.qualified_name.endswith("call-reusable"))
     assert local.resolution.status is ResolutionStatus.UNRESOLVED
     assert local.to_unresolved.startswith("local:")
-    assert any(
-        d.code == "local-ref-not-in-artifacts" for d in res.diagnostics
-    )
+    assert any(d.code == "local-ref-not-in-artifacts" for d in res.diagnostics)
 
 
 def test_tests_and_deploys_classification() -> None:
     res = _extract(CI, RELEASE)
-    tests = [
-        r for r in res.relations if r.relation_type == "TESTS"
-    ]
+    tests = [r for r in res.relations if r.relation_type == "TESTS"]
     assert tests and all(
         r.resolution.confidence_class is ConfidenceClass.HEURISTIC
         and r.resolution.status is ResolutionStatus.UNRESOLVED
         for r in tests
     )
-    test_job = next(
-        r for r in tests
-        if "jobs/test" in r.from_identity.qualified_name
-    )
+    test_job = next(r for r in tests if "jobs/test" in r.from_identity.qualified_name)
     assert test_job.to_unresolved == 'step:"Test"'
-    deploys = [
-        r for r in res.relations if r.relation_type == "DEPLOYS"
-    ]
+    deploys = [r for r in res.relations if r.relation_type == "DEPLOYS"]
     env_targets = {r.to_unresolved for r in deploys}
     assert "environment:production" in env_targets
     assert "environment:staging" in env_targets
@@ -256,19 +212,13 @@ def test_artifacts_attributes_not_fabricated_relations() -> None:
     res = _extract(CI, RELEASE)
     rel_types = {r.relation_type for r in res.relations}
     assert "BUILDS" not in rel_types and "PUBLISHES" not in rel_types
-    test_job = next(
-        e for e in res.entities if e.attributes.get("job_id") == "test"
-    )
+    test_job = next(e for e in res.entities if e.attributes.get("job_id") == "test")
     assert test_job.attributes["artifacts_out"] == "dist"
     assert test_job.attributes["publish_steps"] == "1"
-    build_job = next(
-        e for e in res.entities if e.attributes.get("job_id") == "build"
-    )
+    build_job = next(e for e in res.entities if e.attributes.get("job_id") == "build")
     assert build_job.attributes["build_steps"] == "1"
     assert build_job.attributes["artifacts_in"] == "dist"
-    rel_job = next(
-        e for e in res.entities if e.attributes.get("job_id") == "release"
-    )
+    rel_job = next(e for e in res.entities if e.attributes.get("job_id") == "release")
     assert rel_job.attributes["publish_steps"] == "2"
 
 
@@ -281,9 +231,7 @@ def test_secrets_and_interpolation_never_concrete() -> None:
     for r in res.relations:
         for txt in (r.to_unresolved, r.to_symbol):
             assert "secrets." not in txt
-    test_job = next(
-        e for e in res.entities if e.attributes.get("job_id") == "test"
-    )
+    test_job = next(e for e in res.entities if e.attributes.get("job_id") == "test")
     # env var NAMES são observáveis; valores (secretos) nunca são lidos
     assert test_job.attributes["runs_on"] == "<expr>"
 
@@ -311,28 +259,21 @@ def test_evidence_points_to_real_content() -> None:
     assert ev.content_hash == hashlib.sha256(content).hexdigest()
     assert ev.extractor == "domain:cicd"
     for e in res.entities:
-        assert e.evidence and all(
-            0 <= i < len(res.evidence) for i in e.evidence
-        )
+        assert e.evidence and all(0 <= i < len(res.evidence) for i in e.evidence)
         assert e.content_hash == ev.content_hash
     assert validate_extraction(_adapter(), _req(CI), res) == []
 
 
 def test_all_files_fixture_end_to_end_valid() -> None:
     res = _extract(CI, RELEASE, REUSABLE, BROKEN)
-    assert validate_extraction(
-        _adapter(), _req(CI, RELEASE, REUSABLE, BROKEN), res
-    ) == []
+    assert validate_extraction(_adapter(), _req(CI, RELEASE, REUSABLE, BROKEN), res) == []
     # broken.yml produz diagnósticos sem derrubar os demais
     assert any(d.path == BROKEN for d in res.diagnostics)
 
 
 def test_needs_unknown_job_is_unresolved_plus_diagnostic() -> None:
     files = {
-        "w.yml": (
-            "on: push\njobs:\n  a:\n    needs: ghost\n"
-            "    steps:\n      - run: echo hi\n"
-        ),
+        "w.yml": ("on: push\njobs:\n  a:\n    needs: ghost\n    steps:\n      - run: echo hi\n"),
     }
     res = _inline_adapter(files).extract(_inline_req("w.yml"))
     deps = [r for r in res.relations if r.relation_type == "DEPENDS_ON"]
@@ -343,22 +284,16 @@ def test_needs_unknown_job_is_unresolved_plus_diagnostic() -> None:
 
 def test_hash_mismatch_skips_artifact() -> None:
     bad = DiscoveredArtifact(path=CI, sha256="0" * 64)
-    res = _adapter().extract(
-        DomainExtractionRequest(repository="r", artifacts=(bad,))
-    )
+    res = _adapter().extract(DomainExtractionRequest(repository="r", artifacts=(bad,)))
     assert res.entities == ()
-    assert any(
-        d.code == "artifact-hash-mismatch" for d in res.diagnostics
-    )
+    assert any(d.code == "artifact-hash-mismatch" for d in res.diagnostics)
 
 
 def test_missing_content_reader_is_honest() -> None:
     adapter = GitHubActionsAdapter()  # sem reader
     res = adapter.extract(_req(CI))
     assert res.entities == ()
-    assert any(
-        d.code == "missing-content-reader" for d in res.diagnostics
-    )
+    assert any(d.code == "missing-content-reader" for d in res.diagnostics)
 
 
 def test_missing_artifact_content() -> None:
@@ -401,8 +336,7 @@ def test_dynamic_environment_not_deployed_target() -> None:
     job = res.entities[-1]
     assert job.attributes["environment"] == "<dynamic>"
     assert not any(
-        r.relation_type == "DEPLOYS"
-        and r.to_unresolved.startswith("environment:")
+        r.relation_type == "DEPLOYS" and r.to_unresolved.startswith("environment:")
         for r in res.relations
     )
 
@@ -431,8 +365,6 @@ def test_extract_never_raises_on_garbage(tmp_path: Path) -> None:
     bad = tmp_path / ".github" / "workflows"
     bad.mkdir(parents=True)
     (bad / "g.yml").write_bytes(b"\x00\x01\xfe invalid \x82")
-    res = GitHubActionsAdapter.for_workspace(tmp_path).extract(
-        _req(".github/workflows/g.yml")
-    )
+    res = GitHubActionsAdapter.for_workspace(tmp_path).extract(_req(".github/workflows/g.yml"))
     assert res.entities == ()
     assert any(d.code == "decode-error" for d in res.diagnostics)

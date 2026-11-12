@@ -28,26 +28,50 @@ def _ident(**kw: object) -> DomainIdentity:
 
 def test_entity_kind_vocabulary_is_closed() -> None:
     assert {k.value for k in DomainEntityKind} == {
-        "data_table", "data_column", "data_view", "data_transformation",
-        "data_pipeline", "spark_job", "glue_job", "data_catalog",
-        "iceberg_table", "api_endpoint", "api_service", "api_contract",
-        "terraform_resource", "terraform_module", "iam_role",
-        "cicd_workflow", "cicd_job", "repository", "project",
+        "data_table",
+        "data_column",
+        "data_view",
+        "data_transformation",
+        "data_pipeline",
+        "spark_job",
+        "glue_job",
+        "data_catalog",
+        "iceberg_table",
+        "api_endpoint",
+        "api_service",
+        "api_contract",
+        "terraform_resource",
+        "terraform_module",
+        "iam_role",
+        "cicd_workflow",
+        "cicd_job",
+        "repository",
+        "project",
     }
 
 
 def test_relation_kind_vocabulary_is_closed() -> None:
     assert {k.value for k in DomainRelationKind} == {
-        "READS_FROM", "WRITES_TO", "TRANSFORMS", "DERIVES_FROM",
-        "DEPENDS_ON", "CALLS_ENDPOINT", "IMPLEMENTS_CONTRACT",
-        "PROVISIONS", "USES_RESOURCE", "ASSUMES_ROLE", "TRIGGERS",
-        "DEPLOYS", "TESTS", "REFERENCES",
+        "READS_FROM",
+        "WRITES_TO",
+        "TRANSFORMS",
+        "DERIVES_FROM",
+        "DEPENDS_ON",
+        "CALLS_ENDPOINT",
+        "IMPLEMENTS_CONTRACT",
+        "PROVISIONS",
+        "USES_RESOURCE",
+        "ASSUMES_ROLE",
+        "TRIGGERS",
+        "DEPLOYS",
+        "TESTS",
+        "REFERENCES",
     }
     # união com o vocabulário estrutural — CONTAINS/IMPORTS etc. válidos
-    assert frozenset(
-        {k.value for k in DomainRelationKind}
-        | {k.value for k in EdgeKind}
-    ) == DOMAIN_RELATION_TYPES
+    assert (
+        frozenset({k.value for k in DomainRelationKind} | {k.value for k in EdgeKind})
+        == DOMAIN_RELATION_TYPES
+    )
 
 
 def test_entity_kind_coercion_and_validation() -> None:
@@ -61,14 +85,14 @@ def test_entity_kind_coercion_and_validation() -> None:
 
 def test_entity_requires_name() -> None:
     with pytest.raises(ValueError, match="requires name"):
-        DomainEntity(
-            identity=_ident(), kind=DomainEntityKind.DATA_TABLE, name=" "
-        )
+        DomainEntity(identity=_ident(), kind=DomainEntityKind.DATA_TABLE, name=" ")
 
 
 def test_entity_attributes_coerced_to_str() -> None:
     e = DomainEntity(
-        identity=_ident(), kind=DomainEntityKind.DATA_TABLE, name="t",
+        identity=_ident(),
+        kind=DomainEntityKind.DATA_TABLE,
+        name="t",
         attributes={"columns": 3},  # type: ignore[dict-item]
     )
     assert e.attributes == {"columns": "3"}

@@ -49,8 +49,9 @@ def test_benign_text_untouched() -> None:
 
 def test_filter_applies_to_record() -> None:
     filt = RedactionFilter(home="/home/alice")
-    rec = logging.LogRecord("t", logging.INFO, __file__, 1,
-                            "path /home/alice/x token=sek", (), None)
+    rec = logging.LogRecord(
+        "t", logging.INFO, __file__, 1, "path /home/alice/x token=sek", (), None
+    )
     filt.filter(rec)
     assert "/home/alice" not in rec.getMessage()
 

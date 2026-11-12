@@ -51,10 +51,7 @@ def _repo_files(i: int) -> dict[str, str]:
             f"SELECT * FROM mart.t{i};\n"
             f"CREATE VIEW mart.v{i} AS SELECT * FROM mart.orders;\n"
         ),
-        "app/mod.py": (
-            "def shared_handler():\n"
-            f"    return {i}\n"
-        ),
+        "app/mod.py": (f"def shared_handler():\n    return {i}\n"),
     }
 
 
@@ -93,9 +90,7 @@ def _ws(fed: Federation, ids: Ids):
     return fed.get_workspace(int(ids["ws"]))  # type: ignore[arg-type]
 
 
-def _skey_for(
-    conn: sqlite3.Connection, namespace: str, qname: str
-) -> str:
+def _skey_for(conn: sqlite3.Connection, namespace: str, qname: str) -> str:
     row = conn.execute(
         "SELECT identity_key FROM domain_entities"
         " WHERE namespace = ? AND qualified_name = ? LIMIT 1",
@@ -337,11 +332,13 @@ class TestViewCacheKey:
 
         assert _analyzer_digest(None) == ""
         snap = Snapshot(
-            repository_id=1, worktree_digest="w",
+            repository_id=1,
+            worktree_digest="w",
             analyzer_versions={"domain:sql": "1.0.0"},
         )
         other = Snapshot(
-            repository_id=1, worktree_digest="w",
+            repository_id=1,
+            worktree_digest="w",
             analyzer_versions={"domain:sql": "1.0.1"},
         )
         assert _analyzer_digest(snap) != _analyzer_digest(other)
@@ -351,20 +348,16 @@ class TestViewCacheKey:
 class TestFiveRepoStress:
     """Workspace de 5 membros — isolamento por snapshot sob stress."""
 
-    def test_shared_join_across_all_five(
-        self, fed5_db: tuple[sqlite3.Connection, Ids]
-    ) -> None:
+    def test_shared_join_across_all_five(self, fed5_db: tuple[sqlite3.Connection, Ids]) -> None:
         conn, ids = fed5_db
         fed = Federation(conn)
         ws = _ws(fed, ids)
         repos: list[int] = ids["repos"]  # type: ignore[assignment]
         view = fed.resolve_view(ws)
         assert len(view.snapshot_map) == N_REPOS
-        out = fed.entity_occurrences(
-            ws, _skey_for(conn, "mart", "orders"))
+        out = fed.entity_occurrences(ws, _skey_for(conn, "mart", "orders"))
         assert set(out["repositories_with_entity"]) == set(repos)  # type: ignore[arg-type]
-        _assert_items_match_view(
-            out["items"], view.snapshot_map)  # type: ignore[arg-type]
+        _assert_items_match_view(out["items"], view.snapshot_map)  # type: ignore[arg-type]
 
     def test_pinned_member_isolation_under_stress(
         self, fed5_db: tuple[sqlite3.Connection, Ids]
@@ -388,26 +381,22 @@ class TestFiveRepoStress:
         assert out["total"] == 0
         # nem busca federada sob o pin vê rows de S2
         res = FederatedSearchEngine(conn).search(
-            SearchRequest(query="r1_new"), ws.id,
+            SearchRequest(query="r1_new"),
+            ws.id,
             pins={repos[1]: snaps[1]},
         )
         assert not any(
-            h.snapshot_id == snap_1_new and h.repository_id == repos[1]
-            for h in res.domain_items
+            h.snapshot_id == snap_1_new and h.repository_id == repos[1] for h in res.domain_items
         )
         # soltar o pin → S2 aparece, só no repo_1, só com snap_1_new
-        res2 = FederatedSearchEngine(conn).search(
-            SearchRequest(query="r1_new"), ws.id)
-        hits = [h for h in res2.domain_items
-                if h.qualified_name == "r1_new"]
+        res2 = FederatedSearchEngine(conn).search(SearchRequest(query="r1_new"), ws.id)
+        hits = [h for h in res2.domain_items if h.qualified_name == "r1_new"]
         assert hits
         assert {h.repository_id for h in hits} == {repos[1]}
         assert {h.snapshot_id for h in hits} == {snap_1_new}
         assert res2.view.view_id != res.view.view_id
 
-    def test_graph_stress_snapshot_isolation(
-        self, fed5_db: tuple[sqlite3.Connection, Ids]
-    ) -> None:
+    def test_graph_stress_snapshot_isolation(self, fed5_db: tuple[sqlite3.Connection, Ids]) -> None:
         conn, ids = fed5_db
         fed = Federation(conn)
         ws = _ws(fed, ids)
@@ -422,9 +411,7 @@ class TestFiveRepoStress:
         # entidades exclusivas nunca ligam cross-repo
         shared_keys = {n.shared_key for n in g.nodes}
         for i in range(N_REPOS):
-            unique_keys = [
-                s for s in shared_keys if f"/mart/t{i}" in s
-            ]
+            unique_keys = [s for s in shared_keys if f"/mart/t{i}" in s]
             for skey in unique_keys:
                 nodes_i = [n for n in g.nodes if n.shared_key == skey]
                 assert {n.repository_id for n in nodes_i} <= {
@@ -441,13 +428,18 @@ class TestFiveRepoStress:
         b = eng.search(SearchRequest(query="orders"), ws_id)
         assert a.view.view_id == b.view.view_id
         assert a.members_searched == N_REPOS
-        key = lambda h: (h.repository_id, h.snapshot_id,  # noqa: E731
-                         h.entity_id)
-        assert [key(h) for h in a.domain_items] == \
-            [key(h) for h in b.domain_items]
+        def key(h):
+            return (
+                h.repository_id,
+                h.snapshot_id,
+                h.entity_id,
+            )
+
+        assert [key(h) for h in a.domain_items] == [key(h) for h in b.domain_items]
         # narrowing a 1 membro: só ele é pesquisado, view segue 5-wide
         one = eng.search(
-            SearchRequest(query="orders"), ws_id,
+            SearchRequest(query="orders"),
+            ws_id,
             repository_id=int(ids["repos"][2]),  # type: ignore[index]
         )
         assert one.members_searched == 1
@@ -480,20 +472,16 @@ class TestImmutableView:
         # pin congela a identidade — mesmo mapa, mesmo view_id
         assert v2.view_id == v1.view_id
         assert v2.snapshot_map[repos[2]] == snaps[2]
-        member = next(
-            m for m in v2.members if m.repository_id == repos[2])
+        member = next(m for m in v2.members if m.repository_id == repos[2])
         # envelhecimento declarado: S1 virou STALE, o pin continua honrado
         assert member.resolution == "pinned"
         assert member.snapshot_status == "STALE"
 
         # a view pinada continua lendo S1 — r2_grow invisível, nada vaza
-        out = fed.entity_occurrences(
-            ws, _skey_for(conn, "mart", "r2_grow"))
+        out = fed.entity_occurrences(ws, _skey_for(conn, "mart", "r2_grow"))
         assert out["total"] == 0
-        out_orders = fed.entity_occurrences(
-            ws, _skey_for(conn, "mart", "orders"))
-        _assert_items_match_view(
-            out_orders["items"], v2.snapshot_map)  # type: ignore[arg-type]
+        out_orders = fed.entity_occurrences(ws, _skey_for(conn, "mart", "orders"))
+        _assert_items_match_view(out_orders["items"], v2.snapshot_map)  # type: ignore[arg-type]
 
         # unpin → membro flutua para o READY novo e a identidade muda
         fed.unpin_member(ws, repos[2])
@@ -518,21 +506,16 @@ class TestImmutableView:
             )
         try:
             view = fed.resolve_view(ws)
-            member = next(
-                m for m in view.members if m.repository_id == repos[3])
+            member = next(m for m in view.members if m.repository_id == repos[3])
             assert member.snapshot_id is None
             assert member.resolution == "no-ready-snapshot"
             assert repos[3] not in view.snapshot_map
-            res = FederatedSearchEngine(conn).search(
-                SearchRequest(query="orders"), int(ids["ws"]))  # type: ignore[arg-type]
+            res = FederatedSearchEngine(conn).search(SearchRequest(query="orders"), int(ids["ws"]))  # type: ignore[arg-type]
             assert res.members_searched == N_REPOS - 1
-            assert any(
-                d.code == "member-no-snapshot" for d in res.diagnostics)
+            assert any(d.code == "member-no-snapshot" for d in res.diagnostics)
             # nenhum hit tagueado com o repo ilegível
-            assert not any(
-                h.repository_id == repos[3] for h in res.items)
-            assert not any(
-                h.repository_id == repos[3] for h in res.domain_items)
+            assert not any(h.repository_id == repos[3] for h in res.items)
+            assert not any(h.repository_id == repos[3] for h in res.domain_items)
         finally:
             with conn:
                 conn.execute(

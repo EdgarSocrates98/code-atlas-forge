@@ -64,9 +64,9 @@ if TYPE_CHECKING:
 # privado; a semântica é a mesma: conta à parte, nunca pendência.
 DYNAMIC_TARGET_PREFIXES = ("dynamic:", "${dynamic}", "environment:")
 
-MAX_NEIGHBORS_CAP = 100       # teto duro do top-N
-_SAMPLE_CAP = 10              # amostras de alvos não-resolvidos/ambíguos
-_EVIDENCE_PER_ITEM = 6        # cap de PackEvidence por vizinho
+MAX_NEIGHBORS_CAP = 100  # teto duro do top-N
+_SAMPLE_CAP = 10  # amostras de alvos não-resolvidos/ambíguos
+_EVIDENCE_PER_ITEM = 6  # cap de PackEvidence por vizinho
 
 # Contrato de re-consulta — declarado DENTRO do pack (spec lf-0121:
 # "exact re-query contract documented in the pack itself").
@@ -85,7 +85,8 @@ DOMAIN_REQUERY_CONTRACT = (
 _RANKING_DOMAIN = (
     "seed card (essential) > vizinhos de domínio por confiança "
     "(resolved>syntactic>heuristic>inferred, desempate por status e ref); "
-    "vizinhos além do top-N viram expansion_refs re-consultáveis")
+    "vizinhos além do top-N viram expansion_refs re-consultáveis"
+)
 
 # Status da seção — a palavra honesta do build.
 _STATUS_OK = "ok"
@@ -106,9 +107,7 @@ def _is_dynamic(text: str) -> bool:
     return text.strip().startswith(DYNAMIC_TARGET_PREFIXES)
 
 
-def _entity_row(
-    conn: sqlite3.Connection, repo_id: int, entity_id: int
-) -> dict[str, Any] | None:
+def _entity_row(conn: sqlite3.Connection, repo_id: int, entity_id: int) -> dict[str, Any] | None:
     """Row de ``domain_entities`` do PRÓPRIO repositório — isolamento."""
     row = conn.execute(
         "SELECT id, domain, kind, identity_key, qualified_name, name,"
@@ -165,8 +164,8 @@ def resolve_domain_ref(
     ref = ref.strip()
     if ref.startswith("dom:"):
         entity_id = store.domain_entity_id_for(repository_id, ref)
-    elif ref.startswith("entity:") and ref[len("entity:"):].isdigit():
-        entity_id = int(ref[len("entity:"):])
+    elif ref.startswith("entity:") and ref[len("entity:") :].isdigit():
+        entity_id = int(ref[len("entity:") :])
     elif ref.isdigit():
         entity_id = int(ref)
     if entity_id is None:
@@ -175,7 +174,8 @@ def resolve_domain_ref(
     if entity is None:
         return None
     occs = [
-        dict(r) for r in store.domain_occurrences_snapshot(snapshot_id)
+        dict(r)
+        for r in store.domain_occurrences_snapshot(snapshot_id)
         if int(r["entity_id"]) == entity_id
     ]
     if not occs:
@@ -197,15 +197,15 @@ class _SeedHit:
 class _Neighbor:
     """Arestas deduplicadas por vizinho (entidade ou símbolo)."""
 
-    ref: str                        # dom:… | sym:<qname>
-    kind: str                       # "entity" | "symbol"
+    ref: str  # dom:… | sym:<qname>
+    kind: str  # "entity" | "symbol"
     entity_kind: str
     display: str
     source_path: str = ""
     directions: set[str] = field(default_factory=set)
     relation_types: set[str] = field(default_factory=set)
-    best_rank: int = -1             # confidence_rank máx.
-    best_status_rank: int = 99      # _STATUS_RANK da aresta mais forte
+    best_rank: int = -1  # confidence_rank máx.
+    best_status_rank: int = 99  # _STATUS_RANK da aresta mais forte
     best_status: str = ""
     best_confidence: str = ""
     first_relation_id: int = 1 << 62
@@ -221,8 +221,14 @@ class _Neighbor:
         return "both"
 
     def touch(
-        self, *, direction: str, relation_type: str, relation_id: int,
-        status: str, confidence: str, evidence: Iterable[int],
+        self,
+        *,
+        direction: str,
+        relation_type: str,
+        relation_id: int,
+        status: str,
+        confidence: str,
+        evidence: Iterable[int],
     ) -> None:
         self.directions.add(direction)
         self.relation_types.add(relation_type)
@@ -239,23 +245,27 @@ class _Neighbor:
 
     def order_key(self) -> tuple[int, int, int, str]:
         """Top-N por confiança: rank desc → status melhor → id estável."""
-        return (-self.best_rank, self.best_status_rank,
-                self.first_relation_id, self.ref)
+        return (-self.best_rank, self.best_status_rank, self.first_relation_id, self.ref)
 
     def ref_view(self, item_id: str) -> DomainNeighborRef:
         return DomainNeighborRef(
-            item_id=item_id, ref=self.ref, kind=self.kind,
-            entity_kind=self.entity_kind, display=self.display,
+            item_id=item_id,
+            ref=self.ref,
+            kind=self.kind,
+            entity_kind=self.entity_kind,
+            display=self.display,
             direction=self.direction(),
             relation_types=tuple(sorted(self.relation_types)),
             resolution_status=self.best_status,
             confidence_class=self.best_confidence,
             edge_count=self.edge_count,
-            evidence_ids=tuple(sorted(self.evidence_ids)))
+            evidence_ids=tuple(sorted(self.evidence_ids)),
+        )
 
 
 def _new_neighbor(
-    ref: str, occ_by_identity: Mapping[str, Mapping[str, Any]],
+    ref: str,
+    occ_by_identity: Mapping[str, Mapping[str, Any]],
 ) -> _Neighbor | None:
     """Cria o vizinho a partir do ref — ``None`` quando a ocorrência
     não está no snapshot (nunca fabrica identidade)."""
@@ -264,12 +274,14 @@ def _new_neighbor(
         if occ is None:
             return None
         return _Neighbor(
-            ref=ref, kind="entity", entity_kind=str(occ["kind"]),
+            ref=ref,
+            kind="entity",
+            entity_kind=str(occ["kind"]),
             display=str(occ["qualified_name"]),
-            source_path=str(occ["source_path"] or ""))
-    if ref.startswith("sym:") and ref[len("sym:"):]:
-        return _Neighbor(ref=ref, kind="symbol", entity_kind="symbol",
-                         display=ref[len("sym:"):])
+            source_path=str(occ["source_path"] or ""),
+        )
+    if ref.startswith("sym:") and ref[len("sym:") :]:
+        return _Neighbor(ref=ref, kind="symbol", entity_kind="symbol", display=ref[len("sym:") :])
     return None
 
 
@@ -281,9 +293,7 @@ class DomainContextEngine(ContextEngine):
     envelope via ``domain_factory`` e é contada no payload estimado.
     """
 
-    def __init__(
-        self, conn: sqlite3.Connection, counter: TokenCounter | None = None
-    ) -> None:
+    def __init__(self, conn: sqlite3.Connection, counter: TokenCounter | None = None) -> None:
         super().__init__(conn, counter)
         self._dstore = Store(conn)
 
@@ -292,10 +302,8 @@ class DomainContextEngine(ContextEngine):
         diags: list[str] = []
         repo_id = self._structural.repo_for_root(req.repository_root)
         if repo_id is None:
-            return self._absent(
-                req, f"repositório não indexado: {req.repository_root}")
-        snap, err = self._structural.resolve_snapshot(
-            repo_id, req.snapshot_id)
+            return self._absent(req, f"repositório não indexado: {req.repository_root}")
+        snap, err = self._structural.resolve_snapshot(repo_id, req.snapshot_id)
         if snap is None or snap.id is None:
             return self._absent(req, err or "nenhum snapshot READY")
         sid = int(snap.id or 0)
@@ -309,13 +317,25 @@ class DomainContextEngine(ContextEngine):
         occs = self._dstore.domain_occurrences_snapshot(sid)
         if not occs:
             pack = self._assemble(
-                req, sid, budget, card=None, neighbors=(), total=0,
-                counts=self._zero_counts(), unresolved=(), ambiguous=(),
-                diags=[*diags, "domain-absent",
-                       "snapshot sem ocorrências de domínio — nenhum "
-                       "adapter de domínio rodou ou snapshot anterior "
-                       "à v9"],
-                status=_STATUS_ABSENT, snap_status=str(snap.status))
+                req,
+                sid,
+                budget,
+                card=None,
+                neighbors=(),
+                total=0,
+                counts=self._zero_counts(),
+                unresolved=(),
+                ambiguous=(),
+                diags=[
+                    *diags,
+                    "domain-absent",
+                    "snapshot sem ocorrências de domínio — nenhum "
+                    "adapter de domínio rodou ou snapshot anterior "
+                    "à v9",
+                ],
+                status=_STATUS_ABSENT,
+                snap_status=str(snap.status),
+            )
             self._cache_put(ck, pack)
             return pack
 
@@ -332,11 +352,20 @@ class DomainContextEngine(ContextEngine):
         if hit.status != _STATUS_OK or hit.entity is None:
             diags.append(f"domain-{hit.status}")
             pack = self._assemble(
-                req, sid, budget, card=None, neighbors=(), total=0,
-                counts=self._zero_counts(), unresolved=(), ambiguous=(),
-                diags=diags, status=hit.status,
+                req,
+                sid,
+                budget,
+                card=None,
+                neighbors=(),
+                total=0,
+                counts=self._zero_counts(),
+                unresolved=(),
+                ambiguous=(),
+                diags=diags,
+                status=hit.status,
                 candidates=hit.candidates,
-                snap_status=str(snap.status))
+                snap_status=str(snap.status),
+            )
             self._cache_put(ck, pack)
             return pack
 
@@ -345,44 +374,60 @@ class DomainContextEngine(ContextEngine):
         seed_ref = str(entity["identity_key"])  # já carrega "dom:"
         card = _card(entity, list(hit.occs), repo_id, sid)
 
-        edges, counts, unresolved, ambiguous = self._seed_edges(
-            sid, seed_occ_ids, diags)
-        sym_names = self._symbol_names({
-            int(r[c]) for r in edges
-            for c in ("from_symbol_occ_id", "to_symbol_occ_id")
-            if r[c] is not None})
+        edges, counts, unresolved, ambiguous = self._seed_edges(sid, seed_occ_ids, diags)
+        sym_names = self._symbol_names(
+            {
+                int(r[c])
+                for r in edges
+                for c in ("from_symbol_occ_id", "to_symbol_occ_id")
+                if r[c] is not None
+            }
+        )
         neighbors = self._neighbor_views(
-            edges, seed_occ_ids, seed_ref, occ_map, occ_by_identity,
-            sym_names)
+            edges, seed_occ_ids, seed_ref, occ_map, occ_by_identity, sym_names
+        )
         ordered = sorted(neighbors.values(), key=_Neighbor.order_key)
         shown, beyond = ordered[:max_n], ordered[max_n:]
         if beyond:
-            diags.append(
-                f"domain-neighbors-capped:{len(shown)}/{len(ordered)}")
+            diags.append(f"domain-neighbors-capped:{len(shown)}/{len(ordered)}")
         facts = self._lineage_facts(
-            edges, seed_occ_ids, seed_ref, str(entity["qualified_name"]),
-            occ_map, sym_names, neighbors)
+            edges,
+            seed_occ_ids,
+            seed_ref,
+            str(entity["qualified_name"]),
+            occ_map,
+            sym_names,
+            neighbors,
+        )
         pack = self._assemble(
-            req, sid, budget, card=card,
-            neighbors=tuple(shown), total=len(ordered),
-            counts=counts, unresolved=unresolved, ambiguous=ambiguous,
-            diags=diags, status=_STATUS_OK,
+            req,
+            sid,
+            budget,
+            card=card,
+            neighbors=tuple(shown),
+            total=len(ordered),
+            counts=counts,
+            unresolved=unresolved,
+            ambiguous=ambiguous,
+            diags=diags,
+            status=_STATUS_OK,
             beyond=tuple(n.ref for n in beyond),
             summary=summarize_lineage(self._subject(entity), facts),
-            snap_status=str(snap.status))
+            snap_status=str(snap.status),
+        )
         self._cache_put(ck, pack)
         return pack
 
-    def _cache_put(
-        self, ck: tuple[object, ...], pack: ContextPack
-    ) -> None:
+    def _cache_put(self, ck: tuple[object, ...], pack: ContextPack) -> None:
         if len(self._pack_cache) >= 32:
             self._pack_cache.pop(next(iter(self._pack_cache)))
         self._pack_cache[ck] = pack
 
     # -------------------------------------------------------- seed
     def _resolve_seed(
-        self, repo_id: int, seed: str,
+        self,
+        repo_id: int,
+        seed: str,
         occ_by_entity: Mapping[int, Sequence[Mapping[str, Any]]],
     ) -> _SeedHit:
         """Formas: ``dom:``/``entity:<id>``/dígitos/``qualified_name``."""
@@ -394,9 +439,8 @@ class DomainContextEngine(ContextEngine):
             eid = self._dstore.domain_entity_id_for(repo_id, s)
             if eid is not None:
                 entity = _entity_row(self._conn, repo_id, eid)
-        elif s.startswith("entity:") and s[len("entity:"):].isdigit():
-            entity = _entity_row(
-                self._conn, repo_id, int(s[len("entity:"):]))
+        elif s.startswith("entity:") and s[len("entity:") :].isdigit():
+            entity = _entity_row(self._conn, repo_id, int(s[len("entity:") :]))
         elif s.isdigit():
             entity = _entity_row(self._conn, repo_id, int(s))
         else:
@@ -410,8 +454,8 @@ class DomainContextEngine(ContextEngine):
             ).fetchall()
             if len(rows) > 1:
                 return _SeedHit(
-                    status=_STATUS_AMBIGUOUS,
-                    candidates=tuple(str(r["identity_key"]) for r in rows))
+                    status=_STATUS_AMBIGUOUS, candidates=tuple(str(r["identity_key"]) for r in rows)
+                )
             if rows:
                 entity = dict(rows[0])
         if entity is None:
@@ -425,8 +469,10 @@ class DomainContextEngine(ContextEngine):
     def _seed_edges(
         self, sid: int, seed_occ_ids: set[int], diags: list[str]
     ) -> tuple[
-        list[dict[str, Any]], dict[str, int],
-        tuple[str, ...], tuple[str, ...],
+        list[dict[str, Any]],
+        dict[str, int],
+        tuple[str, ...],
+        tuple[str, ...],
     ]:
         """Arestas do snapshot que tocam a seed + contadores honestos.
 
@@ -448,18 +494,24 @@ class DomainContextEngine(ContextEngine):
             if inc:
                 counts["incoming"] += 1
             self._count_status(
-                counts, str(r["resolution_status"]),
-                str(r["to_unresolved"] or ""), unresolved, ambiguous)
-        for key in ("resolved", "ambiguous", "unresolved", "external",
-                    "dynamic"):
+                counts,
+                str(r["resolution_status"]),
+                str(r["to_unresolved"] or ""),
+                unresolved,
+                ambiguous,
+            )
+        for key in ("resolved", "ambiguous", "unresolved", "external", "dynamic"):
             if counts[key]:
                 diags.append(f"domain-{key}:{counts[key]}")
         return edges, counts, tuple(unresolved), tuple(ambiguous)
 
     @staticmethod
     def _count_status(
-        counts: dict[str, int], status: str, target: str,
-        unresolved: list[str], ambiguous: list[str],
+        counts: dict[str, int],
+        status: str,
+        target: str,
+        unresolved: list[str],
+        ambiguous: list[str],
     ) -> None:
         """Contador por status; ``dynamic:`` conta à parte de
         ``unresolved`` (marcador de adapter, não pendência)."""
@@ -479,13 +531,21 @@ class DomainContextEngine(ContextEngine):
 
     @staticmethod
     def _zero_counts() -> dict[str, int]:
-        return {"incoming": 0, "outgoing": 0, "resolved": 0,
-                "ambiguous": 0, "unresolved": 0, "external": 0,
-                "dynamic": 0}
+        return {
+            "incoming": 0,
+            "outgoing": 0,
+            "resolved": 0,
+            "ambiguous": 0,
+            "unresolved": 0,
+            "external": 0,
+            "dynamic": 0,
+        }
 
     # -------------------------------------------------------- vizinhos
     def _neighbor_views(
-        self, edges: list[dict[str, Any]], seed_occ_ids: set[int],
+        self,
+        edges: list[dict[str, Any]],
+        seed_occ_ids: set[int],
         seed_ref: str,
         occ_map: Mapping[int, Mapping[str, Any]],
         occ_by_identity: Mapping[str, Mapping[str, Any]],
@@ -505,20 +565,29 @@ class DomainContextEngine(ContextEngine):
             status = str(r["resolution_status"])
             conf = str(r["confidence_class"])
             try:
-                evidence = tuple(
-                    int(e) for e in json.loads(str(r["evidence_ids"])))
+                evidence = tuple(int(e) for e in json.loads(str(r["evidence_ids"])))
             except (ValueError, TypeError):
                 evidence = ()
             rel_id = int(r["id"])
             sides: list[tuple[str, str]] = []
             if out:
-                sides.append(("outgoing", self._other_ref(
-                    r["to_entity_occ_id"], r["to_symbol_occ_id"],
-                    occ_map, sym_names)))
+                sides.append(
+                    (
+                        "outgoing",
+                        self._other_ref(
+                            r["to_entity_occ_id"], r["to_symbol_occ_id"], occ_map, sym_names
+                        ),
+                    )
+                )
             if inc:
-                sides.append(("incoming", self._other_ref(
-                    r["from_entity_occ_id"], r["from_symbol_occ_id"],
-                    occ_map, sym_names)))
+                sides.append(
+                    (
+                        "incoming",
+                        self._other_ref(
+                            r["from_entity_occ_id"], r["from_symbol_occ_id"], occ_map, sym_names
+                        ),
+                    )
+                )
             for direction, other in sides:
                 if not other or other == seed_ref:
                     continue
@@ -528,14 +597,20 @@ class DomainContextEngine(ContextEngine):
                     if nb is None:
                         continue  # occ fora do snapshot — nunca fabrica
                     neighbors[other] = nb
-                nb.touch(direction=direction, relation_type=rtype,
-                         relation_id=rel_id, status=status,
-                         confidence=conf, evidence=evidence)
+                nb.touch(
+                    direction=direction,
+                    relation_type=rtype,
+                    relation_id=rel_id,
+                    status=status,
+                    confidence=conf,
+                    evidence=evidence,
+                )
         return neighbors
 
     @staticmethod
     def _other_ref(
-        entity_occ: object, symbol_occ: object,
+        entity_occ: object,
+        symbol_occ: object,
         occ_map: Mapping[int, Mapping[str, Any]],
         sym_names: Mapping[int, str],
     ) -> str:
@@ -564,8 +639,11 @@ class DomainContextEngine(ContextEngine):
 
     # -------------------------------------------------------- fatos/items
     def _lineage_facts(
-        self, edges: list[dict[str, Any]], seed_occ_ids: set[int],
-        seed_ref: str, seed_display: str,
+        self,
+        edges: list[dict[str, Any]],
+        seed_occ_ids: set[int],
+        seed_ref: str,
+        seed_display: str,
         occ_map: Mapping[int, Mapping[str, Any]],
         sym_names: Mapping[int, str],
         neighbors: Mapping[str, _Neighbor],
@@ -582,8 +660,8 @@ class DomainContextEngine(ContextEngine):
             dynamic = _is_dynamic(target)
             if out:
                 other = self._other_ref(
-                    r["to_entity_occ_id"], r["to_symbol_occ_id"],
-                    occ_map, sym_names)
+                    r["to_entity_occ_id"], r["to_symbol_occ_id"], occ_map, sym_names
+                )
                 nb = neighbors.get(other)
                 if other == seed_ref:
                     label = seed_display
@@ -591,15 +669,20 @@ class DomainContextEngine(ContextEngine):
                     label = nb.display
                 else:
                     label = target or "(no target)"
-                facts.append(LineageFact(
-                    relation_type=rtype, direction="outgoing",
-                    label=label, resolution_status=status,
-                    neighbor_kind=nb.entity_kind if nb else "",
-                    dynamic=dynamic))
+                facts.append(
+                    LineageFact(
+                        relation_type=rtype,
+                        direction="outgoing",
+                        label=label,
+                        resolution_status=status,
+                        neighbor_kind=nb.entity_kind if nb else "",
+                        dynamic=dynamic,
+                    )
+                )
             if inc:
                 other = self._other_ref(
-                    r["from_entity_occ_id"], r["from_symbol_occ_id"],
-                    occ_map, sym_names)
+                    r["from_entity_occ_id"], r["from_symbol_occ_id"], occ_map, sym_names
+                )
                 nb = neighbors.get(other)
                 if other == seed_ref:
                     label = seed_display
@@ -607,18 +690,22 @@ class DomainContextEngine(ContextEngine):
                     label = nb.display
                 else:
                     label = "(unresolved)"
-                facts.append(LineageFact(
-                    relation_type=rtype, direction="incoming",
-                    label=label, resolution_status=status,
-                    neighbor_kind=nb.entity_kind if nb else "",
-                    dynamic=dynamic))
+                facts.append(
+                    LineageFact(
+                        relation_type=rtype,
+                        direction="incoming",
+                        label=label,
+                        resolution_status=status,
+                        neighbor_kind=nb.entity_kind if nb else "",
+                        dynamic=dynamic,
+                    )
+                )
         return facts
 
     @staticmethod
     def _subject(entity: Mapping[str, Any]) -> str:
         """Rótulo da seed no resumo — espelha ``DomainIdentity.display``."""
-        head = ".".join(p for p in (
-            str(entity["catalog"]), str(entity["namespace"])) if p)
+        head = ".".join(p for p in (str(entity["catalog"]), str(entity["namespace"])) if p)
         qn = str(entity["qualified_name"])
         disp = f"{head}.{qn}" if head else qn
         env = str(entity["environment"])
@@ -627,99 +714,123 @@ class DomainContextEngine(ContextEngine):
         return f"{entity['kind']} {disp}"
 
     def _items(
-        self, card: DomainEntityCard,
+        self,
+        card: DomainEntityCard,
         neighbors: tuple[_Neighbor, ...],
         evidence_map: Mapping[int, str],
     ) -> list[ContextItem]:
         body = "\n".join(
-            ln for ln in (
+            ln
+            for ln in (
                 f"kind: {card.kind}",
                 f"domain: {card.domain}",
                 f"identity: {card.identity_key}",
                 f"qualified_name: {card.qualified_name}",
                 f"catalog: {card.catalog}" if card.catalog else "",
                 f"namespace: {card.namespace}" if card.namespace else "",
-                f"environment: @{card.environment}"
-                if card.environment else "",
+                f"environment: @{card.environment}" if card.environment else "",
                 f"source: {card.source_path}" if card.source_path else "",
                 f"occurrences: {card.occurrence_count}",
-            ) if ln)
-        items = [ContextItem(
-            item_id=f"dcard:{card.identity_key}", kind="domain-entity",
-            priority=PRIORITY_ESSENTIAL, title=card.qualified_name,
-            body=body, est_tokens=0, path=card.source_path,
-            evidence=(PackEvidence(kind="domain-entity",
-                                   ref=card.identity_key),
-                      PackEvidence(kind="domain-occurrence",
-                                   ref=str(card.occurrence_id))),
-            expandable=False)]
-        for nb in neighbors:
-            ev = [PackEvidence(kind="domain-relation",
-                               ref=str(nb.first_relation_id))]
-            for eid in sorted(nb.evidence_ids)[:_EVIDENCE_PER_ITEM]:
-                ev.append(PackEvidence(kind="evidence", ref=str(eid),
-                                       detail=evidence_map.get(eid, "")))
-            rel_desc = ", ".join(
-                f"{t} ({nb.direction()})"
-                for t in sorted(nb.relation_types))
-            nbody = "\n".join((
-                f"{nb.entity_kind} {nb.display}",
-                f"ref: {nb.ref}",
-                f"relations: {rel_desc} — {nb.best_status}/"
-                f"{nb.best_confidence} x{nb.edge_count}",
-            ))
-            items.append(ContextItem(
-                item_id=nb.ref, kind="domain-neighbor",
-                priority=PRIORITY_DEP, title=nb.display, body=nbody,
+            )
+            if ln
+        )
+        items = [
+            ContextItem(
+                item_id=f"dcard:{card.identity_key}",
+                kind="domain-entity",
+                priority=PRIORITY_ESSENTIAL,
+                title=card.qualified_name,
+                body=body,
                 est_tokens=0,
-                symbol_key=(nb.display if nb.kind == "symbol" else ""),
-                path=nb.source_path,
-                evidence=tuple(ev), expandable=True))
+                path=card.source_path,
+                evidence=(
+                    PackEvidence(kind="domain-entity", ref=card.identity_key),
+                    PackEvidence(kind="domain-occurrence", ref=str(card.occurrence_id)),
+                ),
+                expandable=False,
+            )
+        ]
+        for nb in neighbors:
+            ev = [PackEvidence(kind="domain-relation", ref=str(nb.first_relation_id))]
+            for eid in sorted(nb.evidence_ids)[:_EVIDENCE_PER_ITEM]:
+                ev.append(
+                    PackEvidence(kind="evidence", ref=str(eid), detail=evidence_map.get(eid, ""))
+                )
+            rel_desc = ", ".join(f"{t} ({nb.direction()})" for t in sorted(nb.relation_types))
+            nbody = "\n".join(
+                (
+                    f"{nb.entity_kind} {nb.display}",
+                    f"ref: {nb.ref}",
+                    f"relations: {rel_desc} — {nb.best_status}/"
+                    f"{nb.best_confidence} x{nb.edge_count}",
+                )
+            )
+            items.append(
+                ContextItem(
+                    item_id=nb.ref,
+                    kind="domain-neighbor",
+                    priority=PRIORITY_DEP,
+                    title=nb.display,
+                    body=nbody,
+                    est_tokens=0,
+                    symbol_key=(nb.display if nb.kind == "symbol" else ""),
+                    path=nb.source_path,
+                    evidence=tuple(ev),
+                    expandable=True,
+                )
+            )
         return items
 
     def _evidence_paths(self, ids: set[int]) -> dict[int, str]:
         if not ids:
             return {}
         rows = self._conn.execute(
-            "SELECT id, path FROM evidence"
-            " WHERE id IN (SELECT value FROM json_each(?))",
+            "SELECT id, path FROM evidence WHERE id IN (SELECT value FROM json_each(?))",
             (json.dumps(sorted(ids)),),
         ).fetchall()
         return {int(r["id"]): str(r["path"]) for r in rows}
 
     # -------------------------------------------------------- assemble
     def _assemble(
-        self, req: DomainPackRequest, sid: int, budget: Budget, *,
-        card: DomainEntityCard | None, neighbors: tuple[_Neighbor, ...],
-        total: int, counts: Mapping[str, int],
-        unresolved: tuple[str, ...], ambiguous: tuple[str, ...],
-        diags: list[str], status: str, snap_status: str,
+        self,
+        req: DomainPackRequest,
+        sid: int,
+        budget: Budget,
+        *,
+        card: DomainEntityCard | None,
+        neighbors: tuple[_Neighbor, ...],
+        total: int,
+        counts: Mapping[str, int],
+        unresolved: tuple[str, ...],
+        ambiguous: tuple[str, ...],
+        diags: list[str],
+        status: str,
+        snap_status: str,
         candidates: tuple[str, ...] = (),
         beyond: tuple[str, ...] = (),
         summary: str = "",
     ) -> ContextPack:
         """Empilha itens + fábrica de seção no maquinário de budget."""
-        ev_map = self._evidence_paths({
-            e for nb in neighbors for e in nb.evidence_ids})
-        items = (self._items(card, neighbors, ev_map)
-                 if card is not None else [])
+        ev_map = self._evidence_paths({e for nb in neighbors for e in nb.evidence_ids})
+        items = self._items(card, neighbors, ev_map) if card is not None else []
         items = self._dedup(self._estimate(items))
         items.sort(key=lambda i: (i.priority, i.item_id))
         selected, omitted = self._fit(items, budget.available_items)
-        essentials = sum(
-            i.est_tokens for i in items if i.priority <= PRIORITY_DIRECT)
-        insufficient = len(selected) < len(
-            [i for i in items if i.priority <= PRIORITY_DIRECT])
+        essentials = sum(i.est_tokens for i in items if i.priority <= PRIORITY_DIRECT)
+        insufficient = len(selected) < len([i for i in items if i.priority <= PRIORITY_DIRECT])
 
         neighbor_by_ref = {nb.ref: nb for nb in neighbors}
 
         def factory(sel: tuple[ContextItem, ...]) -> DomainPackPart:
             chosen = [
                 neighbor_by_ref[i.item_id].ref_view(i.item_id)
-                for i in sel if i.item_id in neighbor_by_ref]
+                for i in sel
+                if i.item_id in neighbor_by_ref
+            ]
             section = DomainPackSection(
                 schema_version=DOMAIN_PACK_SCHEMA_VERSION,
-                status=status, entity=card,
+                status=status,
+                entity=card,
                 neighbors=tuple(chosen),
                 neighbors_total=total,
                 neighbors_omitted=total - len(chosen),
@@ -728,33 +839,52 @@ class DomainContextEngine(ContextEngine):
                 ambiguous_targets=ambiguous,
                 summary=summary,
                 requery=DOMAIN_REQUERY_CONTRACT,
-                candidates=candidates)
+                candidates=candidates,
+            )
             return DomainPackPart(
                 section=section,
                 extra_expansion_refs=tuple(
                     ExpansionRef(
-                        ref_id=ref, kind="domain-neighbor",
-                        reason="além do top-N de vizinhos — "
-                               "re-consultável via ref")
-                    for ref in beyond),
+                        ref_id=ref,
+                        kind="domain-neighbor",
+                        reason="além do top-N de vizinhos — re-consultável via ref",
+                    )
+                    for ref in beyond
+                ),
                 extra_unresolved=(*unresolved, *ambiguous),
-                ranking_explanation=_RANKING_DOMAIN)
+                ranking_explanation=_RANKING_DOMAIN,
+            )
 
         return self._enforce_payload_budget(
-            req, sid, budget, selected, omitted, essentials,
-            insufficient, diags, snap_status, domain_factory=factory)
+            req,
+            sid,
+            budget,
+            selected,
+            omitted,
+            essentials,
+            insufficient,
+            diags,
+            snap_status,
+            domain_factory=factory,
+        )
 
-    def _absent(
-        self, req: DomainPackRequest, msg: str
-    ) -> ContextPack:
+    def _absent(self, req: DomainPackRequest, msg: str) -> ContextPack:
         """Falha de resolução (repo/snapshot) — pack vazio honesto."""
         base = self._empty(req, msg)
         return dataclasses.replace(
             base,
             domain=DomainPackSection(
                 schema_version=DOMAIN_PACK_SCHEMA_VERSION,
-                status=_STATUS_ABSENT, entity=None, neighbors=(),
-                neighbors_total=0, neighbors_omitted=0,
-                counts=self._zero_counts(), unresolved_targets=(),
-                ambiguous_targets=(), summary="", candidates=(),
-                requery=DOMAIN_REQUERY_CONTRACT))
+                status=_STATUS_ABSENT,
+                entity=None,
+                neighbors=(),
+                neighbors_total=0,
+                neighbors_omitted=0,
+                counts=self._zero_counts(),
+                unresolved_targets=(),
+                ambiguous_targets=(),
+                summary="",
+                candidates=(),
+                requery=DOMAIN_REQUERY_CONTRACT,
+            ),
+        )

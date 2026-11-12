@@ -36,8 +36,7 @@ def test_capability_manifests_match_and_are_packaged() -> None:
             package_path.read_text(encoding="utf-8")
         )
     assert (
-        json.loads(root_manifests[0].read_text(encoding="utf-8"))["forge_id"]
-        == "code-atlas-forge"
+        json.loads(root_manifests[0].read_text(encoding="utf-8"))["forge_id"] == "code-atlas-forge"
     )
     assert json.loads(root_manifests[1].read_text(encoding="utf-8"))["version"] == __version__
 
@@ -49,22 +48,17 @@ def test_agent_roster_matches_manifest_and_is_packaged() -> None:
     assert roster_ids == sorted(manifest["agents"])
     for agent_id in roster_ids:
         agent_path = (
-            ROOT
-            / "src"
-            / "code_atlas"
-            / "installation"
-            / "assets"
-            / "agents"
-            / f"{agent_id}.md"
+            ROOT / "src" / "code_atlas" / "installation" / "assets" / "agents" / f"{agent_id}.md"
         )
         assert agent_path.exists()
 
 
 def test_runtime_dependencies_are_pinned_tree_sitter() -> None:
-    """Cycle 2: deps de runtime = apenas a pilha Tree-sitter aprovada (ADR)."""
+    """Cycle 2: deps de runtime = pilha Tree-sitter aprovada (ADR) + pyyaml
+    (exceção documentada: engine _forge_obsidian vendored importa yaml)."""
     raw = tomllib.loads((ROOT / "pyproject.toml").read_text(encoding="utf-8"))
     deps = raw["project"].get("dependencies", [])
-    allowed = {"tree-sitter", "tree-sitter-python", "tree-sitter-typescript"}
+    allowed = {"tree-sitter", "tree-sitter-python", "tree-sitter-typescript", "pyyaml"}
     assert deps, "Cycle 2 exige tree-sitter real — deps não podem ser vazias"
     for dep in deps:
         name = dep.split("==")[0].split(">=")[0].split("[")[0]

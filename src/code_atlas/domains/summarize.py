@@ -63,10 +63,10 @@ class LineageFact:
     """
 
     relation_type: str
-    direction: str          # "incoming" | "outgoing"
+    direction: str  # "incoming" | "outgoing"
     label: str
     resolution_status: str  # resolved|ambiguous|unresolved|external
-    neighbor_kind: str = "" # entity kind do vizinho ("" = alvo textual)
+    neighbor_kind: str = ""  # entity kind do vizinho ("" = alvo textual)
     dynamic: bool = False
 
 
@@ -78,9 +78,7 @@ def _verb(relation_type: str, direction: str) -> str:
     return pair[0] if direction == "outgoing" else pair[1]
 
 
-def summarize_lineage(
-    subject: str, facts: Iterable[LineageFact]
-) -> str:
+def summarize_lineage(subject: str, facts: Iterable[LineageFact]) -> str:
     """``subject``: rótulo da seed (ex.: ``"data_table a.b.orders"``).
 
     Saída: ``"<subject>: <frases>"`` — grupos ``resolved``/``external``
@@ -96,16 +94,12 @@ def summarize_lineage(
             n_dyn += 1
             continue
         if f.resolution_status == "resolved":
-            resolved.setdefault((f.relation_type, f.direction), []).append(
-                f.label
-            )
+            resolved.setdefault((f.relation_type, f.direction), []).append(f.label)
         elif f.resolution_status == "ambiguous":
             n_amb += 1
         elif f.resolution_status == "external":
             # alvo conhecido fora do índice — listável mas não vizinho local
-            resolved.setdefault(
-                (f.relation_type, f.direction), []).append(
-                    f"{f.label} (external)")
+            resolved.setdefault((f.relation_type, f.direction), []).append(f"{f.label} (external)")
         else:
             n_unres += 1
     phrases: list[str] = []
@@ -113,9 +107,7 @@ def summarize_lineage(
         labels = sorted(resolved[key])
         shown = labels[:_LIST_CAP]
         more = f", +{len(labels) - _LIST_CAP} more" if len(labels) > _LIST_CAP else ""
-        phrases.append(
-            f"{_verb(*key)} {len(labels)} ({', '.join(shown)}{more})"
-        )
+        phrases.append(f"{_verb(*key)} {len(labels)} ({', '.join(shown)}{more})")
     if n_amb:
         phrases.append(f"{n_amb} ambiguous")
     if n_unres:

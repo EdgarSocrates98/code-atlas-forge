@@ -77,6 +77,7 @@ def test_timed_decorator_preserva_retorno_e_loga(
 ) -> None:
     monkeypatch.setenv("CODE_ATLAS_LOG_LEVEL", "DEBUG")
     monkeypatch.setenv("CODE_ATLAS_SLOW_MS", "1")
+
     # label único → get_logger cria o handler JÁ com o env do teste
     @timed("deco.unique1")
     def trabalho(x: int) -> int:

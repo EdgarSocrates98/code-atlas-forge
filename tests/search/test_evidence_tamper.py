@@ -31,9 +31,7 @@ def _refs(conn):
     g = EvidenceGrounder(conn)
     occ = g.occurrence_ref(1, 1, 1)
     assert occ is not None
-    rel = conn.execute(
-        "SELECT id FROM relations WHERE snapshot_id=1 LIMIT 1"
-    ).fetchone()
+    rel = conn.execute("SELECT id FROM relations WHERE snapshot_id=1 LIMIT 1").fetchone()
     return occ, rel
 
 
@@ -58,8 +56,7 @@ def test_valid_occurrence_passes(env) -> None:
 )
 def test_tampered_occurrence_rejected(env, field, bad, code) -> None:
     occ, _ = _refs(env)
-    res = EvidenceValidator(env).validate_occurrence(
-        dataclasses.replace(occ, **{field: bad}))
+    res = EvidenceValidator(env).validate_occurrence(dataclasses.replace(occ, **{field: bad}))
     assert not res.ok and res.code == code
 
 
@@ -67,24 +64,27 @@ def test_relation_metadata_tampered(env) -> None:
     _, rel = _refs(env)
     if rel is None:
         pytest.skip("fixture sem relations")
-    row = env.execute(
-        "SELECT * FROM relations WHERE id=?", (rel["id"],)).fetchone()
+    row = env.execute("SELECT * FROM relations WHERE id=?", (rel["id"],)).fetchone()
     from code_atlas.search.refs import RelationRef
+
     ref = RelationRef(
-        repository_id=1, snapshot_id=1, relation_id=int(row["id"]),
-        type=str(row["type"]), from_occurrence=int(row["from_id"]),
-        to_occurrence=row["to_id"], to_unresolved=row["to_unresolved"],
+        repository_id=1,
+        snapshot_id=1,
+        relation_id=int(row["id"]),
+        type=str(row["type"]),
+        from_occurrence=int(row["from_id"]),
+        to_occurrence=row["to_id"],
+        to_unresolved=row["to_unresolved"],
         resolution_status=str(row["resolution_status"]),
         confidence_class=str(row["confidence_class"]),
-        resolver=row["resolver"])
+        resolver=row["resolver"],
+    )
     v = EvidenceValidator(env)
     assert v.validate_relation(ref).ok
     for field in ("type", "resolution_status", "confidence_class"):
-        res = v.validate_relation(
-            dataclasses.replace(ref, **{field: "tampered"}))
+        res = v.validate_relation(dataclasses.replace(ref, **{field: "tampered"}))
         assert not res.ok and res.code == "metadata-mismatch", field
-    res = v.validate_relation(
-        dataclasses.replace(ref, to_occurrence=999999))
+    res = v.validate_relation(dataclasses.replace(ref, to_occurrence=999999))
     assert not res.ok
 
 
@@ -99,12 +99,12 @@ def test_snapshot_ref_cross_repo(env) -> None:
 
 def test_symbol_ref_tampered(env) -> None:
     from code_atlas.search.refs import SymbolRef
-    row = env.execute(
-        "SELECT id, qualified_name, kind, language FROM symbols"
-        " LIMIT 1").fetchone()
+
+    row = env.execute("SELECT id, qualified_name, kind, language FROM symbols LIMIT 1").fetchone()
     v = EvidenceValidator(env)
-    ok = SymbolRef(1, int(row["id"]), str(row["qualified_name"]),
-                   str(row["kind"]), str(row["language"]))
+    ok = SymbolRef(
+        1, int(row["id"]), str(row["qualified_name"]), str(row["kind"]), str(row["language"])
+    )
     assert v.validate_symbol(ok, 1).ok
     bad = dataclasses.replace(ok, kind="forged-kind")
     res = v.validate_symbol(bad, 1)

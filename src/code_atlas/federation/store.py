@@ -27,31 +27,26 @@ class FederationStore:
     # --- workspaces -------------------------------------------------
 
     def create_workspace(self, name: str) -> int:
-        cur = self._conn.execute(
-            "INSERT INTO federation_workspaces (name) VALUES (?)", (name,)
-        )
+        cur = self._conn.execute("INSERT INTO federation_workspaces (name) VALUES (?)", (name,))
         return int(cur.lastrowid)  # type: ignore[arg-type]
 
     def workspace_by_id(self, workspace_id: int) -> FederationWorkspace | None:
         row = self._conn.execute(
-            "SELECT id, name, created_at FROM federation_workspaces"
-            " WHERE id = ?",
+            "SELECT id, name, created_at FROM federation_workspaces WHERE id = ?",
             (workspace_id,),
         ).fetchone()
         return _ws_from_row(row) if row is not None else None
 
     def workspace_by_name(self, name: str) -> FederationWorkspace | None:
         row = self._conn.execute(
-            "SELECT id, name, created_at FROM federation_workspaces"
-            " WHERE name = ?",
+            "SELECT id, name, created_at FROM federation_workspaces WHERE name = ?",
             (name,),
         ).fetchone()
         return _ws_from_row(row) if row is not None else None
 
     def list_workspaces(self) -> list[FederationWorkspace]:
         rows = self._conn.execute(
-            "SELECT id, name, created_at FROM federation_workspaces"
-            " ORDER BY name"
+            "SELECT id, name, created_at FROM federation_workspaces ORDER BY name"
         ).fetchall()
         return [_ws_from_row(r) for r in rows]
 
@@ -64,21 +59,17 @@ class FederationStore:
 
     # --- members ----------------------------------------------------
 
-    def add_member(
-        self, workspace_id: int, repository_id: int
-    ) -> int:
+    def add_member(self, workspace_id: int, repository_id: int) -> int:
         """Registra repo no workspace (``INSERT OR IGNORE`` — idempotente).
 
         Retorna a row id do membro (existente ou criada).
         """
         self._conn.execute(
-            "INSERT OR IGNORE INTO federation_members"
-            " (workspace_id, repository_id) VALUES (?, ?)",
+            "INSERT OR IGNORE INTO federation_members (workspace_id, repository_id) VALUES (?, ?)",
             (workspace_id, repository_id),
         )
         row = self._conn.execute(
-            "SELECT id FROM federation_members"
-            " WHERE workspace_id = ? AND repository_id = ?",
+            "SELECT id FROM federation_members WHERE workspace_id = ? AND repository_id = ?",
             (workspace_id, repository_id),
         ).fetchone()
         assert row is not None  # UNIQUE + INSERT OR IGNORE garante a linha
@@ -86,15 +77,12 @@ class FederationStore:
 
     def remove_member(self, workspace_id: int, repository_id: int) -> bool:
         cur = self._conn.execute(
-            "DELETE FROM federation_members"
-            " WHERE workspace_id = ? AND repository_id = ?",
+            "DELETE FROM federation_members WHERE workspace_id = ? AND repository_id = ?",
             (workspace_id, repository_id),
         )
         return int(cur.rowcount or 0) > 0
 
-    def member_for(
-        self, workspace_id: int, repository_id: int
-    ) -> FederationMember | None:
+    def member_for(self, workspace_id: int, repository_id: int) -> FederationMember | None:
         row = self._conn.execute(
             "SELECT id, workspace_id, repository_id, pinned_snapshot_id,"
             " added_at FROM federation_members"
@@ -122,9 +110,7 @@ class FederationStore:
             (snapshot_id, workspace_id, repository_id),
         )
 
-    def repo_identities(
-        self, repository_ids: Iterable[int]
-    ) -> dict[int, str]:
+    def repo_identities(self, repository_ids: Iterable[int]) -> dict[int, str]:
         """``{repository_id: identity_key}`` — identidade lógica do membro.
 
         Componente "repo identity" da cache key da view (lf-0134): um
@@ -145,9 +131,7 @@ class FederationStore:
 
     # --- leitura federada ------------------------------------------------
 
-    def snapshot_entity_occurrences(
-        self, snapshot_id: int
-    ) -> list[sqlite3.Row]:
+    def snapshot_entity_occurrences(self, snapshot_id: int) -> list[sqlite3.Row]:
         """Ocorrências de entidade de domínio de UM snapshot membro.
 
         Mesma forma de ``Store.domain_occurrences_snapshot`` com
@@ -186,9 +170,7 @@ def _member_from_row(row: sqlite3.Row) -> FederationMember:
         workspace_id=int(row["workspace_id"]),
         repository_id=int(row["repository_id"]),
         pinned_snapshot_id=(
-            None
-            if row["pinned_snapshot_id"] is None
-            else int(row["pinned_snapshot_id"])
+            None if row["pinned_snapshot_id"] is None else int(row["pinned_snapshot_id"])
         ),
         added_at=str(row["added_at"]),
     )

@@ -37,7 +37,9 @@ class PythonAdapter:
     capabilities = ParserCapability(decorators=True)
 
     @property
-    def adapter_id(self): return "tree-sitter-python"
+    def adapter_id(self):
+        return "tree-sitter-python"
+
     def parse(self, request: ParseRequest) -> ParseResult: ...
 ```
 

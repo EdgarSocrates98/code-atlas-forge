@@ -17,5 +17,4 @@ def get(table: str, rid: int) -> dict | None:
 
 
 def where(table: str, **kw) -> list[dict]:
-    return [r for r in _STORE[table].values()
-            if all(r.get(k) == v for k, v in kw.items())]
+    return [r for r in _STORE[table].values() if all(r.get(k) == v for k, v in kw.items())]

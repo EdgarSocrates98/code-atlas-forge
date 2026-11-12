@@ -129,32 +129,45 @@ class DomainSpec:
 #: cross-domain (lf-0124). Ordem estável = ordem do relatório.
 DOMAIN_SPECS: tuple[DomainSpec, ...] = (
     DomainSpec(
-        "sql", "tests/fixtures/sql_warehouse", ("sql",),
+        "sql",
+        "tests/fixtures/sql_warehouse",
+        ("sql",),
         note="pipeline landing→staging→mart + arquivo malformado",
     ),
     DomainSpec(
-        "pyspark", "tests/fixtures/pyspark_repo", ("pyspark",),
+        "pyspark",
+        "tests/fixtures/pyspark_repo",
+        ("pyspark",),
         note="jobs DataFrame/spark.sql/temp views + dinâmicos honestos",
     ),
     DomainSpec(
-        "aws", "tests/fixtures/aws_repo", ("aws-data",),
+        "aws",
+        "tests/fixtures/aws_repo",
+        ("aws-data",),
         note="Glue/Athena/Iceberg/EMR + catálogo cross-account + configs",
     ),
     DomainSpec(
-        "api", "tests/fixtures/api_repo", ("api",),
+        "api",
+        "tests/fixtures/api_repo",
+        ("api",),
         note="OpenAPI + FastAPI/Express + consumidores (2 edges_skipped "
         "— web.legacy sem parser JS)",
     ),
     DomainSpec(
-        "terraform", "tests/fixtures/terraform_infra", ("terraform",),
+        "terraform",
+        "tests/fixtures/terraform_infra",
+        ("terraform",),
         note="HCL + tf.json + tfvars + módulo local/registry + broken/",
     ),
     DomainSpec(
-        "cicd", "tests/fixtures/cicd_repo", ("cicd",),
+        "cicd",
+        "tests/fixtures/cicd_repo",
+        ("cicd",),
         note="GitHub Actions workflows/jobs/deps + workflow malformado",
     ),
     DomainSpec(
-        "crossdomain", "tests/fixtures/crossdomain_ws",
+        "crossdomain",
+        "tests/fixtures/crossdomain_ws",
         ("sql", "pyspark", "api"),
         cross=True,
         note="workspace multi-adapter: spark↔sql identidade plena e "
@@ -177,8 +190,13 @@ def _display(identity_key_str: str) -> str:
         return identity_key_str
     domain, repository, root, catalog, namespace, env, qname = segs[:7]
     return DomainIdentity(
-        domain=domain, repository=repository, root=root, catalog=catalog,
-        namespace=namespace, environment=env, qualified_name=qname,
+        domain=domain,
+        repository=repository,
+        root=root,
+        catalog=catalog,
+        namespace=namespace,
+        environment=env,
+        qualified_name=qname,
     ).display()
 
 
@@ -218,9 +236,7 @@ def _extract_for_diagnostics(
     return results
 
 
-def _read_persisted(
-    conn: sqlite3.Connection, store: Store, snapshot_id: int
-) -> dict[str, Any]:
+def _read_persisted(conn: sqlite3.Connection, store: Store, snapshot_id: int) -> dict[str, Any]:
     """Estado persistido do snapshot → relatório de domínio."""
     occ_display: dict[int, str] = {}
     occ_kind: dict[int, str] = {}
@@ -238,15 +254,11 @@ def _read_persisted(
     }
     kind_counts = {
         str(r["kind"]): int(r["c"])
-        for r in conn.execute(
-            "SELECT kind, COUNT(*) c FROM domain_entities GROUP BY kind"
-        )
+        for r in conn.execute("SELECT kind, COUNT(*) c FROM domain_entities GROUP BY kind")
     }
     entities = sorted(
         _display(str(r["identity_key"]))
-        for r in conn.execute(
-            "SELECT identity_key FROM domain_entities ORDER BY identity_key"
-        )
+        for r in conn.execute("SELECT identity_key FROM domain_entities ORDER BY identity_key")
     )
     rels = store.domain_relations_snapshot(snapshot_id)
 
@@ -278,8 +290,7 @@ def _read_persisted(
         for r in rels
     ]
     edges.sort(
-        key=lambda e: (e["type"], e["from"], e["to"], e["status"],
-                       e["confidence"], e["resolver"])
+        key=lambda e: (e["type"], e["from"], e["to"], e["status"], e["confidence"], e["resolver"])
     )
     return {
         "entities": entities,
@@ -293,9 +304,7 @@ def _read_persisted(
     }
 
 
-def run_domain_eval(
-    repo_root: Path, spec: DomainSpec, work_dir: Path
-) -> dict[str, object]:
+def run_domain_eval(repo_root: Path, spec: DomainSpec, work_dir: Path) -> dict[str, object]:
     """Executa a pipeline real sobre a fixture e devolve o relatório.
 
     ``work_dir`` recebe o ``atlas.db`` temporário do cenário (um por
@@ -343,15 +352,15 @@ def run_domain_eval(
             with conn:
                 xplan = resolver.plan(store, snapshot_id)
                 applied = store.persist_cross_resolutions(
-                    snapshot_id, xplan.update_rows(),
+                    snapshot_id,
+                    xplan.update_rows(),
                     xplan.insert_rows(snapshot_id),
                 )
             cross_info = {
                 "stats": dict(xplan.stats),
                 "applied": dict(applied),
                 "diagnostics": [
-                    {"severity": d.severity, "code": d.code,
-                     "message": d.message}
+                    {"severity": d.severity, "code": d.code, "message": d.message}
                     for d in xplan.diagnostics
                 ],
             }
@@ -362,9 +371,7 @@ def run_domain_eval(
         # diagnósticos, que não são persistidos por desenho.
         repository = identity_key(scan.git, fixture)
         digest = scan.manifest_sha256()
-        extractions = _extract_for_diagnostics(
-            adapters, files, repository, digest
-        )
+        extractions = _extract_for_diagnostics(adapters, files, repository, digest)
     finally:
         conn.close()
 
@@ -389,9 +396,9 @@ def run_domain_eval(
     )
     diagnostics.sort(key=lambda d: (d["path"], d["code"], d["severity"]))
     artifacts = {
-        domain_id: [a.path for a in _discover_artifacts(
-            files, adapters[domain_id].supported_artifacts()
-        )]
+        domain_id: [
+            a.path for a in _discover_artifacts(files, adapters[domain_id].supported_artifacts())
+        ]
         for domain_id in adapters
     }
     stats: dict[str, int] = {}
@@ -401,11 +408,11 @@ def run_domain_eval(
 
     # contagens de domínio/cross do job de indexação — medido, não derivado
     job_counts = {
-        k: int(v) for k, v in (outcome.stats or {}).items()
-        if k.startswith(("domain_", "cross_"))
+        k: int(v) for k, v in (outcome.stats or {}).items() if k.startswith(("domain_", "cross_"))
     }
     edges_skipped = sum(
-        int(v) for k, v in (outcome.stats or {}).items()
+        int(v)
+        for k, v in (outcome.stats or {}).items()
         if k.startswith("domain_") and k.endswith("_edges_skipped")
     )
 
@@ -445,16 +452,17 @@ def run_domain_eval(
 
 def _edge_key(e: Mapping[str, object]) -> tuple[str, str, str, str, str, str]:
     return (
-        str(e["type"]), str(e["from"]), str(e["to"]), str(e["status"]),
-        str(e["confidence"]), str(e["resolver"]),
+        str(e["type"]),
+        str(e["from"]),
+        str(e["to"]),
+        str(e["status"]),
+        str(e["confidence"]),
+        str(e["resolver"]),
     )
 
 
 def _fmt_edge(e: Mapping[str, object]) -> str:
-    return (
-        f"{e['type']} {e['from']} -> {e['to']} "
-        f"[{e['status']}|{e['confidence']}|{e['resolver']}]"
-    )
+    return f"{e['type']} {e['from']} -> {e['to']} [{e['status']}|{e['confidence']}|{e['resolver']}]"
 
 
 def _diag_key(d: Mapping[str, object]) -> tuple[str, str, str]:
@@ -465,9 +473,7 @@ def _fmt_diag(d: Mapping[str, object]) -> str:
     return f"{d['severity']}:{d['code']}:{d['path'] or '-'}"
 
 
-def _count_diff(
-    diffs: list[str], actual: int, want: Any, label: str
-) -> None:
+def _count_diff(diffs: list[str], actual: int, want: Any, label: str) -> None:
     if want is None:
         return
     if actual != int(want):
@@ -475,21 +481,21 @@ def _count_diff(
 
 
 def _diff_entities(
-    report: Mapping[str, Any], g_entities: Mapping[str, Any],
+    report: Mapping[str, Any],
+    g_entities: Mapping[str, Any],
     diffs: list[str],
 ) -> None:
     r_entities = cast(Mapping[str, Any], report["entities"])
     _count_diff(
-        diffs, int(r_entities["total"]), g_entities.get("total"),
+        diffs,
+        int(r_entities["total"]),
+        g_entities.get("total"),
         "entities.total",
     )
     want_kind = g_entities.get("by_kind")
-    if want_kind is not None and dict(
-        r_entities["by_kind"]
-    ) != dict(want_kind):
+    if want_kind is not None and dict(r_entities["by_kind"]) != dict(want_kind):
         diffs.append(
-            "entities.by_kind: expected "
-            f"{dict(want_kind)}, got {dict(r_entities['by_kind'])}"
+            f"entities.by_kind: expected {dict(want_kind)}, got {dict(r_entities['by_kind'])}"
         )
     names = set(r_entities["names"])
     for want in g_entities.get("expected", ()):
@@ -510,30 +516,34 @@ def _diff_entities(
 
 
 def _diff_relations(
-    report: Mapping[str, Any], g_relations: Mapping[str, Any],
+    report: Mapping[str, Any],
+    g_relations: Mapping[str, Any],
     diffs: list[str],
 ) -> None:
     r_relations = cast(Mapping[str, Any], report["relations"])
     _count_diff(
-        diffs, int(r_relations["total"]), g_relations.get("total"),
+        diffs,
+        int(r_relations["total"]),
+        g_relations.get("total"),
         "relations.total",
     )
     for group in ("by_type", "by_status", "by_confidence", "by_resolver"):
         want = g_relations.get(group)
         if want is not None and dict(r_relations[group]) != dict(want):
             diffs.append(
-                f"relations.{group}: expected {dict(want)}, "
-                f"got {dict(r_relations[group])}"
+                f"relations.{group}: expected {dict(want)}, got {dict(r_relations[group])}"
             )
     _count_diff(
-        diffs, int(r_relations["edges_skipped"]),
+        diffs,
+        int(r_relations["edges_skipped"]),
         g_relations.get("edges_skipped"),
         "relations.edges_skipped",
     )
 
 
 def _diff_edges(
-    report: Mapping[str, Any], golden: Mapping[str, Any],
+    report: Mapping[str, Any],
+    golden: Mapping[str, Any],
     diffs: list[str],
 ) -> None:
     # inventário exaustivo de arestas — matched/missing/unexpected
@@ -548,22 +558,17 @@ def _diff_edges(
 
 
 def _diff_diagnostics(
-    report: Mapping[str, Any], golden: Mapping[str, Any],
+    report: Mapping[str, Any],
+    golden: Mapping[str, Any],
     diffs: list[str],
 ) -> None:
     # diagnósticos como multiconjunto (severity, code, path)
-    want_diags = Counter(
-        _diag_key(d) for d in golden.get("diagnostics", ())
-    )
-    got_diags = Counter(
-        _diag_key(d) for d in report["diagnostics"]
-    )
+    want_diags = Counter(_diag_key(d) for d in golden.get("diagnostics", ()))
+    got_diags = Counter(_diag_key(d) for d in report["diagnostics"])
     by_dkey: dict[tuple[str, str, str], Mapping[str, object]] = {
         _diag_key(d): d for d in golden.get("diagnostics", ())
     }
-    by_dkey.update(
-        {_diag_key(d): d for d in report["diagnostics"]}
-    )
+    by_dkey.update({_diag_key(d): d for d in report["diagnostics"]})
     for dkey in sorted(set(want_diags) | set(got_diags)):
         if want_diags[dkey] != got_diags[dkey]:
             diffs.append(
@@ -572,9 +577,7 @@ def _diff_diagnostics(
             )
 
 
-def diff_report(
-    report: Mapping[str, Any], golden: Mapping[str, Any]
-) -> list[str]:
+def diff_report(report: Mapping[str, Any], golden: Mapping[str, Any]) -> list[str]:
     """Diff legível report↔golden; ``[]`` = cenário dentro do esperado.
 
     Checagens: contagens exatas (entidades/relations por kind/type/
@@ -616,11 +619,7 @@ def evaluate_all(
         ok = True
         for spec in DOMAIN_SPECS:
             report = run_domain_eval(Path(repo_root), spec, Path(work_dir))
-            golden = (
-                load_golden(Path(golden_dir), spec.eval_id)
-                if golden_dir is not None
-                else None
-            )
+            golden = load_golden(Path(golden_dir), spec.eval_id) if golden_dir is not None else None
             check: dict[str, object] = {"golden": golden is not None}
             if golden is not None:
                 diffs = diff_report(report, golden)
@@ -635,7 +634,8 @@ def evaluate_all(
             "summary": {
                 "scenarios": len(domains),
                 "golden_compared": sum(
-                    1 for d in domains.values()
+                    1
+                    for d in domains.values()
                     if isinstance(d, dict)
                     and isinstance(d.get("check"), dict)
                     and cast("dict[str, Any]", d["check"]).get("golden")

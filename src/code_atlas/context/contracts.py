@@ -23,20 +23,20 @@ DOMAIN_PACK_SCHEMA_VERSION = 1
 Level = Literal["orientation", "focus", "deep"]
 
 # Prioridade de seleção (spec lf-0040): menor = mais prioritário.
-PRIORITY_ESSENTIAL = 0      # evidências essenciais
-PRIORITY_DIRECT = 1         # símbolos diretos (match da task)
-PRIORITY_CONTRACT = 2       # contratos (defs com docstring/signature)
-PRIORITY_DEP = 3            # dependências comprovadas (arestas)
-PRIORITY_SNIPPET = 4        # snippets de código
-PRIORITY_COMPLEMENT = 5     # complementar (vizinhos transitivos)
-PRIORITY_TRANSITIVE = 6     # transitivos menos relevantes
+PRIORITY_ESSENTIAL = 0  # evidências essenciais
+PRIORITY_DIRECT = 1  # símbolos diretos (match da task)
+PRIORITY_CONTRACT = 2  # contratos (defs com docstring/signature)
+PRIORITY_DEP = 3  # dependências comprovadas (arestas)
+PRIORITY_SNIPPET = 4  # snippets de código
+PRIORITY_COMPLEMENT = 5  # complementar (vizinhos transitivos)
+PRIORITY_TRANSITIVE = 6  # transitivos menos relevantes
 
 
 @dataclass(frozen=True)
 class ContextRequest:
     """Pedido de pack — snapshot resolvido para o READY atual."""
 
-    task: str                       # query livre da tarefa
+    task: str  # query livre da tarefa
     repository_root: str = ""
     snapshot_id: int | None = None
     level: Level = "focus"
@@ -75,8 +75,8 @@ class DomainPackRequest:
 class PackEvidence:
     """Referência a evidência persistida — nunca inventada."""
 
-    kind: str                       # "occurrence"|"relation"|"diagnostic"
-    ref: str                        # id/canônico
+    kind: str  # "occurrence"|"relation"|"diagnostic"
+    ref: str  # id/canônico
     detail: str = ""
 
 
@@ -84,16 +84,16 @@ class PackEvidence:
 class ContextItem:
     """Unidade de contexto com custo estimado e prioridade."""
 
-    item_id: str                    # estável p/ expansão/dedup
-    kind: str                       # "symbol"|"file"|"dependency"|"evidence"|"snippet"
-    priority: int                   # PRIORITY_*
+    item_id: str  # estável p/ expansão/dedup
+    kind: str  # "symbol"|"file"|"dependency"|"evidence"|"snippet"
+    priority: int  # PRIORITY_*
     title: str
-    body: str                       # texto indexável/contábil
+    body: str  # texto indexável/contábil
     est_tokens: int
     symbol_key: str = ""
     path: str = ""
     evidence: tuple[PackEvidence, ...] = ()
-    expandable: bool = False        # tem refs p/ nível mais profundo
+    expandable: bool = False  # tem refs p/ nível mais profundo
 
 
 @dataclass(frozen=True)
@@ -101,8 +101,8 @@ class ExpansionRef:
     """Referência para disclosure progressivo (outro nível)."""
 
     ref_id: str
-    kind: str                       # "symbol"|"file"|"dependency"
-    reason: str                     # por que está disponível p/ expandir
+    kind: str  # "symbol"|"file"|"dependency"
+    reason: str  # por que está disponível p/ expandir
 
 
 @dataclass(frozen=True)
@@ -113,8 +113,8 @@ class Budget:
     reserved_meta: int
     reserved_evidence: int
     reserved_diagnostics: int
-    available_items: int            # limit - reservas
-    estimator: str                  # id do estimador (heurístico)
+    available_items: int  # limit - reservas
+    estimator: str  # id do estimador (heurístico)
 
 
 @dataclass(frozen=True)
@@ -137,13 +137,13 @@ class PackManifest:
     snapshot_id: int
     level: Level
     estimator: str
-    tokens_estimated: bool          # True — nunca contagem exata
+    tokens_estimated: bool  # True — nunca contagem exata
     selected: int
     omitted: int
     truncated: bool
-    freshness: str                  # id do snapshot + estado
+    freshness: str  # id do snapshot + estado
     ranking_explanation: str
-    tokens_payload: int = 0         # estimativa do payload serializado
+    tokens_payload: int = 0  # estimativa do payload serializado
 
 
 # ---------------------------------------------------------------------
@@ -158,14 +158,14 @@ class DomainEntityCard:
     ``identity_key`` é o ref re-consultável (ver ``requery`` da seção).
     """
 
-    entity_id: int                  # row id em domain_entities
-    occurrence_id: int              # 1ª ocorrência da entidade no snapshot
+    entity_id: int  # row id em domain_entities
+    occurrence_id: int  # 1ª ocorrência da entidade no snapshot
     occurrence_count: int
     domain: str
-    kind: str                       # DomainEntityKind (data_table, …)
+    kind: str  # DomainEntityKind (data_table, …)
     name: str
     qualified_name: str
-    identity_key: str               # dom:… lógica — ref estável
+    identity_key: str  # dom:… lógica — ref estável
     repository_id: int
     snapshot_id: int
     catalog: str = ""
@@ -185,15 +185,15 @@ class DomainNeighborRef:
     domínio↔código via ``*_symbol_occ_id``).
     """
 
-    item_id: str                    # == ref — item carrega o ref como id
-    ref: str                        # dom:… | sym:<qualified_name>
-    kind: str                       # "entity" | "symbol"
-    entity_kind: str                # data_table… | kind do símbolo
-    display: str                    # qualified_name legível
-    direction: str                  # incoming | outgoing | both
+    item_id: str  # == ref — item carrega o ref como id
+    ref: str  # dom:… | sym:<qualified_name>
+    kind: str  # "entity" | "symbol"
+    entity_kind: str  # data_table… | kind do símbolo
+    display: str  # qualified_name legível
+    direction: str  # incoming | outgoing | both
     relation_types: tuple[str, ...]
-    resolution_status: str          # status da aresta de maior confiança
-    confidence_class: str           # classe de confiança mais forte
+    resolution_status: str  # status da aresta de maior confiança
+    confidence_class: str  # classe de confiança mais forte
     edge_count: int
     evidence_ids: tuple[int, ...] = ()
 
@@ -225,15 +225,15 @@ class DomainPackSection:
     schema_version: int
     status: str
     entity: DomainEntityCard | None
-    neighbors: tuple[DomainNeighborRef, ...]    # incluídos (top-N ∩ budget)
-    neighbors_total: int                        # candidatos dedupados
-    neighbors_omitted: int                      # total - incluídos
+    neighbors: tuple[DomainNeighborRef, ...]  # incluídos (top-N ∩ budget)
+    neighbors_total: int  # candidatos dedupados
+    neighbors_omitted: int  # total - incluídos
     counts: Mapping[str, int]
-    unresolved_targets: tuple[str, ...]         # amostra de alvos pendentes
-    ambiguous_targets: tuple[str, ...]          # amostra de alvos ambíguos
-    summary: str                                # domains.summarize — fatos
-    requery: str                                # contrato dos expansion refs
-    candidates: tuple[str, ...] = ()            # seeds ambíguas
+    unresolved_targets: tuple[str, ...]  # amostra de alvos pendentes
+    ambiguous_targets: tuple[str, ...]  # amostra de alvos ambíguos
+    summary: str  # domains.summarize — fatos
+    requery: str  # contrato dos expansion refs
+    candidates: tuple[str, ...] = ()  # seeds ambíguas
 
 
 @dataclass(frozen=True)
@@ -244,8 +244,8 @@ class DomainPackPart:
 
     section: DomainPackSection
     extra_expansion_refs: tuple[ExpansionRef, ...] = ()  # vizinhos além do top-N
-    extra_unresolved: tuple[str, ...] = ()               # → unresolved_refs
-    ranking_explanation: str = ""                        # override do manifest
+    extra_unresolved: tuple[str, ...] = ()  # → unresolved_refs
+    ranking_explanation: str = ""  # override do manifest
 
 
 DomainSectionFactory = Callable[[tuple[ContextItem, ...]], "DomainPackPart | None"]

@@ -25,9 +25,7 @@ def indexed(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     repo = tmp_path / "proj"
     (repo / "pkg").mkdir(parents=True)
     (repo / "pkg" / "__init__.py").write_text("")
-    (repo / "pkg" / "util.py").write_text(
-        "def helper():\n    return 1\n"
-    )
+    (repo / "pkg" / "util.py").write_text("def helper():\n    return 1\n")
     (repo / "pkg" / "mid.py").write_text(
         "from pkg.util import helper\n\n\ndef mid():\n    return helper()\n"
     )
@@ -35,12 +33,8 @@ def indexed(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
         "from pkg.mid import mid\n\n\ndef main():\n    return mid()\n"
     )
     # ciclo: a→b→a — traversal não pode travar nem duplicar
-    (repo / "pkg" / "a.py").write_text(
-        "from pkg.b import fb\n\n\ndef fa():\n    return fb()\n"
-    )
-    (repo / "pkg" / "b.py").write_text(
-        "from pkg.a import fa\n\n\ndef fb():\n    return fa()\n"
-    )
+    (repo / "pkg" / "a.py").write_text("from pkg.b import fb\n\n\ndef fa():\n    return fb()\n")
+    (repo / "pkg" / "b.py").write_text("from pkg.a import fa\n\n\ndef fb():\n    return fa()\n")
     assert cli.main(["index", str(repo), "--json"]) == 0
     return repo
 
@@ -65,9 +59,7 @@ def test_envelope_v2_fields(indexed: Path, capsys: pytest.CaptureFixture[str]) -
 # --- index: incremental default + plan summary ---------------------------
 
 
-def test_index_incremental_is_default(
-    indexed: Path, capsys: pytest.CaptureFixture[str]
-) -> None:
+def test_index_incremental_is_default(indexed: Path, capsys: pytest.CaptureFixture[str]) -> None:
     # segunda index sem --incremental explícito → plano incremental roda
     (indexed / "pkg" / "new.py").write_text("def n():\n    return 0\n")
     rc = cli.main(["index", str(indexed), "--json"])
@@ -78,9 +70,7 @@ def test_index_incremental_is_default(
     assert out["plan"].get("reuse", 0) >= 3
 
 
-def test_index_full_bypasses_incremental(
-    indexed: Path, capsys: pytest.CaptureFixture[str]
-) -> None:
+def test_index_full_bypasses_incremental(indexed: Path, capsys: pytest.CaptureFixture[str]) -> None:
     rc = cli.main(["index", str(indexed), "--full", "--json"])
     out = _j(capsys)
     assert rc == 0 and out["status"] == "success"
@@ -124,8 +114,7 @@ def test_index_plan_no_prior_shows_full(tmp_path: Path, monkeypatch, capsys) -> 
 
 
 def test_definitions_returns_sites(indexed: Path, capsys) -> None:
-    rc = cli.main(["definitions", "pkg.util.helper", "--root",
-                   str(indexed), "--json"])
+    rc = cli.main(["definitions", "pkg.util.helper", "--root", str(indexed), "--json"])
     out = _j(capsys)
     assert rc == 0
     assert out["command"] == "definitions"
@@ -145,8 +134,7 @@ def test_definitions_unknown_symbol(indexed: Path, capsys) -> None:
 
 
 def test_references_incoming_only(indexed: Path, capsys) -> None:
-    rc = cli.main(["references", "pkg.util.helper", "--root",
-                   str(indexed), "--json"])
+    rc = cli.main(["references", "pkg.util.helper", "--root", str(indexed), "--json"])
     out = _j(capsys)
     assert rc == 0
     assert out["results"], "helper tem chamadores"
@@ -155,9 +143,7 @@ def test_references_incoming_only(indexed: Path, capsys) -> None:
         assert r["to"] is not None
         assert r["to"]["symbol"] == "pkg.util.helper"
         assert r["type"] in ("REFERENCES", "CALLS")
-        assert r["resolution_status"] in (
-            "resolved", "ambiguous", "unresolved", "external"
-        )
+        assert r["resolution_status"] in ("resolved", "ambiguous", "unresolved", "external")
         # proveniência completa no envelope do resultado
         assert "resolver" in r and "confidence_class" in r
         assert "evidence_ids" in r
@@ -167,27 +153,23 @@ def test_references_incoming_only(indexed: Path, capsys) -> None:
 
 
 def test_dependencies_depth_one(indexed: Path, capsys) -> None:
-    rc = cli.main(["dependencies", "pkg.app.main", "--root",
-                   str(indexed), "--json"])
+    rc = cli.main(["dependencies", "pkg.app.main", "--root", str(indexed), "--json"])
     out = _j(capsys)
     assert rc == 0
     assert out["depth"] == 1
-    targets = {
-        r["to"]["symbol"] for r in out["results"] if r["to"] is not None
-    }
+    targets = {r["to"]["symbol"] for r in out["results"] if r["to"] is not None}
     # main importa mid → depth 1 alcança mid, não helper (depth 2)
     assert any("mid" in t for t in targets)
     assert not any("helper" in t for t in targets)
 
 
 def test_dependencies_depth_two_reaches_helper(indexed: Path, capsys) -> None:
-    rc = cli.main(["dependencies", "pkg.app.main", "--depth", "2",
-                   "--root", str(indexed), "--json"])
+    rc = cli.main(
+        ["dependencies", "pkg.app.main", "--depth", "2", "--root", str(indexed), "--json"]
+    )
     out = _j(capsys)
     assert rc == 0 and out["depth"] == 2
-    targets = {
-        r["to"]["symbol"] for r in out["results"] if r["to"] is not None
-    }
+    targets = {r["to"]["symbol"] for r in out["results"] if r["to"] is not None}
     assert any("helper" in t for t in targets)
     depths = {r["depth"] for r in out["results"]}
     assert depths <= {1, 2}
@@ -195,8 +177,7 @@ def test_dependencies_depth_two_reaches_helper(indexed: Path, capsys) -> None:
 
 def test_dependencies_cycle_safe(indexed: Path, capsys) -> None:
     # a→b→a: depth alto não trava nem explode o resultado
-    rc = cli.main(["dependencies", "pkg.a.fa", "--depth", "5",
-                   "--root", str(indexed), "--json"])
+    rc = cli.main(["dependencies", "pkg.a.fa", "--depth", "5", "--root", str(indexed), "--json"])
     out = _j(capsys)
     assert rc == 0
     assert out["total"] <= out["visited_symbols"] * 4  # bounded
@@ -204,16 +185,26 @@ def test_dependencies_cycle_safe(indexed: Path, capsys) -> None:
 
 
 def test_dependencies_depth_hard_cap(indexed: Path, capsys) -> None:
-    rc = cli.main(["dependencies", "pkg.a.fa", "--depth", "999",
-                   "--root", str(indexed), "--json"])
+    rc = cli.main(["dependencies", "pkg.a.fa", "--depth", "999", "--root", str(indexed), "--json"])
     out = _j(capsys)
     assert rc == 0
     assert out["depth"] == MAX_DEPTH  # clamp, não 999
 
 
 def test_dependencies_pagination(indexed: Path, capsys) -> None:
-    rc = cli.main(["dependencies", "pkg.a.fa", "--depth", "5",
-                   "--limit", "1", "--root", str(indexed), "--json"])
+    rc = cli.main(
+        [
+            "dependencies",
+            "pkg.a.fa",
+            "--depth",
+            "5",
+            "--limit",
+            "1",
+            "--root",
+            str(indexed),
+            "--json",
+        ]
+    )
     out = _j(capsys)
     assert rc == 0
     if out["total"] > 1:
@@ -232,8 +223,7 @@ def test_ambiguous_never_resolved(indexed: Path, capsys) -> None:
     capsys.readouterr()
     cli.main(["graph", "--root", str(indexed), "--json"])
     g = _j(capsys)
-    ambiguous = [e for e in g["edges"]
-                 if e["resolution_status"] == "ambiguous"]
+    ambiguous = [e for e in g["edges"] if e["resolution_status"] == "ambiguous"]
     # independente de existir ambiguous no fixture: invariante é que
     # nenhuma aresta ambiguous aparece rotulada como resolved
     assert all(e["resolution_status"] != "resolved" for e in ambiguous)
@@ -246,9 +236,7 @@ def test_help_lists_new_commands(capsys: pytest.CaptureFixture[str]) -> None:
     with pytest.raises(SystemExit):
         cli.main(["--help"])
     out = capsys.readouterr().out
-    for cmd in ("index-plan", "definitions", "dependencies",
-                "impact"):
+    for cmd in ("index-plan", "definitions", "dependencies", "impact"):
         assert cmd in out
-    for fake in ("serve", "ui",
-                 "workspace", "plugin"):
+    for fake in ("serve", "ui", "workspace", "plugin"):
         assert fake not in out

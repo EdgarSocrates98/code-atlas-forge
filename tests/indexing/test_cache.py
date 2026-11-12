@@ -105,8 +105,10 @@ def test_parser_version_bump_invalidates(db, repo: Path) -> None:
     assert key is not None
     # bump de parser_version → a entrada antiga não responde mais
     bumped = CacheKey(
-        path=key.path, content_sha256=key.content_sha256,
-        language=key.language, parser_version="9.9.9",
+        path=key.path,
+        content_sha256=key.content_sha256,
+        language=key.language,
+        parser_version="9.9.9",
         grammar_version=key.grammar_version,
         extractor_version=key.extractor_version,
         config_digest=key.config_digest,
@@ -120,8 +122,10 @@ def test_config_change_invalidates(db, repo: Path) -> None:
     key = _first_key(db, repo)
     assert key is not None
     other_cfg = CacheKey(
-        path=key.path, content_sha256=key.content_sha256,
-        language=key.language, parser_version=key.parser_version,
+        path=key.path,
+        content_sha256=key.content_sha256,
+        language=key.language,
+        parser_version=key.parser_version,
         grammar_version=key.grammar_version,
         extractor_version=key.extractor_version,
         config_digest="x" * 64,
@@ -132,8 +136,7 @@ def test_config_change_invalidates(db, repo: Path) -> None:
 def test_corrupted_blob_is_miss_not_crash(db, repo: Path) -> None:
     IndexCoordinator(db).index(repo)
     db.execute(
-        "UPDATE parse_result_cache SET payload = ?"
-        " WHERE repository_id = ?",
+        "UPDATE parse_result_cache SET payload = ? WHERE repository_id = ?",
         ("corrupted-not-json", _repo_id(db, repo)),
     )
     db.commit()
@@ -146,10 +149,8 @@ def test_corrupted_blob_is_miss_not_crash(db, repo: Path) -> None:
 
     bad = json.dumps({"format": 999})
     db.execute(
-        "UPDATE parse_result_cache SET payload=?, payload_sha256=?"
-        " WHERE repository_id=?",
-        (bad, hashlib.sha256(bad.encode()).hexdigest(),
-         _repo_id(db, repo)),
+        "UPDATE parse_result_cache SET payload=?, payload_sha256=? WHERE repository_id=?",
+        (bad, hashlib.sha256(bad.encode()).hexdigest(), _repo_id(db, repo)),
     )
     db.commit()
     assert cache.get(key) is None
@@ -189,25 +190,17 @@ def test_failed_incremental_keeps_prior_ready(db, repo: Path) -> None:
 def test_gc_respects_retention_and_live_rows(db, repo: Path) -> None:
     IndexCoordinator(db).index(repo)
     cache = _cache(db, repo)
-    total = db.execute(
-        "SELECT COUNT(*) AS c FROM parse_result_cache"
-    ).fetchone()["c"]
+    total = db.execute("SELECT COUNT(*) AS c FROM parse_result_cache").fetchone()["c"]
     assert total > 0
     # todas as entradas referenciadas pelo último snapshot → GC não tira
     removed = cache.gc(_repo_id(db, repo))
     assert removed == 0
-    assert db.execute(
-        "SELECT COUNT(*) AS c FROM parse_result_cache"
-    ).fetchone()["c"] == total
+    assert db.execute("SELECT COUNT(*) AS c FROM parse_result_cache").fetchone()["c"] == total
     # snapshot continua íntegro — GC nunca toca linhas de snapshot
-    occs = db.execute(
-        "SELECT COUNT(*) AS c FROM symbol_occurrences"
-    ).fetchone()["c"]
+    occs = db.execute("SELECT COUNT(*) AS c FROM symbol_occurrences").fetchone()["c"]
     assert occs > 0
     # entries mais velhas que KEEP_SNAPSHOTS saem: simular last_used velho
-    db.execute(
-        "UPDATE parse_result_cache SET last_used_snapshot_id = 0"
-    )
+    db.execute("UPDATE parse_result_cache SET last_used_snapshot_id = 0")
     db.commit()
     removed = cache.gc(_repo_id(db, repo))
     assert removed == total
@@ -217,13 +210,15 @@ def test_no_pickle_marshal_eval_in_codec() -> None:
     """Auditoria estática: load path nunca usa deserializador perigoso."""
     import re
 
-    src = Path(
-        __file__
-    ).parents[2] / "src" / "code_atlas" / "indexing" / "cache.py"
+    src = Path(__file__).parents[2] / "src" / "code_atlas" / "indexing" / "cache.py"
     text = src.read_text()
     for banned in (
-        r"import\s+pickle", r"import\s+marshal", r"pickle\.loads",
-        r"marshal\.loads", r"\beval\s*\(", r"\bexec\s*\(",
+        r"import\s+pickle",
+        r"import\s+marshal",
+        r"pickle\.loads",
+        r"marshal\.loads",
+        r"\beval\s*\(",
+        r"\bexec\s*\(",
         r"__import__",
     ):
         assert not re.search(banned, text), banned
@@ -239,8 +234,10 @@ def _first_key(db: sqlite3.Connection, repo: Path) -> CacheKey | None:
     if row is None:
         return None
     return CacheKey(
-        path=row["path"], content_sha256=row["content_sha256"],
-        language=row["language"], parser_version=row["parser_version"],
+        path=row["path"],
+        content_sha256=row["content_sha256"],
+        language=row["language"],
+        parser_version=row["parser_version"],
         grammar_version=row["grammar_version"],
         extractor_version=row["extractor_version"],
         config_digest=row["config_digest"],
@@ -260,8 +257,14 @@ def _canonical(db: sqlite3.Connection, snapshot_id: int) -> dict[str, set]:
         (snapshot_id,),
     ).fetchall()
     nodes = {
-        (r["kind"], r["qualified_name"], r["language"],
-         r["relative_path"], r["parse_status"], r["content_hash"])
+        (
+            r["kind"],
+            r["qualified_name"],
+            r["language"],
+            r["relative_path"],
+            r["parse_status"],
+            r["content_hash"],
+        )
         for r in occs
     }
     rels = db.execute(
@@ -284,9 +287,16 @@ def _canonical(db: sqlite3.Connection, snapshot_id: int) -> dict[str, set]:
         (snapshot_id,),
     ).fetchall()
     edges = {
-        (r["type"], r["fp"], r["fq"], r["tp"], r["tq"],
-         r["to_unresolved"] or "", r["resolution_status"],
-         r["confidence_class"])
+        (
+            r["type"],
+            r["fp"],
+            r["fq"],
+            r["tp"],
+            r["tq"],
+            r["to_unresolved"] or "",
+            r["resolution_status"],
+            r["confidence_class"],
+        )
         for r in rels
     }
     return {"nodes": nodes, "edges": edges}

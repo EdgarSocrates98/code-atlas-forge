@@ -62,8 +62,7 @@ class LspResolver:
             resolver_id=self.resolver_id,
             tier=EvidenceTier.LSP,
             languages=self._client.spec.languages,
-            relation_types=frozenset(
-                {"REFERENCES", "CALLS", "IMPORTS", "EXTENDS"}),
+            relation_types=frozenset({"REFERENCES", "CALLS", "IMPORTS", "EXTENDS"}),
             needs_external_process=True,
             detail=f"stdio lsp server {self._client.spec.name}",
         )
@@ -83,23 +82,20 @@ class LspResolver:
     def resolve(self, request: ResolutionRequest) -> ResolutionResult:
         method = _KIND_TO_METHOD.get(request.kind)
         if method is None:
-            return self._with_diag(request, "kind-unsupported",
-                                   f"no LSP method for {request.kind}")
+            return self._with_diag(request, "kind-unsupported", f"no LSP method for {request.kind}")
         if not self._client.available:
-            return self._with_diag(request, "server-unavailable",
-                                   "lsp server not running")
+            return self._with_diag(request, "server-unavailable", "lsp server not running")
         if not self._client.capabilities.supports(method):
-            return self._with_diag(request, "capability-unsupported",
-                                   f"server did not advertise {method}")
+            return self._with_diag(
+                request, "capability-unsupported", f"server did not advertise {method}"
+            )
 
         span = request.span
         if span is None:
-            return self._with_diag(request, "span-required",
-                                   "LSP requests need a source span")
+            return self._with_diag(request, "span-required", "LSP requests need a source span")
         params: dict[str, Any] = {
             "textDocument": {"uri": self._doc_uri(request.path)},
-            "position": {"line": span.start_line - 1,
-                         "character": span.start_col},
+            "position": {"line": span.start_line - 1, "character": span.start_col},
         }
         if method == "textDocument/references":
             params["context"] = {"includeDeclaration": False}
@@ -113,8 +109,7 @@ class LspResolver:
                 message=str(d)[:200],
                 resolver_id=self.resolver_id,
             )
-            for d in self._client.diagnostics_for(
-                self._doc_uri(request.path))
+            for d in self._client.diagnostics_for(self._doc_uri(request.path))
         )
         mapped = self._map_result(request, self._locations(result))
         if result_diags:
@@ -125,7 +120,9 @@ class LspResolver:
         return mapped
 
     def _call(
-        self, request: ResolutionRequest, method: str,
+        self,
+        request: ResolutionRequest,
+        method: str,
         params: dict[str, Any],
     ) -> Any:
         """Request com recovery único embutido (lf-0029)."""
@@ -135,22 +132,22 @@ class LspResolver:
             return self._recover_retry(request, method, params, exc)
 
     def _recover_retry(
-        self, request: ResolutionRequest, method: str,
-        params: dict[str, Any], exc: Exception,
+        self,
+        request: ResolutionRequest,
+        method: str,
+        params: dict[str, Any],
+        exc: Exception,
     ) -> Any:
         """lf-0029: recovery pós-falha — UM restart + UM retry.
         Retorna o resultado do retry ou um ResolutionResult de erro
         tipado (fallback sintático segue valendo)."""
         if not self._try_restart():
-            code = ("request-timeout" if isinstance(exc, TimeoutError)
-                    else "server-error")
-            return self._with_diag(
-                request, code, f"{exc}; restart failed")
+            code = "request-timeout" if isinstance(exc, TimeoutError) else "server-error"
+            return self._with_diag(request, code, f"{exc}; restart failed")
         try:
             return self._client.request(method, params)
         except (TimeoutError, LspError, TransportError) as exc2:
-            return self._with_diag(
-                request, "server-error", f"{exc}; after restart: {exc2}")
+            return self._with_diag(request, "server-error", f"{exc}; after restart: {exc2}")
 
     def _try_restart(self) -> bool:
         """Uma tentativa de recovery — nunca lança."""
@@ -222,7 +219,7 @@ class LspResolver:
         """file:// URI → path relativo ao root_uri; None se fora do repo."""
         root = self._client.spec.root_uri.rstrip("/") + "/"
         if uri.startswith(root):
-            return uri[len(root):]
+            return uri[len(root) :]
         return None
 
     @staticmethod
@@ -232,16 +229,15 @@ class LspResolver:
             return []
         if isinstance(result, dict):  # Location único ou LocationLink
             if "targetUri" in result:
-                return [{"uri": result["targetUri"],
-                         "range": result.get("targetSelectionRange", {})}]
+                return [
+                    {"uri": result["targetUri"], "range": result.get("targetSelectionRange", {})}
+                ]
             return [result] if "uri" in result else []
         if isinstance(result, list):
             return [r for r in result if isinstance(r, dict)]
         return []
 
-    def _with_diag(
-        self, request: ResolutionRequest, code: str, message: str
-    ) -> ResolutionResult:
+    def _with_diag(self, request: ResolutionRequest, code: str, message: str) -> ResolutionResult:
         return ResolutionResult(
             request=request,
             reference=ResolvedReference(
@@ -250,7 +246,9 @@ class LspResolver:
                 provenance=self._prov(),
                 target_text=request.name,
             ),
-            diagnostics=(ResolutionDiagnostic(
-                code=code, severity="warning", message=message,
-                resolver_id=self.resolver_id),),
+            diagnostics=(
+                ResolutionDiagnostic(
+                    code=code, severity="warning", message=message, resolver_id=self.resolver_id
+                ),
+            ),
         )

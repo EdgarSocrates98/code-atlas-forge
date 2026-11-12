@@ -77,20 +77,13 @@ class ScipResolver:
             resolver_id=RESOLVER_ID,
             tier=EvidenceTier.SEMANTIC_INDEX,
             languages=frozenset(),
-            relation_types=frozenset(
-                {"REFERENCES", "CALLS", "EXTENDS", "IMPLEMENTS", "IMPORTS"}
-            ),
-            detail=(
-                f"scip index by {self._index.tool_name}"
-                f" {self._index.tool_version}".strip()
-            ),
+            relation_types=frozenset({"REFERENCES", "CALLS", "EXTENDS", "IMPLEMENTS", "IMPORTS"}),
+            detail=(f"scip index by {self._index.tool_name} {self._index.tool_version}".strip()),
         )
 
     def _prov(self) -> ResolverProvenance:
         status = self._prov_info.validation_status
-        detail = (
-            f"{self._index.tool_name} {self._index.tool_version}".strip()
-        )
+        detail = f"{self._index.tool_name} {self._index.tool_version}".strip()
         if status != "current":
             detail = f"{detail} [{status}]".strip()
         return ResolverProvenance(
@@ -104,10 +97,7 @@ class ScipResolver:
     def _conf(self, intended: str) -> str:
         """lf-0028: evidência de índice degraded nunca comprova —
         confidence capada em ``heuristic``."""
-        if (
-            self._prov_info.validation_status != "current"
-            and intended == "resolved"
-        ):
+        if self._prov_info.validation_status != "current" and intended == "resolved":
             return "heuristic"
         return intended
 
@@ -125,19 +115,24 @@ class ScipResolver:
                     provenance=self._prov(),
                     target_text=request.name,
                 ),
-                diagnostics=(self._diag(
-                    "index-rejected",
-                    "scip index rejected by revision safety: "
-                    + "; ".join(self._prov_info.validation_evidence[:3]),
-                    "error"),),
+                diagnostics=(
+                    self._diag(
+                        "index-rejected",
+                        "scip index rejected by revision safety: "
+                        + "; ".join(self._prov_info.validation_evidence[:3]),
+                        "error",
+                    ),
+                ),
             )
         doc = self._docs.get(request.path)
         if doc is None:
             return ResolutionResult(
                 request=request,
-                diagnostics=(self._diag("document-not-in-index",
-                                        f"no scip document for "
-                                        f"{request.path}", "warning"),),
+                diagnostics=(
+                    self._diag(
+                        "document-not-in-index", f"no scip document for {request.path}", "warning"
+                    ),
+                ),
             )
         occ = self._occurrence_at(doc, request)
         if occ is None:
@@ -149,17 +144,13 @@ class ScipResolver:
                     provenance=self._prov(),
                     target_text=request.name,
                 ),
-                diagnostics=(self._diag("no-occurrence",
-                                        "no scip occurrence at span",
-                                        "info"),),
+                diagnostics=(self._diag("no-occurrence", "no scip occurrence at span", "info"),),
             )
-        return self._resolve_symbol(request, occ.symbol,
-                                    is_definition=occ.is_definition)
+        return self._resolve_symbol(request, occ.symbol, is_definition=occ.is_definition)
 
     # -- resolução por símbolo scip --------------------------------------
 
-    def resolve_symbol(self, request: ResolutionRequest,
-                       scip_symbol: str) -> ResolutionResult:
+    def resolve_symbol(self, request: ResolutionRequest, scip_symbol: str) -> ResolutionResult:
         """API direta: resolve uma string de símbolo scip."""
         return self._resolve_symbol(request, scip_symbol)
 
@@ -180,9 +171,9 @@ class ScipResolver:
                     provenance=self._prov(),
                     target_text=scip_symbol,
                 ),
-                diagnostics=(self._diag("bad-symbol",
-                                        f"unparseable scip symbol "
-                                        f"{scip_symbol!r}", "warning"),),
+                diagnostics=(
+                    self._diag("bad-symbol", f"unparseable scip symbol {scip_symbol!r}", "warning"),
+                ),
             )
         path = request.path
         nid = self._corr.node_for_symbol(scip_symbol, path)
@@ -246,15 +237,16 @@ class ScipResolver:
             return None
         # scip usa linhas 0-based; Atlas SourceSpan usa 1-based
         return SourceSpan(
-            start_byte=0, end_byte=0,
-            start_line=rng.start_line + 1, start_col=rng.start_char,
-            end_line=rng.end_line + 1, end_col=rng.end_char,
+            start_byte=0,
+            end_byte=0,
+            start_line=rng.start_line + 1,
+            start_col=rng.start_char,
+            end_line=rng.end_line + 1,
+            end_col=rng.end_char,
         )
 
     @staticmethod
-    def _occurrence_at(
-        doc: ScipDocument, request: ResolutionRequest
-    ) -> ScipOccurrence | None:
+    def _occurrence_at(doc: ScipDocument, request: ResolutionRequest) -> ScipOccurrence | None:
         """Seleciona a occurrence do documento que casa com o request.
 
         Preferência: occurrence cobrindo o span do request (convertido
@@ -270,20 +262,20 @@ class ScipResolver:
                 r = occ.range
                 if r is None:
                     continue
-                if (r.start_line, r.start_char) <= s0 and \
-                        (r.end_line, r.end_char) >= e0:
+                if (r.start_line, r.start_char) <= s0 and (r.end_line, r.end_char) >= e0:
                     return occ
             return None
         # sem span: casa pelo nome do request nos descriptors
         for occ in occs:
             sym = parse_symbol(occ.symbol)
-            if sym is not None and sym.descriptors and \
-                    sym.descriptors[-1].name == request.name:
+            if sym is not None and sym.descriptors and sym.descriptors[-1].name == request.name:
                 return occ
         return None
 
     def _diag(self, code: str, message: str, severity: str) -> ResolutionDiagnostic:
         return ResolutionDiagnostic(
-            code=code, severity=severity, message=message,
+            code=code,
+            severity=severity,
+            message=message,
             resolver_id=RESOLVER_ID,
         )

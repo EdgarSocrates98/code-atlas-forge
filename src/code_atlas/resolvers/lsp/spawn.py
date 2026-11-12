@@ -14,9 +14,8 @@ import subprocess
 from dataclasses import dataclass
 
 # Guardrails de recursos (documentados no review):
-MAX_LSP_SERVERS = 4            # processos simultâneos máximos
-SPAWN_ENV_PREFIXES = ("PATH=", "HOME=", "LANG=", "LC_", "SYSTEMROOT=",
-                      "WINDIR=", "TEMP=", "TMP=")
+MAX_LSP_SERVERS = 4  # processos simultâneos máximos
+SPAWN_ENV_PREFIXES = ("PATH=", "HOME=", "LANG=", "LC_", "SYSTEMROOT=", "WINDIR=", "TEMP=", "TMP=")
 
 _active_count = 0
 
@@ -35,10 +34,10 @@ class LspServerSpec:
     """Configuração explícita de um servidor LSP (opt-in do usuário)."""
 
     name: str
-    cmd: tuple[str, ...]            # argv completo — nunca do repo
-    languages: frozenset[str]       # linguagens cobertas ("" = qualquer)
-    root_uri: str = "file:///"      # rootUri do initialize
-    enabled: bool = False           # opt-in: desligado por padrão
+    cmd: tuple[str, ...]  # argv completo — nunca do repo
+    languages: frozenset[str]  # linguagens cobertas ("" = qualquer)
+    root_uri: str = "file:///"  # rootUri do initialize
+    enabled: bool = False  # opt-in: desligado por padrão
     request_timeout_s: float = 10.0
 
 
@@ -48,8 +47,10 @@ def _leak_env() -> dict[str, str]:
 
     env: dict[str, str] = {}
     for k, v in os.environ.items():
-        if any((k.startswith(p.rstrip("=")) and k == p.rstrip("=")) or
-               k.startswith(p) for p in SPAWN_ENV_PREFIXES):
+        if any(
+            (k.startswith(p.rstrip("=")) and k == p.rstrip("=")) or k.startswith(p)
+            for p in SPAWN_ENV_PREFIXES
+        ):
             env[k] = v
     return env
 
@@ -64,8 +65,7 @@ def spawn_server(spec: LspServerSpec) -> subprocess.Popen[bytes]:
     if binary is None:
         raise SpawnError(f"lsp {spec.name}: binary {spec.cmd[0]!r} not found")
     if _active_count >= MAX_LSP_SERVERS:
-        raise SpawnError(
-            f"lsp: server limit {MAX_LSP_SERVERS} reached")
+        raise SpawnError(f"lsp: server limit {MAX_LSP_SERVERS} reached")
     try:
         proc = subprocess.Popen(
             [binary, *spec.cmd[1:]],

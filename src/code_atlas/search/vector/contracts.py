@@ -15,9 +15,9 @@ from typing import Protocol
 class EmbeddingModelInfo:
     """Identidade versionada do modelo de embedding."""
 
-    model_id: str          # ex.: "naive-hash"
-    version: str           # ex.: "v1" — muda → reindex
-    dim: int               # dimensionalidade do vetor
+    model_id: str  # ex.: "naive-hash"
+    version: str  # ex.: "v1" — muda → reindex
+    dim: int  # dimensionalidade do vetor
     detail: str = ""
 
 
@@ -36,7 +36,7 @@ class VectorSearchResult:
 
     symbol_key: str
     occurrence_id: int
-    score: float           # similaridade cosseno [0, 1] após clamp
+    score: float  # similaridade cosseno [0, 1] após clamp
     model_id: str
 
 
@@ -44,11 +44,17 @@ class VectorIndex(Protocol):
     """Index de vetores por snapshot — bruteforce ou sqlite-vec."""
 
     def upsert(
-        self, snapshot_id: int, occurrence_id: int,
-        symbol_key: str, vector: list[float],
+        self,
+        snapshot_id: int,
+        occurrence_id: int,
+        symbol_key: str,
+        vector: list[float],
     ) -> None: ...
     def search(
-        self, snapshot_id: int, query: list[float], limit: int,
+        self,
+        snapshot_id: int,
+        query: list[float],
+        limit: int,
     ) -> list[VectorSearchResult]: ...
     def delete_snapshot(self, snapshot_id: int) -> None: ...
 
@@ -56,11 +62,11 @@ class VectorIndex(Protocol):
 class EmbeddingCache(Protocol):
     """Cache por conteúdo+modelo — rebuild só quando algo muda."""
 
-    def get(
-        self, model: EmbeddingModelInfo, content_hash: str
-    ) -> list[float] | None: ...
+    def get(self, model: EmbeddingModelInfo, content_hash: str) -> list[float] | None: ...
     def put(
-        self, model: EmbeddingModelInfo, content_hash: str,
+        self,
+        model: EmbeddingModelInfo,
+        content_hash: str,
         vector: list[float],
     ) -> None: ...
 
@@ -70,7 +76,7 @@ class VectorCapability:
     """O que o backend vetorial oferece nesta build/instalação."""
 
     available: bool
-    backend: str           # "sqlite-vec" | "bruteforce" | "none"
-    provider: str          # model_id ou ""
+    backend: str  # "sqlite-vec" | "bruteforce" | "none"
+    provider: str  # model_id ou ""
     dim: int = 0
     detail: str = ""

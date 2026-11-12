@@ -20,9 +20,7 @@ from code_atlas.discovery.models import ScanOptions, ScanResult
 class RepositoryScanner(Protocol):
     """Produz o inventário de arquivos de uma raiz (implementado: discovery)."""
 
-    def scan(
-        self, root: Path, options: ScanOptions | None = None
-    ) -> ScanResult: ...
+    def scan(self, root: Path, options: ScanOptions | None = None) -> ScanResult: ...
 
 
 class ParserAdapter(Protocol):

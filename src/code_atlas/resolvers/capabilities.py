@@ -9,10 +9,10 @@ from dataclasses import dataclass
 class EvidenceTier(enum.IntEnum):
     """Ordem de precedência de evidência (prompt Cycle 3 Phase 1)."""
 
-    SEMANTIC_INDEX = 1   # SCIP e afins — índice externo confiável
-    LSP = 2              # servidor de linguagem confirmado
-    SYNTACTIC = 3        # resolução sintática inequívoca
-    HEURISTIC = 4        # candidato heurístico
+    SEMANTIC_INDEX = 1  # SCIP e afins — índice externo confiável
+    LSP = 2  # servidor de linguagem confirmado
+    SYNTACTIC = 3  # resolução sintática inequívoca
+    HEURISTIC = 4  # candidato heurístico
 
 
 @dataclass(frozen=True)
@@ -21,8 +21,8 @@ class ResolverCapability:
 
     resolver_id: str
     tier: EvidenceTier
-    languages: frozenset[str]           # vazio = qualquer linguagem
-    relation_types: frozenset[str]      # IMPORTS/CALLS/REFERENCES/...
+    languages: frozenset[str]  # vazio = qualquer linguagem
+    relation_types: frozenset[str]  # IMPORTS/CALLS/REFERENCES/...
     needs_external_process: bool = False
     needs_network: bool = False
     detail: str = ""

@@ -73,12 +73,7 @@ def test_flow_map_nested() -> None:
 
 
 def test_literal_block_scalar_keeps_newlines() -> None:
-    root = _root(
-        "run: |\n"
-        "  echo one\n"
-        "  pytest -q\n"
-        "next: ok\n"
-    )
+    root = _root("run: |\n  echo one\n  pytest -q\nnext: ok\n")
     assert root.get("run").value == "echo one\npytest -q\n"  # type: ignore[union-attr]
     assert root.get("next").value == "ok"  # type: ignore[union-attr]
 
@@ -94,23 +89,13 @@ def test_folded_scalar() -> None:
 
 
 def test_comments_and_doc_markers() -> None:
-    root = _root(
-        "# leading comment\n"
-        "---\n"
-        "name: CI  # trailing\n"
-        "x: 1 # comment\n"
-        "...\n"
-    )
+    root = _root("# leading comment\n---\nname: CI  # trailing\nx: 1 # comment\n...\n")
     assert root.get("name").value == "CI"  # type: ignore[union-attr]
     assert root.get("x").value == "1"  # type: ignore[union-attr]
 
 
 def test_quoted_scalars() -> None:
-    root = _root(
-        "a: 'it''s'\n"
-        'b: "say \\"hi\\""\n'
-        'c: "http://x:8080"\n'
-    )
+    root = _root('a: \'it\'\'s\'\nb: "say \\"hi\\""\nc: "http://x:8080"\n')
     assert root.get("a").value == "it's"  # type: ignore[union-attr]
     assert root.get("b").value == 'say "hi"'  # type: ignore[union-attr]
     assert root.get("c").value == "http://x:8080"  # type: ignore[union-attr]
@@ -136,9 +121,7 @@ def test_url_colon_is_not_key_separator() -> None:
         ("a: 1\na: 2\n", "duplicate-key"),
     ],
 )
-def test_unsupported_constructs_are_diagnostics_not_fabricated(
-    text: str, code: str
-) -> None:
+def test_unsupported_constructs_are_diagnostics_not_fabricated(text: str, code: str) -> None:
     r = parse(text)
     assert any(d.code == code for d in r.diagnostics), (
         f"expected {code} in {[d.code for d in r.diagnostics]}"

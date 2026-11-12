@@ -8,6 +8,7 @@ Dois pilares do Cycle 8 Phase 15:
 - todo erro da API é JSON estruturado ``{"error": {"code","message"}}``
   — nunca traceback nem corpo vazio.
 """
+
 from __future__ import annotations
 
 import io
@@ -33,12 +34,15 @@ def _index_db(tmp: Path) -> tuple[Path, Path]:
     root.mkdir()
     (root / "mod.py").write_text(
         "def helper(x):\n    return x + 1\n\n"
-        "class Service:\n    def run(self):\n        return helper(1)\n")
+        "class Service:\n    def run(self):\n        return helper(1)\n"
+    )
     (root / "caller.py").write_text(
-        "from mod import Service\n\ndef main():\n    return Service().run()\n")
+        "from mod import Service\n\ndef main():\n    return Service().run()\n"
+    )
     db = tmp / "atlas.db"
     from code_atlas.indexing.coordinator import IndexCoordinator
     from code_atlas.storage import connect, migrate
+
     conn = connect(db)
     migrate(conn)
     IndexCoordinator(conn).index(root)
@@ -50,21 +54,24 @@ def _empty_db(tmp: Path) -> Path:
     """Banco migrado sem nenhum repo — cobre o caso "nada indexado"."""
     db = tmp / "atlas.db"
     from code_atlas.storage import connect, migrate
+
     conn = connect(db)
     migrate(conn)
     conn.close()
     return db
 
 
-def _req(url: str, path: str, method: str = "GET",
-         body: dict | bytes | None = None) -> tuple[int, dict]:
+def _req(
+    url: str, path: str, method: str = "GET", body: dict | bytes | None = None
+) -> tuple[int, dict]:
     data: bytes | None = None
     if isinstance(body, dict):
         data = json.dumps(body).encode()
     elif isinstance(body, bytes):
         data = body
-    r = urllib.request.Request(url + path, data=data, method=method,
-                               headers={"Content-Type": "application/json"})
+    r = urllib.request.Request(
+        url + path, data=data, method=method, headers={"Content-Type": "application/json"}
+    )
     try:
         with urllib.request.urlopen(r, timeout=10) as resp:
             return resp.status, json.loads(resp.read())
@@ -84,8 +91,7 @@ class _ServerCase(unittest.TestCase):
         else:
             cls.db, _ = _index_db(tmp)
         cls.server = serve(str(cls.db), port=0)
-        cls.thread = threading.Thread(target=cls.server.serve_forever,
-                                      daemon=True)
+        cls.thread = threading.Thread(target=cls.server.serve_forever, daemon=True)
         cls.thread.start()
 
     @classmethod
@@ -143,8 +149,7 @@ class TestDiagnostics(_ServerCase):
         self.assertGreater(repo["counts"]["symbol_occurrences"], 0)
         # analyzer_versions é a fonte autoritativa de "o que construiu"
         self.assertIn("scanner", repo["analyzer_versions"])
-        self.assertTrue(
-            any(k.startswith("parser:") for k in repo["analyzer_versions"]))
+        self.assertTrue(any(k.startswith("parser:") for k in repo["analyzer_versions"]))
         job = repo["last_job"]
         self.assertIsNotNone(job)
         self.assertEqual(job["status"], "success")
@@ -158,8 +163,7 @@ class TestDiagnostics(_ServerCase):
         self.assertEqual(code, 200)
         dom = body["adapters"]["domain"]
         ids = {a["domain_id"] for a in dom}
-        self.assertGreaterEqual(
-            ids, {"sql", "pyspark", "aws-data", "terraform", "cicd", "api"})
+        self.assertGreaterEqual(ids, {"sql", "pyspark", "aws-data", "terraform", "cicd", "api"})
         for a in dom:
             self.assertTrue(a["adapter_version"])
         self.assertEqual(body["adapters"]["error"], "")
@@ -170,8 +174,7 @@ class TestDiagnostics(_ServerCase):
         self.assertIsNone(body["observability"]["slow_ms"])
 
     def test_post_recusado(self) -> None:
-        code, _ = _req(self.server.url, "/diagnostics",
-                       method="POST", body={})
+        code, _ = _req(self.server.url, "/diagnostics", method="POST", body={})
         self.assertEqual(code, 404)
 
     def test_barato(self) -> None:
@@ -187,6 +190,7 @@ class TestDiagnostics(_ServerCase):
 
 class TestDiagnosticsEmptyDb(_ServerCase):
     """Banco migrado sem repo — resposta honesta, nunca erro 500."""
+
     empty = True
 
     def test_sem_repos(self) -> None:
@@ -200,8 +204,7 @@ class TestDiagnosticsEmptyDb(_ServerCase):
 class TestErrorHonesty(_ServerCase):
     """Todo erro é JSON estruturado — nunca traceback nem HTML."""
 
-    def _assert_error(self, code: int, body: dict,
-                      expected_code: str | None = None) -> None:
+    def _assert_error(self, code: int, body: dict, expected_code: str | None = None) -> None:
         self.assertIn("error", body)
         self.assertIsInstance(body["error"]["code"], str)
         self.assertIsInstance(body["error"]["message"], str)
@@ -224,8 +227,7 @@ class TestErrorHonesty(_ServerCase):
         self._assert_error(code, body, "bad-param")
 
     def test_occurrence_malformado_400(self) -> None:
-        code, body = _req(
-            self.server.url, "/graph/neighbors?occurrence_id=abc")
+        code, body = _req(self.server.url, "/graph/neighbors?occurrence_id=abc")
         self.assertEqual(code, 400)
         self._assert_error(code, body, "bad-param")
 
@@ -235,15 +237,12 @@ class TestErrorHonesty(_ServerCase):
         self._assert_error(code, body, "bad-param")
 
     def test_repo_inexistente_404(self) -> None:
-        code, body = _req(
-            self.server.url, "/graph/overview?repository_id=99999")
+        code, body = _req(self.server.url, "/graph/overview?repository_id=99999")
         self.assertEqual(code, 404)
         self._assert_error(code, body, "repo-not-found")
 
     def test_snapshot_inexistente_404(self) -> None:
-        code, body = _req(
-            self.server.url,
-            "/graph/overview?repository_id=1&snapshot_id=99999")
+        code, body = _req(self.server.url, "/graph/overview?repository_id=1&snapshot_id=99999")
         self.assertEqual(code, 404)
         self._assert_error(code, body, "snapshot-not-found")
 
@@ -253,14 +252,12 @@ class TestErrorHonesty(_ServerCase):
         self._assert_error(code, body, "not-found")
 
     def test_json_malformado_400(self) -> None:
-        code, body = _req(self.server.url, "/context", method="POST",
-                          body=b"{not json")
+        code, body = _req(self.server.url, "/context", method="POST", body=b"{not json")
         self.assertEqual(code, 400)
         self._assert_error(code, body, "bad-json")
 
     def test_body_sem_task_400(self) -> None:
-        code, body = _req(self.server.url, "/context", method="POST",
-                          body={})
+        code, body = _req(self.server.url, "/context", method="POST", body={})
         self.assertEqual(code, 400)
         self._assert_error(code, body, "bad-param")
 
@@ -285,8 +282,7 @@ class TestSlowRequestGuard(_ServerCase):
     def test_slow_request_logada_em_debug(self) -> None:
         log, stream = self._capture_logger()
         env = {"CODE_ATLAS_SLOW_MS": "0.0001"}
-        with mock.patch.dict(os.environ, env), \
-                mock.patch.object(handlers_mod, "_LOG", log):
+        with mock.patch.dict(os.environ, env), mock.patch.object(handlers_mod, "_LOG", log):
             code, _ = _req(self.server.url, "/health")
         self.assertEqual(code, 200)
         out = stream.getvalue()
@@ -296,8 +292,10 @@ class TestSlowRequestGuard(_ServerCase):
 
     def test_guard_desligado_sem_env(self) -> None:
         log, stream = self._capture_logger()
-        with mock.patch.dict(os.environ, {"CODE_ATLAS_SLOW_MS": ""}), \
-                mock.patch.object(handlers_mod, "_LOG", log):
+        with (
+            mock.patch.dict(os.environ, {"CODE_ATLAS_SLOW_MS": ""}),
+            mock.patch.object(handlers_mod, "_LOG", log),
+        ):
             code, _ = _req(self.server.url, "/health")
         self.assertEqual(code, 200)
         self.assertEqual(stream.getvalue(), "")
@@ -305,8 +303,7 @@ class TestSlowRequestGuard(_ServerCase):
     def test_abaixo_do_teto_nao_loga(self) -> None:
         log, stream = self._capture_logger()
         env = {"CODE_ATLAS_SLOW_MS": "60000"}
-        with mock.patch.dict(os.environ, env), \
-                mock.patch.object(handlers_mod, "_LOG", log):
+        with mock.patch.dict(os.environ, env), mock.patch.object(handlers_mod, "_LOG", log):
             code, _ = _req(self.server.url, "/health")
         self.assertEqual(code, 200)
         self.assertEqual(stream.getvalue(), "")

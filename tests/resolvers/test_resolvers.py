@@ -26,7 +26,10 @@ class _FakeResolver:
     """Resolver de teste configurável (tier/kind/status)."""
 
     def __init__(
-        self, rid: str, tier: EvidenceTier, status: str,
+        self,
+        rid: str,
+        tier: EvidenceTier,
+        status: str,
         languages: frozenset[str] | None = None,
         relation_types: frozenset[str] | None = None,
         boom: bool = False,
@@ -72,8 +75,7 @@ class _FakeResolver:
 
 
 def _req(kind: str = "call", language: str = "python") -> ResolutionRequest:
-    return ResolutionRequest(name="helper", kind=kind, path="a.py",
-                             language=language)
+    return ResolutionRequest(name="helper", kind=kind, path="a.py", language=language)
 
 
 class TestContracts:
@@ -85,8 +87,7 @@ class TestContracts:
 
     def test_provenance_required_on_result(self) -> None:
         reg = ResolverRegistry()
-        reg.register(_FakeResolver("scip", EvidenceTier.SEMANTIC_INDEX,
-                                   "resolved"))
+        reg.register(_FakeResolver("scip", EvidenceTier.SEMANTIC_INDEX, "resolved"))
         out = ResolverCoordinator(reg).resolve(_req())
         ref = out.reference
         assert ref is not None
@@ -103,20 +104,16 @@ class TestContracts:
 class TestCoordinatorPrecedence:
     def test_highest_tier_wins(self) -> None:
         reg = ResolverRegistry()
-        reg.register(_FakeResolver("heur", EvidenceTier.HEURISTIC,
-                                   "resolved"))
-        reg.register(_FakeResolver("scip", EvidenceTier.SEMANTIC_INDEX,
-                                   "resolved"))
+        reg.register(_FakeResolver("heur", EvidenceTier.HEURISTIC, "resolved"))
+        reg.register(_FakeResolver("scip", EvidenceTier.SEMANTIC_INDEX, "resolved"))
         out = ResolverCoordinator(reg).resolve(_req())
         assert out.reference is not None
         assert out.reference.provenance.resolver_id == "scip"
 
     def test_falls_back_when_higher_tier_unresolved(self) -> None:
         reg = ResolverRegistry()
-        reg.register(_FakeResolver("scip", EvidenceTier.SEMANTIC_INDEX,
-                                   "unresolved"))
-        reg.register(_FakeResolver("syn", EvidenceTier.SYNTACTIC,
-                                   "resolved"))
+        reg.register(_FakeResolver("scip", EvidenceTier.SEMANTIC_INDEX, "unresolved"))
+        reg.register(_FakeResolver("syn", EvidenceTier.SYNTACTIC, "resolved"))
         out = ResolverCoordinator(reg).resolve(_req())
         assert out.reference is not None
         assert out.reference.status == "resolved"
@@ -124,18 +121,15 @@ class TestCoordinatorPrecedence:
 
     def test_never_promotes_unresolved_to_resolved(self) -> None:
         reg = ResolverRegistry()
-        reg.register(_FakeResolver("scip", EvidenceTier.SEMANTIC_INDEX,
-                                   "ambiguous"))
+        reg.register(_FakeResolver("scip", EvidenceTier.SEMANTIC_INDEX, "ambiguous"))
         out = ResolverCoordinator(reg).resolve(_req())
         assert out.reference is not None
         assert out.reference.status == "ambiguous"  # honesto, não promovido
 
     def test_resolver_exception_becomes_diagnostic(self) -> None:
         reg = ResolverRegistry()
-        reg.register(_FakeResolver("bad", EvidenceTier.SEMANTIC_INDEX,
-                                   "resolved", boom=True))
-        reg.register(_FakeResolver("syn", EvidenceTier.SYNTACTIC,
-                                   "resolved"))
+        reg.register(_FakeResolver("bad", EvidenceTier.SEMANTIC_INDEX, "resolved", boom=True))
+        reg.register(_FakeResolver("syn", EvidenceTier.SYNTACTIC, "resolved"))
         out = ResolverCoordinator(reg).resolve(_req())
         assert out.reference is not None
         assert out.reference.status == "resolved"
@@ -148,9 +142,11 @@ class TestCoordinatorPrecedence:
 
     def test_language_gating(self) -> None:
         reg = ResolverRegistry()
-        reg.register(_FakeResolver(
-            "ts-only", EvidenceTier.SYNTACTIC, "resolved",
-            languages=frozenset({"typescript"})))
+        reg.register(
+            _FakeResolver(
+                "ts-only", EvidenceTier.SYNTACTIC, "resolved", languages=frozenset({"typescript"})
+            )
+        )
         out = ResolverCoordinator(reg).resolve(_req(language="python"))
         assert out.reference is None  # ts-only não cobre python
 
@@ -158,12 +154,10 @@ class TestCoordinatorPrecedence:
 class TestSyntacticResolver:
     def _universe(self) -> ScopeUniverse:
         u = ScopeUniverse()
-        ctx_a = ModuleCtx(path="a.py", module_name="a", language="python",
-                          nid="module:a")
+        ctx_a = ModuleCtx(path="a.py", module_name="a", language="python", nid="module:a")
         ctx_a.defines["f"] = ["sym:a.f"]
         ctx_a.import_targets["helper"] = "b.helper"
-        ctx_b = ModuleCtx(path="b.py", module_name="b", language="python",
-                          nid="module:b")
+        ctx_b = ModuleCtx(path="b.py", module_name="b", language="python", nid="module:b")
         ctx_b.defines["helper"] = ["sym:b.helper"]
         u.modules["a"] = ctx_a
         u.modules["b"] = ctx_b
@@ -177,27 +171,27 @@ class TestSyntacticResolver:
 
     def test_resolve_local_name(self) -> None:
         r = SyntacticResolver(self._universe())
-        out = r.resolve(ResolutionRequest(
-            name="f", kind="call", path="a.py", language="python"))
+        out = r.resolve(ResolutionRequest(name="f", kind="call", path="a.py", language="python"))
         assert out.reference is not None
         assert out.reference.status == "resolved"
         assert out.reference.target_id == "sym:a.f"
         assert out.reference.provenance.resolver_id == "syntactic"
-        assert out.reference.provenance.evidence_tier == int(
-            EvidenceTier.SYNTACTIC)
+        assert out.reference.provenance.evidence_tier == int(EvidenceTier.SYNTACTIC)
 
     def test_resolve_via_import_alias(self) -> None:
         r = SyntacticResolver(self._universe())
-        out = r.resolve(ResolutionRequest(
-            name="helper", kind="call", path="a.py", language="python"))
+        out = r.resolve(
+            ResolutionRequest(name="helper", kind="call", path="a.py", language="python")
+        )
         assert out.reference is not None
         assert out.reference.status == "resolved"
         assert out.reference.target_id == "sym:b.helper"
 
     def test_unindexed_path_diagnostic(self) -> None:
         r = SyntacticResolver(self._universe())
-        out = r.resolve(ResolutionRequest(
-            name="f", kind="call", path="missing.py", language="python"))
+        out = r.resolve(
+            ResolutionRequest(name="f", kind="call", path="missing.py", language="python")
+        )
         assert out.reference is None
         assert any(d.code == "module-not-indexed" for d in out.diagnostics)
 
@@ -205,8 +199,7 @@ class TestSyntacticResolver:
         u = self._universe()
         u.modules["a"].defines["dup"] = ["sym:a.dup1", "sym:a.dup2"]
         r = SyntacticResolver(u)
-        out = r.resolve(ResolutionRequest(
-            name="dup", kind="call", path="a.py", language="python"))
+        out = r.resolve(ResolutionRequest(name="dup", kind="call", path="a.py", language="python"))
         assert out.reference is not None
         assert out.reference.status == "ambiguous"
 
@@ -214,8 +207,12 @@ class TestSyntacticResolver:
 class TestArchitecturalBoundary:
     """resolvers/ não pode depender de storage/cli/discovery internals."""
 
-    FORBIDDEN = ("code_atlas.storage", "code_atlas.cli",
-                 "code_atlas.discovery", "code_atlas.indexing")
+    FORBIDDEN = (
+        "code_atlas.storage",
+        "code_atlas.cli",
+        "code_atlas.discovery",
+        "code_atlas.indexing",
+    )
 
     def test_no_forbidden_imports(self) -> None:
         bad: list[str] = []

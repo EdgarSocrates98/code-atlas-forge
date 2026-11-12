@@ -52,48 +52,48 @@ def read_receipt() -> dict[str, Any] | None:
         return None
 
 
-def _profile_components(
-    profile: str, components: tuple[str, ...] | None
-) -> tuple[str, ...]:
+def _profile_components(profile: str, components: tuple[str, ...] | None) -> tuple[str, ...]:
     if components:
         unknown = [c for c in components if c not in COMPONENTS]
         if unknown:
-            raise ValueError(
-                f"unknown components: {unknown} (valid: {list(COMPONENTS)})"
-            )
+            raise ValueError(f"unknown components: {unknown} (valid: {list(COMPONENTS)})")
         return components
     return PROFILE_COMPONENTS.get(profile, PROFILE_COMPONENTS["recommended"])
 
 
-def _plan(
-    *, scope: str, root: Path | None, comps: tuple[str, ...]
-) -> list[dict[str, Any]]:
+def _plan(*, scope: str, root: Path | None, comps: tuple[str, ...]) -> list[dict[str, Any]]:
     """Deterministic plan — the same entries apply() will produce.
 
     ``config``/``repository`` are workspace-scoped: under ``user`` they
     are skipped with a reason instead of pretending to apply."""
     steps: list[dict[str, Any]] = []
     if "data-dir" in comps:
-        steps.append({"component": "data-dir", "action": "mkdir",
-                      "target": str(data_dir())})
+        steps.append({"component": "data-dir", "action": "mkdir", "target": str(data_dir())})
     if "config" in comps:
         if scope == "project":
-            steps.append({"component": "config",
-                          "action": "write-if-absent",
-                          "target": str(config_file())})
+            steps.append(
+                {"component": "config", "action": "write-if-absent", "target": str(config_file())}
+            )
         else:
-            steps.append({"component": "config", "action": "skipped",
-                          "target": "workspace-scoped — needs a project root"})
+            steps.append(
+                {
+                    "component": "config",
+                    "action": "skipped",
+                    "target": "workspace-scoped — needs a project root",
+                }
+            )
     if "repository" in comps:
         if scope == "project":
-            steps.append({"component": "repository",
-                          "action": "register",
-                          "target": str(root)})
+            steps.append({"component": "repository", "action": "register", "target": str(root)})
         else:
-            steps.append({"component": "repository", "action": "skipped",
-                          "target": "workspace-scoped — needs a project root"})
-    steps.append({"component": "receipt", "action": "write",
-                  "target": str(_receipt_path())})
+            steps.append(
+                {
+                    "component": "repository",
+                    "action": "skipped",
+                    "target": "workspace-scoped — needs a project root",
+                }
+            )
+    steps.append({"component": "receipt", "action": "write", "target": str(_receipt_path())})
     return steps
 
 
@@ -110,14 +110,9 @@ def install(
     if scope not in SCOPES:
         raise ValueError(f"unknown scope {scope!r} (valid: {list(SCOPES)})")
     if profile not in PROFILES:
-        raise ValueError(
-            f"unknown profile {profile!r} (valid: {list(PROFILES)})")
+        raise ValueError(f"unknown profile {profile!r} (valid: {list(PROFILES)})")
     comps = _profile_components(profile, components)
-    resolved = (
-        resolve_root(str(root) if root else None)
-        if scope == "project"
-        else None
-    )
+    resolved = resolve_root(str(root) if root else None) if scope == "project" else None
     if scope == "project" and resolved is not None and not resolved.is_dir():
         raise ValueError(f"root {resolved} is not a directory")
     steps = _plan(scope=scope, root=resolved, comps=comps)
@@ -143,23 +138,35 @@ def install(
     if dry_run:
         return doc
     if not yes:
-        return {**doc, "status": "declined",
-                "error": {"kind": "CA-INSTALL-DECLINED",
-                          "detail": "needs --yes - nothing written"}}
+        return {
+            **doc,
+            "status": "declined",
+            "error": {"kind": "CA-INSTALL-DECLINED", "detail": "needs --yes - nothing written"},
+        }
 
     applied, skipped, unverified = _apply_steps(
-        steps, resolved=resolved, scope=scope, profile=profile, comps=comps)
+        steps, resolved=resolved, scope=scope, profile=profile, comps=comps
+    )
     try:
         path = _write_receipt(
-            resolved=resolved, scope=scope, profile=profile, comps=comps,
-            applied=applied, skipped=skipped)
-        applied.append({"component": "receipt", "action": "write",
-                        "target": path, "result": path})
+            resolved=resolved,
+            scope=scope,
+            profile=profile,
+            comps=comps,
+            applied=applied,
+            skipped=skipped,
+        )
+        applied.append({"component": "receipt", "action": "write", "target": path, "result": path})
         doc["receipt"] = path
     except OSError as exc:
-        unverified.append({"component": "receipt", "action": "write",
-                           "target": str(_receipt_path()),
-                           "result": f"unverified:{exc}"})
+        unverified.append(
+            {
+                "component": "receipt",
+                "action": "write",
+                "target": str(_receipt_path()),
+                "result": f"unverified:{exc}",
+            }
+        )
 
     doc["applied"] = applied
     doc["skipped"] = skipped
@@ -171,8 +178,13 @@ def install(
 
 
 def _apply_step(
-    comp: str, action: str, target: str, *,
-    resolved: Path | None, scope: str, profile: str,
+    comp: str,
+    action: str,
+    target: str,
+    *,
+    resolved: Path | None,
+    scope: str,
+    profile: str,
     comps: tuple[str, ...],
 ) -> tuple[str, str]:
     """One plan step -> ("applied"|"skipped", result). May raise OSError."""
@@ -198,8 +210,11 @@ def _apply_step(
 
 
 def _apply_steps(
-    steps: list[dict[str, Any]], *,
-    resolved: Path | None, scope: str, profile: str,
+    steps: list[dict[str, Any]],
+    *,
+    resolved: Path | None,
+    scope: str,
+    profile: str,
     comps: tuple[str, ...],
 ) -> tuple[list[dict[str, Any]], list[dict[str, Any]], list[dict[str, Any]]]:
     """Run all plan steps except the receipt — it's written last."""
@@ -212,36 +227,52 @@ def _apply_steps(
         comp, action, target = s["component"], s["action"], s["target"]
         try:
             bucket, result = _apply_step(
-                comp, action, target,
-                resolved=resolved, scope=scope,
-                profile=profile, comps=comps,
+                comp,
+                action,
+                target,
+                resolved=resolved,
+                scope=scope,
+                profile=profile,
+                comps=comps,
             )
         except (OSError, sqlite3.Error) as exc:
             unverified.append({**s, "result": f"unverified:{exc}"})
             continue
-        (applied if bucket == "applied" else skipped).append(
-            {**s, "result": result})
+        (applied if bucket == "applied" else skipped).append({**s, "result": result})
     return applied, skipped, unverified
 
 
 def _write_receipt(
-    *, resolved: Path | None, scope: str, profile: str,
+    *,
+    resolved: Path | None,
+    scope: str,
+    profile: str,
     comps: tuple[str, ...],
-    applied: list[dict[str, Any]], skipped: list[dict[str, Any]],
+    applied: list[dict[str, Any]],
+    skipped: list[dict[str, Any]],
 ) -> str:
     """The receipt records what *applied*, not what was requested."""
     p = _receipt_path()
     p.parent.mkdir(parents=True, exist_ok=True)
-    p.write_text(json.dumps(
-        {"schema": _RECEIPT_SCHEMA, "forge_id": FORGE_ID,
-         "version": __version__, "scope": scope,
-         "profile": profile,
-         "components": list(comps),
-         "applied": [s["component"] for s in applied],
-         "skipped": [s["component"] for s in skipped],
-         "root": str(resolved) if resolved else None,
-         "installed_at": time.time()}, indent=2,
-        sort_keys=True), encoding="utf-8")
+    p.write_text(
+        json.dumps(
+            {
+                "schema": _RECEIPT_SCHEMA,
+                "forge_id": FORGE_ID,
+                "version": __version__,
+                "scope": scope,
+                "profile": profile,
+                "components": list(comps),
+                "applied": [s["component"] for s in applied],
+                "skipped": [s["component"] for s in skipped],
+                "root": str(resolved) if resolved else None,
+                "installed_at": time.time(),
+            },
+            indent=2,
+            sort_keys=True,
+        ),
+        encoding="utf-8",
+    )
     return str(p)
 
 
@@ -280,13 +311,8 @@ def uninstall(
     """
     if scope not in SCOPES:
         raise ValueError(f"unknown scope {scope!r} (valid: {list(SCOPES)})")
-    resolved = (
-        resolve_root(str(root) if root else None)
-        if scope == "project"
-        else None
-    )
-    steps = _uninstall_plan(scope=scope, resolved=resolved,
-                            purge_state=purge_state)
+    resolved = resolve_root(str(root) if root else None) if scope == "project" else None
+    steps = _uninstall_plan(scope=scope, resolved=resolved, purge_state=purge_state)
     doc: dict[str, Any] = {
         "schema": _RECEIPT_SCHEMA,
         "forge_id": FORGE_ID,
@@ -303,9 +329,11 @@ def uninstall(
     if dry_run:
         return doc
     if not yes:
-        return {**doc, "status": "declined",
-                "error": {"kind": "CA-UNINSTALL-DECLINED",
-                          "detail": "needs --yes - nothing removed"}}
+        return {
+            **doc,
+            "status": "declined",
+            "error": {"kind": "CA-UNINSTALL-DECLINED", "detail": "needs --yes - nothing removed"},
+        }
 
     applied: list[dict[str, Any]] = []
     skipped: list[dict[str, Any]] = []
@@ -316,8 +344,7 @@ def uninstall(
         except OSError as exc:
             unverified.append({**s, "result": f"unverified:{exc}"})
             continue
-        (applied if bucket == "applied" else skipped).append(
-            {**s, "result": result})
+        (applied if bucket == "applied" else skipped).append({**s, "result": result})
     doc["applied"] = applied
     doc["skipped"] = skipped
     doc["unverified"] = unverified
@@ -334,19 +361,22 @@ def _uninstall_plan(
     if scope == "project" and resolved is not None:
         # `applied` (receipts written by this version) proves install wrote
         # the config; older receipts only list requested components.
-        owned = ((receipt or {}).get("applied")
-                 or (receipt or {}).get("components") or [])
+        owned = (receipt or {}).get("applied") or (receipt or {}).get("components") or []
         if receipt and "config" in owned:
-            steps.append({"component": "config", "action": "remove",
-                          "target": str(config_file())})
+            steps.append({"component": "config", "action": "remove", "target": str(config_file())})
         else:
-            steps.append({"component": "config", "action": "skipped",
-                          "target": "no receipt proof install wrote it — kept"})
+            steps.append(
+                {
+                    "component": "config",
+                    "action": "skipped",
+                    "target": "no receipt proof install wrote it — kept",
+                }
+            )
     if purge_state:
-        steps.append({"component": "atlas.db", "action": "remove",
-                      "target": str(data_dir() / "atlas.db")})
-    steps.append({"component": "receipt", "action": "remove",
-                  "target": str(_receipt_path())})
+        steps.append(
+            {"component": "atlas.db", "action": "remove", "target": str(data_dir() / "atlas.db")}
+        )
+    steps.append({"component": "receipt", "action": "remove", "target": str(_receipt_path())})
     return steps
 
 
@@ -377,16 +407,19 @@ def _receipt_state() -> str:
 
 def status() -> dict[str, Any]:
     r = read_receipt()
-    return {"forge_id": FORGE_ID, "installed": r is not None,
-            "receipt_state": _receipt_state(), "receipt": r}
+    return {
+        "forge_id": FORGE_ID,
+        "installed": r is not None,
+        "receipt_state": _receipt_state(),
+        "receipt": r,
+    }
 
 
 def doctor(*, scope: str = "project", root: Path | None = None) -> dict[str, Any]:
     """Health check — receipt readable, data dir writable, db openable."""
     checks: list[dict[str, Any]] = []
     r_state = _receipt_state()
-    checks.append({"check": "receipt", "state": r_state,
-                   "target": str(_receipt_path())})
+    checks.append({"check": "receipt", "state": r_state, "target": str(_receipt_path())})
     dd = data_dir()
     try:
         dd.mkdir(parents=True, exist_ok=True)
@@ -399,9 +432,9 @@ def doctor(*, scope: str = "project", root: Path | None = None) -> dict[str, Any
     checks.append({"check": "data-dir", "state": state, "target": str(dd)})
     cfg = config_file()
     if scope == "project":
-        checks.append({"check": "config",
-                       "state": "ok" if cfg.exists() else "missing",
-                       "target": str(cfg)})
+        checks.append(
+            {"check": "config", "state": "ok" if cfg.exists() else "missing", "target": str(cfg)}
+        )
     db = dd / "atlas.db"
     try:
         conn = sqlite3.connect(db)
@@ -411,13 +444,21 @@ def doctor(*, scope: str = "project", root: Path | None = None) -> dict[str, Any
     except sqlite3.Error:
         db_state = "error"
     checks.append({"check": "database", "state": db_state, "target": str(db)})
-    checks.append({"check": "python>=3.12",
-                   "state": "ok" if sys.version_info >= (3, 12) else "fail",
-                   "target": sys.version.split()[0]})
+    checks.append(
+        {
+            "check": "python>=3.12",
+            "state": "ok" if sys.version_info >= (3, 12) else "fail",
+            "target": sys.version.split()[0],
+        }
+    )
     bad = {"unwritable", "error", "fail"}
     ok = r_state == "ok" and all(c["state"] not in bad for c in checks)
-    return {"forge_id": FORGE_ID, "scope": scope, "checks": checks,
-            "status": "healthy" if ok else "degraded"}
+    return {
+        "forge_id": FORGE_ID,
+        "scope": scope,
+        "checks": checks,
+        "status": "healthy" if ok else "degraded",
+    }
 
 
 __all__ = [

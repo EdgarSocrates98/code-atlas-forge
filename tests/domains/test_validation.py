@@ -28,9 +28,7 @@ REPO = "git-remote:git@x/r"
 class _Adapter:
     def __init__(
         self,
-        entity_kinds: frozenset[DomainEntityKind] = frozenset(
-            {DomainEntityKind.DATA_TABLE}
-        ),
+        entity_kinds: frozenset[DomainEntityKind] = frozenset({DomainEntityKind.DATA_TABLE}),
         relation_kinds: frozenset[str] = frozenset({"READS_FROM"}),
         ceiling: ConfidenceClass = ConfidenceClass.SYNTACTIC,
     ) -> None:
@@ -61,9 +59,7 @@ class _Adapter:
     def discovery_rules(self) -> tuple[DiscoveryRule, ...]:
         return ()
 
-    def extract(
-        self, request: DomainExtractionRequest
-    ) -> DomainExtractionResult:
+    def extract(self, request: DomainExtractionRequest) -> DomainExtractionResult:
         return DomainExtractionResult("sql", "0.1.0")
 
 
@@ -76,7 +72,9 @@ def _req() -> DomainExtractionRequest:
 
 def _ident(**kw: object) -> DomainIdentity:
     base: dict[str, object] = {
-        "domain": "sql", "repository": REPO, "qualified_name": "db.orders",
+        "domain": "sql",
+        "repository": REPO,
+        "qualified_name": "db.orders",
     }
     base.update(kw)
     return DomainIdentity(**base)  # type: ignore[arg-type]
@@ -84,11 +82,14 @@ def _ident(**kw: object) -> DomainIdentity:
 
 def test_clean_result_passes() -> None:
     result = DomainExtractionResult(
-        domain_id="sql", adapter_version="0.1.0",
+        domain_id="sql",
+        adapter_version="0.1.0",
         entities=(
             ExtractedDomainEntity(
-                identity=_ident(), kind=DomainEntityKind.DATA_TABLE,
-                name="orders", path="q.sql",
+                identity=_ident(),
+                kind=DomainEntityKind.DATA_TABLE,
+                name="orders",
+                path="q.sql",
             ),
         ),
     )
@@ -103,11 +104,14 @@ def test_domain_id_mismatch_flagged() -> None:
 
 def test_undeclared_entity_kind_flagged() -> None:
     result = DomainExtractionResult(
-        domain_id="sql", adapter_version="0.1.0",
+        domain_id="sql",
+        adapter_version="0.1.0",
         entities=(
             ExtractedDomainEntity(
-                identity=_ident(), kind=DomainEntityKind.IAM_ROLE,
-                name="r", path="q.sql",
+                identity=_ident(),
+                kind=DomainEntityKind.IAM_ROLE,
+                name="r",
+                path="q.sql",
             ),
         ),
     )
@@ -118,11 +122,14 @@ def test_undeclared_entity_kind_flagged() -> None:
 def test_undeclared_relation_kind_flagged() -> None:
     src = _ident()
     result = DomainExtractionResult(
-        domain_id="sql", adapter_version="0.1.0",
+        domain_id="sql",
+        adapter_version="0.1.0",
         relations=(
             ExtractedDomainRelation(
-                relation_type="WRITES_TO", path="q.sql",
-                from_identity=src, to_unresolved="x",
+                relation_type="WRITES_TO",
+                path="q.sql",
+                from_identity=src,
+                to_unresolved="x",
             ),
         ),
     )
@@ -132,15 +139,20 @@ def test_undeclared_relation_kind_flagged() -> None:
 
 def test_entity_from_wrong_repo_or_domain_flagged() -> None:
     result = DomainExtractionResult(
-        domain_id="sql", adapter_version="0.1.0",
+        domain_id="sql",
+        adapter_version="0.1.0",
         entities=(
             ExtractedDomainEntity(
                 identity=_ident(repository="other-repo"),
-                kind=DomainEntityKind.DATA_TABLE, name="o", path="q.sql",
+                kind=DomainEntityKind.DATA_TABLE,
+                name="o",
+                path="q.sql",
             ),
             ExtractedDomainEntity(
                 identity=_ident(domain="terraform"),
-                kind=DomainEntityKind.DATA_TABLE, name="o2", path="q.sql",
+                kind=DomainEntityKind.DATA_TABLE,
+                name="o2",
+                path="q.sql",
             ),
         ),
     )
@@ -151,11 +163,14 @@ def test_entity_from_wrong_repo_or_domain_flagged() -> None:
 
 def test_duplicate_entity_identity_flagged() -> None:
     dup = ExtractedDomainEntity(
-        identity=_ident(), kind=DomainEntityKind.DATA_TABLE,
-        name="orders", path="q.sql",
+        identity=_ident(),
+        kind=DomainEntityKind.DATA_TABLE,
+        name="orders",
+        path="q.sql",
     )
     result = DomainExtractionResult(
-        domain_id="sql", adapter_version="0.1.0",
+        domain_id="sql",
+        adapter_version="0.1.0",
         entities=(dup, dup),
     )
     errors = validate_extraction(_Adapter(), _req(), result)
@@ -165,11 +180,14 @@ def test_duplicate_entity_identity_flagged() -> None:
 def test_confidence_above_ceiling_flagged() -> None:
     src = _ident()
     result = DomainExtractionResult(
-        domain_id="sql", adapter_version="0.1.0",
+        domain_id="sql",
+        adapter_version="0.1.0",
         relations=(
             ExtractedDomainRelation(
-                relation_type="READS_FROM", path="q.sql",
-                from_identity=src, to_unresolved="x",
+                relation_type="READS_FROM",
+                path="q.sql",
+                from_identity=src,
+                to_unresolved="x",
                 resolution=DomainResolution(
                     status=ResolutionStatus.UNRESOLVED,
                     confidence_class=ConfidenceClass.RESOLVED,  # > ceiling
@@ -184,11 +202,15 @@ def test_confidence_above_ceiling_flagged() -> None:
 
 def test_evidence_index_out_of_range_flagged() -> None:
     result = DomainExtractionResult(
-        domain_id="sql", adapter_version="0.1.0",
+        domain_id="sql",
+        adapter_version="0.1.0",
         entities=(
             ExtractedDomainEntity(
-                identity=_ident(), kind=DomainEntityKind.DATA_TABLE,
-                name="o", path="q.sql", evidence=(0,),
+                identity=_ident(),
+                kind=DomainEntityKind.DATA_TABLE,
+                name="o",
+                path="q.sql",
+                evidence=(0,),
             ),
         ),
         evidence=(),
@@ -198,9 +220,7 @@ def test_evidence_index_out_of_range_flagged() -> None:
 
 
 def test_artifact_support_matching() -> None:
-    sup = ArtifactSupport(
-        extensions=frozenset({".sql"}), globs=("*.tf", "pipelines/*.yaml")
-    )
+    sup = ArtifactSupport(extensions=frozenset({".sql"}), globs=("*.tf", "pipelines/*.yaml"))
     assert sup.matches("a/b.sql")
     assert sup.matches("main.tf")
     assert sup.matches("pipelines/x.yaml")
@@ -226,15 +246,15 @@ def test_confidence_model_invariants() -> None:
             ceiling=ConfidenceClass.HEURISTIC,
             default=ConfidenceClass.RESOLVED,
         )
-    assert confidence_rank(ConfidenceClass.RESOLVED) > confidence_rank(
-        ConfidenceClass.INFERRED
-    )
+    assert confidence_rank(ConfidenceClass.RESOLVED) > confidence_rank(ConfidenceClass.INFERRED)
 
 
 def test_evidence_record_domain_convention() -> None:
     rec = evidence_record(
-        adapter_domain="sql", adapter_version="0.1.0",
-        path="q.sql", content_hash="sha256:x",
+        adapter_domain="sql",
+        adapter_version="0.1.0",
+        path="q.sql",
+        content_hash="sha256:x",
     )
     assert rec.extractor == "domain:sql"
     assert rec.extractor_version == "0.1.0"

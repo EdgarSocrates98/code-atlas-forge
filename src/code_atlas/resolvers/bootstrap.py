@@ -53,8 +53,7 @@ def resolver_factories(
         return factories, errors
     scip = table.get("scip")
     if isinstance(scip, Mapping):
-        _scip_factory(scip, workspace_root, factories, errors,
-                      versions_out)
+        _scip_factory(scip, workspace_root, factories, errors, versions_out)
     lsp = table.get("lsp")
     if isinstance(lsp, Mapping):
         _lsp_factories(lsp, workspace_root, factories, errors)
@@ -76,8 +75,10 @@ def describe_resolvers(
 
     reports: list[dict[str, object]] = [
         {
-            "id": "syntactic-scope-v1", "kind": "builtin",
-            "installed": True, "enabled": True,
+            "id": "syntactic-scope-v1",
+            "kind": "builtin",
+            "installed": True,
+            "enabled": True,
             "detail": "tree-sitter + scope analysis",
         }
     ]
@@ -91,18 +92,19 @@ def describe_resolvers(
         if isinstance(servers, Mapping):
             for name, spec in sorted(servers.items()):
                 if not isinstance(spec, Mapping):
-                    errors.append(
-                        f"resolvers.lsp.servers.{name}: spec inválido")
+                    errors.append(f"resolvers.lsp.servers.{name}: spec inválido")
                     continue
                 cmd = spec.get("command")
                 binary = cmd[0] if isinstance(cmd, (list, tuple)) and cmd else None
-                reports.append({
-                    "id": f"lsp:{name}", "kind": "lsp",
-                    "command": " ".join(str(c) for c in cmd) if cmd else "",
-                    "installed": bool(
-                        binary and shutil.which(str(binary))),
-                    "enabled": bool(spec.get("enabled", False)),
-                })
+                reports.append(
+                    {
+                        "id": f"lsp:{name}",
+                        "kind": "lsp",
+                        "command": " ".join(str(c) for c in cmd) if cmd else "",
+                        "installed": bool(binary and shutil.which(str(binary))),
+                        "enabled": bool(spec.get("enabled", False)),
+                    }
+                )
     return reports, errors
 
 
@@ -121,8 +123,7 @@ def _describe_scip(
         path = root / path
     kwargs: dict[str, object] = {
         "workspace_root": root,
-        "allow_revision_mismatch": bool(
-            scip.get("allow_revision_mismatch", False)),
+        "allow_revision_mismatch": bool(scip.get("allow_revision_mismatch", False)),
     }
     max_bytes = scip.get("max_bytes")
     if isinstance(max_bytes, int):
@@ -137,18 +138,20 @@ def _describe_scip(
         enabled = not a.errors
         if a.provenance.validation_status == "degraded":
             errors.append(
-                f"scip index {path}: degraded — "
-                f"{'; '.join(a.provenance.validation_evidence[:3])}")
+                f"scip index {path}: degraded — {'; '.join(a.provenance.validation_evidence[:3])}"
+            )
     else:
-        errors.append(
-            f"scip index {path}: "
-            f"{'; '.join(load.errors) or 'load failed'}")
-    reports.append({
-        "id": "scip", "kind": "scip",
-        "index_path": str(path),
-        "installed": installed, "enabled": enabled,
-        "revision_status": rev_status,
-    })
+        errors.append(f"scip index {path}: {'; '.join(load.errors) or 'load failed'}")
+    reports.append(
+        {
+            "id": "scip",
+            "kind": "scip",
+            "index_path": str(path),
+            "installed": installed,
+            "enabled": enabled,
+            "revision_status": rev_status,
+        }
+    )
 
 
 def _scip_factory(
@@ -175,9 +178,7 @@ def _scip_factory(
         kwargs["max_bytes"] = max_bytes
     out = load_index(path, **kwargs)  # type: ignore[arg-type]
     if not out.ok or out.index is None:
-        errors.append(
-            f"scip index {path}: {'; '.join(out.errors) or 'load failed'}"
-        )
+        errors.append(f"scip index {path}: {'; '.join(out.errors) or 'load failed'}")
         return
     index = out.index
     # Revision safety (lf-0028): índice válido ≠ índice compatível.
@@ -186,22 +187,15 @@ def _scip_factory(
     assessment = assess_revision(index, path, root)
     prov = assessment.provenance
     if assessment.errors:
-        errors.append(
-            f"scip index {path}: {'; '.join(assessment.errors)}"
-        )
+        errors.append(f"scip index {path}: {'; '.join(assessment.errors)}")
         return
     if prov.validation_status == "degraded":
-        errors.append(
-            f"scip index {path}: degraded — "
-            f"{'; '.join(prov.validation_evidence[:3])}"
-        )
+        errors.append(f"scip index {path}: degraded — {'; '.join(prov.validation_evidence[:3])}")
     if versions_out is not None:
         # sha256 do índice na identidade do index — índice SCIP novo
         # invalida relações (lf-0030 phase 6).
         versions_out["resolver:scip"] = prov.index_sha256[:16]
-    factories.append(
-        lambda universe: ScipResolver(index, universe, prov)
-    )
+    factories.append(lambda universe: ScipResolver(index, universe, prov))
 
 
 def _lsp_factories(
@@ -219,9 +213,7 @@ def _lsp_factories(
             continue
         cmd = spec.get("command")
         if not isinstance(cmd, (list, tuple)) or not cmd:
-            errors.append(
-                f"resolvers.lsp.servers.{name}: command ausente/inválido"
-            )
+            errors.append(f"resolvers.lsp.servers.{name}: command ausente/inválido")
             continue
         languages = spec.get("languages", ())
         server = LspServerSpec(
@@ -236,8 +228,8 @@ def _lsp_factories(
         )
         if not server.enabled:
             continue
-        def _factory(universe: ScopeUniverse,
-                     _server: LspServerSpec = server) -> SemanticResolver:
+
+        def _factory(universe: ScopeUniverse, _server: LspServerSpec = server) -> SemanticResolver:
             client = make_client(_server)
             if client is None:
                 raise RuntimeError(f"lsp {_server.name}: disabled")

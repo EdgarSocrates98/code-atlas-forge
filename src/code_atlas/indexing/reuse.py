@@ -46,10 +46,14 @@ def config_digest(engine: ParseEngine) -> str:
     for lang in sorted(engine.registry.languages):
         ad = engine.registry.for_language(lang)
         if ad is not None:
-            adapters.append([
-                ad.adapter_id, ad.parser_version, ad.grammar_version,
-                list(ad.extensions),
-            ])
+            adapters.append(
+                [
+                    ad.adapter_id,
+                    ad.parser_version,
+                    ad.grammar_version,
+                    list(ad.extensions),
+                ]
+            )
     doc = {
         "adapters": adapters,
         "limits": [

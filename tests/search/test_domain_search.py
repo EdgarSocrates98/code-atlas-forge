@@ -38,9 +38,7 @@ paths:
           description: all orders
 """,
     "q.sql": "CREATE VIEW mart.v_orders AS SELECT * FROM mart.orders;\n",
-    "app/orders.py": (
-        "def process_orders(items):\n    return [i for i in items]\n"
-    ),
+    "app/orders.py": ("def process_orders(items):\n    return [i for i in items]\n"),
 }
 
 
@@ -64,8 +62,7 @@ def env(tmp_path: Path):
 
 def _search(env, q: str, **kw):
     conn, root, _snap = env
-    return SearchEngine(conn).search(
-        SearchRequest(query=q, repository_root=root, **kw))
+    return SearchEngine(conn).search(SearchRequest(query=q, repository_root=root, **kw))
 
 
 def _domains(res):
@@ -76,21 +73,19 @@ def test_domain_facet_separate_from_symbol_hits(env) -> None:
     res = _search(env, "orders", strategy="hybrid")
     # símbolo python casa em items; entidades de domínio na faceta —
     # NUNCA misturadas
-    assert any(h.qualified_name.endswith("process_orders")
-               for h in res.items)
+    assert any(h.qualified_name.endswith("process_orders") for h in res.items)
     assert all(h.item_type == "symbol" for h in res.items)
     doms = _domains(res)
     assert doms
     assert all(h.item_type == "domain_entity" for h in doms)
-    assert not any(
-        h.qualified_name.endswith("process_orders") for h in doms)
+    assert not any(h.qualified_name.endswith("process_orders") for h in doms)
 
 
 def test_domain_hit_typed_fields(env) -> None:
     res = _search(env, "orders")
     orders = next(
-        h for h in res.domain_items
-        if h.kind == "data_table" and h.qualified_name == "orders")
+        h for h in res.domain_items if h.kind == "data_table" and h.qualified_name == "orders"
+    )
     assert orders.domain == "sql"
     assert orders.namespace == "mart"
     assert orders.occurrences >= 1  # evidence count
@@ -115,20 +110,17 @@ def test_domain_and_kind_filters_narrow_facet(env) -> None:
 def test_language_filter_skips_domain_facet_honestly(env) -> None:
     res = _search(env, "orders", language="python")
     assert res.domain_items == ()
-    assert any(d.code == "domain-facet-skipped"
-               for d in res.diagnostics)
+    assert any(d.code == "domain-facet-skipped" for d in res.diagnostics)
     # hits de símbolo continuam funcionando com o filtro
     assert all(h.language == "python" for h in res.items)
 
 
 def test_via_relation_hit_declares_real_edge(env) -> None:
     res = _search(env, "orders")
-    related = [h for h in res.domain_items
-               if h.matched_fields == ("via_relation",)]
+    related = [h for h in res.domain_items if h.matched_fields == ("via_relation",)]
     assert related, "transformação que lê mart.orders deveria aparecer"
     for h in related:
-        assert any(e.startswith("via=") and ":rel:" in e
-                   for e in h.evidence)
+        assert any(e.startswith("via=") and ":rel:" in e for e in h.evidence)
         assert h.score < 1.0  # adjacência nunca supera match direto
 
 
@@ -136,15 +128,15 @@ def test_domain_total_and_determinism(env) -> None:
     res = _search(env, "orders")
     assert res.domain_total >= len(res.domain_items)
     again = _search(env, "orders")
-    assert [(h.entity_id, h.qualified_name) for h in res.domain_items] == \
-           [(h.entity_id, h.qualified_name) for h in again.domain_items]
+    assert [(h.entity_id, h.qualified_name) for h in res.domain_items] == [
+        (h.entity_id, h.qualified_name) for h in again.domain_items
+    ]
 
 
 def test_items_carry_scope_tags(env) -> None:
     res = _search(env, "process_orders", strategy="hybrid")
     assert res.items
-    assert all(h.repository_id is not None
-               and h.snapshot_id == res.snapshot_id for h in res.items)
+    assert all(h.repository_id is not None and h.snapshot_id == res.snapshot_id for h in res.items)
 
 
 def test_unknown_domain_returns_empty_not_error(env) -> None:

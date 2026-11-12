@@ -52,9 +52,7 @@ from code_atlas.eval.pack_value import (  # noqa: E402
     validate_task,
 )
 
-TASKS_PATH = (
-    Path(__file__).resolve().parent / "pack_value" / "tasks.json"
-)
+TASKS_PATH = Path(__file__).resolve().parent / "pack_value" / "tasks.json"
 RESULTS_DIR = Path(__file__).resolve().parent / "results"
 LATEST = RESULTS_DIR / "pack-value-latest.json"
 
@@ -118,28 +116,22 @@ def _write_results(results: dict[str, object], out: str) -> None:
 
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__)
-    ap.add_argument("--task", default="",
-                    help="roda uma única tarefa (id em --list)")
-    ap.add_argument("--list", action="store_true",
-                    help="lista tarefas do corpus e sai")
-    ap.add_argument("--out", default=str(LATEST),
-                    help="destino do JSON de resultados")
+    ap.add_argument("--task", default="", help="roda uma única tarefa (id em --list)")
+    ap.add_argument("--list", action="store_true", help="lista tarefas do corpus e sai")
+    ap.add_argument("--out", default=str(LATEST), help="destino do JSON de resultados")
     args = ap.parse_args()
 
     tasks = load_tasks(TASKS_PATH)
     if args.list:
         for t in tasks:
-            print(f"{t.task_id:22s} {t.question[:52]:54s} "
-                  f"{t.fixture} facts={len(t.facts)}")
+            print(f"{t.task_id:22s} {t.question[:52]:54s} {t.fixture} facts={len(t.facts)}")
         return 0
 
-    label_errors = {
-        t.task_id: validate_task(_REPO_ROOT, t) for t in tasks}
+    label_errors = {t.task_id: validate_task(_REPO_ROOT, t) for t in tasks}
     label_errors = {k: v for k, v in label_errors.items() if v}
     if label_errors:
         for tid, errs in label_errors.items():
-            print(f"{tid}: corpus inválido — {'; '.join(errs)}",
-                  file=sys.stderr)
+            print(f"{tid}: corpus inválido — {'; '.join(errs)}", file=sys.stderr)
         return 2
 
     selected = tasks
@@ -152,21 +144,22 @@ def main() -> int:
     with tempfile.TemporaryDirectory(prefix="pack-value-") as wd:
         results = evaluate_all(_REPO_ROOT, selected, Path(wd))
 
-    results.update({
-        "generated_at": datetime.now(UTC).isoformat(timespec="seconds"),
-        "corpus": str(TASKS_PATH.relative_to(_REPO_ROOT)),
-        "method": "proxy estrutural — pack real (DomainContextEngine,"
-                  " tokens_payload estimado pelo engine, budget 4000)"
-                  " vs impact JSON real vs domains entities+lineage"
-                  " reais vs simulação grep+read determinística sobre"
-                  " a árvore da fixture; fatos = qualified_names"
-                  " verificados em lf-0135",
-        "agent_quality": "NOT RUN — sem harness de agente/LLM neste "
-                         "repositório; este runner mede apenas o "
-                         "proxy estrutural (tokens, queries, fatos)",
-        "tokenizer": "heuristic-chars4 (chars/4; o mesmo estimador "
-                     "do engine de packs)",
-    })
+    results.update(
+        {
+            "generated_at": datetime.now(UTC).isoformat(timespec="seconds"),
+            "corpus": str(TASKS_PATH.relative_to(_REPO_ROOT)),
+            "method": "proxy estrutural — pack real (DomainContextEngine,"
+            " tokens_payload estimado pelo engine, budget 4000)"
+            " vs impact JSON real vs domains entities+lineage"
+            " reais vs simulação grep+read determinística sobre"
+            " a árvore da fixture; fatos = qualified_names"
+            " verificados em lf-0135",
+            "agent_quality": "NOT RUN — sem harness de agente/LLM neste "
+            "repositório; este runner mede apenas o "
+            "proxy estrutural (tokens, queries, fatos)",
+            "tokenizer": "heuristic-chars4 (chars/4; o mesmo estimador do engine de packs)",
+        }
+    )
 
     print(f"pack-value ({len(selected)} tarefas)")
     for t in selected:
@@ -177,14 +170,15 @@ def main() -> int:
     summary = results["summary"]
     assert isinstance(summary, dict)
     print("  agregado:")
-    for arm in ("no_atlas", "pack_only", "atlas_impact",
-                "atlas_search"):
+    for arm in ("no_atlas", "pack_only", "atlas_impact", "atlas_search"):
         s = summary[arm]
         cov = s["fact_coverage"]
         cov_s = "  —  " if cov is None else f"{cov:5.3f}"
-        print(f"    {arm:14s} queries={s['queries']:3d} "
-              f"tokens={s['tokens']:6d} facts={s['facts_answerable']}"
-              f"/{summary['facts_total']} coverage={cov_s}")
+        print(
+            f"    {arm:14s} queries={s['queries']:3d} "
+            f"tokens={s['tokens']:6d} facts={s['facts_answerable']}"
+            f"/{summary['facts_total']} coverage={cov_s}"
+        )
 
     _write_results(results, args.out)
     return 0

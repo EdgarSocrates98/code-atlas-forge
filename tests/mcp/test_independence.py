@@ -10,7 +10,12 @@ from code_atlas import cli
 
 def test_no_forge_imports_in_src() -> None:
     src = Path(__file__).parents[2] / "src" / "code_atlas"
+    obs_vendored = (src / "_forge_obsidian").resolve()
     for py in src.rglob("*.py"):
+        # Vendored byte-parity engine — símbolos internos `forge_*` não são
+        # import de pacotes forge; paridade verificada contra a fonte canônica.
+        if obs_vendored in py.resolve().parents:
+            continue
         text = py.read_text(encoding="utf-8")
         assert "import forge" not in text, py
         assert "loop_factory" not in text, py
@@ -29,6 +34,5 @@ def test_mcp_doctor_json(capsys) -> None:
     rc = cli.main(["mcp", "doctor", "--json"])
     out = json.loads(capsys.readouterr().out)
     assert rc == 0
-    for k in ("executable", "python", "db_path", "db_exists",
-              "sqlite_vec"):
+    for k in ("executable", "python", "db_path", "db_exists", "sqlite_vec"):
         assert k in out

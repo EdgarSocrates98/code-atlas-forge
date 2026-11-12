@@ -25,22 +25,18 @@ from dataclasses import dataclass
 
 from code_atlas.parsers.contracts import SourceSpan
 
-_IDENT_START = frozenset(
-    "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ_"
-)
-_IDENT = frozenset(
-    "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ_0123456789-"
-)
+_IDENT_START = frozenset("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ_")
+_IDENT = frozenset("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ_0123456789-")
 
 
 @dataclass(frozen=True)
 class HclDiagnostic:
     """Problema estrutural do parser HCL — honesto, com posição."""
 
-    code: str          # parse-error | unterminated-block | unterminated-string…
+    code: str  # parse-error | unterminated-block | unterminated-string…
     message: str
-    line: int = 0      # 1-based; 0 = desconhecida
-    col: int = 0       # byte col 0-based
+    line: int = 0  # 1-based; 0 = desconhecida
+    col: int = 0  # byte col 0-based
 
 
 @dataclass(frozen=True)
@@ -48,8 +44,8 @@ class HclAttribute:
     """Atributo ``name = expr`` num corpo de bloco (ou top-level tfvars)."""
 
     name: str
-    value: str          # texto bruto da expressão (não avaliado)
-    span: SourceSpan    # span de ``name = expr``
+    value: str  # texto bruto da expressão (não avaliado)
+    span: SourceSpan  # span de ``name = expr``
     value_span: SourceSpan
 
 
@@ -61,9 +57,9 @@ class HclBlock:
     labels: tuple[str, ...] = ()
     attributes: tuple[HclAttribute, ...] = ()
     children: tuple[HclBlock, ...] = ()
-    body: str = ""      # texto bruto entre ``{`` e ``}`` (sem as chaves)
+    body: str = ""  # texto bruto entre ``{`` e ``}`` (sem as chaves)
     body_start: int = 0  # byte offset do início de ``body``
-    span: SourceSpan | None = None      # bloco inteiro
+    span: SourceSpan | None = None  # bloco inteiro
     header_span: SourceSpan | None = None  # ``type "l1" "l2"`` sem ``{``
 
     def attribute(self, name: str) -> HclAttribute | None:
@@ -122,15 +118,17 @@ class _Parser:
         sb, sl, sc = self._lc(start)
         eb, el, ec = self._lc(end)
         return SourceSpan(
-            start_byte=sb, end_byte=eb,
-            start_line=sl, start_col=sc, end_line=el, end_col=ec,
+            start_byte=sb,
+            end_byte=eb,
+            start_line=sl,
+            start_col=sc,
+            end_line=el,
+            end_col=ec,
         )
 
     def diag(self, code: str, message: str, pos: int) -> None:
         _, line, col = self._lc(pos)
-        self.diags.append(
-            HclDiagnostic(code=code, message=message, line=line, col=col)
-        )
+        self.diags.append(HclDiagnostic(code=code, message=message, line=line, col=col))
 
     # --- trivia -------------------------------------------------------
 
@@ -154,7 +152,8 @@ class _Parser:
                     if end < 0:
                         self.diag(
                             "unterminated-comment",
-                            "block comment never closed", self.pos,
+                            "block comment never closed",
+                            self.pos,
                         )
                         self.pos = self.n
                         return
@@ -211,7 +210,8 @@ class _Parser:
         if depth:
             self.diag(
                 "unterminated-interpolation",
-                "${…} never closed", start,
+                "${…} never closed",
+                start,
             )
 
     def _heredoc_tag(self) -> tuple[str, int] | None:
@@ -237,7 +237,7 @@ class _Parser:
                 q += 1
             else:
                 return None
-        tag = self.text[tstart:q - (1 if quoted else 0)].strip()
+        tag = self.text[tstart : q - (1 if quoted else 0)].strip()
         return (tag, q) if tag else None
 
     def _consume_heredoc_body(self, tag: str, line_start: int) -> None:
@@ -254,7 +254,8 @@ class _Parser:
             line_start = line_end + 1
         self.diag(
             "unterminated-heredoc",
-            f"heredoc terminator {tag!r} not found", self.pos,
+            f"heredoc terminator {tag!r} not found",
+            self.pos,
         )
         self.pos = self.n
 
@@ -269,7 +270,8 @@ class _Parser:
         if nl < 0:
             self.diag(
                 "unterminated-heredoc",
-                f"heredoc {tag!r} opens at EOF", self.pos,
+                f"heredoc {tag!r} opens at EOF",
+                self.pos,
             )
             self.pos = self.n
             return True
@@ -306,35 +308,29 @@ class _Parser:
         if depth != 0:
             self.diag(
                 "unbalanced-delimiter",
-                f"expression ended with depth {depth}", start,
+                f"expression ended with depth {depth}",
+                start,
             )
         # whitespace final é trivia (ex.: antes de comentário) — não faz
         # parte do valor bruto.
-        raw = self.text[start:self.pos].rstrip()
+        raw = self.text[start : self.pos].rstrip()
         return raw, start, start + len(raw)
 
     def _is_comment_start(self) -> bool:
         c = self.text[self.pos]
         if c == "#":
             return True
-        return (
-            c == "/"
-            and self.pos + 1 < self.n
-            and self.text[self.pos + 1] in "/*"
-        )
+        return c == "/" and self.pos + 1 < self.n and self.text[self.pos + 1] in "/*"
 
     def _skip_comment(self) -> None:
         """``pos`` em início de comentário ``#``/``//``/``/* */``."""
-        if (
-            self.text[self.pos] == "/"
-            and self.pos + 1 < self.n
-            and self.text[self.pos + 1] == "*"
-        ):
+        if self.text[self.pos] == "/" and self.pos + 1 < self.n and self.text[self.pos + 1] == "*":
             end = self.text.find("*/", self.pos + 2)
             if end < 0:
                 self.diag(
                     "unterminated-comment",
-                    "block comment never closed", self.pos,
+                    "block comment never closed",
+                    self.pos,
                 )
                 self.pos = self.n
                 return
@@ -350,7 +346,8 @@ class _Parser:
             if depth == 0:
                 self.diag(
                     "unbalanced-delimiter",
-                    f"unexpected {c!r} at depth 0", self.pos,
+                    f"unexpected {c!r} at depth 0",
+                    self.pos,
                 )
                 return depth
             return depth - 1
@@ -366,7 +363,7 @@ class _Parser:
         self.pos += 1
         while self.pos < self.n and self.text[self.pos] in _IDENT:
             self.pos += 1
-        return self.text[start:self.pos], start, self.pos
+        return self.text[start : self.pos], start, self.pos
 
     def _read_label(self) -> tuple[str, int, int] | None:
         """Label de bloco: string quoted ou identificador bare."""
@@ -376,7 +373,7 @@ class _Parser:
         start = self.pos
         if self.text[self.pos] == '"':
             self._skip_string()
-            raw = self.text[start:self.pos]
+            raw = self.text[start : self.pos]
             # remove aspas externas sem interpretar escapes — labels
             # interpoladas são inválidas em HCL de qualquer forma
             return raw[1:-1], start, self.pos
@@ -388,14 +385,14 @@ class _Parser:
         while self.pos < self.n and self.text[self.pos].isdigit():
             self.pos += 1
         if self.pos > dstart:
-            return self.text[dstart:self.pos], dstart, self.pos
+            return self.text[dstart : self.pos], dstart, self.pos
         return None
 
     # --- corpo / bloco ---------------------------------------------------
 
-    def _parse_body(self, body_char_start: int) -> tuple[
-        tuple[HclAttribute, ...], tuple[HclBlock, ...], int
-    ]:
+    def _parse_body(
+        self, body_char_start: int
+    ) -> tuple[tuple[HclAttribute, ...], tuple[HclBlock, ...], int]:
         """Parse até o ``}`` de fechamento; retorna attrs, filhos, end."""
         attrs: list[HclAttribute] = []
         children: list[HclBlock] = []
@@ -404,7 +401,8 @@ class _Parser:
             if self.pos >= self.n:
                 self.diag(
                     "unterminated-block",
-                    "block body reached EOF without '}'", self.pos,
+                    "block body reached EOF without '}'",
+                    self.pos,
                 )
                 return tuple(attrs), tuple(children), self.pos
             if self.text[self.pos] == "}":
@@ -417,9 +415,7 @@ class _Parser:
                 children.append(item)
             # item None = resync já aplicado por _parse_item
 
-    def _read_block_labels(
-        self, name: str, item_start: int
-    ) -> tuple[str, ...] | None:
+    def _read_block_labels(self, name: str, item_start: int) -> tuple[str, ...] | None:
         """Labels até ``{`` — ``None`` quando o header não fecha."""
         labels: list[str] = []
         while True:
@@ -427,7 +423,8 @@ class _Parser:
             if self.pos >= self.n:
                 self.diag(
                     "unterminated-block",
-                    f"block {name!r} header reached EOF", item_start,
+                    f"block {name!r} header reached EOF",
+                    item_start,
                 )
                 return None
             if self.text[self.pos] == "{":
@@ -438,7 +435,8 @@ class _Parser:
                 continue
             self.diag(
                 "parse-error",
-                f"expected label or '{{' after {name!r}", self.pos,
+                f"expected label or '{{' after {name!r}",
+                self.pos,
             )
             # resync: pula até próximo '{' ou newline
             while self.pos < self.n and self.text[self.pos] not in "{\n":
@@ -453,7 +451,8 @@ class _Parser:
         if tok is None:
             self.diag(
                 "parse-error",
-                f"unexpected character {self.text[self.pos]!r}", self.pos,
+                f"unexpected character {self.text[self.pos]!r}",
+                self.pos,
             )
             # resync: avança até newline — progresso garantido
             self._skip_line_comment()
@@ -471,7 +470,8 @@ class _Parser:
             self.skip_trivia()
             value, vstart, vend = self.read_expression()
             return HclAttribute(
-                name=name, value=value,
+                name=name,
+                value=value,
                 span=self.span(name_start, vend),
                 value_span=self.span(vstart, vend),
             )
@@ -489,8 +489,10 @@ class _Parser:
             else body_end
         )
         return HclBlock(
-            type=name, labels=labels,
-            attributes=attrs, children=children,
+            type=name,
+            labels=labels,
+            attributes=attrs,
+            children=children,
             body=self.text[body_char_start:inner_end],
             body_start=self._byte[body_char_start],
             span=self.span(item_start, body_end),
@@ -518,7 +520,8 @@ class _Parser:
             if self.pos <= item_start:  # guard anti-loop infinito
                 self.pos = item_start + 1
         return HclFile(
-            blocks=tuple(blocks), attributes=tuple(attrs),
+            blocks=tuple(blocks),
+            attributes=tuple(attrs),
             diagnostics=tuple(self.diags),
         )
 

@@ -26,7 +26,9 @@ def test_malformed_tf_produces_partial_plus_diagnostics() -> None:
     assert res.diagnostics
     codes = {d.code for d in res.diagnostics}
     assert codes & {
-        "unterminated-string", "unterminated-block", "stray-brace",
+        "unterminated-string",
+        "unterminated-block",
+        "stray-brace",
         "parse-error",
     }
     assert all(d.adapter_id == "terraform" for d in res.diagnostics)

@@ -56,9 +56,7 @@ class Snapshot:
     created_at: str = ""
 
     def __post_init__(self) -> None:
-        object.__setattr__(
-            self, "status", _coerce(SnapshotStatus, self.status, "status")
-        )
+        object.__setattr__(self, "status", _coerce(SnapshotStatus, self.status, "status"))
 
 
 @dataclass(frozen=True)

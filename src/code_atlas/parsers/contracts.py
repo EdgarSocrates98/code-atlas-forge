@@ -160,7 +160,7 @@ class EvidenceRecord:
     resolver_id: str = ""
     resolver_version: str = ""
     evidence_tier: int = 0  # EvidenceTier (0 = não-resolver)
-    index_hash: str = ""    # sha do índice externo (ex.: SCIP), se houver
+    index_hash: str = ""  # sha do índice externo (ex.: SCIP), se houver
     validation_status: str = ""  # ex.: "confirmed", "conflict"
 
 

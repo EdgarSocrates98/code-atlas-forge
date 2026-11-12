@@ -36,9 +36,7 @@ def _j(capsys: pytest.CaptureFixture[str]) -> dict:
     return json.loads(capsys.readouterr().out)
 
 
-def test_semantic_status_syntactic_only(
-    indexed: Path, capsys: pytest.CaptureFixture[str]
-) -> None:
+def test_semantic_status_syntactic_only(indexed: Path, capsys: pytest.CaptureFixture[str]) -> None:
     capsys.readouterr()
     assert cli.main(["semantic-status", str(indexed), "--json"]) == 0
     p = _j(capsys)
@@ -76,8 +74,7 @@ def test_index_resolver_unknown_is_typed_error(
     indexed: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
     capsys.readouterr()
-    rc = cli.main(
-        ["index", str(indexed), "--resolver", "bogus", "--json"])
+    rc = cli.main(["index", str(indexed), "--resolver", "bogus", "--json"])
     assert rc == 1
     err = _j(capsys)["error"]
     assert "resolver desconhecido" in err and "bogus" in err
@@ -88,8 +85,7 @@ def test_index_resolver_syntactic_drops_external(
 ) -> None:
     """--resolver syntactic funciona mesmo sem nada externo configurado."""
     capsys.readouterr()
-    rc = cli.main(
-        ["index", str(indexed), "--resolver", "syntactic", "--json"])
+    rc = cli.main(["index", str(indexed), "--resolver", "syntactic", "--json"])
     assert rc == 0
     p = _j(capsys)
     assert p["status"] in ("success", "noop")
@@ -100,9 +96,7 @@ def test_index_scip_invalid_path_reports_diagnostic(
 ) -> None:
     """--scip com arquivo inexistente → diagnóstico, não crash."""
     capsys.readouterr()
-    rc = cli.main(
-        ["index", str(indexed), "--scip",
-         str(indexed / "missing.scip"), "--json"])
+    rc = cli.main(["index", str(indexed), "--scip", str(indexed / "missing.scip"), "--json"])
     assert rc == 0  # index segue — diagnóstico, nunca crash
     p = _j(capsys)
     assert any("scip" in d for d in p["diagnostics"])

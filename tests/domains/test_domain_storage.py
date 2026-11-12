@@ -64,8 +64,7 @@ def workspace(tmp_path: Path) -> tuple[sqlite3.Connection, int, int, dict[str, i
     file_ids = {
         r["relative_path"]: int(r["id"])
         for r in conn.execute(
-            "SELECT id, relative_path FROM source_files"
-            " WHERE repository_id = ?",
+            "SELECT id, relative_path FROM source_files WHERE repository_id = ?",
             (snap.repository_id,),
         )
     }
@@ -77,15 +76,8 @@ def test_migration_v9_creates_domain_tables(db: sqlite3.Connection) -> None:
     from code_atlas.storage.db import fts5_available
 
     assert schema_version(db) == (12 if fts5_available(db) else 11)
-    tables = {
-        r["name"]
-        for r in db.execute(
-            "SELECT name FROM sqlite_master WHERE type='table'"
-        )
-    }
-    assert {
-        "domain_entities", "domain_entity_occurrences", "domain_relations"
-    } <= tables
+    tables = {r["name"] for r in db.execute("SELECT name FROM sqlite_master WHERE type='table'")}
+    assert {"domain_entities", "domain_entity_occurrences", "domain_relations"} <= tables
 
 
 def test_old_db_opens_and_gains_domain_schema(
@@ -95,7 +87,8 @@ def test_old_db_opens_and_gains_domain_schema(
     conn = connect(tmp_path / "old.db")
     real = mig.migrations
     monkeypatch.setattr(
-        mig, "migrations",
+        mig,
+        "migrations",
         lambda *, fts5: [m for m in real(fts5=fts5) if m.version <= 8],
     )
     assert mig.migrate(conn) == 8
@@ -106,9 +99,7 @@ def test_old_db_opens_and_gains_domain_schema(
     from code_atlas.storage.db import fts5_available
 
     assert mig.migrate(conn2) == (12 if fts5_available(conn2) else 11)
-    row = conn2.execute(
-        "SELECT COUNT(*) AS c FROM domain_entities"
-    ).fetchone()
+    row = conn2.execute("SELECT COUNT(*) AS c FROM domain_entities").fetchone()
     assert row["c"] == 0
 
 
@@ -119,11 +110,13 @@ def test_same_name_different_catalog_stored_as_two_entities(
     store = Store(conn)
     a = DomainEntity(
         identity=_ident(catalog="glue:111:us-east-1"),
-        kind=DomainEntityKind.DATA_TABLE, name="orders",
+        kind=DomainEntityKind.DATA_TABLE,
+        name="orders",
     )
     b = DomainEntity(
         identity=_ident(catalog="glue:222:eu-west-1"),
-        kind=DomainEntityKind.DATA_TABLE, name="orders",
+        kind=DomainEntityKind.DATA_TABLE,
+        name="orders",
     )
     ids = store.ensure_domain_entities(repo_id, [a, b])
     assert len(ids) == 2
@@ -143,13 +136,25 @@ def test_domain_relation_check_rejects_unknown_type(
         [DomainEntity(identity=_ident(), kind="data_table", name="orders")],
     )
     occ = store.insert_domain_occurrences_batch(
-        [(snap, ids[_ident().logical_key()], None,
-          None, None, None, None, None, "{}", "extracted")]
+        [(snap, ids[_ident().logical_key()], None, None, None, None, None, None, "{}", "extracted")]
     )[0]
     with pytest.raises(sqlite3.IntegrityError):
         store.insert_domain_relations(
-            [(snap, occ, None, occ, None, None, "MAKES_COFFEE",
-              "resolved", "syntactic", "domain:sql", "[]")]
+            [
+                (
+                    snap,
+                    occ,
+                    None,
+                    occ,
+                    None,
+                    None,
+                    "MAKES_COFFEE",
+                    "resolved",
+                    "syntactic",
+                    "domain:sql",
+                    "[]",
+                )
+            ]
         )
 
 
@@ -163,13 +168,25 @@ def test_domain_relation_requires_some_target(
         [DomainEntity(identity=_ident(), kind="data_table", name="orders")],
     )
     occ = store.insert_domain_occurrences_batch(
-        [(snap, ids[_ident().logical_key()], None,
-          None, None, None, None, None, "{}", "extracted")]
+        [(snap, ids[_ident().logical_key()], None, None, None, None, None, None, "{}", "extracted")]
     )[0]
     with pytest.raises(sqlite3.IntegrityError):
         store.insert_domain_relations(
-            [(snap, occ, None, None, None, None, "READS_FROM",
-              "unresolved", "syntactic", "domain:sql", "[]")]
+            [
+                (
+                    snap,
+                    occ,
+                    None,
+                    None,
+                    None,
+                    None,
+                    "READS_FROM",
+                    "unresolved",
+                    "syntactic",
+                    "domain:sql",
+                    "[]",
+                )
+            ]
         )
 
 
@@ -184,35 +201,44 @@ def test_persist_domain_result_end_to_end(
     job = _ident(qualified_name="jobs.daily_load")
     table_a = _ident(catalog="glue:111:us-east-1")
     table_b = _ident(catalog="glue:222:eu-west-1")  # homônimo outro catálogo
-    ext = _ident(qualified_name="ext.vault",
-                 catalog="aws:999:us-east-1")
+    ext = _ident(qualified_name="ext.vault", catalog="aws:999:us-east-1")
     result = DomainExtractionResult(
         domain_id="sql",
         adapter_version="0.1.0",
         entities=(
             ExtractedDomainEntity(
-                identity=job, kind=DomainEntityKind.DATA_PIPELINE,
-                name="daily_load", path="q.sql",
+                identity=job,
+                kind=DomainEntityKind.DATA_PIPELINE,
+                name="daily_load",
+                path="q.sql",
             ),
             ExtractedDomainEntity(
-                identity=table_a, kind=DomainEntityKind.DATA_TABLE,
-                name="orders", path="q.sql",
+                identity=table_a,
+                kind=DomainEntityKind.DATA_TABLE,
+                name="orders",
+                path="q.sql",
             ),
             ExtractedDomainEntity(
-                identity=table_b, kind=DomainEntityKind.DATA_TABLE,
-                name="orders", path="q.sql",
+                identity=table_b,
+                kind=DomainEntityKind.DATA_TABLE,
+                name="orders",
+                path="q.sql",
             ),
         ),
         relations=(
             # resolvida: alvo existe no snapshot
             ExtractedDomainRelation(
-                relation_type="READS_FROM", path="q.sql",
-                from_identity=job, to_identity=table_a,
+                relation_type="READS_FROM",
+                path="q.sql",
+                from_identity=job,
+                to_identity=table_a,
             ),
             # external: identidade conhecida fora do snapshot
             ExtractedDomainRelation(
-                relation_type="READS_FROM", path="q.sql",
-                from_identity=job, to_identity=ext,
+                relation_type="READS_FROM",
+                path="q.sql",
+                from_identity=job,
+                to_identity=ext,
                 resolution=DomainResolution(
                     status=ResolutionStatus.EXTERNAL,
                     confidence_class=ConfidenceClass.HEURISTIC,
@@ -221,24 +247,32 @@ def test_persist_domain_result_end_to_end(
             ),
             # ponte domínio→código: origem entidade, alvo símbolo
             ExtractedDomainRelation(
-                relation_type="REFERENCES", path="q.sql",
-                from_identity=job, to_symbol="mod.target",
+                relation_type="REFERENCES",
+                path="q.sql",
+                from_identity=job,
+                to_symbol="mod.target",
             ),
             # alvo textual honesto
             ExtractedDomainRelation(
-                relation_type="WRITES_TO", path="q.sql",
-                from_identity=job, to_unresolved="s3://bucket/out",
+                relation_type="WRITES_TO",
+                path="q.sql",
+                from_identity=job,
+                to_unresolved="s3://bucket/out",
             ),
             # origem símbolo → domínio (PySpark lê tabela)
             ExtractedDomainRelation(
-                relation_type="READS_FROM", path="q.sql",
-                from_symbol="mod.target", to_identity=table_b,
+                relation_type="READS_FROM",
+                path="q.sql",
+                from_symbol="mod.target",
+                to_identity=table_b,
             ),
         ),
         evidence=(
             evidence_record(
-                adapter_domain="sql", adapter_version="0.1.0",
-                path="q.sql", content_hash="sha256:test",
+                adapter_domain="sql",
+                adapter_version="0.1.0",
+                path="q.sql",
+                content_hash="sha256:test",
             ),
         ),
     )
@@ -256,7 +290,11 @@ def test_persist_domain_result_end_to_end(
     ).fetchall()
     statuses = [r["resolution_status"] for r in rows]
     assert statuses == [
-        "resolved", "external", "resolved", "unresolved", "resolved",
+        "resolved",
+        "external",
+        "resolved",
+        "unresolved",
+        "resolved",
     ]
     # alvo resolved ligou ao occurrence correto (catálogo A, não B)
     ent_a = store.domain_entity_id_for(repo_id, table_a.logical_key())
@@ -287,30 +325,32 @@ def test_ambiguous_symbol_target_stays_unresolved(
         "SELECT logical_symbol_id FROM symbol_occurrences WHERE id = ?",
         (store.symbol_occurrences_for_name(snap, "mod.target")[0],),
     ).fetchone()["logical_symbol_id"]
-    store.insert_occurrences_batch(
-        [(snap, sym_id, other_fid, 0, 10, 1, 0, None, "parsed")]
-    )
+    store.insert_occurrences_batch([(snap, sym_id, other_fid, 0, 10, 1, 0, None, "parsed")])
     src = _ident(qualified_name="jobs.daily_load")
     result = DomainExtractionResult(
-        domain_id="sql", adapter_version="0.1.0",
+        domain_id="sql",
+        adapter_version="0.1.0",
         entities=(
             ExtractedDomainEntity(
-                identity=src, kind=DomainEntityKind.DATA_PIPELINE,
-                name="daily_load", path="q.sql",
+                identity=src,
+                kind=DomainEntityKind.DATA_PIPELINE,
+                name="daily_load",
+                path="q.sql",
             ),
         ),
         relations=(
             ExtractedDomainRelation(
-                relation_type="REFERENCES", path="q.sql",
-                from_identity=src, to_symbol="mod.target",
+                relation_type="REFERENCES",
+                path="q.sql",
+                from_identity=src,
+                to_symbol="mod.target",
             ),
         ),
     )
     counts = persist_domain_result(store, repo_id, snap, file_ids, result)
     assert counts["relations"] == 1
     row = conn.execute(
-        "SELECT resolution_status, to_unresolved, to_symbol_occ_id "
-        "FROM domain_relations"
+        "SELECT resolution_status, to_unresolved, to_symbol_occ_id FROM domain_relations"
     ).fetchone()
     assert row["resolution_status"] == "ambiguous"
     assert row["to_unresolved"] == "mod.target"
@@ -324,11 +364,14 @@ def test_relation_without_anchor_source_is_skipped(
     store = Store(conn)
     ghost = _ident(qualified_name="jobs.ghost")  # nunca extraído
     result = DomainExtractionResult(
-        domain_id="sql", adapter_version="0.1.0",
+        domain_id="sql",
+        adapter_version="0.1.0",
         relations=(
             ExtractedDomainRelation(
-                relation_type="READS_FROM", path="q.sql",
-                from_identity=ghost, to_unresolved="x",
+                relation_type="READS_FROM",
+                path="q.sql",
+                from_identity=ghost,
+                to_unresolved="x",
             ),
         ),
     )
@@ -347,21 +390,28 @@ def test_inferred_resolved_rejected_at_persist(
     src = _ident(qualified_name="jobs.x")
     dst = _ident(qualified_name="jobs.y")
     result = DomainExtractionResult(
-        domain_id="sql", adapter_version="0.1.0",
+        domain_id="sql",
+        adapter_version="0.1.0",
         entities=(
             ExtractedDomainEntity(
-                identity=src, kind=DomainEntityKind.DATA_PIPELINE,
-                name="x", path="q.sql",
+                identity=src,
+                kind=DomainEntityKind.DATA_PIPELINE,
+                name="x",
+                path="q.sql",
             ),
             ExtractedDomainEntity(
-                identity=dst, kind=DomainEntityKind.DATA_TABLE,
-                name="y", path="q.sql",
+                identity=dst,
+                kind=DomainEntityKind.DATA_TABLE,
+                name="y",
+                path="q.sql",
             ),
         ),
         relations=(
             ExtractedDomainRelation(
-                relation_type="READS_FROM", path="q.sql",
-                from_identity=src, to_identity=dst,
+                relation_type="READS_FROM",
+                path="q.sql",
+                from_identity=src,
+                to_identity=dst,
                 resolution=DomainResolution(
                     status=ResolutionStatus.UNRESOLVED,
                     confidence_class=ConfidenceClass.INFERRED,
@@ -383,35 +433,33 @@ def test_snapshot_delete_cascades_domain_rows(
     store = Store(conn)
     e = _ident()
     result = DomainExtractionResult(
-        domain_id="sql", adapter_version="0.1.0",
+        domain_id="sql",
+        adapter_version="0.1.0",
         entities=(
             ExtractedDomainEntity(
-                identity=e, kind=DomainEntityKind.DATA_TABLE,
-                name="orders", path="q.sql",
+                identity=e,
+                kind=DomainEntityKind.DATA_TABLE,
+                name="orders",
+                path="q.sql",
             ),
         ),
         relations=(
             ExtractedDomainRelation(
-                relation_type="READS_FROM", path="q.sql",
-                from_identity=e, to_unresolved="elsewhere",
+                relation_type="READS_FROM",
+                path="q.sql",
+                from_identity=e,
+                to_unresolved="elsewhere",
             ),
         ),
     )
     persist_domain_result(store, repo_id, snap, file_ids, result)
     # index_jobs.snapshot_id não tem cascade — mesmo desfazimento do GC
-    conn.execute("UPDATE index_jobs SET snapshot_id = NULL WHERE snapshot_id = ?",
-                 (snap,))
+    conn.execute("UPDATE index_jobs SET snapshot_id = NULL WHERE snapshot_id = ?", (snap,))
     conn.execute("DELETE FROM snapshots WHERE id = ?", (snap,))
-    assert conn.execute(
-        "SELECT COUNT(*) AS c FROM domain_entity_occurrences"
-    ).fetchone()["c"] == 0
-    assert conn.execute(
-        "SELECT COUNT(*) AS c FROM domain_relations"
-    ).fetchone()["c"] == 0
+    assert conn.execute("SELECT COUNT(*) AS c FROM domain_entity_occurrences").fetchone()["c"] == 0
+    assert conn.execute("SELECT COUNT(*) AS c FROM domain_relations").fetchone()["c"] == 0
     # entidade lógica sobrevive (identidade por repositório, não snapshot)
-    assert conn.execute(
-        "SELECT COUNT(*) AS c FROM domain_entities"
-    ).fetchone()["c"] == 1
+    assert conn.execute("SELECT COUNT(*) AS c FROM domain_entities").fetchone()["c"] == 1
 
 
 def test_snapshot_domain_entities_query(
@@ -420,16 +468,19 @@ def test_snapshot_domain_entities_query(
     conn, repo_id, snap, file_ids = workspace
     store = Store(conn)
     result = DomainExtractionResult(
-        domain_id="sql", adapter_version="0.1.0",
+        domain_id="sql",
+        adapter_version="0.1.0",
         entities=(
             ExtractedDomainEntity(
                 identity=_ident(catalog="catA"),
-                kind=DomainEntityKind.DATA_TABLE, name="orders",
+                kind=DomainEntityKind.DATA_TABLE,
+                name="orders",
                 path="q.sql",
             ),
             ExtractedDomainEntity(
                 identity=_ident(catalog="catB"),
-                kind=DomainEntityKind.DATA_TABLE, name="orders",
+                kind=DomainEntityKind.DATA_TABLE,
+                name="orders",
                 path="q.sql",
             ),
         ),

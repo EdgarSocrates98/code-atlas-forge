@@ -197,7 +197,9 @@ def run_wizard(
     components: tuple[str, ...] | None = None
     if comp_order:
         comp_checked = comp_defaults.get(profile, set())
-        print(_c(ctx, "2", "  component choices (economy loads optional knowledge/evals on demand):"))
+        print(
+            _c(ctx, "2", "  component choices (economy loads optional knowledge/evals on demand):")
+        )
         for component in comp_order:
             detail = comp_details.get(component)
             print(f"    {component:<13} {detail}" if detail else f"    {component}")

@@ -74,8 +74,7 @@ def test_apply_project_scope(env) -> None:
 def test_reinstall_skips_existing_config(env) -> None:
     lifecycle.install(yes=True)
     doc = lifecycle.install(yes=True)
-    cfg_step = next(s for s in doc["skipped"] + doc["applied"]
-                    if s["component"] == "config")
+    cfg_step = next(s for s in doc["skipped"] + doc["applied"] if s["component"] == "config")
     assert "already exists" in cfg_step["result"] or cfg_step["action"] == "skipped"
 
 

@@ -25,9 +25,7 @@ RESOLUTION_SCHEMA_VERSION = 1
 
 # Buckets de kind aceitos pelo contrato — adapters SCIP/LSP/syntactic
 # mapeiam seus pedidos para este vocabulário.
-REQUEST_KINDS = frozenset(
-    {"call", "import", "type-ref", "reference", "definition"}
-)
+REQUEST_KINDS = frozenset({"call", "import", "type-ref", "reference", "definition"})
 
 # kind do request → tipo de relação das capabilities (Registry filtra
 # resolvers por este vocabulário de grafo).
@@ -50,34 +48,34 @@ def relation_for_kind(kind: str) -> str:
 class ResolverProvenance:
     """Origem verificável de um resultado de resolução."""
 
-    resolver_id: str          # ex.: "syntactic", "scip", "lsp:pyright"
-    resolver_version: str     # versão do resolvedor (semver interno)
-    evidence_tier: int        # EvidenceTier — 1=semantic-index…4=heuristic
-    detail: str = ""          # indexer/server de origem, grammar, etc.
-    index_hash: str = ""      # sha256 do índice externo (lf-0035), se houver
+    resolver_id: str  # ex.: "syntactic", "scip", "lsp:pyright"
+    resolver_version: str  # versão do resolvedor (semver interno)
+    evidence_tier: int  # EvidenceTier — 1=semantic-index…4=heuristic
+    detail: str = ""  # indexer/server de origem, grammar, etc.
+    index_hash: str = ""  # sha256 do índice externo (lf-0035), se houver
 
 
 @dataclass(frozen=True)
 class ResolutionRequest:
     """Pedido de resolução de um símbolo/referência textual."""
 
-    name: str                  # texto a resolver (callee, nome, import)
-    kind: str                  # call | import | type-ref | reference | definition
-    path: str                  # arquivo de origem (relativo ao repo)
+    name: str  # texto a resolver (callee, nome, import)
+    kind: str  # call | import | type-ref | reference | definition
+    path: str  # arquivo de origem (relativo ao repo)
     language: str = ""
     span: SourceSpan | None = None
-    module: str = ""           # qname do módulo de origem, se conhecido
+    module: str = ""  # qname do módulo de origem, se conhecido
 
 
 @dataclass(frozen=True)
 class ResolvedReference:
     """Resultado de uma resolução de referência/call/import."""
 
-    status: str                       # resolved|ambiguous|unresolved|external
-    confidence_class: str             # resolved|syntactic|heuristic|inferred
+    status: str  # resolved|ambiguous|unresolved|external
+    confidence_class: str  # resolved|syntactic|heuristic|inferred
     provenance: ResolverProvenance
-    target_id: str | None = None      # node_id interno quando resolvido
-    target_text: str = ""             # texto preservado do alvo
+    target_id: str | None = None  # node_id interno quando resolvido
+    target_text: str = ""  # texto preservado do alvo
     candidates: tuple[str, ...] = ()  # alvos concorrentes quando ambiguous
 
 

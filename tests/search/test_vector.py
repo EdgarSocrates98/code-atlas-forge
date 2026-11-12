@@ -22,10 +22,7 @@ from code_atlas.storage import connect, migrate
 _REPO = {
     "pkg/__init__.py": "",
     "pkg/util.py": 'def helper():\n    """Utility helper."""\n    return 1\n',
-    "pkg/engine.py": (
-        "from pkg.util import helper\n\n"
-        "def run():\n    return helper()\n"
-    ),
+    "pkg/engine.py": ("from pkg.util import helper\n\ndef run():\n    return helper()\n"),
 }
 
 
@@ -46,8 +43,9 @@ def env(tmp_path: Path):
 
 def _search(env, q: str, strategy: str = "vector"):
     conn, root = env
-    return SearchEngine(conn).search(SearchRequest(
-        query=q, strategy=strategy, repository_root=root, limit=10))
+    return SearchEngine(conn).search(
+        SearchRequest(query=q, strategy=strategy, repository_root=root, limit=10)
+    )
 
 
 def test_naive_provider_deterministic() -> None:
@@ -114,11 +112,9 @@ def test_disabled_engine_strategies_unaffected(env) -> None:
     eng = SearchEngine(conn, enable_vector=False)
     for strategy in ("lexical", "structural", "graph", "hybrid"):
         q = "helper" if strategy != "graph" else "pkg.util.helper"
-        res = eng.search(SearchRequest(
-            query=q, strategy=strategy, repository_root=root, limit=10))
+        res = eng.search(SearchRequest(query=q, strategy=strategy, repository_root=root, limit=10))
         assert res.items, strategy
-    res = eng.search(SearchRequest(
-        query="helper", strategy="vector", repository_root=root))
+    res = eng.search(SearchRequest(query="helper", strategy="vector", repository_root=root))
     # vetorial desligada ainda responde (provider interno default) —
     # desligar só a remove da fusão/capabilities, nunca quebra
     assert res.ranking_version in ("vector-cosine-v1",)
@@ -130,8 +126,7 @@ def test_hybrid_includes_vector_ranking(env) -> None:
     helper = by.get("pkg.util.helper")
     assert helper is not None
     # helper aparece em lexical/structural/vector — evidência preservada
-    assert "vector" in helper.matched_fields or len(
-        helper.matched_fields) >= 2
+    assert "vector" in helper.matched_fields or len(helper.matched_fields) >= 2
     assert any(e.startswith("vector:rank=") for e in helper.evidence)
 
 
@@ -139,19 +134,15 @@ def test_reindex_on_model_change(env) -> None:
     """Modelo mudou de versão → embeddings antigas não casam → rebuild."""
     conn, _root = env
     _search(env, "helper")
-    n1 = conn.execute(
-        "SELECT COUNT(*) AS c FROM vector_embeddings").fetchone()["c"]
+    n1 = conn.execute("SELECT COUNT(*) AS c FROM vector_embeddings").fetchone()["c"]
     assert n1 > 0
     # versão nova do modelo → ensure reindexa (mesma ocorrência, hash
     # de conteúdo igual MAS model_version diferente)
-    conn.execute(
-        "UPDATE vector_embeddings SET model_version = 'v0-OLD'")
+    conn.execute("UPDATE vector_embeddings SET model_version = 'v0-OLD'")
     conn.commit()
     res = _search(env, "helper")
     assert res.items  # rebuilt transparentemente
-    rows = conn.execute(
-        "SELECT DISTINCT model_version FROM vector_embeddings"
-    ).fetchall()
+    rows = conn.execute("SELECT DISTINCT model_version FROM vector_embeddings").fetchall()
     # linhas atualizadas para a versão corrente (INSERT OR REPLACE)
     assert any(r["model_version"] == "v1" for r in rows)
 
@@ -164,6 +155,5 @@ def test_embedding_cache_table_versioned(env) -> None:
     cache.put(p.info(), h, [0.5] * 16)
     assert cache.get(p.info(), h) == [0.5] * 16
     # modelo "antigo" não lê versão nova (versionamento estrutural)
-    old = p.info().__class__(
-        model_id="naive-hash", version="v0", dim=16)
+    old = p.info().__class__(model_id="naive-hash", version="v0", dim=16)
     assert cache.get(old, h) is None

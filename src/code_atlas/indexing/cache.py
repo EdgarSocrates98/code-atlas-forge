@@ -66,15 +66,13 @@ class CacheKey:
 def _span_to_json(s: SourceSpan | None) -> list[int] | None:
     if s is None:
         return None
-    return [s.start_byte, s.end_byte, s.start_line, s.start_col,
-            s.end_line, s.end_col]
+    return [s.start_byte, s.end_byte, s.start_line, s.start_col, s.end_line, s.end_col]
 
 
 def _span_from_json(v: Any) -> SourceSpan | None:
     if v is None:
         return None
-    return SourceSpan(int(v[0]), int(v[1]), int(v[2]), int(v[3]),
-                      int(v[4]), int(v[5]))
+    return SourceSpan(int(v[0]), int(v[1]), int(v[2]), int(v[3]), int(v[4]), int(v[5]))
 
 
 def result_to_payload(res: ParseResult) -> str:
@@ -94,37 +92,48 @@ def result_to_payload(res: ParseResult) -> str:
         "supported": res.supported,
         "diagnostics": [
             {
-                "code": d.code, "severity": d.severity,
-                "message": d.message, "span": _span_to_json(d.span),
+                "code": d.code,
+                "severity": d.severity,
+                "message": d.message,
+                "span": _span_to_json(d.span),
             }
             for d in res.diagnostics
         ],
         "symbols": [
             {
-                "language": s.language, "kind": s.kind, "name": s.name,
+                "language": s.language,
+                "kind": s.kind,
+                "name": s.name,
                 "qualified_name": s.qualified_name,
                 "span": _span_to_json(s.span),
                 "name_span": _span_to_json(s.name_span),
                 "scope_path": list(s.scope_path),
-                "signature": s.signature, "params": list(s.params),
-                "docstring": s.docstring, "decorators": list(s.decorators),
-                "bases": list(s.bases), "implements": list(s.implements),
+                "signature": s.signature,
+                "params": list(s.params),
+                "docstring": s.docstring,
+                "decorators": list(s.decorators),
+                "bases": list(s.bases),
+                "implements": list(s.implements),
                 "modifiers": list(s.modifiers),
             }
             for s in res.symbols
         ],
         "references": [
             {
-                "name": r.name, "context": r.context,
+                "name": r.name,
+                "context": r.context,
                 "span": _span_to_json(r.span),
-                "scope_path": list(r.scope_path), "target": r.target,
+                "scope_path": list(r.scope_path),
+                "target": r.target,
             }
             for r in res.references
         ],
         "relations": [
             {
-                "type": r.type, "from_name": r.from_name,
-                "to_name": r.to_name, "span": _span_to_json(r.span),
+                "type": r.type,
+                "from_name": r.from_name,
+                "to_name": r.to_name,
+                "span": _span_to_json(r.span),
                 "confidence_class": r.confidence_class,
                 "resolution_status": r.resolution_status,
             }
@@ -153,7 +162,8 @@ def result_from_payload(payload: str) -> ParseResult:
         supported=bool(doc["supported"]),
         diagnostics=tuple(
             ParseDiagnostic(
-                code=str(d["code"]), severity=str(d["severity"]),
+                code=str(d["code"]),
+                severity=str(d["severity"]),
                 message=str(d["message"]),
                 span=_span_from_json(d["span"]),
             )
@@ -161,7 +171,8 @@ def result_from_payload(payload: str) -> ParseResult:
         ),
         symbols=tuple(
             ExtractedSymbol(
-                language=str(s["language"]), kind=str(s["kind"]),
+                language=str(s["language"]),
+                kind=str(s["kind"]),
                 name=str(s["name"]),
                 qualified_name=str(s["qualified_name"]),
                 span=_span_from_json(s["span"]) or _ZERO_SPAN,
@@ -179,7 +190,8 @@ def result_from_payload(payload: str) -> ParseResult:
         ),
         references=tuple(
             ExtractedReference(
-                name=str(r["name"]), context=str(r["context"]),
+                name=str(r["name"]),
+                context=str(r["context"]),
                 span=_span_from_json(r["span"]) or _ZERO_SPAN,
                 scope_path=tuple(str(x) for x in r["scope_path"]),
                 target=str(r["target"]),
@@ -188,7 +200,8 @@ def result_from_payload(payload: str) -> ParseResult:
         ),
         relations=tuple(
             ExtractedRelation(
-                type=str(r["type"]), from_name=str(r["from_name"]),
+                type=str(r["type"]),
+                from_name=str(r["from_name"]),
                 to_name=str(r["to_name"]),
                 span=_span_from_json(r["span"]) or _ZERO_SPAN,
                 confidence_class=str(r["confidence_class"]),
@@ -212,9 +225,16 @@ class ParseResultCache:
 
     def _key_params(self, key: CacheKey) -> tuple[object, ...]:
         return (
-            self._repo_id, key.path, key.content_sha256, key.language,
-            key.parser_version, key.grammar_version, key.extractor_version,
-            RESOLVER_VERSION, BUILDER_VERSION, key.config_digest,
+            self._repo_id,
+            key.path,
+            key.content_sha256,
+            key.language,
+            key.parser_version,
+            key.grammar_version,
+            key.extractor_version,
+            RESOLVER_VERSION,
+            BUILDER_VERSION,
+            key.config_digest,
         )
 
     def get(self, key: CacheKey) -> ParseResult | None:
@@ -239,18 +259,14 @@ class ParseResultCache:
         ).fetchone()
         if row is None:
             return None
-        if hashlib.sha256(row["payload"].encode()).hexdigest() != (
-            row["payload_sha256"]
-        ):
+        if hashlib.sha256(row["payload"].encode()).hexdigest() != (row["payload_sha256"]):
             return None  # blob corrompido → miss
         try:
             return result_from_payload(row["payload"])
         except (ValueError, KeyError, TypeError, json.JSONDecodeError):
             return None
 
-    def get_many(
-        self, keys: list[CacheKey]
-    ) -> dict[str, ParseResult]:
+    def get_many(self, keys: list[CacheKey]) -> dict[str, ParseResult]:
         """Lookup batchado — um ``IN`` por chunk de paths em vez de um
         SELECT por arquivo (lf-0031: 2019 round-trips → ~5 num corpus
         2k). Mesmas garantias de ``get``: payload_sha256 verificado,
@@ -259,7 +275,7 @@ class ParseResultCache:
         out: dict[str, ParseResult] = {}
         paths = sorted(wanted)
         for i in range(0, len(paths), _BATCH_CHUNK):
-            chunk = paths[i:i + _BATCH_CHUNK]
+            chunk = paths[i : i + _BATCH_CHUNK]
             # SQL constante (auditoria AST): a lista de paths entra como
             # UM parâmetro JSON via json_each — sem placeholders
             # dinâmicos e sem interpolar dados na query.
@@ -281,26 +297,27 @@ class ParseResultCache:
                     out[row["path"]] = res
         return out
 
-    def _row_result(
-        self, wanted: dict[str, CacheKey], row: sqlite3.Row
-    ) -> ParseResult | None:
+    def _row_result(self, wanted: dict[str, CacheKey], row: sqlite3.Row) -> ParseResult | None:
         """Valida a linha contra a CacheKey exata + integridade do blob."""
         key = wanted.get(row["path"])
         if key is None:
             return None
         params = self._key_params(key)
         row_key = (
-            self._repo_id, row["path"], row["content_sha256"],
-            row["language"], row["parser_version"],
-            row["grammar_version"], row["extractor_version"],
-            row["resolver_version"], row["builder_version"],
+            self._repo_id,
+            row["path"],
+            row["content_sha256"],
+            row["language"],
+            row["parser_version"],
+            row["grammar_version"],
+            row["extractor_version"],
+            row["resolver_version"],
+            row["builder_version"],
             row["config_digest"],
         )
         if row_key != params:
             return None  # chave de validade diverge → miss
-        if hashlib.sha256(row["payload"].encode()).hexdigest() != (
-            row["payload_sha256"]
-        ):
+        if hashlib.sha256(row["payload"].encode()).hexdigest() != (row["payload_sha256"]):
             return None
         try:
             return result_from_payload(row["payload"])
@@ -378,11 +395,13 @@ class ParseResultCache:
         )
         removed = cur.rowcount if cur.rowcount else 0
         # cap global por repo — evict LRU (menor last_used_snapshot_id)
-        over = self._conn.execute(
-            "SELECT COUNT(*) AS c FROM parse_result_cache"
-            " WHERE repository_id = ?",
-            (repo_id,),
-        ).fetchone()["c"] - max_entries
+        over = (
+            self._conn.execute(
+                "SELECT COUNT(*) AS c FROM parse_result_cache WHERE repository_id = ?",
+                (repo_id,),
+            ).fetchone()["c"]
+            - max_entries
+        )
         if over > 0:
             cur2 = self._conn.execute(
                 "DELETE FROM parse_result_cache WHERE id IN ("

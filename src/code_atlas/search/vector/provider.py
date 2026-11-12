@@ -28,8 +28,11 @@ class NaiveEmbeddingProvider:
             raise ValueError("dim deve ser > 0")
         self._dim = dim
         self._info = EmbeddingModelInfo(
-            model_id="naive-hash", version="v1", dim=dim,
-            detail="feature hashing de tokens (baseline não-semântico)")
+            model_id="naive-hash",
+            version="v1",
+            dim=dim,
+            detail="feature hashing de tokens (baseline não-semântico)",
+        )
 
     def info(self) -> EmbeddingModelInfo:
         return self._info

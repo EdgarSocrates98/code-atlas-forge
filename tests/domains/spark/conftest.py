@@ -65,9 +65,7 @@ def extract(adapter: PySparkAdapter):
         arts = tuple(
             DiscoveredArtifact(
                 path=p,
-                sha256=hashlib.sha256(
-                    (FIXTURE / p).read_bytes()
-                ).hexdigest(),
+                sha256=hashlib.sha256((FIXTURE / p).read_bytes()).hexdigest(),
             )
             for p in paths
         )
@@ -115,15 +113,8 @@ def rels():
         for r in res.relations:
             if r.relation_type != rtype:
                 continue
-            frm = (
-                r.from_identity.display()
-                if r.from_identity else r.from_symbol or "?"
-            )
-            to = (
-                r.to_identity.display()
-                if r.to_identity
-                else r.to_unresolved or r.to_symbol
-            )
+            frm = r.from_identity.display() if r.from_identity else r.from_symbol or "?"
+            to = r.to_identity.display() if r.to_identity else r.to_unresolved or r.to_symbol
             out.add((frm, to))
         return out
 

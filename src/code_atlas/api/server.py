@@ -53,19 +53,18 @@ def _content_length(raw: str | None) -> int:
     try:
         length = int(raw or 0)
     except (TypeError, ValueError) as exc:
-        raise ApiError("bad-content-length",
-                       "Content-Length inválido", 400) from exc
+        raise ApiError("bad-content-length", "Content-Length inválido", 400) from exc
     if length < 0 or length > MAX_BODY:
-        raise ApiError("payload-too-large",
-                       "corpo fora do limite (0..64 KiB)", 413)
+        raise ApiError("payload-too-large", "corpo fora do limite (0..64 KiB)", 413)
     return length
 
 
 class ApiError(Exception):
     """Erro tipado retornado ao cliente."""
 
-    def __init__(self, code: str, message: str, status: int = 400,
-                 headers: dict[str, str] | None = None) -> None:
+    def __init__(
+        self, code: str, message: str, status: int = 400, headers: dict[str, str] | None = None
+    ) -> None:
         super().__init__(message)
         self.code = code
         self.message = message
@@ -106,7 +105,8 @@ def _security_headers(h: BaseHTTPRequestHandler, *, cors: bool) -> None:
         "style-src 'self' 'unsafe-inline'; img-src 'self' data:; "
         "connect-src 'self'; font-src 'self'; worker-src 'self'; "
         "object-src 'none'; base-uri 'self'; form-action 'self'; "
-        "frame-ancestors 'none'")
+        "frame-ancestors 'none'",
+    )
     if cors:
         h.send_header("Access-Control-Allow-Origin", "http://127.0.0.1")
         h.send_header("Vary", "Origin")
@@ -135,12 +135,17 @@ class _AtlasHandler(BaseHTTPRequestHandler):
         self.server.log(format(fmt % args)) if self.server.verbose else None
 
     # --- plumbing -----------------------------------------------------
-    def _json(self, payload: Any, status: int = 200,
-              extra_headers: dict[str, str] | None = None) -> None:
+    def _json(
+        self, payload: Any, status: int = 200, extra_headers: dict[str, str] | None = None
+    ) -> None:
         body = json.dumps(payload, ensure_ascii=False, default=str).encode()
         if len(body) > MAX_RESPONSE:
-            err = {"error": {"code": "response-too-large",
-                             "message": "resposta excedeu o limite interno"}}
+            err = {
+                "error": {
+                    "code": "response-too-large",
+                    "message": "resposta excedeu o limite interno",
+                }
+            }
             body = json.dumps(err).encode()
             status = 500
         self.send_response(status)
@@ -154,8 +159,7 @@ class _AtlasHandler(BaseHTTPRequestHandler):
 
     def _error(self, e: Exception) -> None:
         if isinstance(e, ApiError):
-            self._json({"error": {"code": e.code, "message": e.message}},
-                       e.status, e.headers)
+            self._json({"error": {"code": e.code, "message": e.message}}, e.status, e.headers)
             return
         self._json({"error": {"code": "internal", "message": str(e)[:200]}}, 500)
 
@@ -187,6 +191,7 @@ class _AtlasHandler(BaseHTTPRequestHandler):
     def _serve_static(self, path: str) -> None:
         """Assets compilados do Explorer — allowlist de tipos, sem traversal."""
         import mimetypes
+
         assert self.server.static_root is not None
         root = self.server.static_root.resolve()
         rel = "index.html" if path in ("", "/") else path.lstrip("/")
@@ -199,8 +204,19 @@ class _AtlasHandler(BaseHTTPRequestHandler):
             target = root / "index.html"
             if not target.is_file():
                 raise ApiError("not-found", "asset inexistente", 404)
-        allowed = {".html", ".js", ".css", ".json", ".svg", ".png", ".ico",
-                   ".woff", ".woff2", ".txt", ".map"}
+        allowed = {
+            ".html",
+            ".js",
+            ".css",
+            ".json",
+            ".svg",
+            ".png",
+            ".ico",
+            ".woff",
+            ".woff2",
+            ".txt",
+            ".map",
+        }
         if target.suffix.lower() not in allowed:
             raise ApiError("not-found", "tipo de asset não permitido", 404)
         # lf-0153: stat ANTES do read — um asset gigante plantado na
@@ -228,8 +244,7 @@ class _AtlasHandler(BaseHTTPRequestHandler):
 
     def do_OPTIONS(self) -> None:
         if not self._origin_ok():
-            self._json({"error": {"code": "bad-origin",
-                                  "message": "Origin não permitida"}}, 403)
+            self._json({"error": {"code": "bad-origin", "message": "Origin não permitida"}}, 403)
             return
         self.send_response(204)
         self.send_header("Access-Control-Allow-Origin", "http://127.0.0.1")
@@ -247,23 +262,24 @@ class _AtlasHandler(BaseHTTPRequestHandler):
             # não-determinístico entre plataformas/versões (Win py3.13
             # retorna 200 via SPA fallback onde POSIX/py3.12 dava 400).
             if any(ord(c) < 0x20 or ord(c) == 0x7F for c in self.path):
-                raise ApiError(
-                    "bad-request", "request-target malformado", 400)
+                raise ApiError("bad-request", "request-target malformado", 400)
             path = urlparse(self.path).path
             if not path.startswith(API_PREFIX):
                 if method == "GET" and self.server.static_root:
                     self._serve_static(path)
                     return
                 raise ApiError("not-found", "rota inexistente", 404)
-            allowed, retry = self.server.rate_limiter.allow(
-                self.client_address[0])
+            allowed, retry = self.server.rate_limiter.allow(self.client_address[0])
             if not allowed:
                 raise ApiError(
                     "rate-limited",
-                    "limite de requisições por minuto excedido", 429,
-                    headers={"Retry-After": str(int(retry + 0.5))})
-            route = path[len(API_PREFIX):]
+                    "limite de requisições por minuto excedido",
+                    429,
+                    headers={"Retry-After": str(int(retry + 0.5))},
+                )
+            route = path[len(API_PREFIX) :]
             from code_atlas.api.handlers import handle
+
             self._json(handle(self.server, method, route, self))
         except ApiError as e:
             self._error(e)
@@ -272,12 +288,10 @@ class _AtlasHandler(BaseHTTPRequestHandler):
             # NUL em ``resolve()`` (``GET /a\x00b``), IPv6 malformado
             # em absolute-URI (``GET http://[``) — era 500 ``internal``
             # para o que é erro do cliente; agora 400 tipado.
-            self._error(ApiError(
-                "bad-request", "request-target malformado", 400))
+            self._error(ApiError("bad-request", "request-target malformado", 400))
         except TimeoutError:
             with contextlib.suppress(OSError):
-                self._error(ApiError(
-                    "request-timeout", "tempo de request excedido", 408))
+                self._error(ApiError("request-timeout", "tempo de request excedido", 408))
         except Exception as e:  # nunca expor traceback
             self._error(e)
 
@@ -286,11 +300,15 @@ class _AtlasHttpd(ThreadingHTTPServer):
     daemon_threads = True
     allow_reuse_address = True
 
-    def __init__(self, addr: tuple[str, int], db_path: str,
-                 verbose: bool = False,
-                 static_root: Path | None = None,
-                 rate_limit: int = RATE_LIMIT,
-                 request_timeout: float = REQUEST_TIMEOUT) -> None:
+    def __init__(
+        self,
+        addr: tuple[str, int],
+        db_path: str,
+        verbose: bool = False,
+        static_root: Path | None = None,
+        rate_limit: int = RATE_LIMIT,
+        request_timeout: float = REQUEST_TIMEOUT,
+    ) -> None:
         super().__init__(addr, _AtlasHandler)
         self.db_path = db_path
         self.verbose = verbose
@@ -305,6 +323,7 @@ class _AtlasHttpd(ThreadingHTTPServer):
         # cliente (``GET /\x1b[31m``) — escape antes de tocar o stderr,
         # senão ``--verbose`` vira canal de ANSI/forged-line injection.
         from code_atlas.observability.logging import escape_control
+
         print(f"[atlas-api] {escape_control(msg)}", flush=True)
 
     def handle_error(self, request: Any, client_address: Any) -> None:
@@ -326,17 +345,26 @@ class _AtlasHttpd(ThreadingHTTPServer):
 class AtlasApiServer:
     """Wrapper de ciclo de vida — usado pela CLI e testes."""
 
-    def __init__(self, db_path: str, host: str = "127.0.0.1",
-                 port: int = 8741, verbose: bool = False,
-                 static_root: Path | None = None,
-                 rate_limit: int = RATE_LIMIT,
-                 request_timeout: float = REQUEST_TIMEOUT) -> None:
+    def __init__(
+        self,
+        db_path: str,
+        host: str = "127.0.0.1",
+        port: int = 8741,
+        verbose: bool = False,
+        static_root: Path | None = None,
+        rate_limit: int = RATE_LIMIT,
+        request_timeout: float = REQUEST_TIMEOUT,
+    ) -> None:
         if host not in ("127.0.0.1", "localhost", "::1"):
-            raise ApiError("unsafe-bind",
-                           "bind público proibido — use 127.0.0.1")
+            raise ApiError("unsafe-bind", "bind público proibido — use 127.0.0.1")
         self._httpd = _AtlasHttpd(
-            (host, port), db_path, verbose, static_root=static_root,
-            rate_limit=rate_limit, request_timeout=request_timeout)
+            (host, port),
+            db_path,
+            verbose,
+            static_root=static_root,
+            rate_limit=rate_limit,
+            request_timeout=request_timeout,
+        )
         self.port = self._httpd.server_address[1]
         self.host = host
 
@@ -368,27 +396,38 @@ def explorer_static_root(repo_hint: Path | None = None) -> Path | None:
     """
     try:
         from importlib.resources import files
+
         packaged = files("code_atlas").joinpath("explorer_dist")
-        if (isinstance(packaged, Path)
-                and (packaged / "index.html").is_file()):
+        if isinstance(packaged, Path) and (packaged / "index.html").is_file():
             return packaged
     except (ModuleNotFoundError, TypeError, OSError):
         pass
     if repo_hint is not None:
         for candidate in (
-                repo_hint / "explorer" / "dist" / "explorer" / "browser",
-                repo_hint / "explorer" / "dist"):
+            repo_hint / "explorer" / "dist" / "explorer" / "browser",
+            repo_hint / "explorer" / "dist",
+        ):
             if (candidate / "index.html").is_file():
                 return candidate
     return None
 
 
-def serve(db_path: str, host: str = "127.0.0.1", port: int = 8741,
-          verbose: bool = False,
-          static_root: Path | None = None,
-          rate_limit: int = RATE_LIMIT,
-          request_timeout: float = REQUEST_TIMEOUT) -> AtlasApiServer:
+def serve(
+    db_path: str,
+    host: str = "127.0.0.1",
+    port: int = 8741,
+    verbose: bool = False,
+    static_root: Path | None = None,
+    rate_limit: int = RATE_LIMIT,
+    request_timeout: float = REQUEST_TIMEOUT,
+) -> AtlasApiServer:
     """Sobe o servidor — retorna handle para shutdown limpo."""
-    return AtlasApiServer(db_path, host=host, port=port, verbose=verbose,
-                          static_root=static_root, rate_limit=rate_limit,
-                          request_timeout=request_timeout)
+    return AtlasApiServer(
+        db_path,
+        host=host,
+        port=port,
+        verbose=verbose,
+        static_root=static_root,
+        rate_limit=rate_limit,
+        request_timeout=request_timeout,
+    )

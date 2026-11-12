@@ -14,11 +14,7 @@ from code_atlas.domains.model import DomainEntityKind
 
 
 def _names(res, kind: DomainEntityKind) -> set[str]:
-    return {
-        e.identity.display()
-        for e in res.entities
-        if e.kind is kind
-    }
+    return {e.identity.display() for e in res.entities if e.kind is kind}
 
 
 class TestEtlPipeline:
@@ -56,9 +52,7 @@ class TestEtlPipeline:
             "pyspark:etl_orders.py#all_customers@22",
         ) in derived
 
-    def test_save_as_table_write_collapse(
-        self, full_result, rels
-    ) -> None:
+    def test_save_as_table_write_collapse(self, full_result, rels) -> None:
         writes = rels(full_result, "WRITES_TO")
         assert (
             "pyspark:etl_orders.py#enriched@24",
@@ -70,9 +64,7 @@ class TestEtlPipeline:
             "pyspark:s3://datalake/customers/",
             "pyspark:s3://datalake/customers_archive/",
         ):
-            assert (
-                "pyspark:mart.enriched_orders", src
-            ) in derived, src
+            assert ("pyspark:mart.enriched_orders", src) in derived, src
 
     def test_path_write(self, full_result, rels) -> None:
         writes = rels(full_result, "WRITES_TO")
@@ -81,17 +73,16 @@ class TestEtlPipeline:
             "pyspark:s3://datalake/mart/enriched_orders/",
         ) in writes
         ent = next(
-            e for e in full_result.entities
-            if e.identity.qualified_name
-            == "s3://datalake/mart/enriched_orders/"
+            e
+            for e in full_result.entities
+            if e.identity.qualified_name == "s3://datalake/mart/enriched_orders/"
         )
         assert ent.attributes["storage"] == "path"
         assert ent.attributes["roles"] == "write"
 
     def test_write_mode_recorded(self, full_result) -> None:
         ent = next(
-            e for e in full_result.entities
-            if e.identity.qualified_name == "enriched_orders"
+            e for e in full_result.entities if e.identity.qualified_name == "enriched_orders"
         )
         assert ent.attributes["write_mode"] == "overwrite"
 
@@ -138,13 +129,9 @@ class TestSqlJob:
             "pyspark:staging.customers",
             "pyspark:staging.regions",
         ):
-            assert (
-                "pyspark:mart.customer_region_counts", src
-            ) in derived, src
+            assert ("pyspark:mart.customer_region_counts", src) in derived, src
 
-    def test_select_star_literal_diagnosed(
-        self, full_result, diag_codes
-    ) -> None:
+    def test_select_star_literal_diagnosed(self, full_result, diag_codes) -> None:
         assert "select-star" in diag_codes(full_result)
 
 
@@ -171,9 +158,7 @@ class TestDynamicJob:
             "pyspark:staging.incoming_clean",
         ) in writes
         derived = rels(full_result, "DERIVES_FROM")
-        assert (
-            "pyspark:dynamic_job.py#expr@29", "src"
-        ) in derived
+        assert ("pyspark:dynamic_job.py#expr@29", "src") in derived
 
 
 class TestNotebookImplicit:
@@ -194,15 +179,10 @@ class TestViewsJob:
     def test_temp_view_entity(self, full_result) -> None:
         views = _names(full_result, DomainEntityKind.DATA_VIEW)
         assert "pyspark:orders_v" in views
-        ent = next(
-            e for e in full_result.entities
-            if e.identity.qualified_name == "orders_v"
-        )
+        ent = next(e for e in full_result.entities if e.identity.qualified_name == "orders_v")
         assert ent.attributes["temporary"] == "true"
 
-    def test_view_read_edge_and_collapse(
-        self, full_result, rels
-    ) -> None:
+    def test_view_read_edge_and_collapse(self, full_result, rels) -> None:
         reads = rels(full_result, "READS_FROM")
         assert (
             "pyspark:views_job.py#joined@15",
@@ -214,35 +194,20 @@ class TestViewsJob:
         ) in reads
         derived = rels(full_result, "DERIVES_FROM")
         # mart.joined colapsa nas fontes terminais — a view é alias
-        assert (
-            "pyspark:mart.joined", "pyspark:staging.orders"
-        ) in derived
-        assert (
-            "pyspark:mart.joined", "pyspark:staging.customers"
-        ) in derived
+        assert ("pyspark:mart.joined", "pyspark:staging.orders") in derived
+        assert ("pyspark:mart.joined", "pyspark:staging.customers") in derived
 
 
 class TestNegativeCases:
-    def test_broken_file_parse_error(
-        self, full_result, diag_codes
-    ) -> None:
+    def test_broken_file_parse_error(self, full_result, diag_codes) -> None:
         assert "parse-error" in diag_codes(full_result)
-        bad = [
-            d for d in full_result.diagnostics
-            if d.path == "broken_job.py"
-        ]
+        bad = [d for d in full_result.diagnostics if d.path == "broken_job.py"]
         assert bad and bad[0].severity == "error"
 
     def test_plain_file_no_claims(self, full_result) -> None:
-        plain = [
-            e for e in full_result.entities
-            if e.path == "plain_utils.py"
-        ]
+        plain = [e for e in full_result.entities if e.path == "plain_utils.py"]
         assert plain == []
-        plain_rels = [
-            r for r in full_result.relations
-            if r.path == "plain_utils.py"
-        ]
+        plain_rels = [r for r in full_result.relations if r.path == "plain_utils.py"]
         assert plain_rels == []
         assert full_result.stats.get("non_spark_files") == 1
 
@@ -253,8 +218,6 @@ class TestNegativeCases:
         assert full_result.stats["sql_literals"] == 3
         assert full_result.stats["sql_dynamic"] == 2
 
-    def test_entities_have_artifact_path(
-        self, full_result: DomainExtractionResult
-    ) -> None:
+    def test_entities_have_artifact_path(self, full_result: DomainExtractionResult) -> None:
         for e in full_result.entities:
             assert e.path.endswith(".py"), e.identity.display()

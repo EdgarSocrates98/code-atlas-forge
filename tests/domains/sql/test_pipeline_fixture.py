@@ -19,20 +19,14 @@ def _edges(res: DomainExtractionResult, rtype: str) -> set[tuple[str, str]]:
         if r.relation_type != rtype:
             continue
         f = r.from_identity.display() if r.from_identity else "?"
-        t = (
-            r.to_identity.display()
-            if r.to_identity
-            else r.to_unresolved or "?"
-        )
+        t = r.to_identity.display() if r.to_identity else r.to_unresolved or "?"
         out.add((f, t))
     return out
 
 
 def _tables(res: DomainExtractionResult) -> set[str]:
     return {
-        e.identity.display()
-        for e in res.entities
-        if e.kind.value in ("data_table", "data_view")
+        e.identity.display() for e in res.entities if e.kind.value in ("data_table", "data_view")
     }
 
 
@@ -73,9 +67,9 @@ def test_staging_view_reads_landing(
 def test_staging_facts_read_view(
     full_result: DomainExtractionResult,
 ) -> None:
-    assert (
-        "sql:staging.order_facts", "sql:staging.v_enriched_orders"
-    ) in _edges(full_result, "DERIVES_FROM")
+    assert ("sql:staging.order_facts", "sql:staging.v_enriched_orders") in _edges(
+        full_result, "DERIVES_FROM"
+    )
 
 
 def test_mart_reads_staging(
@@ -123,38 +117,28 @@ def test_end_to_end_column_lineage(
 def test_pipeline_is_diagnostic_free(
     full_result: DomainExtractionResult,
 ) -> None:
-    assert [
-        (d.severity, d.code, d.path) for d in full_result.diagnostics
-    ] == []
+    assert [(d.severity, d.code, d.path) for d in full_result.diagnostics] == []
 
 
 def test_broken_file_partial_plus_diagnostics(
     adapter,
 ) -> None:
-    res = adapter.extract(
-        make_request(paths=(*PIPELINE_PATHS, BROKEN_PATH))
-    )
+    res = adapter.extract(make_request(paths=(*PIPELINE_PATHS, BROKEN_PATH)))
     codes = [d.code for d in res.diagnostics]
     assert "parse-error" in codes
     # os statements válidos do arquivo quebrado ainda extraíram:
     # `SELECT recovered FROM staging.order_facts` e o tail `landing.orders`
     reads = _edges(res, "READS_FROM")
     assert any(
-        tgt == "sql:staging.order_facts" and src.startswith(
-            "sql:broken/99_broken.sql#"
-        )
+        tgt == "sql:staging.order_facts" and src.startswith("sql:broken/99_broken.sql#")
         for src, tgt in reads
     )
     assert any(
-        tgt == "sql:landing.orders" and src.startswith(
-            "sql:broken/99_broken.sql#"
-        )
+        tgt == "sql:landing.orders" and src.startswith("sql:broken/99_broken.sql#")
         for src, tgt in reads
     )
     # o resto do pipeline continua intacto — isolamento por arquivo
-    assert (
-        "sql:mart.daily_revenue", "sql:staging.order_facts"
-    ) in _edges(res, "DERIVES_FROM")
+    assert ("sql:mart.daily_revenue", "sql:staging.order_facts") in _edges(res, "DERIVES_FROM")
 
 
 def test_identities_are_schema_qualified(

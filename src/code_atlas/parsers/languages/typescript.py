@@ -40,8 +40,7 @@ _MODIFIER_TYPES = {
 
 def module_name(path: str) -> str:
     """`src/a.ts` → ``src.a``; `src/b.d.ts` → ``src.b``; `i.d.cts` → ``i``."""
-    for suffix in (".d.cts", ".d.mts", ".d.ts", ".tsx",
-                   ".cts", ".mts", ".ts", ".jsx"):
+    for suffix in (".d.cts", ".d.mts", ".d.ts", ".tsx", ".cts", ".mts", ".ts", ".jsx"):
         if path.endswith(suffix):
             path = path[: -len(suffix)]
             break
@@ -78,17 +77,19 @@ class _TsExtractor:
     def text(self, node: Node) -> str:
         return self.src[node.start_byte : node.end_byte].decode("utf-8", "replace")
 
-    def _diag(self, code: str, severity: str, message: str,
-              node: Node) -> None:
+    def _diag(self, code: str, severity: str, message: str, node: Node) -> None:
         self.diagnostics.append(
             ParseDiagnostic(
-                code=code, severity=severity, message=message,
+                code=code,
+                severity=severity,
+                message=message,
                 span=rt.span_of(node),
             )
         )
 
-    def _emit(self, kind: str, name: str, name_node: Node, node: Node,
-              scope: tuple[str, ...], **kw: Any) -> str:
+    def _emit(
+        self, kind: str, name: str, name_node: Node, node: Node, scope: tuple[str, ...], **kw: Any
+    ) -> str:
         qname = ".".join((*scope, name)) if scope else name
         qname = f"{self.module}.{qname}" if self.module else qname
         self.symbols.append(
@@ -113,9 +114,7 @@ class _TsExtractor:
         n = node.child_by_field_name("name")
         if n is not None:
             return n
-        return next(
-            (c for c in node.named_children if c.type.endswith("identifier")), None
-        )
+        return next((c for c in node.named_children if c.type.endswith("identifier")), None)
 
     # -- decorators ----------------------------------------------------
     # `@Injectable()` em classe é field `decorator` do próprio nó; em
@@ -125,9 +124,7 @@ class _TsExtractor:
     def _decorator_text(self, node: Node) -> str:
         return self.text(node).lstrip("@").strip()
 
-    def _take_decorators(
-        self, node: Node, scope: tuple[str, ...], name: str
-    ) -> tuple[str, ...]:
+    def _take_decorators(self, node: Node, scope: tuple[str, ...], name: str) -> tuple[str, ...]:
         """Coleta decorators aplicados ao símbolo e emite refs
         ``decorator`` (o builder transforma em arestas REFERENCES)."""
         decs = [c for c in node.children if c.type == "decorator"]
@@ -143,29 +140,27 @@ class _TsExtractor:
             if ref_name:
                 self.refs.append(
                     ExtractedReference(
-                        name=ref_name, context="decorator",
-                        span=rt.span_of(d), scope_path=(*scope, name),
+                        name=ref_name,
+                        context="decorator",
+                        span=rt.span_of(d),
+                        scope_path=(*scope, name),
                     )
                 )
         return tuple(dict.fromkeys(out))
 
     # -- declarações --------------------------------------------------
 
-    def _handle_class(self, node: Node, scope: tuple[str, ...],
-                      exported: bool,
-                      fallback_name: str | None = None) -> None:
+    def _handle_class(
+        self, node: Node, scope: tuple[str, ...], exported: bool, fallback_name: str | None = None
+    ) -> None:
         name_node = self._name_node(node)
-        name = (
-            self.text(name_node) if name_node is not None else fallback_name
-        )
+        name = self.text(name_node) if name_node is not None else fallback_name
         if name is None:
             return
         name_node = name_node or node
         bases: list[str] = []
         implements: list[str] = []
-        heritage = next(
-            (c for c in node.named_children if c.type == "class_heritage"), None
-        )
+        heritage = next((c for c in node.named_children if c.type == "class_heritage"), None)
         if heritage is not None:
             for clause in heritage.named_children:
                 targets = [
@@ -187,57 +182,56 @@ class _TsExtractor:
                             scope_path=scope,
                         )
                     )
-        body = next(
-            (c for c in node.named_children if c.type == "class_body"), None
-        )
+        body = next((c for c in node.named_children if c.type == "class_body"), None)
         mods = _modifiers(node, self.src) + (("export",) if exported else ())
         decs = self._take_decorators(node, scope, name)
         qname = self._emit(
-            "class", name, name_node, node, scope,
+            "class",
+            name,
+            name_node,
+            node,
+            scope,
             signature=self._signature(node, body),
-            bases=tuple(bases), implements=tuple(implements),
-            modifiers=mods, decorators=decs,
+            bases=tuple(bases),
+            implements=tuple(implements),
+            modifiers=mods,
+            decorators=decs,
         )
         for b in bases:
-            self.relations.append(
-                ExtractedRelation("EXTENDS", qname, b, rt.span_of(node))
-            )
+            self.relations.append(ExtractedRelation("EXTENDS", qname, b, rt.span_of(node)))
         for i in implements:
-            self.relations.append(
-                ExtractedRelation("IMPLEMENTS", qname, i, rt.span_of(node))
-            )
+            self.relations.append(ExtractedRelation("IMPLEMENTS", qname, i, rt.span_of(node)))
         self._walk_children(body, (*scope, name), in_class=True)
 
-    def _handle_interface(self, node: Node, scope: tuple[str, ...],
-                          exported: bool) -> None:
+    def _handle_interface(self, node: Node, scope: tuple[str, ...], exported: bool) -> None:
         name_node = self._name_node(node)
         if name_node is None:
             return
         name = self.text(name_node)
-        ext = next(
-            (c for c in node.named_children if c.type == "extends_type_clause"), None
-        )
+        ext = next((c for c in node.named_children if c.type == "extends_type_clause"), None)
         bases = [
             self.text(c).strip()
             for c in (ext.named_children if ext is not None else [])
             if c.type.endswith("identifier") or c.type == "generic_type"
         ]
         body = next(
-            (c for c in node.named_children
-             if c.type in ("interface_body", "object_type")),
+            (c for c in node.named_children if c.type in ("interface_body", "object_type")),
             None,
         )
         mods = _modifiers(node, self.src) + (("export",) if exported else ())
         qname = self._emit(
-            "interface", name, name_node, node, scope,
+            "interface",
+            name,
+            name_node,
+            node,
+            scope,
             signature=self._signature(node, body),
-            bases=tuple(bases), modifiers=mods,
+            bases=tuple(bases),
+            modifiers=mods,
             decorators=self._take_decorators(node, scope, name),
         )
         for b in bases:
-            self.relations.append(
-                ExtractedRelation("EXTENDS", qname, b, rt.span_of(node))
-            )
+            self.relations.append(ExtractedRelation("EXTENDS", qname, b, rt.span_of(node)))
         self._walk_children(body, (*scope, name), in_class=True)
 
     def _param_names(self, node: Node) -> tuple[str, ...]:
@@ -245,8 +239,7 @@ class _TsExtractor:
         params = node.child_by_field_name("parameters")
         if params is None:
             params = next(
-                (c for c in node.named_children
-                 if c.type in ("formal_parameters", "parameters")),
+                (c for c in node.named_children if c.type in ("formal_parameters", "parameters")),
                 None,
             )
         if params is None:
@@ -258,20 +251,22 @@ class _TsExtractor:
             names.append(self.text(target).strip())
         return tuple(n for n in names if n)
 
-    def _handle_function(self, node: Node, scope: tuple[str, ...],
-                         in_class: bool, exported: bool,
-                         name_override: str | None = None,
-                         name_node: Node | None = None,
-                         fallback_name: str | None = None) -> None:
+    def _handle_function(
+        self,
+        node: Node,
+        scope: tuple[str, ...],
+        in_class: bool,
+        exported: bool,
+        name_override: str | None = None,
+        name_node: Node | None = None,
+        fallback_name: str | None = None,
+    ) -> None:
         nn = name_node or self._name_node(node)
-        name = name_override or (
-            self.text(nn) if nn is not None else fallback_name
-        )
+        name = name_override or (self.text(nn) if nn is not None else fallback_name)
         if name is None:
             return  # anônima sem binding — política: sem identidade
         body = next(
-            (c for c in node.named_children
-             if c.type in ("statement_block", "class_body")),
+            (c for c in node.named_children if c.type in ("statement_block", "class_body")),
             None,
         )
         mods = list(_modifiers(node, self.src))
@@ -281,7 +276,11 @@ class _TsExtractor:
             mods.append("signature-only")
         kind = "method" if in_class else "function"
         self._emit(
-            kind, name, nn or node, node, scope,
+            kind,
+            name,
+            nn or node,
+            node,
+            scope,
             signature=self._signature(node, body),
             params=self._param_names(node),
             modifiers=tuple(dict.fromkeys(mods)),
@@ -289,8 +288,9 @@ class _TsExtractor:
         )
         self._walk_children(body, (*scope, name), in_class=False)
 
-    def _handle_declarator(self, node: Node, scope: tuple[str, ...],
-                           in_class: bool, exported: bool) -> None:
+    def _handle_declarator(
+        self, node: Node, scope: tuple[str, ...], in_class: bool, exported: bool
+    ) -> None:
         name_n = node.child_by_field_name("name")
         value = node.child_by_field_name("value")
         if name_n is None:
@@ -300,18 +300,25 @@ class _TsExtractor:
             # `declare const x: T` / `let x` — binding declarado sem
             # inicializador (comum em .d.ts/ambient): símbolo real.
             if name_n.type == "identifier":
-                mods = _modifiers(node, self.src) + (
-                    ("export",) if exported else ())
+                mods = _modifiers(node, self.src) + (("export",) if exported else ())
                 self._emit(
-                    "symbol", self.text(name_n), name_n, node, scope,
+                    "symbol",
+                    self.text(name_n),
+                    name_n,
+                    node,
+                    scope,
                     signature=self._signature(node, None)[:200],
                     modifiers=mods,
                 )
             return
         if value.type in ("arrow_function", "function_expression", "function"):
             self._handle_function(
-                value, scope, in_class, exported,
-                name_override=self.text(name_n), name_node=name_n,
+                value,
+                scope,
+                in_class,
+                exported,
+                name_override=self.text(name_n),
+                name_node=name_n,
             )
             return
         # `const x = require('m')` / `require('m').default` — binding CJS
@@ -320,8 +327,10 @@ class _TsExtractor:
         if req_target is not None:
             self.refs.append(
                 ExtractedReference(
-                    name=self.text(name_n), context="import-member",
-                    span=rt.span_of(name_n), scope_path=scope,
+                    name=self.text(name_n),
+                    context="import-member",
+                    span=rt.span_of(name_n),
+                    scope_path=scope,
                     target=req_target,
                 )
             )
@@ -357,23 +366,23 @@ class _TsExtractor:
     def _first_string(self, args: Node | None) -> str | None:
         if args is None:
             return None
-        s = next(
-            (c for c in args.named_children if c.type == "string"), None
-        )
+        s = next((c for c in args.named_children if c.type == "string"), None)
         return self.text(s).strip("\"'") if s is not None else None
 
-    def _handle_alias_enum(self, node: Node, scope: tuple[str, ...],
-                           exported: bool) -> None:
+    def _handle_alias_enum(self, node: Node, scope: tuple[str, ...], exported: bool) -> None:
         name_node = self._name_node(node)
         if name_node is None:
             return
         mods = _modifiers(node, self.src) + (("export",) if exported else ())
         self._emit(
-            "symbol", self.text(name_node), name_node, node, scope,
+            "symbol",
+            self.text(name_node),
+            name_node,
+            node,
+            scope,
             signature=self._signature(node, None)[:200],
             modifiers=mods,
-            decorators=self._take_decorators(
-                node, scope, self.text(name_node)),
+            decorators=self._take_decorators(node, scope, self.text(name_node)),
         )
 
     # -- imports / exports / calls ------------------------------------
@@ -384,8 +393,8 @@ class _TsExtractor:
         # statement produzia module_path vazio → IMPORTS sem alvo →
         # snapshot FAILED inteiro).
         req = next(
-            (c for c in node.named_children
-             if c.type == "import_require_clause"), None,
+            (c for c in node.named_children if c.type == "import_require_clause"),
+            None,
         )
         if req is not None:
             src_n = req.child_by_field_name("source")
@@ -396,16 +405,15 @@ class _TsExtractor:
             )
             # `x` liga ao módulo inteiro (module.exports) — não a membro
             self._emit_module_import(
-                node, module_path, scope,
-                bindings=[(self.text(binding), module_path)]
-                if binding is not None else [],
+                node,
+                module_path,
+                scope,
+                bindings=[(self.text(binding), module_path)] if binding is not None else [],
             )
             return
         src_n = node.child_by_field_name("source")
         module_path = self._module_path(src_n)
-        clause = next(
-            (c for c in node.named_children if c.type == "import_clause"), None
-        )
+        clause = next((c for c in node.named_children if c.type == "import_clause"), None)
         names = self._import_names(clause) if clause is not None else []
         bindings: list[tuple[str, str]] = []
         for imported, alias in names:
@@ -423,14 +431,18 @@ class _TsExtractor:
         binding, target = names[0], names[-1]
         self.refs.append(
             ExtractedReference(
-                name=self.text(target), context="import-alias",
-                span=rt.span_of(node), scope_path=scope,
+                name=self.text(target),
+                context="import-alias",
+                span=rt.span_of(node),
+                scope_path=scope,
             )
         )
         self.refs.append(
             ExtractedReference(
-                name=self.text(binding), context="import-member",
-                span=rt.span_of(node), scope_path=scope,
+                name=self.text(binding),
+                context="import-member",
+                span=rt.span_of(node),
+                scope_path=scope,
                 target=self.text(target),
             )
         )
@@ -453,7 +465,8 @@ class _TsExtractor:
         """
         if not module_path:
             self._diag(
-                "import-source-missing", "warning",
+                "import-source-missing",
+                "warning",
                 "import without resolvable module path — IMPORTS edge "
                 "dropped instead of emitted empty",
                 node,
@@ -461,8 +474,10 @@ class _TsExtractor:
             return
         self.refs.append(
             ExtractedReference(
-                name=module_path, context="import",
-                span=rt.span_of(node), scope_path=scope,
+                name=module_path,
+                context="import",
+                span=rt.span_of(node),
+                scope_path=scope,
             )
         )
         self.relations.append(
@@ -471,8 +486,11 @@ class _TsExtractor:
         for binding, target in bindings:
             self.refs.append(
                 ExtractedReference(
-                    name=binding, context="import-member",
-                    span=rt.span_of(node), scope_path=scope, target=target,
+                    name=binding,
+                    context="import-member",
+                    span=rt.span_of(node),
+                    scope_path=scope,
+                    target=target,
                 )
             )
 
@@ -481,11 +499,11 @@ class _TsExtractor:
         if node.type == "import_specifier":
             name = node.child_by_field_name("name")
             alias = node.child_by_field_name("alias")
-            out.append((self.text(name) if name else self.text(node),
-                        self.text(alias) if alias else None))
+            out.append(
+                (self.text(name) if name else self.text(node), self.text(alias) if alias else None)
+            )
         elif node.type == "namespace_import":
-            alias = next((c for c in node.named_children
-                          if c.type == "identifier"), None)
+            alias = next((c for c in node.named_children if c.type == "identifier"), None)
             if alias is not None:
                 out.append(("*", self.text(alias)))
         elif node.type == "identifier":
@@ -495,14 +513,15 @@ class _TsExtractor:
                 out.extend(self._import_names(c))
         return out
 
-    def _handle_export(self, node: Node, scope: tuple[str, ...],
-                       in_class: bool) -> None:
+    def _handle_export(self, node: Node, scope: tuple[str, ...], in_class: bool) -> None:
         children = node.named_children
         inner = next(
-            (c for c in children
-             if c.type in self._DECLS
-             or c.type in ("internal_module", "module",
-                           "ambient_declaration")),
+            (
+                c
+                for c in children
+                if c.type in self._DECLS
+                or c.type in ("internal_module", "module", "ambient_declaration")
+            ),
             None,
         )
         if inner is not None:
@@ -511,7 +530,10 @@ class _TsExtractor:
                 return
             default = any(c.type == "default" for c in node.children)
             self._walk_decl(
-                inner, scope, in_class, exported=True,
+                inner,
+                scope,
+                in_class,
+                exported=True,
                 fallback_name="default" if default else None,
             )
             return
@@ -519,21 +541,28 @@ class _TsExtractor:
         # `default`; demais expressões viram referência `export`.
         value = node.child_by_field_name("value")
         if value is not None:
-            if value.type in ("arrow_function", "function_expression",
-                              "function"):
+            if value.type in ("arrow_function", "function_expression", "function"):
                 self._handle_function(
-                    value, scope, in_class, True, fallback_name="default",
+                    value,
+                    scope,
+                    in_class,
+                    True,
+                    fallback_name="default",
                 )
-            elif value.type in ("class", "class_declaration",
-                                "abstract_class_declaration"):
+            elif value.type in ("class", "class_declaration", "abstract_class_declaration"):
                 self._handle_class(
-                    value, scope, True, fallback_name="default",
+                    value,
+                    scope,
+                    True,
+                    fallback_name="default",
                 )
             elif self.text(value):
                 self.refs.append(
                     ExtractedReference(
-                        name=self.text(value), context="export",
-                        span=rt.span_of(value), scope_path=scope,
+                        name=self.text(value),
+                        context="export",
+                        span=rt.span_of(value),
+                        scope_path=scope,
                     )
                 )
             return
@@ -543,7 +572,9 @@ class _TsExtractor:
             # export {x} from 'm' / export * from 'm' / export * as ns
             # — dependência real de módulo (re-export): IMPORTS + binding.
             self._emit_module_import(
-                node, module_path, scope,
+                node,
+                module_path,
+                scope,
                 bindings=self._export_bindings(node, module_path),
             )
             return
@@ -554,7 +585,8 @@ class _TsExtractor:
                 ExtractedReference(
                     name=self.text(children[-1]),
                     context="export-assignment",
-                    span=rt.span_of(children[-1]), scope_path=scope,
+                    span=rt.span_of(children[-1]),
+                    scope_path=scope,
                 )
             )
             return
@@ -562,14 +594,14 @@ class _TsExtractor:
         for name in self._export_specifier_names(node):
             self.refs.append(
                 ExtractedReference(
-                    name=name, context="export",
-                    span=rt.span_of(node), scope_path=scope,
+                    name=name,
+                    context="export",
+                    span=rt.span_of(node),
+                    scope_path=scope,
                 )
             )
 
-    def _export_bindings(
-        self, node: Node, module_path: str
-    ) -> list[tuple[str, str]]:
+    def _export_bindings(self, node: Node, module_path: str) -> list[tuple[str, str]]:
         """Bindings de re-export: `{a as b} from 'm'` → ``b → m.a``;
         `* as ns from 'm'` → ``ns → m.*``; `* from 'm'` → ``* → m.*``."""
         out: list[tuple[str, str]] = []
@@ -584,8 +616,10 @@ class _TsExtractor:
                     if n is None:
                         continue
                     out.append(
-                        (self.text(a) if a is not None else self.text(n),
-                         f"{module_path}.{self.text(n)}")
+                        (
+                            self.text(a) if a is not None else self.text(n),
+                            f"{module_path}.{self.text(n)}",
+                        )
                     )
             elif c.type == "namespace_export":
                 ident = next(
@@ -611,15 +645,17 @@ class _TsExtractor:
                     out.append(self.text(n))
         return out
 
-    def _handle_namespace(self, node: Node, scope: tuple[str, ...],
-                          exported: bool) -> None:
+    def _handle_namespace(self, node: Node, scope: tuple[str, ...], exported: bool) -> None:
         """`namespace X {}` / `declare module 'x' {}` (internal_module /
         module) — escopo nomeado real: filhos ganham qname `X.*`."""
         name_n = node.child_by_field_name("name")
         if name_n is None:
             name_n = next(
-                (c for c in node.named_children
-                 if c.type in ("identifier", "nested_identifier", "string")),
+                (
+                    c
+                    for c in node.named_children
+                    if c.type in ("identifier", "nested_identifier", "string")
+                ),
                 None,
             )
         if name_n is None:
@@ -627,13 +663,16 @@ class _TsExtractor:
             return
         name = self.text(name_n).strip("\"'")
         body = next(
-            (c for c in node.named_children
-             if c.type == "statement_block"),
+            (c for c in node.named_children if c.type == "statement_block"),
             None,
         )
         mods = _modifiers(node, self.src) + (("export",) if exported else ())
         self._emit(
-            "symbol", name, name_n, node, scope,
+            "symbol",
+            name,
+            name_n,
+            node,
+            scope,
             signature=self._signature(node, body)[:200],
             modifiers=tuple(dict.fromkeys((*mods, "namespace"))),
         )
@@ -647,20 +686,19 @@ class _TsExtractor:
             return
         # `import('m')` / `require('m')` — dependência de módulo, não call.
         if callee.type == "import":
-            lit = self._first_string(
-                node.child_by_field_name("arguments"))
+            lit = self._first_string(node.child_by_field_name("arguments"))
             if lit:
                 self._emit_module_import(node, lit, scope, bindings=[])
             else:
                 self._diag(
-                    "dynamic-import-nonliteral", "info",
+                    "dynamic-import-nonliteral",
+                    "info",
                     "import() with non-literal argument — no IMPORTS edge",
                     node,
                 )
             return
         if callee.type == "identifier" and self.text(callee) == "require":
-            lit = self._first_string(
-                node.child_by_field_name("arguments"))
+            lit = self._first_string(node.child_by_field_name("arguments"))
             if lit:
                 self._emit_module_import(node, lit, scope, bindings=[])
                 return
@@ -670,8 +708,10 @@ class _TsExtractor:
         caller = f"{self.module}.{caller}" if self.module and caller else (caller or self.module)
         self.refs.append(
             ExtractedReference(
-                name=self.text(callee), context="call",
-                span=rt.span_of(callee), scope_path=scope,
+                name=self.text(callee),
+                context="call",
+                span=rt.span_of(callee),
+                scope_path=scope,
             )
         )
         self.relations.append(
@@ -680,81 +720,99 @@ class _TsExtractor:
 
     def _handle_jsx(self, node: Node, scope: tuple[str, ...]) -> None:
         name_n = node.child_by_field_name("name") or next(
-            (c for c in node.named_children
-             if c.type in ("identifier", "member_expression", "nested_identifier")),
+            (
+                c
+                for c in node.named_children
+                if c.type in ("identifier", "member_expression", "nested_identifier")
+            ),
             None,
         )
         if name_n is not None:
             self.refs.append(
                 ExtractedReference(
-                    name=self.text(name_n), context="jsx",
-                    span=rt.span_of(name_n), scope_path=scope,
+                    name=self.text(name_n),
+                    context="jsx",
+                    span=rt.span_of(name_n),
+                    scope_path=scope,
                 )
             )
 
     # -- walk ----------------------------------------------------------
 
     _DECLS = (
-        "class_declaration", "abstract_class_declaration",
-        "interface_declaration", "function_declaration",
-        "function_signature", "method_definition", "method_signature",
-        "type_alias_declaration", "enum_declaration",
-        "lexical_declaration", "variable_declaration",
+        "class_declaration",
+        "abstract_class_declaration",
+        "interface_declaration",
+        "function_declaration",
+        "function_signature",
+        "method_definition",
+        "method_signature",
+        "type_alias_declaration",
+        "enum_declaration",
+        "lexical_declaration",
+        "variable_declaration",
     )
 
-    def _walk_decl(self, node: Node, scope: tuple[str, ...],
-                   in_class: bool, exported: bool = False,
-                   fallback_name: str | None = None) -> None:
+    def _walk_decl(
+        self,
+        node: Node,
+        scope: tuple[str, ...],
+        in_class: bool,
+        exported: bool = False,
+        fallback_name: str | None = None,
+    ) -> None:
         t = node.type
         if t in ("class_declaration", "abstract_class_declaration"):
-            self._handle_class(node, scope, exported,
-                               fallback_name=fallback_name)
+            self._handle_class(node, scope, exported, fallback_name=fallback_name)
         elif t == "interface_declaration":
             self._handle_interface(node, scope, exported)
         elif t in ("function_declaration", "function_signature"):
-            self._handle_function(node, scope, in_class, exported,
-                                  fallback_name=fallback_name)
+            self._handle_function(node, scope, in_class, exported, fallback_name=fallback_name)
         elif t in ("method_definition", "method_signature"):
-            self._handle_function(node, scope, True, exported,
-                                  fallback_name=fallback_name)
+            self._handle_function(node, scope, True, exported, fallback_name=fallback_name)
         elif t in ("type_alias_declaration", "enum_declaration"):
             self._handle_alias_enum(node, scope, exported)
         elif t == "ambient_declaration":
-            self._walk_ambient(node, scope, in_class, exported,
-                               fallback_name)
+            self._walk_ambient(node, scope, in_class, exported, fallback_name)
         elif t in ("lexical_declaration", "variable_declaration"):
             self._walk_vardecl(node, scope, in_class, exported)
 
-    def _walk_ambient(self, node: Node, scope: tuple[str, ...],
-                      in_class: bool, exported: bool,
-                      fallback_name: str | None) -> None:
+    def _walk_ambient(
+        self,
+        node: Node,
+        scope: tuple[str, ...],
+        in_class: bool,
+        exported: bool,
+        fallback_name: str | None,
+    ) -> None:
         """`declare X` / `export declare X` — unwrap para a decl real
         preservando o flag export (declare global → statement_block)."""
         for c in node.named_children:
             if c.type in ("internal_module", "module"):
                 self._handle_namespace(c, scope, exported)
             elif c.type in self._DECLS:
-                self._walk_decl(c, scope, in_class, exported,
-                                fallback_name)
+                self._walk_decl(c, scope, in_class, exported, fallback_name)
             else:
                 self._walk(c, scope, in_class)
 
-    def _walk_vardecl(self, node: Node, scope: tuple[str, ...],
-                      in_class: bool, exported: bool) -> None:
+    def _walk_vardecl(
+        self, node: Node, scope: tuple[str, ...], in_class: bool, exported: bool
+    ) -> None:
         for c in node.named_children:
             if c.type == "variable_declarator":
                 self._handle_declarator(c, scope, in_class, exported)
             else:
                 self._walk(c, scope, in_class)
 
-    def _emit_decorator_ref(self, node: Node,
-                            scope: tuple[str, ...]) -> None:
+    def _emit_decorator_ref(self, node: Node, scope: tuple[str, ...]) -> None:
         ref = self._decorator_text(node).split("(")[0].strip()
         if ref:
             self.refs.append(
                 ExtractedReference(
-                    name=ref, context="decorator",
-                    span=rt.span_of(node), scope_path=scope,
+                    name=ref,
+                    context="decorator",
+                    span=rt.span_of(node),
+                    scope_path=scope,
                 )
             )
 
@@ -778,8 +836,7 @@ class _TsExtractor:
         else:
             self._walk_leaf(node, scope, in_class)
 
-    def _walk_leaf(self, node: Node, scope: tuple[str, ...],
-                   in_class: bool) -> None:
+    def _walk_leaf(self, node: Node, scope: tuple[str, ...], in_class: bool) -> None:
         """Nós não-declaração: calls, JSX e descida genérica."""
         t = node.type
         if t in ("call_expression", "new_expression"):
@@ -789,8 +846,7 @@ class _TsExtractor:
         for child in node.named_children:
             self._walk(child, scope, in_class)
 
-    def _walk_children(self, node: Node | None, scope: tuple[str, ...],
-                       in_class: bool) -> None:
+    def _walk_children(self, node: Node | None, scope: tuple[str, ...], in_class: bool) -> None:
         if node is None:
             return
         for child in node.named_children:
@@ -809,8 +865,10 @@ class _TsExtractor:
                     if ref:
                         self.refs.append(
                             ExtractedReference(
-                                name=ref, context="decorator",
-                                span=rt.span_of(d), scope_path=scope,
+                                name=ref,
+                                context="decorator",
+                                span=rt.span_of(d),
+                                scope_path=scope,
                             )
                         )
                 self._pending_decs = []

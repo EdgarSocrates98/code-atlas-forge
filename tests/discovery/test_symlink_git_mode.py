@@ -36,6 +36,7 @@ def git(repo: Path, *args: str) -> None:
         },
     )
 
+
 pytestmark = pytest.mark.skipif(
     GIT is None or sys.platform == "win32", reason="git + symlinks POSIX"
 )

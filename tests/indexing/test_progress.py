@@ -23,8 +23,7 @@ def repo(tmp_path: Path) -> Path:
     r = tmp_path / "repo"
     r.mkdir()
     (r / "mod.py").write_text("def helper(x):\n    return x + 1\n")
-    (r / "caller.py").write_text(
-        "from mod import helper\n\n\ndef main():\n    return helper(1)\n")
+    (r / "caller.py").write_text("from mod import helper\n\n\ndef main():\n    return helper(1)\n")
     return r
 
 
@@ -45,17 +44,25 @@ def _collect() -> tuple[list[tuple[str, dict[str, Any]]], Any]:
     return events, cb
 
 
-def test_stage_events_cobrem_o_pipeline(
-    db: sqlite3.Connection, repo: Path
-) -> None:
+def test_stage_events_cobrem_o_pipeline(db: sqlite3.Connection, repo: Path) -> None:
     events, cb = _collect()
     outcome = IndexCoordinator(db).index(repo, progress=cb)
     assert outcome.status == "success"
     stages = [f["stage"] for e, f in events if e == "stage"]
-    for s in ("discovery", "hashing", "invalidation", "parse",
-              "graph_build", "semantic", "domains", "validation",
-              "persist_rows", "fk_check", "publish_gc",
-              "persist_publish"):
+    for s in (
+        "discovery",
+        "hashing",
+        "invalidation",
+        "parse",
+        "graph_build",
+        "semantic",
+        "domains",
+        "validation",
+        "persist_rows",
+        "fk_check",
+        "publish_gc",
+        "persist_publish",
+    ):
         assert s in stages, f"stage {s} ausente em {stages}"
     # todo stage carrega ms inteiro não-negativo — medido, nunca inventado
     for e, f in events:
@@ -63,9 +70,7 @@ def test_stage_events_cobrem_o_pipeline(
             assert isinstance(f["ms"], int) and f["ms"] >= 0
 
 
-def test_parse_progress_tem_files_per_sec(
-    db: sqlite3.Connection, repo: Path
-) -> None:
+def test_parse_progress_tem_files_per_sec(db: sqlite3.Connection, repo: Path) -> None:
     events, cb = _collect()
     IndexCoordinator(db).index(repo, progress=cb)
     prog = [f for e, f in events if e == "parse-progress"]
@@ -75,13 +80,10 @@ def test_parse_progress_tem_files_per_sec(
     assert final["files_per_sec"] > 0
 
 
-def test_discovery_carrega_contagens(
-    db: sqlite3.Connection, repo: Path
-) -> None:
+def test_discovery_carrega_contagens(db: sqlite3.Connection, repo: Path) -> None:
     events, cb = _collect()
     IndexCoordinator(db).index(repo, progress=cb)
-    disc = [f for e, f in events
-            if e == "stage" and f["stage"] == "discovery"]
+    disc = [f for e, f in events if e == "stage" and f["stage"] == "discovery"]
     assert disc and disc[0]["files"] == 2
     assert disc[0]["secrets"] == 0
 
@@ -97,9 +99,7 @@ def test_noop_emite_evento(db: sqlite3.Connection, repo: Path) -> None:
     assert noop and noop[0]["snapshot_id"] == first.snapshot_id
 
 
-def test_default_sem_callback_zero_custo(
-    db: sqlite3.Connection, repo: Path
-) -> None:
+def test_default_sem_callback_zero_custo(db: sqlite3.Connection, repo: Path) -> None:
     outcome = IndexCoordinator(db).index(repo)
     assert outcome.status == "success"
     # stats persistidos continuam independentes do callback

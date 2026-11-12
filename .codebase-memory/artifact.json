@@ -1,0 +1,11 @@
+{
+    "schema_version": 2,
+    "commit": "9025ebfbc63e23d6926fd3af97ec3b331231252c",
+    "indexed_at": "2026-11-07T11:33:11Z",
+    "project": "E-projetos-FORJAS-code-atlas-forge",
+    "nodes": 12818,
+    "edges": 42703,
+    "original_size": 43319296,
+    "compressed_size": 6845322,
+    "compression_level": 9
+}

@@ -39,8 +39,7 @@ def extract(adapter: ApiContractAdapter):
             arts.append(
                 DiscoveredArtifact(
                     path=p,
-                    sha256=hashlib.sha256(raw).hexdigest()
-                    if with_hash else "",
+                    sha256=hashlib.sha256(raw).hexdigest() if with_hash else "",
                 )
             )
         return adapter.extract(

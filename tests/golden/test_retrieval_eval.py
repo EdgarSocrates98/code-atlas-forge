@@ -32,8 +32,7 @@ def test_judgments_verifiable() -> None:
 
 def test_metrics_in_range(block) -> None:
     for strat, m in block["strategies"].items():
-        for k in ("precision", "recall", "mrr", "ndcg",
-                  "evidence_validity"):
+        for k in ("precision", "recall", "mrr", "ndcg", "evidence_validity"):
             assert 0.0 <= m[k] <= 1.0, (strat, k)
         lo, hi = m["latency_range_ms"]
         assert 0 <= lo <= hi
@@ -42,10 +41,7 @@ def test_metrics_in_range(block) -> None:
 def test_deterministic(block) -> None:
     b2 = retrieval_block(Path(tempfile.mkdtemp()), runs=1)
     for strat in block["strategies"]:
-        assert (
-            block["strategies"][strat]["recall"]
-            == b2["strategies"][strat]["recall"]
-        )
+        assert block["strategies"][strat]["recall"] == b2["strategies"][strat]["recall"]
 
 
 def test_context_budget_and_not_run(block) -> None:

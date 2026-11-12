@@ -66,9 +66,7 @@ def load_language(factory: Callable[[], object], grammar_dist: str) -> LanguageS
     return LanguageSpec(language=Language(factory()), grammar_dist=grammar_dist)
 
 
-def parse_bytes(
-    spec: LanguageSpec, content: bytes, timeout_us: int
-) -> tree_sitter.Tree | None:
+def parse_bytes(spec: LanguageSpec, content: bytes, timeout_us: int) -> tree_sitter.Tree | None:
     """Parse real com deadline; None quando o timeout expira.
 
     ``timeout_micros`` é usado apesar de deprecado em 0.25: o caminho
