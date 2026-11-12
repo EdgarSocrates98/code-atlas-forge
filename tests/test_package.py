@@ -54,10 +54,11 @@ def test_agent_roster_matches_manifest_and_is_packaged() -> None:
 
 
 def test_runtime_dependencies_are_pinned_tree_sitter() -> None:
-    """Cycle 2: deps de runtime = apenas a pilha Tree-sitter aprovada (ADR)."""
+    """Cycle 2: deps de runtime = pilha Tree-sitter aprovada (ADR) + pyyaml
+    (exceção documentada: engine _forge_obsidian vendored importa yaml)."""
     raw = tomllib.loads((ROOT / "pyproject.toml").read_text(encoding="utf-8"))
     deps = raw["project"].get("dependencies", [])
-    allowed = {"tree-sitter", "tree-sitter-python", "tree-sitter-typescript"}
+    allowed = {"tree-sitter", "tree-sitter-python", "tree-sitter-typescript", "pyyaml"}
     assert deps, "Cycle 2 exige tree-sitter real — deps não podem ser vazias"
     for dep in deps:
         name = dep.split("==")[0].split(">=")[0].split("[")[0]

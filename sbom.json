@@ -493,6 +493,32 @@
     },
     {
       "type": "library",
+      "bom-ref": "pkg:pypi/pyyaml@6.0.2",
+      "name": "pyyaml",
+      "scope": "required",
+      "purl": "pkg:pypi/pyyaml@6.0.2",
+      "group": "python-runtime",
+      "properties": [
+        {
+          "name": "specifier",
+          "value": "==6.0.2"
+        },
+        {
+          "name": "ecosystem",
+          "value": "pypi"
+        }
+      ],
+      "version": "6.0.2",
+      "licenses": [
+        {
+          "license": {
+            "id": "MIT"
+          }
+        }
+      ]
+    },
+    {
+      "type": "library",
       "bom-ref": "pkg:pypi/tree-sitter-python@0.23.6",
       "name": "tree-sitter-python",
       "scope": "required",

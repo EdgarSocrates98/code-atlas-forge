@@ -54,6 +54,7 @@ CLI_COMMANDS = frozenset(
         "explorer",
         "federation",
         "domains",
+        "obsidian",
     }
 )
 
