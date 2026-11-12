@@ -1,0 +1,9 @@
+{
+  "cycle": "unified-release",
+  "repository": "code-atlas-forge",
+  "version": "1.1.4",
+  "tag": "v1.1.4",
+  "source_commit": "ac37856657d562c54aafd9b79c7ba4279fca7ebc",
+  "version_source": "pyproject.toml|package.json|__init__",
+  "verified_at": "2026-11-12"
+}
