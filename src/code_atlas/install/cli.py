@@ -126,14 +126,17 @@ def run_install(args: Any) -> int:
     from code_atlas.observability.logging import escape_control
 
     action = getattr(args, "action", "install")
+    # Installkit contract: ecosystem hosts pass ``--scope workspace``;
+    # atlas' canonical name for the same thing is ``project``.
+    scope = "project" if args.scope == "workspace" else args.scope
     try:
         if action == "status":
             doc = lifecycle.status()
         elif action == "doctor":
-            doc = lifecycle.doctor(scope=args.scope)
+            doc = lifecycle.doctor(scope=scope)
         elif action == "uninstall":
             doc = lifecycle.uninstall(
-                scope=args.scope,
+                scope=scope,
                 root=Path(args.root) if args.root else None,
                 dry_run=args.dry_run,
                 yes=args.yes,
@@ -141,7 +144,7 @@ def run_install(args: Any) -> int:
             )
         else:
             doc = run_flag_install(
-                scope=args.scope,
+                scope=scope,
                 profile=args.profile,
                 components=args.components,
                 root=args.root,
