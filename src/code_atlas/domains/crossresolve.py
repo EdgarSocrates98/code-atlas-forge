@@ -84,9 +84,17 @@ _DATA_RELATION_TYPES = frozenset(
 # relativo do repositório é evidência literal (path qualificado).
 _PATH_ATTR_KEYS = frozenset(
     {
-        "script_location", "source", "path", "file", "filename",
-        "entry_point", "artifact", "artifacts_out", "artifacts_in",
-        "definition_path", "target",
+        "script_location",
+        "source",
+        "path",
+        "file",
+        "filename",
+        "entry_point",
+        "artifact",
+        "artifacts_out",
+        "artifacts_in",
+        "definition_path",
+        "target",
     }
 )
 
@@ -105,9 +113,9 @@ _SKIP_PREFIXES = ("dynamic:", "${dynamic}", "environment:")
 class Agreement(StrEnum):
     """Grau de acordo entre uma referência e uma identidade de entidade."""
 
-    FULL = "full"        # todos os componentes qualificados iguais
+    FULL = "full"  # todos os componentes qualificados iguais
     PARTIAL = "partial"  # nome + algum qualificador, com divergência
-    NAME_ONLY = "name"   # só o nome casa — nunca resolve
+    NAME_ONLY = "name"  # só o nome casa — nunca resolve
     NONE = "none"
 
 
@@ -288,16 +296,16 @@ def _repo_path(text: str) -> str | None:
     """``to_unresolved`` como path relativo do repo; ``None`` se não for."""
     t = text.strip()
     if t.startswith("local:"):
-        t = t[len("local:"):]
-    if not t or _ABS_SCHEME_RE.match(t) or t.startswith(
-        ("arn:", "dynamic:", "module:", "data.", "/", "environment:")
+        t = t[len("local:") :]
+    if (
+        not t
+        or _ABS_SCHEME_RE.match(t)
+        or t.startswith(("arn:", "dynamic:", "module:", "data.", "/", "environment:"))
     ):
         return None
     if t.startswith("./"):
         t = t[2:]
-    if not t or t.startswith(".") or any(
-        ch in t for ch in " \\'\"()[]{}<>*?"
-    ):
+    if not t or t.startswith(".") or any(ch in t for ch in " \\'\"()[]{}<>*?"):
         return None
     return t
 
@@ -336,9 +344,8 @@ def _agreement(ref: _RefParts, ident: DomainIdentity) -> Agreement:
         if ref.catalog or ref.namespace or ref.environment or ref.root:
             return Agreement.FULL
         return Agreement.NAME_ONLY
-    partial = (
-        (ref.catalog != "" and ref.catalog == ident.catalog)
-        or (ref.namespace != "" and ref.namespace == ident.namespace)
+    partial = (ref.catalog != "" and ref.catalog == ident.catalog) or (
+        ref.namespace != "" and ref.namespace == ident.namespace
     )
     return Agreement.PARTIAL if partial else Agreement.NAME_ONLY
 
@@ -367,8 +374,13 @@ def _ident_from_row(row: sqlite3.Row) -> DomainIdentity | None:
         return None
     domain, repository, root, catalog, namespace, env, qname = segs[:7]
     return DomainIdentity(
-        domain=domain, repository=repository, root=root, catalog=catalog,
-        namespace=namespace, environment=env, qualified_name=qname,
+        domain=domain,
+        repository=repository,
+        root=root,
+        catalog=catalog,
+        namespace=namespace,
+        environment=env,
+        qualified_name=qname,
     )
 
 
@@ -416,50 +428,42 @@ class CrossDomainResolver:
         evidence = self._load_evidence(store, snapshot_id)
         file_occs = self._load_file_occs(store, snapshot_id)
         ctx = _Ctx(
-            occs=occs, by_path=by_path, evidence=evidence,
-            file_occs=file_occs, linked=self._linked_pairs(rels),
+            occs=occs,
+            by_path=by_path,
+            evidence=evidence,
+            file_occs=file_occs,
+            linked=self._linked_pairs(rels),
         )
         updates = self._plan_updates(rels, ctx)
         # pares já ligados por updates entram no dedup — uma row
         # re-resolvida para B não pode também virar aresta A→B nova.
         for u in updates:
-            rel = next(
-                r for r in rels if r.relation_id == u.relation_id
-            )
+            rel = next(r for r in rels if r.relation_id == u.relation_id)
             if rel.from_entity_occ_id and u.to_entity_occ_id:
-                ctx.linked.add(
-                    frozenset(
-                        (int(rel.from_entity_occ_id), u.to_entity_occ_id)
-                    )
-                )
+                ctx.linked.add(frozenset((int(rel.from_entity_occ_id), u.to_entity_occ_id)))
         edges = self._plan_edges(ctx)
         stats = {
             "cross_considered": ctx.considered,
             "cross_resolved": sum(
-                1 for u in updates
-                if u.resolution_status is ResolutionStatus.RESOLVED
-            ) + sum(
-                1 for e in edges
-                if e.resolution_status is ResolutionStatus.RESOLVED
-            ),
+                1 for u in updates if u.resolution_status is ResolutionStatus.RESOLVED
+            )
+            + sum(1 for e in edges if e.resolution_status is ResolutionStatus.RESOLVED),
             "cross_ambiguous": sum(
-                1 for u in updates
-                if u.resolution_status is ResolutionStatus.AMBIGUOUS
-            ) + sum(
-                1 for e in edges
-                if e.resolution_status is ResolutionStatus.AMBIGUOUS
-            ),
+                1 for u in updates if u.resolution_status is ResolutionStatus.AMBIGUOUS
+            )
+            + sum(1 for e in edges if e.resolution_status is ResolutionStatus.AMBIGUOUS),
             "cross_external": sum(
-                1 for u in updates
-                if u.resolution_status is ResolutionStatus.EXTERNAL
+                1 for u in updates if u.resolution_status is ResolutionStatus.EXTERNAL
             ),
             "cross_edges": len(edges),
             "cross_diagnostics": len(ctx.diagnostics),
             "cross_missing_evidence": ctx.missing_evidence,
         }
         return CrossResolutionPlan(
-            updates=tuple(updates), edges=tuple(edges),
-            diagnostics=tuple(ctx.diagnostics), stats=stats,
+            updates=tuple(updates),
+            edges=tuple(edges),
+            diagnostics=tuple(ctx.diagnostics),
+            stats=stats,
         )
 
     # -- carga do snapshot ----------------------------------------------
@@ -484,31 +488,21 @@ class CrossDomainResolver:
                 kind=str(row["kind"]),
                 attributes={str(k): str(v) for k, v in attrs.items()},
                 source_file_id=(
-                    None
-                    if row["source_file_id"] is None
-                    else int(row["source_file_id"])
+                    None if row["source_file_id"] is None else int(row["source_file_id"])
                 ),
                 source_path=str(row["source_path"] or ""),
-                span_start=(
-                    None
-                    if row["span_start"] is None
-                    else int(row["span_start"])
-                ),
+                span_start=(None if row["span_start"] is None else int(row["span_start"])),
             )
             occs[occ.occ_id] = occ
             if occ.source_path:
                 by_path.setdefault(occ.source_path, []).append(occ)
         return occs, by_path
 
-    def _load_relations(
-        self, store: Store, snapshot_id: int
-    ) -> list[_RelRow]:
+    def _load_relations(self, store: Store, snapshot_id: int) -> list[_RelRow]:
         out: list[_RelRow] = []
         for row in store.domain_relations_snapshot(snapshot_id):
             try:
-                ev = tuple(
-                    int(x) for x in json.loads(str(row["evidence_ids"] or "[]"))
-                )
+                ev = tuple(int(x) for x in json.loads(str(row["evidence_ids"] or "[]")))
             except json.JSONDecodeError:
                 ev = ()
             out.append(
@@ -528,17 +522,10 @@ class CrossDomainResolver:
             )
         return out
 
-    def _load_evidence(
-        self, store: Store, snapshot_id: int
-    ) -> dict[int, sqlite3.Row]:
-        return {
-            int(r["id"]): r
-            for r in store.evidence_snapshot(snapshot_id)
-        }
+    def _load_evidence(self, store: Store, snapshot_id: int) -> dict[int, sqlite3.Row]:
+        return {int(r["id"]): r for r in store.evidence_snapshot(snapshot_id)}
 
-    def _load_file_occs(
-        self, store: Store, snapshot_id: int
-    ) -> dict[str, list[int]]:
+    def _load_file_occs(self, store: Store, snapshot_id: int) -> dict[str, list[int]]:
         """path relativo → ids de ocorrência do símbolo FILE."""
         out: dict[str, list[int]] = {}
         for path, occ_id in store.file_symbol_occurrences(snapshot_id):
@@ -551,18 +538,12 @@ class CrossDomainResolver:
         out: set[frozenset[int]] = set()
         for r in rels:
             if r.from_entity_occ_id and r.to_entity_occ_id:
-                out.add(
-                    frozenset(
-                        (int(r.from_entity_occ_id), int(r.to_entity_occ_id))
-                    )
-                )
+                out.add(frozenset((int(r.from_entity_occ_id), int(r.to_entity_occ_id))))
         return out
 
     # -- evidência ------------------------------------------------------
 
-    def _occ_evidence(
-        self, occ: _Occ, ctx: _Ctx
-    ) -> tuple[int, ...]:
+    def _occ_evidence(self, occ: _Occ, ctx: _Ctx) -> tuple[int, ...]:
         """Ids de evidência do adapter que observou ``occ`` no snapshot.
 
         Filtro: mesmo ``snapshot_id`` + mesmo ``source_file_id`` +
@@ -575,17 +556,14 @@ class CrossDomainResolver:
             return ()
         extractor = f"domain:{occ.identity.domain}"
         cands = [
-            e for e in ctx.evidence.values()
-            if e["source_file_id"] == occ.source_file_id
-            and str(e["extractor"]) == extractor
+            e
+            for e in ctx.evidence.values()
+            if e["source_file_id"] == occ.source_file_id and str(e["extractor"]) == extractor
         ]
         if not cands:
             return ()
         if occ.span_start is not None:
-            precise = [
-                e for e in cands
-                if self._evidence_span_start(e) == occ.span_start
-            ]
+            precise = [e for e in cands if self._evidence_span_start(e) == occ.span_start]
             if precise:
                 return tuple(sorted(int(e["id"]) for e in precise))
         return tuple(sorted(int(e["id"]) for e in cands))
@@ -605,9 +583,7 @@ class CrossDomainResolver:
 
     # -- re-resolução de rows unresolved (M1) ----------------------------
 
-    def _plan_updates(
-        self, rels: list[_RelRow], ctx: _Ctx
-    ) -> list[CrossUpdate]:
+    def _plan_updates(self, rels: list[_RelRow], ctx: _Ctx) -> list[CrossUpdate]:
         updates: list[CrossUpdate] = []
         for rel in sorted(rels, key=lambda r: r.relation_id):
             if rel.resolution_status not in _RERESOLVABLE:
@@ -625,17 +601,17 @@ class CrossDomainResolver:
                 updates.append(upd)
         return updates
 
-    def _resolve_row(
-        self, rel: _RelRow, text: str, ctx: _Ctx
-    ) -> CrossUpdate | None:
+    def _resolve_row(self, rel: _RelRow, text: str, ctx: _Ctx) -> CrossUpdate | None:
         """Despacha o texto não-resolvido para a regra adequada."""
         producer = self._producer_domain(rel.resolver)
         if is_absolute_url(text):
             # lado só-externo: URL absoluta nunca vira endpoint local.
             return self._mk_update(
-                rel, ResolutionStatus.EXTERNAL,
+                rel,
+                ResolutionStatus.EXTERNAL,
                 ConfidenceClass(rel.confidence_class),
-                to_unresolved=text, ctx=ctx,
+                to_unresolved=text,
+                ctx=ctx,
             )
         arn = _arn_parts(text)
         if arn is not None:
@@ -643,9 +619,7 @@ class CrossDomainResolver:
         if rel.relation_type == str(DomainRelationKind.CALLS_ENDPOINT):
             return self._resolve_endpoint(rel, text, ctx)
         path = _repo_path(text)
-        if path is not None and (
-            "/" in path or path in ctx.file_occs or ctx.by_path.get(path)
-        ):
+        if path is not None and ("/" in path or path in ctx.file_occs or ctx.by_path.get(path)):
             # path "definitivo": com separador, ou literalmente presente
             # no inventário. Nome nu sem "/" e fora do inventário cai
             # para o parse de nome qualificado → diagnóstico honesto.
@@ -654,7 +628,8 @@ class CrossDomainResolver:
         if parses:
             return self._resolve_qualified(rel, text, parses, producer, ctx)
         ctx.diagnostic(
-            "unqualified-target", "info",
+            "unqualified-target",
+            "info",
             f"relation {rel.relation_id} target {text!r} carries no "
             "qualifier — never resolved by name alone",
         )
@@ -663,7 +638,7 @@ class CrossDomainResolver:
     @staticmethod
     def _producer_domain(resolver: str) -> str:
         """Domínio produtor da row — ``resolver='domain:<id>'`` padrão."""
-        return resolver[len("domain:"):] if resolver.startswith("domain:") else ""
+        return resolver[len("domain:") :] if resolver.startswith("domain:") else ""
 
     def _mk_update(
         self,
@@ -703,35 +678,40 @@ class CrossDomainResolver:
         FULL único → resolved. FULL múltiplo ou PARTIAL ≥1 → ambiguous
         (candidatos preservados no texto). NAME_ONLY → diagnóstico.
         """
-        full, partial, bare = self._qualified_candidates(
-            parses, producer, ctx
-        )
+        full, partial, bare = self._qualified_candidates(parses, producer, ctx)
         if len(full) == 1:
             occ = next(iter(full.values()))
             evi = self._occ_evidence(occ, ctx)
             if not evi:
                 return self._missing_evidence(rel, occ, ctx)
             return self._mk_update(
-                rel, ResolutionStatus.RESOLVED, ConfidenceClass.RESOLVED,
-                to_entity_occ_id=occ.occ_id, extra_evidence=evi, ctx=ctx,
+                rel,
+                ResolutionStatus.RESOLVED,
+                ConfidenceClass.RESOLVED,
+                to_entity_occ_id=occ.occ_id,
+                extra_evidence=evi,
+                ctx=ctx,
             )
         if len(full) > 1:
-            return self._ambiguous(rel, text, sorted(full.values(),
-                                                   key=lambda o: o.occ_id), ctx)
+            return self._ambiguous(rel, text, sorted(full.values(), key=lambda o: o.occ_id), ctx)
         if partial:
             return self._ambiguous(
-                rel, text,
-                sorted(partial.values(), key=lambda o: o.occ_id), ctx,
+                rel,
+                text,
+                sorted(partial.values(), key=lambda o: o.occ_id),
+                ctx,
             )
         if bare:
             ctx.diagnostic(
-                "unqualified-target", "info",
+                "unqualified-target",
+                "info",
                 f"relation {rel.relation_id} target {text!r} is a bare "
                 "name — no qualifier, never resolved",
             )
         else:
             ctx.diagnostic(
-                "no-cross-target", "info",
+                "no-cross-target",
+                "info",
                 f"relation {rel.relation_id} target {text!r} has no "
                 "cross-domain entity candidate in this snapshot",
             )
@@ -756,23 +736,23 @@ class CrossDomainResolver:
                     partial.setdefault(occ.occ_id, occ)
         return full, partial, bare
 
-    def _ambiguous(
-        self, rel: _RelRow, text: str, cands: list[_Occ], ctx: _Ctx
-    ) -> CrossUpdate:
+    def _ambiguous(self, rel: _RelRow, text: str, cands: list[_Occ], ctx: _Ctx) -> CrossUpdate:
         """Ambiguous honesto: todos os candidatos ficam no ``to_unresolved``."""
         disp = ", ".join(sorted(o.identity.display() for o in cands))
         return self._mk_update(
-            rel, ResolutionStatus.AMBIGUOUS, ConfidenceClass.SYNTACTIC,
-            to_unresolved=f"{text} [candidates: {disp}]", ctx=ctx,
+            rel,
+            ResolutionStatus.AMBIGUOUS,
+            ConfidenceClass.SYNTACTIC,
+            to_unresolved=f"{text} [candidates: {disp}]",
+            ctx=ctx,
         )
 
-    def _missing_evidence(
-        self, rel: _RelRow, occ: _Occ, ctx: _Ctx
-    ) -> CrossUpdate | None:
+    def _missing_evidence(self, rel: _RelRow, occ: _Occ, ctx: _Ctx) -> CrossUpdate | None:
         """Candidato sem evidência localizável → não resolve (evidence-first)."""
         ctx.missing_evidence += 1
         ctx.diagnostic(
-            "missing-evidence", "warning",
+            "missing-evidence",
+            "warning",
             f"relation {rel.relation_id} candidate "
             f"{occ.identity.display()} has no locatable source evidence "
             "— not resolved",
@@ -781,9 +761,7 @@ class CrossDomainResolver:
 
     # -- regra: consumidor ↔ endpoint (method+path literal) ---------------
 
-    def _resolve_endpoint(
-        self, rel: _RelRow, text: str, ctx: _Ctx
-    ) -> CrossUpdate | None:
+    def _resolve_endpoint(self, rel: _RelRow, text: str, ctx: _Ctx) -> CrossUpdate | None:
         """``CALLS_ENDPOINT`` — igualdade literal de method+path.
 
         Regra interna do domínio ``api`` (o adapter declara os
@@ -809,16 +787,23 @@ class CrossDomainResolver:
             if not evi:
                 return self._missing_evidence(rel, occ, ctx)
             return self._mk_update(
-                rel, ResolutionStatus.RESOLVED, ConfidenceClass.RESOLVED,
-                to_entity_occ_id=occ.occ_id, extra_evidence=evi, ctx=ctx,
+                rel,
+                ResolutionStatus.RESOLVED,
+                ConfidenceClass.RESOLVED,
+                to_entity_occ_id=occ.occ_id,
+                extra_evidence=evi,
+                ctx=ctx,
             )
         if len(cands) > 1:
             return self._ambiguous(
-                rel, text,
-                sorted(cands.values(), key=lambda o: o.occ_id), ctx,
+                rel,
+                text,
+                sorted(cands.values(), key=lambda o: o.occ_id),
+                ctx,
             )
         ctx.diagnostic(
-            "endpoint-unmatched", "info",
+            "endpoint-unmatched",
+            "info",
             f"relation {rel.relation_id} call literal {text!r} matched "
             "no api_endpoint entity (method+path)",
         )
@@ -870,23 +855,33 @@ class CrossDomainResolver:
             if not evi:
                 return self._missing_evidence(rel, occ, ctx)
             return self._mk_update(
-                rel, ResolutionStatus.RESOLVED, ConfidenceClass.RESOLVED,
-                to_entity_occ_id=occ.occ_id, extra_evidence=evi, ctx=ctx,
+                rel,
+                ResolutionStatus.RESOLVED,
+                ConfidenceClass.RESOLVED,
+                to_entity_occ_id=occ.occ_id,
+                extra_evidence=evi,
+                ctx=ctx,
             )
         if len(cands) > 1:
             return self._ambiguous(
-                rel, rel.to_unresolved or "",
-                sorted(cands.values(), key=lambda o: o.occ_id), ctx,
+                rel,
+                rel.to_unresolved or "",
+                sorted(cands.values(), key=lambda o: o.occ_id),
+                ctx,
             )
         if partial:
             return self._ambiguous(
-                rel, rel.to_unresolved or "",
-                sorted(partial.values(), key=lambda o: o.occ_id), ctx,
+                rel,
+                rel.to_unresolved or "",
+                sorted(partial.values(), key=lambda o: o.occ_id),
+                ctx,
             )
         return self._mk_update(
-            rel, ResolutionStatus.EXTERNAL,
+            rel,
+            ResolutionStatus.EXTERNAL,
             ConfidenceClass(rel.confidence_class),
-            to_unresolved=rel.to_unresolved or "", ctx=ctx,
+            to_unresolved=rel.to_unresolved or "",
+            ctx=ctx,
         )
 
     # -- regra: path de artefato do repo ----------------------------------
@@ -901,8 +896,7 @@ class CrossDomainResolver:
         próprio path (ponte domínio→código, lf-0117/0120).
         """
         ents = [
-            o for o in ctx.by_path.get(path, ())
-            if not producer or o.identity.domain != producer
+            o for o in ctx.by_path.get(path, ()) if not producer or o.identity.domain != producer
         ]
         if len(ents) == 1:
             occ = ents[0]
@@ -910,27 +904,36 @@ class CrossDomainResolver:
             if not evi:
                 return self._missing_evidence(rel, occ, ctx)
             return self._mk_update(
-                rel, ResolutionStatus.RESOLVED, ConfidenceClass.RESOLVED,
-                to_entity_occ_id=occ.occ_id, extra_evidence=evi, ctx=ctx,
+                rel,
+                ResolutionStatus.RESOLVED,
+                ConfidenceClass.RESOLVED,
+                to_entity_occ_id=occ.occ_id,
+                extra_evidence=evi,
+                ctx=ctx,
             )
         if len(ents) > 1:
             return self._ambiguous(rel, path, sorted(ents, key=lambda o: o.occ_id), ctx)
         occ_ids = ctx.file_occs.get(path, ())
         if len(occ_ids) == 1:
             return self._mk_update(
-                rel, ResolutionStatus.RESOLVED, ConfidenceClass.RESOLVED,
-                to_symbol_occ_id=occ_ids[0], ctx=ctx,
+                rel,
+                ResolutionStatus.RESOLVED,
+                ConfidenceClass.RESOLVED,
+                to_symbol_occ_id=occ_ids[0],
+                ctx=ctx,
             )
         if len(occ_ids) > 1:
             return self._mk_update(
-                rel, ResolutionStatus.AMBIGUOUS, ConfidenceClass.SYNTACTIC,
-                to_unresolved=f"{path} [candidates: {len(occ_ids)} file "
-                "occurrences]", ctx=ctx,
+                rel,
+                ResolutionStatus.AMBIGUOUS,
+                ConfidenceClass.SYNTACTIC,
+                to_unresolved=f"{path} [candidates: {len(occ_ids)} file occurrences]",
+                ctx=ctx,
             )
         ctx.diagnostic(
-            "no-cross-target", "info",
-            f"relation {rel.relation_id} path target {path!r} not in "
-            "this snapshot inventory",
+            "no-cross-target",
+            "info",
+            f"relation {rel.relation_id} path target {path!r} not in this snapshot inventory",
         )
         return None
 
@@ -963,9 +966,7 @@ class CrossDomainResolver:
         )
         return edges
 
-    def _qualified_pair_edges(
-        self, ctx: _Ctx, proposed: set[frozenset[int]]
-    ) -> list[CrossEdge]:
+    def _qualified_pair_edges(self, ctx: _Ctx, proposed: set[frozenset[int]]) -> list[CrossEdge]:
         """Mesmo ``qualified_name`` em domínios distintos → identidade."""
         by_qname: dict[str, list[_Occ]] = {}
         for occ in ctx.occs.values():
@@ -974,7 +975,7 @@ class CrossDomainResolver:
         for qname in sorted(by_qname):
             group = sorted(by_qname[qname], key=lambda o: o.occ_id)
             for i, a in enumerate(group):
-                for b in group[i + 1:]:
+                for b in group[i + 1 :]:
                     if a.identity.domain == b.identity.domain:
                         continue
                     pair = frozenset((a.occ_id, b.occ_id))
@@ -986,31 +987,31 @@ class CrossDomainResolver:
                         proposed.add(pair)
         return edges
 
-    def _pair_edge(
-        self, a: _Occ, b: _Occ, qname: str, ctx: _Ctx
-    ) -> CrossEdge | None:
+    def _pair_edge(self, a: _Occ, b: _Occ, qname: str, ctx: _Ctx) -> CrossEdge | None:
         """Um par cross-domain: FULL → aresta, PARTIAL → ambiguous,
         NAME_ONLY → diagnóstico (nunca aresta)."""
         ag = _pair_agreement(a.identity, b.identity)
         if ag is Agreement.FULL:
             return self._mk_edge(
-                a, b, str(DomainRelationKind.REFERENCES),
-                ResolutionStatus.RESOLVED, ctx,
+                a,
+                b,
+                str(DomainRelationKind.REFERENCES),
+                ResolutionStatus.RESOLVED,
+                ctx,
             )
         if ag is Agreement.PARTIAL:
             return self._mk_ambiguous_edge(a, b, ctx)
         if ag is Agreement.NAME_ONLY:
             ctx.diagnostic(
-                "name-only-collision", "info",
+                "name-only-collision",
+                "info",
                 f"{a.identity.display()} vs {b.identity.display()} "
                 f"share bare name {qname!r} — no qualified agreement, "
                 "no edge",
             )
         return None
 
-    def _path_anchor_edges(
-        self, ctx: _Ctx, proposed: set[frozenset[int]]
-    ) -> list[CrossEdge]:
+    def _path_anchor_edges(self, ctx: _Ctx, proposed: set[frozenset[int]]) -> list[CrossEdge]:
         """Atributo-path de A ancorado no repo — entidade↔entidade ou
         entidade→símbolo FILE.
 
@@ -1027,8 +1028,7 @@ class CrossDomainResolver:
                 if anchor == a.source_path:
                     continue  # auto-referência ao próprio artefato
                 targets = [
-                    o for o in ctx.by_path.get(anchor, ())
-                    if o.identity.domain != a.identity.domain
+                    o for o in ctx.by_path.get(anchor, ()) if o.identity.domain != a.identity.domain
                 ]
                 for b in sorted(targets, key=lambda o: o.occ_id):
                     pair = frozenset((a.occ_id, b.occ_id))
@@ -1040,7 +1040,11 @@ class CrossDomainResolver:
                         else str(DomainRelationKind.REFERENCES)
                     )
                     edge = self._mk_edge(
-                        a, b, rtype, ResolutionStatus.RESOLVED, ctx,
+                        a,
+                        b,
+                        rtype,
+                        ResolutionStatus.RESOLVED,
+                        ctx,
                     )
                     if edge is not None:
                         out.append(edge)
@@ -1052,9 +1056,7 @@ class CrossDomainResolver:
                     out.append(edge)
         return out
 
-    def _file_anchor_edge(
-        self, a: _Occ, anchor: str, ctx: _Ctx
-    ) -> CrossEdge | None:
+    def _file_anchor_edge(self, a: _Occ, anchor: str, ctx: _Ctx) -> CrossEdge | None:
         """Anchor sem entidade de domínio → aresta para o símbolo FILE."""
         occ_ids = ctx.file_occs.get(anchor, ())
         if len(occ_ids) != 1:
@@ -1065,14 +1067,12 @@ class CrossDomainResolver:
             return None
         # evidência do lado arquivo: qualquer extractor — o fato-fonte é
         # a existência do arquivo no inventário do snapshot.
-        evi_b = [
-            int(e["id"]) for e in ctx.evidence.values()
-            if str(e["path"]) == anchor
-        ]
+        evi_b = [int(e["id"]) for e in ctx.evidence.values() if str(e["path"]) == anchor]
         if not evi_b:
             ctx.missing_evidence += 1
             ctx.diagnostic(
-                "missing-evidence", "info",
+                "missing-evidence",
+                "info",
                 f"edge {a.identity.display()} → file {anchor!r} dropped: "
                 "no evidence rows for the artifact file",
             )
@@ -1083,11 +1083,10 @@ class CrossDomainResolver:
             resolver=CROSS_RESOLVER_ID,
             confidence_class=ConfidenceClass.RESOLVED,
             resolution_status=ResolutionStatus.RESOLVED,
-            from_entity_occ_id=a.occ_id, to_symbol_occ_id=occ_ids[0],
+            from_entity_occ_id=a.occ_id,
+            to_symbol_occ_id=occ_ids[0],
         )
-        return self._edge_of(
-            rel, tuple(sorted(set(evi_a) | set(evi_b)))
-        )
+        return self._edge_of(rel, tuple(sorted(set(evi_a) | set(evi_b))))
 
     @staticmethod
     def _path_anchors(occ: _Occ) -> set[str]:
@@ -1122,17 +1121,15 @@ class CrossDomainResolver:
         Sem evidência localizável de um dos lados → diagnóstico e
         nenhuma aresta (evidence-first é inegociável).
         """
-        if (
-            rtype == str(DomainRelationKind.REFERENCES)
-            and a.identity.domain < b.identity.domain
-        ):
+        if rtype == str(DomainRelationKind.REFERENCES) and a.identity.domain < b.identity.domain:
             a, b = b, a
         evi_a = self._occ_evidence(a, ctx)
         evi_b = self._occ_evidence(b, ctx)
         if not evi_a or not evi_b:
             ctx.missing_evidence += 1
             ctx.diagnostic(
-                "missing-evidence", "warning",
+                "missing-evidence",
+                "warning",
                 f"edge {a.identity.display()} → {b.identity.display()} "
                 "dropped: source evidence missing on one side",
             )
@@ -1142,26 +1139,25 @@ class CrossDomainResolver:
         # invariantes do modelo (endpoint obrigatório, inferred≠resolved)
         # e o CrossEdge deriva dos campos coercionados — zero drift.
         rel = DomainRelation(
-            snapshot_id=0, relation_type=rtype, resolver=CROSS_RESOLVER_ID,
+            snapshot_id=0,
+            relation_type=rtype,
+            resolver=CROSS_RESOLVER_ID,
             confidence_class=(
                 ConfidenceClass.RESOLVED
                 if status is ResolutionStatus.RESOLVED
                 else ConfidenceClass.SYNTACTIC
             ),
             resolution_status=status,
-            from_entity_occ_id=a.occ_id, to_entity_occ_id=to_occ,
+            from_entity_occ_id=a.occ_id,
+            to_entity_occ_id=to_occ,
             to_unresolved=to_unresolved,
         )
         return self._edge_of(rel, tuple(sorted(set(evi_a) | set(evi_b))))
 
     def _mk_ambiguous_edge(self, a: _Occ, b: _Occ, ctx: _Ctx) -> CrossEdge:
         """Aresta ``ambiguous``: ambos os candidatos ficam no texto."""
-        evi = sorted(
-            set(self._occ_evidence(a, ctx)) | set(self._occ_evidence(b, ctx))
-        )
-        disp = " | ".join(
-            sorted({a.identity.display(), b.identity.display()})
-        )
+        evi = sorted(set(self._occ_evidence(a, ctx)) | set(self._occ_evidence(b, ctx)))
+        disp = " | ".join(sorted({a.identity.display(), b.identity.display()}))
         rel = DomainRelation(
             snapshot_id=0,
             relation_type=str(DomainRelationKind.REFERENCES),
@@ -1203,6 +1199,4 @@ class _Ctx:
     missing_evidence: int = 0
 
     def diagnostic(self, code: str, severity: str, message: str) -> None:
-        self.diagnostics.append(
-            CrossDiagnostic(code=code, severity=severity, message=message)
-        )
+        self.diagnostics.append(CrossDiagnostic(code=code, severity=severity, message=message))

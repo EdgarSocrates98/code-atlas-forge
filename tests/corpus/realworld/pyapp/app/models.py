@@ -1,4 +1,5 @@
 """Modelos de domínio — dataclasses stdlib."""
+
 from dataclasses import dataclass, field
 
 

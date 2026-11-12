@@ -48,9 +48,7 @@ def mrr(ranked: list[str], relevant: Relevant) -> float:
 
 
 def _dcg(gains: list[int]) -> float:
-    return sum(
-        (2.0 ** g - 1.0) / math.log2(i + 2) for i, g in enumerate(gains)
-    )
+    return sum((2.0**g - 1.0) / math.log2(i + 2) for i, g in enumerate(gains))
 
 
 def ndcg_at_k(ranked: list[str], relevant: Relevant, k: int) -> float:
@@ -63,7 +61,9 @@ def ndcg_at_k(ranked: list[str], relevant: Relevant, k: int) -> float:
 
 
 def average_precision_at_k(
-    ranked: list[str], relevant: Relevant, k: int,
+    ranked: list[str],
+    relevant: Relevant,
+    k: int,
 ) -> float:
     """AP@K — média das precision@i nos ranks relevantes."""
     rel = {d for d, g in relevant.items() if g > 0}
@@ -79,8 +79,7 @@ def average_precision_at_k(
 
 
 def hit_rate_at_k(ranked: list[str], relevant: Relevant, k: int) -> float:
-    return 1.0 if any(
-        relevant.get(d, 0) > 0 for d in _topk(ranked, k)) else 0.0
+    return 1.0 if any(relevant.get(d, 0) > 0 for d in _topk(ranked, k)) else 0.0
 
 
 def diversity(ranked: list[str]) -> float:
@@ -110,7 +109,8 @@ class EvalReport:
 
     def to_dict(self) -> dict[str, object]:
         return {
-            "macro": self.macro, "micro": self.micro,
+            "macro": self.macro,
+            "micro": self.micro,
             "median": self.median,
             "n_queries": self.n_queries,
             "no_relevant": self.no_relevant,
@@ -134,7 +134,9 @@ def aggregate(records: list[MetricRecord]) -> EvalReport:
         "recall": n_tp / n_rel if n_rel else 0.0,
     }
     return EvalReport(
-        macro=macro, micro=micro, median=median,
+        macro=macro,
+        micro=micro,
+        median=median,
         n_queries=len(records),
         no_relevant=sum(1 for r in records if r.relevant == 0),
     )
@@ -174,5 +176,5 @@ def evaluate_query(
     if rec is not None:
         metrics["recall_at_k"] = rec
     return MetricRecord(
-        query_id=query_id, k=k, tp=tp, returned=len(top),
-        relevant=rel, metrics=metrics)
+        query_id=query_id, k=k, tp=tp, returned=len(top), relevant=rel, metrics=metrics
+    )

@@ -28,7 +28,7 @@ class ResolvedImpactSnapshots:
     target_snapshot_id: int
     base_revision: str
     target_revision: str
-    mode: str                     # explicit | implicit | mixed
+    mode: str  # explicit | implicit | mixed
     base_status: str
     target_status: str
 
@@ -42,12 +42,14 @@ class ImpactSnapshotResolver:
 
     def _repo_id(self, root: Path) -> int | None:
         from code_atlas.search.structural import StructuralSearch
+
         return StructuralSearch(self._conn).repo_for_root(str(root))
 
     def _snap(self, sid: int) -> sqlite3.Row | None:
         row: sqlite3.Row | None = self._conn.execute(
-            "SELECT id, repository_id, status, commit_sha, git_ref"
-            " FROM snapshots WHERE id = ?", (sid,)).fetchone()
+            "SELECT id, repository_id, status, commit_sha, git_ref FROM snapshots WHERE id = ?",
+            (sid,),
+        ).fetchone()
         return row
 
     def _revision(self, sid: int) -> str:
@@ -55,7 +57,10 @@ class ImpactSnapshotResolver:
         return str(row["commit_sha"] or "") if row else ""
 
     def _check(
-        self, sid: int | None, role: str, repo_id: int,
+        self,
+        sid: int | None,
+        role: str,
+        repo_id: int,
         diags: list[ImpactDiagnostic],
     ) -> bool:
         """Valida um snapshot explícito/implícito contra o repo."""
@@ -63,42 +68,48 @@ class ImpactSnapshotResolver:
             return True
         own = self._snap(sid)
         if own is None:
-            diags.append(ImpactDiagnostic(
-                "snapshot-missing", f"snapshot {role}={sid} ausente"))
+            diags.append(ImpactDiagnostic("snapshot-missing", f"snapshot {role}={sid} ausente"))
             return True
         if int(own["repository_id"]) != repo_id:
-            diags.append(ImpactDiagnostic(
-                "cross-repo-snapshot",
-                f"snapshot {role}={sid} pertence a outro repositório"))
+            diags.append(
+                ImpactDiagnostic(
+                    "cross-repo-snapshot", f"snapshot {role}={sid} pertence a outro repositório"
+                )
+            )
             return False
         if own["status"] == "FAILED":
-            diags.append(ImpactDiagnostic(
-                "snapshot-failed",
-                f"snapshot {role}={sid} com status FAILED — "
-                "não é fonte confiável"))
+            diags.append(
+                ImpactDiagnostic(
+                    "snapshot-failed",
+                    f"snapshot {role}={sid} com status FAILED — não é fonte confiável",
+                )
+            )
             return False
         return True
 
     def resolve(
-        self, req: ImpactRequest, root: Path,
+        self,
+        req: ImpactRequest,
+        root: Path,
     ) -> tuple[ResolvedImpactSnapshots | None, list[ImpactDiagnostic]]:
         diags: list[ImpactDiagnostic] = []
         repo_id = self._repo_id(root)
         if repo_id is None:
-            return None, [ImpactDiagnostic(
-                "repo-not-indexed",
-                f"repositório não indexado: {root}")]
+            return None, [ImpactDiagnostic("repo-not-indexed", f"repositório não indexado: {root}")]
 
         base_sid = req.base_snapshot_id
         target_sid = req.target_snapshot_id
-        mode = "explicit" if base_sid and target_sid else (
-            "mixed" if base_sid or target_sid else "implicit")
+        mode = (
+            "explicit"
+            if base_sid and target_sid
+            else ("mixed" if base_sid or target_sid else "implicit")
+        )
 
         if target_sid is None:
             rows = self._conn.execute(
-                "SELECT id FROM snapshots"
-                " WHERE status = 'READY' AND repository_id = ?"
-                " ORDER BY id", (repo_id,)).fetchall()
+                "SELECT id FROM snapshots WHERE status = 'READY' AND repository_id = ? ORDER BY id",
+                (repo_id,),
+            ).fetchall()
             target_sid = int(rows[-1]["id"]) if rows else None
 
         if base_sid is None and target_sid is not None:
@@ -106,7 +117,8 @@ class ImpactSnapshotResolver:
                 "SELECT id FROM snapshots WHERE id < ?"
                 " AND repository_id = ?"
                 " ORDER BY id DESC LIMIT 1",
-                (target_sid, repo_id)).fetchone()
+                (target_sid, repo_id),
+            ).fetchone()
             base_sid = int(row["id"]) if row else target_sid
 
         for sid, role in ((base_sid, "base"), (target_sid, "target")):
@@ -114,9 +126,11 @@ class ImpactSnapshotResolver:
                 return None, diags
 
         if base_sid is None or target_sid is None:
-            diags.append(ImpactDiagnostic(
-                "snapshot-unavailable",
-                "nenhum snapshot utilizável — indexe antes de analisar"))
+            diags.append(
+                ImpactDiagnostic(
+                    "snapshot-unavailable", "nenhum snapshot utilizável — indexe antes de analisar"
+                )
+            )
             return None, diags
         if diags:
             return None, diags
@@ -128,8 +142,7 @@ class ImpactSnapshotResolver:
             base_snapshot_id=base_sid,
             target_snapshot_id=target_sid,
             base_revision=str(base["commit_sha"] or "") if base else "",
-            target_revision=str(target["commit_sha"] or "")
-            if target else "",
+            target_revision=str(target["commit_sha"] or "") if target else "",
             mode=mode,
             base_status=str(base["status"]) if base else "",
             target_status=str(target["status"]) if target else "",

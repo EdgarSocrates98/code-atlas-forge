@@ -156,13 +156,10 @@ def encode_cursor(offset: int, fingerprint: str) -> str:
     return base64.urlsafe_b64encode(raw).decode("ascii")
 
 
-def decode_cursor(
-    cursor: str, fingerprint: str
-) -> int | None:
+def decode_cursor(cursor: str, fingerprint: str) -> int | None:
     """Offset do cursor se o fingerprint bate; None = inválido."""
     try:
-        data = json.loads(
-            base64.urlsafe_b64decode(cursor.encode("ascii")))
+        data = json.loads(base64.urlsafe_b64decode(cursor.encode("ascii")))
     except (ValueError, json.JSONDecodeError):
         return None
     if data.get("f") != fingerprint or not isinstance(data.get("o"), int):

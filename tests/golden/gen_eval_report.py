@@ -48,12 +48,8 @@ def _stale_index_metrics(tmp: Path) -> dict:
     ws = tmp / "ws"
     (ws / "pkg").mkdir(parents=True)
     (ws / "pkg" / "a.py").write_text("def f():\n    return 1\n")
-    ok_blob = index_bytes(
-        f"file://{ws}", [document("pkg/a.py")], tool=tool_info()
-    )
-    bad_root = index_bytes(
-        "file:///other/repo", [document("a.py")], tool=tool_info()
-    )
+    ok_blob = index_bytes(f"file://{ws}", [document("pkg/a.py")], tool=tool_info())
+    bad_root = index_bytes("file:///other/repo", [document("a.py")], tool=tool_info())
     cases = {}
     for name, blob, expect_ok in (
         ("matching_root", ok_blob, True),
@@ -107,9 +103,7 @@ def _cache_metrics(tmp: Path) -> dict:
     try:
         coord = IndexCoordinator(conn)
         first = coord.index(repo)
-        (repo / "pkg" / "u.py").write_text(
-            "def helper():\n    return 2\n"
-        )
+        (repo / "pkg" / "u.py").write_text("def helper():\n    return 2\n")
         second = coord.index(repo, incremental=True)
         # blob corrompido -> miss honesto (invariante do cache)
         return {
@@ -134,9 +128,7 @@ def _isolation_metrics(tmp: Path) -> dict:
         out_a = IndexCoordinator(conn).index(a)
         out_b = IndexCoordinator(conn).index(b)
         sids = [int(out_a.snapshot_id), int(out_b.snapshot_id)]
-        cross = [
-            sid for sid in sids if store.cross_snapshot_relations(sid)
-        ]
+        cross = [sid for sid in sids if store.cross_snapshot_relations(sid)]
         return {
             "cross_snapshot_relations": len(cross),
             "isolated": not cross,
@@ -175,12 +167,10 @@ def main() -> None:
         },
         "cycle4": _cycle4(tmp),
     }
-    report["cycle31"]["graph_equivalence"]["incremental_equals_cold"] = (
-        report["cycle31"]["invalidation_correctness"]["incremental_matches_full"]
-    )
-    (HERE / "eval-report.json").write_text(
-        json.dumps(report, indent=1, sort_keys=True) + "\n"
-    )
+    report["cycle31"]["graph_equivalence"]["incremental_equals_cold"] = report["cycle31"][
+        "invalidation_correctness"
+    ]["incremental_matches_full"]
+    (HERE / "eval-report.json").write_text(json.dumps(report, indent=1, sort_keys=True) + "\n")
     print("wrote", HERE / "eval-report.json")
 
 

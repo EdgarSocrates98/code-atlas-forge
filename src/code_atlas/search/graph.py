@@ -25,13 +25,17 @@ from dataclasses import dataclass
 
 # Pesos por tipo de relação (menor = mais relevante para contexto).
 _REL_WEIGHT = {
-    "CALLS": 0, "IMPORTS": 1, "EXTENDS": 2, "IMPLEMENTS": 2,
-    "REFERENCES": 3, "CONTAINS": 4, "DEFINES": 4, "TESTS": 4,
+    "CALLS": 0,
+    "IMPORTS": 1,
+    "EXTENDS": 2,
+    "IMPLEMENTS": 2,
+    "REFERENCES": 3,
+    "CONTAINS": 4,
+    "DEFINES": 4,
+    "TESTS": 4,
 }
-_STATUS_RANK = {"resolved": 0, "ambiguous": 1, "unresolved": 2,
-                "external": 2}
-_CONF_RANK = {"resolved": 0, "syntactic": 1, "heuristic": 2,
-              "inferred": 3}
+_STATUS_RANK = {"resolved": 0, "ambiguous": 1, "unresolved": 2, "external": 2}
+_CONF_RANK = {"resolved": 0, "syntactic": 1, "heuristic": 2, "inferred": 3}
 
 
 @dataclass(frozen=True)
@@ -100,9 +104,7 @@ class GraphRetrieval:
     def __init__(self, conn: sqlite3.Connection) -> None:
         self._conn = conn
 
-    def seed_occurrences(
-        self, snapshot_id: int, qualified_name: str
-    ) -> list[int]:
+    def seed_occurrences(self, snapshot_id: int, qualified_name: str) -> list[int]:
         """Seeds por qualified_name exato (case-insensitive)."""
         rows = self._conn.execute(
             "SELECT o.id FROM symbol_occurrences o"
@@ -137,8 +139,15 @@ class GraphRetrieval:
                 stats.truncated_by = "time"
                 break
             next_frontier = self._walk_level(
-                snapshot_id, frontier, visited, paths, direction,
-                relation_types, lim, stats, hit_ids,
+                snapshot_id,
+                frontier,
+                visited,
+                paths,
+                direction,
+                relation_types,
+                lim,
+                stats,
+                hit_ids,
             )
             if stats.truncated_by:
                 break
@@ -150,12 +159,7 @@ class GraphRetrieval:
             pass
         if not hit_ids:
             return [], stats
-        info = {
-            int(r["id"]): r
-            for r in self._conn.execute(
-                _OCC_INFO_SQL, (json.dumps(hit_ids),)
-            )
-        }
+        info = {int(r["id"]): r for r in self._conn.execute(_OCC_INFO_SQL, (json.dumps(hit_ids),))}
         hits = [
             TraversalHit(
                 occurrence_id=oid,
@@ -175,17 +179,13 @@ class GraphRetrieval:
         hits.sort(
             key=lambda h: (
                 h.depth,
-                min((_STATUS_RANK.get(s.resolution_status, 3)
-                     for s in h.steps), default=3),
-                min((_REL_WEIGHT.get(s.relation, 5)
-                     for s in h.steps), default=5),
-                min((_CONF_RANK.get(s.confidence_class, 4)
-                     for s in h.steps), default=4),
+                min((_STATUS_RANK.get(s.resolution_status, 3) for s in h.steps), default=3),
+                min((_REL_WEIGHT.get(s.relation, 5) for s in h.steps), default=5),
+                min((_CONF_RANK.get(s.confidence_class, 4) for s in h.steps), default=4),
                 h.occurrence_id,
             )
         )
         return hits, stats
-
 
     def _walk_level(
         self,
@@ -207,8 +207,7 @@ class GraphRetrieval:
         stats.edges_examined += len(rows)
         next_frontier: list[int] = []
         for r in rows:
-            frm, to = int(r["from_id"]), (
-                int(r["to_id"]) if r["to_id"] is not None else None)
+            frm, to = int(r["from_id"]), (int(r["to_id"]) if r["to_id"] is not None else None)
             if to is None:
                 continue
             rel = str(r["type"])
@@ -216,7 +215,8 @@ class GraphRetrieval:
                 continue
             # direção: outgoing = seed→out, incoming = out→seed
             for a, b, direc in (
-                (frm, to, "outgoing"), (to, frm, "incoming"),
+                (frm, to, "outgoing"),
+                (to, frm, "incoming"),
             ):
                 if direc != direction and direction != "both":
                     continue
@@ -225,7 +225,9 @@ class GraphRetrieval:
                 visited.add(b)
                 stats.nodes_visited += 1
                 step = TraversalStep(
-                    from_id=frm, to_id=to, relation=rel,
+                    from_id=frm,
+                    to_id=to,
+                    relation=rel,
                     resolution_status=str(r["resolution_status"]),
                     confidence_class=str(r["confidence_class"]),
                 )
@@ -244,14 +246,12 @@ class GraphRetrieval:
         self, snapshot_id: int, seed: int, **kw: object
     ) -> tuple[list[TraversalHit], TraversalStats]:
         """Consumidores: arestas incoming (quem chama/importa a seed)."""
-        return self.traverse(
-            snapshot_id, [seed], direction="incoming", **kw)  # type: ignore[arg-type]
+        return self.traverse(snapshot_id, [seed], direction="incoming", **kw)  # type: ignore[arg-type]
 
     def callees(
         self, snapshot_id: int, seed: int, **kw: object
     ) -> tuple[list[TraversalHit], TraversalStats]:
-        return self.traverse(
-            snapshot_id, [seed], direction="outgoing", **kw)  # type: ignore[arg-type]
+        return self.traverse(snapshot_id, [seed], direction="outgoing", **kw)  # type: ignore[arg-type]
 
     def dependencies(
         self, snapshot_id: int, seed: int, **kw: object
@@ -260,15 +260,13 @@ class GraphRetrieval:
             "relation_types",
             frozenset({"IMPORTS", "EXTENDS", "IMPLEMENTS", "REFERENCES"}),
         )
-        return self.traverse(
-            snapshot_id, [seed], direction="outgoing", **kw)  # type: ignore[arg-type]
+        return self.traverse(snapshot_id, [seed], direction="outgoing", **kw)  # type: ignore[arg-type]
 
     def components(
         self, snapshot_id: int, seed: int, **kw: object
     ) -> tuple[list[TraversalHit], TraversalStats]:
         """Componente conectado da seed — travessia bidirecional."""
-        return self.traverse(
-            snapshot_id, [seed], direction="both", **kw)  # type: ignore[arg-type]
+        return self.traverse(snapshot_id, [seed], direction="both", **kw)  # type: ignore[arg-type]
 
 
 def _structural_score(steps: list[TraversalStep]) -> float:

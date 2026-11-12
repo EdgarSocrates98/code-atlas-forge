@@ -32,17 +32,19 @@ def test_context_pack_projection_is_citable_and_budgeted() -> None:
             available_items=970,
             estimator="heuristic-v1",
         ),
-        items=(ContextItem(
-            item_id="symbol:main",
-            kind="symbol",
-            priority=1,
-            title="main",
-            body="def main(): pass",
-            est_tokens=5,
-            symbol_key="repo.main",
-            path="src/main.py",
-            evidence=(PackEvidence(kind="occurrence", ref="occ:1"),),
-        ),),
+        items=(
+            ContextItem(
+                item_id="symbol:main",
+                kind="symbol",
+                priority=1,
+                title="main",
+                body="def main(): pass",
+                est_tokens=5,
+                symbol_key="repo.main",
+                path="src/main.py",
+                evidence=(PackEvidence(kind="occurrence", ref="occ:1"),),
+            ),
+        ),
         selected_symbols=("repo.main",),
         relevant_files=("src/main.py",),
         dependencies=(),
@@ -95,9 +97,9 @@ def test_context_pack_identity_changes_with_budget_and_selection() -> None:
         diagnostics=PackDiagnostics(),
     )
     first = to_knowledge_context_pack(
-        pack, query="find main", workspace_id="ws-1", principal="agent-1")
+        pack, query="find main", workspace_id="ws-1", principal="agent-1"
+    )
     second = to_knowledge_context_pack(
-        pack, query="find main", workspace_id="ws-1", principal="agent-1",
-        product_id="p1")
+        pack, query="find main", workspace_id="ws-1", principal="agent-1", product_id="p1"
+    )
     assert first["pack_id"] != second["pack_id"]
-

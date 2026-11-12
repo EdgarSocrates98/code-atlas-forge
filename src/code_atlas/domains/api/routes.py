@@ -44,9 +44,7 @@ from code_atlas.domains.identity import DomainIdentity
 from code_atlas.domains.model import DomainEntityKind
 from code_atlas.parsers.contracts import ParseResult, SourceSpan
 
-HTTP_METHODS = frozenset(
-    {"get", "put", "post", "delete", "options", "head", "patch", "trace"}
-)
+HTTP_METHODS = frozenset({"get", "put", "post", "delete", "options", "head", "patch", "trace"})
 _ROUTE_DEC = re.compile(
     r"^([\w.]+)\.(get|put|post|delete|options|head|patch|trace"
     r"|route|api_route|websocket|webhooks)\s*\("
@@ -54,9 +52,7 @@ _ROUTE_DEC = re.compile(
 _PY_CTOR = re.compile(r"^(?:[\w.]+\.)?(FastAPI|APIRouter|Flask|Blueprint)$")
 _PY_VAR_LHS = re.compile(r"^\s*([A-Za-z_]\w*)\s*(?::[^=]+)?=")
 _TS_CTOR = re.compile(r"^(?:express\.Router|express|Router)$")
-_TS_VAR_LHS = re.compile(
-    r"^\s*(?:export\s+)?(?:const|let|var)\s+([A-Za-z_$][\w$]*)\s*="
-)
+_TS_VAR_LHS = re.compile(r"^\s*(?:export\s+)?(?:const|let|var)\s+([A-Za-z_$][\w$]*)\s*=")
 _SIMPLE_RECV = re.compile(r"^[A-Za-z_$][\w$]*$")
 _JS_ROUTE = re.compile(
     r"^\s*([A-Za-z_$][\w$]*)\."
@@ -67,17 +63,17 @@ _JS_ROUTE = re.compile(
 @dataclass(frozen=True)
 class _Route:
     receiver: str
-    method: str          # UPPER ou "ANY"
+    method: str  # UPPER ou "ANY"
     path: str
     span: SourceSpan | None
-    handler: str         # qname do símbolo que define a rota
+    handler: str  # qname do símbolo que define a rota
 
 
 @dataclass
 class _ServiceInfo:
-    kind: str            # "app" | "router" | "unknown"
-    prefix: str          # prefixo declarado (APIRouter/root_path)
-    mount: str           # prefixo de mount (include_router/app.use)
+    kind: str  # "app" | "router" | "unknown"
+    prefix: str  # prefixo declarado (APIRouter/root_path)
+    mount: str  # prefixo de mount (include_router/app.use)
     declared: bool
     span: SourceSpan | None
 
@@ -127,12 +123,8 @@ def _py_receiver_maps(
                 continue
             args = common.split_args(_args_at(text, ref.span.end_byte) or "")
             kw = "prefix" if m.group(1) in ("APIRouter", "Blueprint") else "root_path"
-            prefix_lit = common.parse_str_literal(
-                common.kwarg(args, kw) or "", lang="py"
-            )
-            prefix = (
-                prefix_lit.value if prefix_lit and not prefix_lit.dynamic else ""
-            )
+            prefix_lit = common.parse_str_literal(common.kwarg(args, kw) or "", lang="py")
+            prefix = prefix_lit.value if prefix_lit and not prefix_lit.dynamic else ""
             var = lhs.group(1)
             services[var] = _ServiceInfo(
                 kind="router" if m.group(1) in ("APIRouter", "Blueprint") else "app",
@@ -151,12 +143,8 @@ def _py_receiver_maps(
             router_var = args[0].strip()
             if not _SIMPLE_RECV.match(router_var):
                 continue
-            prefix_lit = common.parse_str_literal(
-                common.kwarg(args, "prefix") or "", lang="py"
-            )
-            prefix = (
-                prefix_lit.value if prefix_lit and not prefix_lit.dynamic else ""
-            )
+            prefix_lit = common.parse_str_literal(common.kwarg(args, "prefix") or "", lang="py")
+            prefix = prefix_lit.value if prefix_lit and not prefix_lit.dynamic else ""
             includes.append((app_var, router_var, prefix))
     return services, includes
 
@@ -178,9 +166,7 @@ def _py_routes(result: ParseResult) -> tuple[list[_Route], int]:
             args = common.split_args(common.scan_args(dec, open_paren) or "")
             lit = _first_lit(args, lang="py")
             if lit is None or lit.dynamic:
-                routes.append(
-                    _Route(recv, "?", "", sym.span, sym.qualified_name)
-                )
+                routes.append(_Route(recv, "?", "", sym.span, sym.qualified_name))
                 continue
             if verb in ("route", "api_route"):
                 methods_raw = common.kwarg(args, "methods") or ""
@@ -190,15 +176,15 @@ def _py_routes(result: ParseResult) -> tuple[list[_Route], int]:
                 for mm in methods:
                     routes.append(
                         _Route(
-                            recv, mm.upper(), lit.value,
-                            sym.span, sym.qualified_name,
+                            recv,
+                            mm.upper(),
+                            lit.value,
+                            sym.span,
+                            sym.qualified_name,
                         )
                     )
                 continue
-            routes.append(
-                _Route(recv, verb.upper(), lit.value,
-                       sym.span, sym.qualified_name)
-            )
+            routes.append(_Route(recv, verb.upper(), lit.value, sym.span, sym.qualified_name))
     return routes, skipped_nonhttp
 
 
@@ -216,15 +202,22 @@ def extract_py_routes(
     routes, skipped_nonhttp = _py_routes(result)
     if skipped_nonhttp:
         sink.diag(
-            "non-http-decorator", "info",
+            "non-http-decorator",
+            "info",
             f"{skipped_nonhttp} websocket/webhooks decorator(s) skipped "
             f"in {path} — not HTTP API endpoints",
             path,
         )
     _emit_routes(
-        sink=sink, path=path, text=text, module=module,
-        content_hash=content_hash, services=services, includes=includes,
-        routes=routes, framework="fastapi",
+        sink=sink,
+        path=path,
+        text=text,
+        module=module,
+        content_hash=content_hash,
+        services=services,
+        includes=includes,
+        routes=routes,
+        framework="fastapi",
         confidence=ConfidenceClass.SYNTACTIC,
         source="fastapi-decorator",
     )
@@ -249,8 +242,11 @@ def _ts_receiver_maps(
                 continue
             kind = "router" if callee.endswith("Router") else "app"
             services[lhs.group(1)] = _ServiceInfo(
-                kind=kind, prefix="", mount="",
-                declared=True, span=ref.span,
+                kind=kind,
+                prefix="",
+                mount="",
+                declared=True,
+                span=ref.span,
             )
             continue
         if callee.endswith(".use"):
@@ -262,10 +258,7 @@ def _ts_receiver_maps(
                 continue
             mount_lit = common.parse_str_literal(args[0], lang="ts")
             router_var = args[1].strip()
-            if (
-                mount_lit and not mount_lit.dynamic
-                and _SIMPLE_RECV.match(router_var)
-            ):
+            if mount_lit and not mount_lit.dynamic and _SIMPLE_RECV.match(router_var):
                 mounts.append((recv, router_var, mount_lit.value))
             continue
     return services, mounts
@@ -314,9 +307,15 @@ def extract_ts_routes(
     services, mounts = _ts_receiver_maps(text, result)
     routes = _ts_routes(text, result, module, services)
     _emit_routes(
-        sink=sink, path=path, text=text, module=module,
-        content_hash=content_hash, services=services, includes=mounts,
-        routes=routes, framework="express",
+        sink=sink,
+        path=path,
+        text=text,
+        module=module,
+        content_hash=content_hash,
+        services=services,
+        includes=mounts,
+        routes=routes,
+        framework="express",
         confidence=ConfidenceClass.HEURISTIC,
         source="express-literal",
     )
@@ -341,13 +340,13 @@ def extract_js_routes(
     byte_offs = common.byte_offsets(text)
     for lineno, line in enumerate(lines, 1):
         vm = _TS_VAR_LHS.match(line)
-        ctor = re.search(
-            r"=\s*(?:[\w.]+\.)?(express\.Router|express|Router)\s*\(", line
-        )
+        ctor = re.search(r"=\s*(?:[\w.]+\.)?(express\.Router|express|Router)\s*\(", line)
         if vm and ctor:
             services[vm.group(1)] = _ServiceInfo(
                 kind="router" if ctor.group(1).endswith("Router") else "app",
-                prefix="", mount="", declared=True,
+                prefix="",
+                mount="",
+                declared=True,
                 span=common.line_span(text, byte_offs, lineno),
             )
             continue
@@ -361,10 +360,7 @@ def extract_js_routes(
             if len(args) >= 2:
                 mount_lit = common.parse_str_literal(args[0], lang="ts")
                 router_var = args[1].strip()
-                if (
-                    mount_lit and not mount_lit.dynamic
-                    and _SIMPLE_RECV.match(router_var)
-                ):
+                if mount_lit and not mount_lit.dynamic and _SIMPLE_RECV.match(router_var):
                     mounts.append((recv, router_var, mount_lit.value))
             continue
         lit = _first_lit(args, lang="ts")
@@ -374,9 +370,15 @@ def extract_js_routes(
         method = "ANY" if verb == "all" else verb.upper()
         routes.append(_Route(recv, method, lit.value, span, module))
     _emit_routes(
-        sink=sink, path=path, text=text, module=module,
-        content_hash=content_hash, services=services, includes=mounts,
-        routes=routes, framework="express",
+        sink=sink,
+        path=path,
+        text=text,
+        module=module,
+        content_hash=content_hash,
+        services=services,
+        includes=mounts,
+        routes=routes,
+        framework="express",
         confidence=ConfidenceClass.HEURISTIC,
         source="express-regex",
     )
@@ -398,16 +400,17 @@ def _mount_prefixes(
         mount_of.setdefault(router_var, []).append((app_var, prefix))
         if router_var not in services:
             sink.diag(
-                "cross-file-router-prefix", "info",
-                f"{router_var!r} mounted but not declared in {path} — "
-                "prefix may be incomplete",
+                "cross-file-router-prefix",
+                "info",
+                f"{router_var!r} mounted but not declared in {path} — prefix may be incomplete",
                 path,
             )
     mount_str: dict[str, str] = {}
     for router_var, entries in mount_of.items():
         if len(entries) > 1:
             sink.diag(
-                "multi-mount", "info",
+                "multi-mount",
+                "info",
                 f"{router_var!r} mounted {len(entries)}x — first prefix used",
                 path,
             )
@@ -430,7 +433,10 @@ def _emit_routes(
     source: str,
 ) -> None:
     mount_str = _mount_prefixes(
-        sink=sink, path=path, services=services, includes=includes,
+        sink=sink,
+        path=path,
+        services=services,
+        includes=includes,
     )
 
     svc_idents: dict[str, DomainIdentity] = {}
@@ -444,9 +450,9 @@ def _emit_routes(
             info = _ServiceInfo("unknown", "", "", False, None)
             services[recv] = info
             sink.diag(
-                "undeclared-receiver", "info",
-                f"route receiver {recv!r} has no {framework} constructor "
-                f"in {path}",
+                "undeclared-receiver",
+                "info",
+                f"route receiver {recv!r} has no {framework} constructor in {path}",
                 path,
             )
         mount = mount_str.get(recv, "")
@@ -466,9 +472,9 @@ def _emit_routes(
                 "source": source,
                 "receiver_declared": "true" if info.declared else "false",
             },
-            evidence=(
-                sink.evi(path, content_hash, info.span, f"receiver {recv}"),
-            ) if info.span else (),
+            evidence=(sink.evi(path, content_hash, info.span, f"receiver {recv}"),)
+            if info.span
+            else (),
         )
         svc_idents[recv] = ident
         sink.bump("api_services")
@@ -485,7 +491,8 @@ def _emit_routes(
             from_identity=app_ident,
             to_identity=router_ident,
             resolution=sink.resolution(
-                ResolutionStatus.RESOLVED, confidence,
+                ResolutionStatus.RESOLVED,
+                confidence,
                 target=router_ident,
             ),
             span=span,
@@ -496,7 +503,8 @@ def _emit_routes(
         recv_ident = _service_ident(route.receiver)
         if route.method == "?" or not route.path:
             sink.diag(
-                "dynamic-route-path", "warning",
+                "dynamic-route-path",
+                "warning",
                 f"non-literal route path on {route.receiver!r} in {path} "
                 f"— no endpoint identity emitted",
                 path,
@@ -552,8 +560,7 @@ def _emit_route_endpoint(
             "handler": route.handler,
             "source": source,
         },
-        evidence=(sink.evi(path, content_hash, route.span),)
-        if route.span else (),
+        evidence=(sink.evi(path, content_hash, route.span),) if route.span else (),
     )
     sink.bump("api_endpoints")
     sink.relation(
@@ -562,11 +569,12 @@ def _emit_route_endpoint(
         from_identity=recv_ident,
         to_identity=ep,
         resolution=sink.resolution(
-            ResolutionStatus.RESOLVED, confidence, target=ep,
+            ResolutionStatus.RESOLVED,
+            confidence,
+            target=ep,
         ),
         span=route.span,
-        evidence=(sink.evi(path, content_hash, route.span),)
-        if route.span else (),
+        evidence=(sink.evi(path, content_hash, route.span),) if route.span else (),
     )
     sink.relation(
         relation_type=EdgeKind.DEFINES,
@@ -574,9 +582,10 @@ def _emit_route_endpoint(
         from_symbol=route.handler,
         to_identity=ep,
         resolution=sink.resolution(
-            ResolutionStatus.RESOLVED, confidence, target=ep,
+            ResolutionStatus.RESOLVED,
+            confidence,
+            target=ep,
         ),
         span=route.span,
-        evidence=(sink.evi(path, content_hash, route.span),)
-        if route.span else (),
+        evidence=(sink.evi(path, content_hash, route.span),) if route.span else (),
     )

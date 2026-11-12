@@ -28,9 +28,7 @@ _SQL = {
         "CREATE TABLE landing.orders (id INT, amount DOUBLE);\n"
         "INSERT INTO landing.orders SELECT id, amount FROM staging.raw_orders;\n"
     ),
-    "mart.sql": (
-        "CREATE VIEW mart.v_orders AS SELECT id, amount FROM landing.orders;\n"
-    ),
+    "mart.sql": ("CREATE VIEW mart.v_orders AS SELECT id, amount FROM landing.orders;\n"),
 }
 
 
@@ -100,17 +98,26 @@ def _rpc(env: str, *msgs: dict, root: str | None = None) -> list[dict]:
 def _call(env: str, name: str, arguments: dict, *, root: str | None = None) -> dict:
     r = _rpc(
         env,
-        {"jsonrpc": "2.0", "id": 1, "method": "tools/call",
-         "params": {"name": name, "arguments": arguments}},
-        root=root)
+        {
+            "jsonrpc": "2.0",
+            "id": 1,
+            "method": "tools/call",
+            "params": {"name": name, "arguments": arguments},
+        },
+        root=root,
+    )
     return r[0]
 
 
 def test_tools_registered(env: str) -> None:
     r = _rpc(env, {"jsonrpc": "2.0", "id": 1, "method": "tools/list"})
     names = {t["name"] for t in r[0]["result"]["tools"]}
-    assert {"atlas_domains", "atlas_domain_entity",
-            "atlas_domain_lineage", "atlas_federation_view"} <= names
+    assert {
+        "atlas_domains",
+        "atlas_domain_entity",
+        "atlas_domain_lineage",
+        "atlas_federation_view",
+    } <= names
 
 
 def test_atlas_domains_no_repo_needed(env: str) -> None:
@@ -125,8 +132,7 @@ def test_atlas_domains_no_repo_needed(env: str) -> None:
 
 
 def test_atlas_domain_entity_detail(env: str) -> None:
-    r = _call(env, "atlas_domain_entity",
-              {"key": "mart.v_orders", "root": env})
+    r = _call(env, "atlas_domain_entity", {"key": "mart.v_orders", "root": env})
     data = r["result"]["structuredContent"]
     assert data["identity"]["display_name"] == "mart.v_orders"
     assert data["identity"]["kind"] == "data_view"
@@ -143,8 +149,8 @@ def test_atlas_domain_entity_by_identity_key(env: str) -> None:
 
     conn = cli_mod._open_db()
     row = conn.execute(
-        "SELECT identity_key FROM domain_entities"
-        " WHERE qualified_name = 'v_orders' LIMIT 1").fetchone()
+        "SELECT identity_key FROM domain_entities WHERE qualified_name = 'v_orders' LIMIT 1"
+    ).fetchone()
     conn.close()
     r = _call(env, "atlas_domain_entity", {"key": row["identity_key"]})
     data = r["result"]["structuredContent"]
@@ -152,8 +158,9 @@ def test_atlas_domain_entity_by_identity_key(env: str) -> None:
 
 
 def test_atlas_domain_lineage_bounded(env: str) -> None:
-    r = _call(env, "atlas_domain_lineage",
-              {"entity": "mart.v_orders", "direction": "up", "depth": 2})
+    r = _call(
+        env, "atlas_domain_lineage", {"entity": "mart.v_orders", "direction": "up", "depth": 2}
+    )
     data = r["result"]["structuredContent"]
     refs = {n["ref"] for n in data["nodes"]}
     assert "landing.orders" in refs
@@ -161,16 +168,19 @@ def test_atlas_domain_lineage_bounded(env: str) -> None:
     assert max(n["depth"] for n in data["nodes"]) <= 2
     assert data["truncated"] is False
     # depth=1 é bounded — raw_orders só aparece em d2
-    r1 = _call(env, "atlas_domain_lineage",
-               {"entity": "mart.v_orders", "direction": "up", "depth": 1})
+    r1 = _call(
+        env, "atlas_domain_lineage", {"entity": "mart.v_orders", "direction": "up", "depth": 1}
+    )
     refs1 = {n["ref"] for n in r1["result"]["structuredContent"]["nodes"]}
     assert "staging.raw_orders" not in refs1
 
 
 def test_atlas_domain_lineage_down(env: str) -> None:
-    r = _call(env, "atlas_domain_lineage",
-              {"entity": "staging.raw_orders", "direction": "down",
-               "depth": 3})
+    r = _call(
+        env,
+        "atlas_domain_lineage",
+        {"entity": "staging.raw_orders", "direction": "down", "depth": 3},
+    )
     data = r["result"]["structuredContent"]
     refs = {n["ref"] for n in data["nodes"]}
     assert "landing.orders" in refs and "mart.v_orders" in refs
@@ -184,24 +194,24 @@ def test_atlas_federation_view(env: str) -> None:
     members = {m["repository_id"]: m for m in data["members"]}
     assert len(members) == 2
     assert all(m["snapshot_id"] for m in members.values())
-    assert all(m["resolution"] == "latest-ready"
-               for m in members.values())
+    assert all(m["resolution"] == "latest-ready" for m in members.values())
 
 
 def test_atlas_federation_view_pin_override(env: str) -> None:
     from code_atlas import cli as cli_mod
 
     conn = cli_mod._open_db()
-    snaps = [dict(r) for r in conn.execute(
-        "SELECT repository_id, id FROM snapshots"
-        " WHERE status='READY' ORDER BY repository_id").fetchall()]
+    snaps = [
+        dict(r)
+        for r in conn.execute(
+            "SELECT repository_id, id FROM snapshots WHERE status='READY' ORDER BY repository_id"
+        ).fetchall()
+    ]
     conn.close()
     pins = {str(snaps[0]["repository_id"]): snaps[0]["id"]}
-    r = _call(env, "atlas_federation_view",
-              {"workspace": "ws-dom", "pins": pins})
+    r = _call(env, "atlas_federation_view", {"workspace": "ws-dom", "pins": pins})
     data = r["result"]["structuredContent"]
-    m = next(m for m in data["members"]
-             if m["repository_id"] == snaps[0]["repository_id"])
+    m = next(m for m in data["members"] if m["repository_id"] == snaps[0]["repository_id"])
     assert m["resolution"] == "pin-override"
 
 
@@ -219,7 +229,8 @@ def test_domain_entity_absent_is_typed_error(env: str) -> None:
 
 
 def test_domain_tools_honest_without_adapters(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """Repo indexado SEM --domains: lookup → erro tipado honesto."""
     db = tmp_path / "atlas.db"
@@ -239,8 +250,7 @@ def test_domain_tools_honest_without_adapters(
     assert r["error"]["code"] == -32602
     assert "opt-in" in r["error"]["message"]
 
-    r = _call(str(repo), "atlas_domain_lineage",
-              {"entity": "mart.v_orders"})
+    r = _call(str(repo), "atlas_domain_lineage", {"entity": "mart.v_orders"})
     assert r["error"]["code"] == -32602
 
 
@@ -251,9 +261,9 @@ def test_snapshot_isolation_between_repos(env: str, tmp_path: Path) -> None:
     conn = cli_mod._open_db()
     # repo_a e repo_b têm as mesmas entidades (fixture idêntica):
     # o lookup escopado por repo resolve só no repo do ctx.
-    n = conn.execute(
-        "SELECT COUNT(DISTINCT repository_id) AS c FROM domain_entities"
-    ).fetchone()["c"]
+    n = conn.execute("SELECT COUNT(DISTINCT repository_id) AS c FROM domain_entities").fetchone()[
+        "c"
+    ]
     conn.close()
     assert n == 2
     r = _call(env, "atlas_domain_entity", {"key": "landing.orders"})

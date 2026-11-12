@@ -61,25 +61,17 @@ FIXTURES = REPO_ROOT / "tests" / "fixtures"
 RESULTS = REPO_ROOT / "benchmarks" / "results" / "domains-latest.json"
 
 # domain_id → (fixture, fábrica vinculada ao diretório da fixture)
-FIXTURE_ADAPTERS: dict[
-    str, tuple[str, Callable[[Path], DomainAdapter]]
-] = {
+FIXTURE_ADAPTERS: dict[str, tuple[str, Callable[[Path], DomainAdapter]]] = {
     "sql": ("sql_warehouse", lambda root: SqlDomainAdapter(base_path=root)),
     "pyspark": ("pyspark_repo", lambda root: PySparkAdapter(base_path=root)),
     "aws-data": ("aws_repo", lambda root: AwsDataAdapter(base_path=root)),
     "api": ("api_repo", lambda root: ApiContractAdapter(workspace_root=root)),
-    "terraform": (
-        "terraform_infra", lambda root: TerraformAdapter(base_path=root)
-    ),
-    "cicd": (
-        "cicd_repo", lambda root: GitHubActionsAdapter.for_workspace(root)
-    ),
+    "terraform": ("terraform_infra", lambda root: TerraformAdapter(base_path=root)),
+    "cicd": ("cicd_repo", lambda root: GitHubActionsAdapter.for_workspace(root)),
 }
 
 
-def fixture_artifacts(
-    adapter: DomainAdapter, root: Path
-) -> tuple[DiscoveredArtifact, ...]:
+def fixture_artifacts(adapter: DomainAdapter, root: Path) -> tuple[DiscoveredArtifact, ...]:
     """Todos os arquivos da fixture que ``supported_artifacts`` aceita.
 
     Varredura real do diretório (não lista hardcoded) — entram inclusive
@@ -103,12 +95,8 @@ def fixture_artifacts(
     return tuple(arts)
 
 
-def _request(
-    artifacts: tuple[DiscoveredArtifact, ...], repository: str
-) -> DomainExtractionRequest:
-    return DomainExtractionRequest(
-        repository=repository, artifacts=artifacts, snapshot="bench"
-    )
+def _request(artifacts: tuple[DiscoveredArtifact, ...], repository: str) -> DomainExtractionRequest:
+    return DomainExtractionRequest(repository=repository, artifacts=artifacts, snapshot="bench")
 
 
 def _time_extract(
@@ -133,9 +121,7 @@ def _stats(times_s: list[float]) -> dict[str, float]:
         "median_ms": round(statistics.median(ms), 3),
         "min_ms": round(min(ms), 3),
         "max_ms": round(max(ms), 3),
-        "p95_ms": round(
-            sorted(ms)[min(len(ms) - 1, int(len(ms) * 0.95))], 3
-        ),
+        "p95_ms": round(sorted(ms)[min(len(ms) - 1, int(len(ms) * 0.95))], 3),
         "repeats": len(ms),
     }
 
@@ -149,9 +135,7 @@ def _result_counts(res: DomainExtractionResult) -> dict[str, int]:
     }
 
 
-def bench_adapter(
-    domain_id: str, fixture_name: str, repeats: int
-) -> dict[str, object]:
+def bench_adapter(domain_id: str, fixture_name: str, repeats: int) -> dict[str, object]:
     """``extract`` completo sobre a fixture versionada do domínio."""
     root = FIXTURES / fixture_name
     factory = FIXTURE_ADAPTERS[domain_id][1]
@@ -164,15 +148,14 @@ def bench_adapter(
         "adapter_version": adapter.adapter_version,
         "fixture": fixture_name,
         "artifacts": len(artifacts),
-        "artifact_bytes": sum(
-            (root / a.path).stat().st_size for a in artifacts
-        ),
+        "artifact_bytes": sum((root / a.path).stat().st_size for a in artifacts),
         **_stats(times),
         **_result_counts(result),
     }
     if artifacts:
         out["ms_per_artifact_median"] = round(
-            out["median_ms"] / len(artifacts), 3  # type: ignore[operator]
+            out["median_ms"] / len(artifacts),
+            3,  # type: ignore[operator]
         )
     return out
 
@@ -222,14 +205,10 @@ def bench_sql_scale(n_files: int, repeats: int, tmp: Path) -> dict[str, object]:
         "adapter_version": adapter.adapter_version,
         "case": "synthetic-scale",
         "artifacts": len(artifacts),
-        "artifact_bytes": sum(
-            (root / a.path).stat().st_size for a in artifacts
-        ),
+        "artifact_bytes": sum((root / a.path).stat().st_size for a in artifacts),
         **_stats(times),
         **_result_counts(result),
-        "ms_per_artifact_median": round(
-            statistics.median([t * 1000 for t in times]) / n_files, 3
-        ),
+        "ms_per_artifact_median": round(statistics.median([t * 1000 for t in times]) / n_files, 3),
     }
 
 
@@ -258,19 +237,19 @@ def bench_index_domains(repeats: int, tmp: Path) -> dict[str, object]:
             totals.append(time.monotonic() - t)
             conn.close()
             if outcome.status != "success":
-                raise RuntimeError(
-                    f"index {label} failed: {outcome.error}"
-                )
+                raise RuntimeError(f"index {label} failed: {outcome.error}")
             last_stats = dict(outcome.stats)
         out[label] = {
             **_stats(totals),
             "stage_ms_domains": last_stats.get("stage_ms_domains", 0),
             "domain_entities": sum(
-                v for k, v in last_stats.items()
+                v
+                for k, v in last_stats.items()
                 if k.startswith("domain_") and k.endswith("_entities")
             ),
             "domain_relations": sum(
-                v for k, v in last_stats.items()
+                v
+                for k, v in last_stats.items()
                 if k.startswith("domain_") and k.endswith("_relations")
             ),
             "domain_adapters": last_stats.get("domain_adapters", 0),
@@ -283,14 +262,17 @@ def bench_index_domains(repeats: int, tmp: Path) -> dict[str, object]:
 
 
 def main() -> int:
-    p = argparse.ArgumentParser(
-        description="Benchmark dos adapters de domínio (Cycle 7)"
-    )
+    p = argparse.ArgumentParser(description="Benchmark dos adapters de domínio (Cycle 7)")
     p.add_argument("--repeats", type=int, default=7)
-    p.add_argument("--scale-files", type=int, default=50,
-                   help="arquivos .sql do caso de escala sintética")
-    p.add_argument("--json", type=Path, default=RESULTS,
-                   help="destino do resultado (default: results/domains-latest.json)")
+    p.add_argument(
+        "--scale-files", type=int, default=50, help="arquivos .sql do caso de escala sintética"
+    )
+    p.add_argument(
+        "--json",
+        type=Path,
+        default=RESULTS,
+        help="destino do resultado (default: results/domains-latest.json)",
+    )
     args = p.parse_args()
 
     report: dict[str, object] = {
@@ -313,9 +295,7 @@ def main() -> int:
         )
     with tempfile.TemporaryDirectory(prefix="atlas-bench-dom-") as td:
         tmp = Path(td)
-        report["synthetic_scale"] = bench_sql_scale(
-            args.scale_files, args.repeats, tmp
-        )
+        report["synthetic_scale"] = bench_sql_scale(args.scale_files, args.repeats, tmp)
         report["index_domains"] = bench_index_domains(args.repeats, tmp)
 
     text = json.dumps(report, indent=2, sort_keys=True)

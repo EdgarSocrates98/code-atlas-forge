@@ -51,20 +51,14 @@ def test_cte_chain_and_column_list() -> None:
 
 
 def test_set_operations_are_branches() -> None:
-    pf = parse_file(
-        "SELECT a FROM t1 UNION ALL SELECT b FROM t2 "
-        "INTERSECT SELECT c FROM t3"
-    )
+    pf = parse_file("SELECT a FROM t1 UNION ALL SELECT b FROM t2 INTERSECT SELECT c FROM t3")
     q = pf.statements[0].query  # type: ignore[union-attr]
     assert q.set_ops == ["UNION ALL", "INTERSECT"]
     assert len(q.set_branches) == 2
 
 
 def test_insert_overwrite_and_partition() -> None:
-    pf = parse_file(
-        "INSERT OVERWRITE TABLE m.t PARTITION(ds='2024-01-01') "
-        "SELECT a, b FROM s.x"
-    )
+    pf = parse_file("INSERT OVERWRITE TABLE m.t PARTITION(ds='2024-01-01') SELECT a, b FROM s.x")
     st = pf.statements[0]
     assert isinstance(st, SInsert)
     assert st.overwrite and st.target and st.target.parts == ("m", "t")
@@ -85,9 +79,7 @@ def test_insert_values() -> None:
 
 
 def test_update_with_from() -> None:
-    pf = parse_file(
-        "UPDATE m.t SET x = u.a, y = u.b FROM u WHERE t.id = u.id"
-    )
+    pf = parse_file("UPDATE m.t SET x = u.a, y = u.b FROM u WHERE t.id = u.id")
     st = pf.statements[0]
     assert isinstance(st, SUpdate)
     assert st.target and st.target.parts == ("m", "t")
@@ -164,10 +156,7 @@ def test_exec_is_unsupported_dynamic() -> None:
 
 
 def test_malformed_resync_keeps_partial() -> None:
-    pf = parse_file(
-        "SELECT FROM ; SELECT ok1 FROM t1; GARBAGE HERE; "
-        "SELECT ok2 FROM t2"
-    )
+    pf = parse_file("SELECT FROM ; SELECT ok1 FROM t1; GARBAGE HERE; SELECT ok2 FROM t2")
     kinds = [s.kind for s in pf.statements]
     assert kinds == ["select", "select"]
     codes = [d.code for d in pf.diagnostics]
@@ -193,9 +182,7 @@ def test_athena_unnest_is_unsupported_source_not_crash() -> None:
 
 
 def test_spark_lateral_view_doesnt_crash() -> None:
-    pf = parse_file(
-        "SELECT a FROM t LATERAL VIEW explode(t.arr) lv AS x"
-    )
+    pf = parse_file("SELECT a FROM t LATERAL VIEW explode(t.arr) lv AS x")
     assert pf.statements[0].kind == "select"
 
 
@@ -206,9 +193,7 @@ def test_prepared_select_is_select() -> None:
 
 
 def test_lambda_params_not_colrefs() -> None:
-    pf = parse_file(
-        "SELECT filter(xs, x -> x > 0) FROM t"
-    )
+    pf = parse_file("SELECT filter(xs, x -> x > 0) FROM t")
     item = pf.statements[0].query.items[0]  # type: ignore[union-attr]
     assert [c.parts for c in item.refs.cols] == [("xs",)]
 

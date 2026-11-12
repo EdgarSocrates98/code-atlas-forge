@@ -23,9 +23,7 @@ def _write_pkg(root: Path) -> Path:
     pkg = root / "pkg"
     pkg.mkdir(parents=True)
     (pkg / "__init__.py").write_text("")
-    (pkg / "base.py").write_text(
-        'class Animal:\n    def speak(self) -> str:\n        return "?"\n'
-    )
+    (pkg / "base.py").write_text('class Animal:\n    def speak(self) -> str:\n        return "?"\n')
     (pkg / "dog.py").write_text(
         "from pkg.base import Animal\n\n"
         "class Dog(Animal):\n    pass\n\n"
@@ -39,9 +37,7 @@ def test_inheritance_extends_resolves_to_bound_base(tmp_path: Path) -> None:
     resolve para o símbolo base importado (binding real)."""
     repo = _write_pkg(tmp_path / "inherit")
     rels = _rels(tmp_path / "i.db", repo)
-    assert (
-        "EXTENDS", "pkg.dog.Dog", "pkg.base.Animal", "resolved", "resolved"
-    ) in rels
+    assert ("EXTENDS", "pkg.dog.Dog", "pkg.base.Animal", "resolved", "resolved") in rels
 
 
 def test_instance_method_call_honest_unresolved(tmp_path: Path) -> None:
@@ -49,14 +45,9 @@ def test_instance_method_call_honest_unresolved(tmp_path: Path) -> None:
     desfecho honesto é unresolved, nunca resolved ao alvo errado."""
     repo = _write_pkg(tmp_path / "inst")
     rels = _rels(tmp_path / "m.db", repo)
-    edge = next(
-        r for r in rels if r[0] == "CALLS" and "speak" in r[2]
-    )
+    edge = next(r for r in rels if r[0] == "CALLS" and "speak" in r[2])
     assert edge[3] == "unresolved", edge
-    assert not any(
-        r[0] == "CALLS" and "speak" in r[2] and r[3] == "resolved"
-        for r in rels
-    )
+    assert not any(r[0] == "CALLS" and "speak" in r[2] and r[3] == "resolved" for r in rels)
 
 
 def test_dynamic_import_python_no_invented_edge(tmp_path: Path) -> None:
@@ -70,13 +61,9 @@ def test_dynamic_import_python_no_invented_edge(tmp_path: Path) -> None:
         "    return m.Animal()\n"
     )
     rels = _rels(tmp_path / "d.db", repo)
-    assert not any(
-        r[0] == "IMPORTS" and r[1] == "pkg.dyn" and "base" in r[2]
-        for r in rels
-    )
+    assert not any(r[0] == "IMPORTS" and r[1] == "pkg.dyn" and "base" in r[2] for r in rels)
     assert any(
-        r[0] == "IMPORTS" and r[1] == "pkg.dyn" and "importlib" in r[2]
-        and r[3] == "external"
+        r[0] == "IMPORTS" and r[1] == "pkg.dyn" and "importlib" in r[2] and r[3] == "external"
         for r in rels
     )
     member = next(r for r in rels if r[0] == "CALLS" and "Animal" in r[2])
@@ -92,20 +79,15 @@ def test_dynamic_import_ts_no_invented_edge(tmp_path: Path) -> None:
     repo.mkdir()
     (repo / "mod.ts").write_text("export function f(): number {\n  return 1;\n}\n")
     (repo / "use.ts").write_text(
-        'export async function go(name: string): Promise<number> {\n'
+        "export async function go(name: string): Promise<number> {\n"
         '  const m = await import("./mod");\n'
-        '  const v = await import(name);\n  return 1;\n}\n'
+        "  const v = await import(name);\n  return 1;\n}\n"
     )
     rels = _rels(tmp_path / "t.db", repo)
     assert any(
-        r[0] == "IMPORTS" and r[1] == "use" and r[2] == "mod"
-        and r[3] == "resolved"
-        for r in rels
+        r[0] == "IMPORTS" and r[1] == "use" and r[2] == "mod" and r[3] == "resolved" for r in rels
     )
-    assert not any(
-        r[0] == "CALLS" and "import" in r[2]
-        for r in rels
-    )
+    assert not any(r[0] == "CALLS" and "import" in r[2] for r in rels)
 
 
 def test_ts_interface_method_honest(tmp_path: Path) -> None:
@@ -115,7 +97,10 @@ def test_ts_interface_method_honest(tmp_path: Path) -> None:
 
     rels = _rels(tmp_path / "ts.db", CORPUS_DIR / "ts_advanced")
     assert not any(
-        r[0] == "CALLS" and r[1] == "src.use.useAll"
-        and "area" in r[2] and r[3] == "resolved" and "iface" not in r[2]
+        r[0] == "CALLS"
+        and r[1] == "src.use.useAll"
+        and "area" in r[2]
+        and r[3] == "resolved"
+        and "iface" not in r[2]
         for r in rels
     )

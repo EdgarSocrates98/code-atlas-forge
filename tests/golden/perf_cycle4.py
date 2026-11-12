@@ -60,24 +60,37 @@ def _scenario(conn, root: str) -> dict[str, Any]:
     q = QUERIES[0]
     out: dict[str, Any] = {}
     for strat in ("structural", "lexical", "graph", "hybrid"):
-        out[strat] = _bench(lambda s=strat: eng.search(SearchRequest(
-            query=q, repository_root=root, strategy=s, limit=10)))
-    out["pack-focus"] = _bench(lambda: ctx.build(ContextRequest(
-        repository_root=root, task=q, level="focus")))
-    out["pack-deep"] = _bench(lambda: ctx.build(ContextRequest(
-        repository_root=root, task=q, level="deep")))
+        out[strat] = _bench(
+            lambda s=strat: eng.search(
+                SearchRequest(query=q, repository_root=root, strategy=s, limit=10)
+            )
+        )
+    out["pack-focus"] = _bench(
+        lambda: ctx.build(ContextRequest(repository_root=root, task=q, level="focus"))
+    )
+    out["pack-deep"] = _bench(
+        lambda: ctx.build(ContextRequest(repository_root=root, task=q, level="deep"))
+    )
     # MCP end-to-end (in-process — transporte ndjson incluído)
     srv = AtlasMcpServer()
     real_ctx = srv._ctx
     srv._ctx = lambda pr: real_ctx({**dict(pr), "root": root})
 
     def mcp_call() -> None:
-        srv.serve(io.StringIO(
-            json.dumps({"jsonrpc": "2.0", "id": 1,
+        srv.serve(
+            io.StringIO(
+                json.dumps(
+                    {
+                        "jsonrpc": "2.0",
+                        "id": 1,
                         "method": "tools/call",
-                        "params": {"name": "atlas_search",
-                                   "arguments": {"query": q}}}) + "\n"),
-            io.StringIO())
+                        "params": {"name": "atlas_search", "arguments": {"query": q}},
+                    }
+                )
+                + "\n"
+            ),
+            io.StringIO(),
+        )
 
     out["mcp-search"] = _bench(mcp_call)
     return out
@@ -85,8 +98,11 @@ def _scenario(conn, root: str) -> dict[str, Any]:
 
 def main() -> None:
     tmp = Path(tempfile.mkdtemp(prefix="perf-c4-"))
-    results: dict[str, Any] = {"tool": "code-atlas perf-cycle4",
-                               "runs_per_cell": RUNS, "scenarios": {}}
+    results: dict[str, Any] = {
+        "tool": "code-atlas perf-cycle4",
+        "runs_per_cell": RUNS,
+        "scenarios": {},
+    }
     # small
     sroot = tmp / "small"
     conn = build_eval_repo(sroot)
@@ -97,6 +113,7 @@ def main() -> None:
     if corpus.is_dir():
         mroot = tmp / "medium"
         import shutil
+
         shutil.copytree(corpus, mroot)
         conn = connect(tmp / "medium.db")
         migrate(conn)
@@ -104,8 +121,7 @@ def main() -> None:
         conn.row_factory = __import__("sqlite3").Row
         results["scenarios"]["medium"] = _scenario(conn, str(mroot))
         conn.close()
-    out = Path(__file__).parents[1].parent / "benchmarks" / "results" / \
-        "lf-0045-perf-cycle4.json"
+    out = Path(__file__).parents[1].parent / "benchmarks" / "results" / "lf-0045-perf-cycle4.json"
     out.write_text(json.dumps(results, indent=1, sort_keys=True) + "\n")
     print("wrote", out)
 

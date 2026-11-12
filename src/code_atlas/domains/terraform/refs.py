@@ -22,9 +22,7 @@ import re
 from dataclasses import dataclass
 
 # Chaves sensíveis — spec lf-0115: password|secret|token|key|credential.
-SECRET_KEY_RE = re.compile(
-    r"password|secret|token|key|credential", re.IGNORECASE
-)
+SECRET_KEY_RE = re.compile(r"password|secret|token|key|credential", re.IGNORECASE)
 
 REDACTED = "[REDACTED]"
 DYNAMIC = "${dynamic}"
@@ -44,9 +42,7 @@ DATA_REF_RE = re.compile(
 )
 
 # ``module.name.attr`` — referência a output de módulo.
-MODULE_REF_RE = re.compile(
-    r"(?<![.\w])module\.([A-Za-z0-9_-]+)\.([A-Za-z0-9_-]+)"
-)
+MODULE_REF_RE = re.compile(r"(?<![.\w])module\.([A-Za-z0-9_-]+)\.([A-Za-z0-9_-]+)")
 
 # ARNs literais — recursos externos ao snapshot (REFERENCES external).
 ARN_RE = re.compile(r"arn:[a-z0-9-]+:[a-z0-9-]+:[a-z0-9-]*:[0-9]*:[^\s\"'\\)]+")
@@ -59,14 +55,14 @@ _INTERP_START_RE = re.compile(r"\$\{")
 # ``stage = "ghp_…"``). O trecho casa só marcadores inequívocos de
 # provedores conhecidos; nunca classifica texto comum (lf-c8 F5).
 SECRET_VALUE_RE = re.compile(
-    r"AKIA[0-9A-Z]{16}"            # AWS access key id
-    r"|ASIA[0-9A-Z]{16}"           # AWS temporary access key id
+    r"AKIA[0-9A-Z]{16}"  # AWS access key id
+    r"|ASIA[0-9A-Z]{16}"  # AWS temporary access key id
     r"|-----BEGIN [A-Z0-9 ]{0,32}PRIVATE KEY-----"
     r"|github_pat_[A-Za-z0-9_]{22,}"
     r"|gh[pousr]_[A-Za-z0-9]{36,}"  # ghp_/gho_/ghu_/ghs_/ghr_
     r"|xox[baprs]-[A-Za-z0-9-]{10,}"  # Slack tokens
-    r"|AIza[0-9A-Za-z_-]{35}"      # GCP API key
-    r"|sk_live_[A-Za-z0-9]{16,}"   # Stripe live secret
+    r"|AIza[0-9A-Za-z_-]{35}"  # GCP API key
+    r"|sk_live_[A-Za-z0-9]{16,}"  # Stripe live secret
     r"|eyJ[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}"  # JWT
 )
 
@@ -101,7 +97,7 @@ def sanitize_value(text: str, *, max_len: int = 200) -> str:
         if m is None:
             out.append(text[i:])
             break
-        out.append(text[i:m.start()])
+        out.append(text[i : m.start()])
         depth = 1
         j = m.end()
         while j < n and depth:
@@ -127,10 +123,10 @@ def redact_if_sensitive(key: str, value: str) -> str:
 class RefMatch:
     """Referência encontrada num texto — offset em bytes do arquivo."""
 
-    kind: str          # resource | data | module | arn
-    type_name: str     # "aws_s3_bucket" | "module" | "data" | "arn"
-    name: str          # label do alvo ("logs") ou texto do ARN
-    start: int         # byte offset do início do match
+    kind: str  # resource | data | module | arn
+    type_name: str  # "aws_s3_bucket" | "module" | "data" | "arn"
+    name: str  # label do alvo ("logs") ou texto do ARN
+    start: int  # byte offset do início do match
     end: int
 
 
@@ -153,29 +149,31 @@ def scan_refs(text: str, *, base_byte: int = 0) -> list[RefMatch]:
     out: list[RefMatch] = []
     for m in DATA_REF_RE.finditer(text):
         s, e = _byte_offsets(text, m.start(), m.end())
-        out.append(
-            RefMatch("data", m.group(1), m.group(2), base_byte + s, base_byte + e)
-        )
+        out.append(RefMatch("data", m.group(1), m.group(2), base_byte + s, base_byte + e))
     for m in RESOURCE_REF_RE.finditer(text):
         s, e = _byte_offsets(text, m.start(), m.end())
         out.append(
             RefMatch(
-                "resource", m.group(1), m.group(2),
-                base_byte + s, base_byte + e,
+                "resource",
+                m.group(1),
+                m.group(2),
+                base_byte + s,
+                base_byte + e,
             )
         )
     for m in MODULE_REF_RE.finditer(text):
         s, e = _byte_offsets(text, m.start(), m.end())
         out.append(
             RefMatch(
-                "module", "module", m.group(1),
-                base_byte + s, base_byte + e,
+                "module",
+                "module",
+                m.group(1),
+                base_byte + s,
+                base_byte + e,
             )
         )
     for m in ARN_RE.finditer(text):
         s, e = _byte_offsets(text, m.start(), m.end())
-        out.append(
-            RefMatch("arn", "arn", m.group(0), base_byte + s, base_byte + e)
-        )
+        out.append(RefMatch("arn", "arn", m.group(0), base_byte + s, base_byte + e))
     out.sort(key=lambda r: r.start)
     return out

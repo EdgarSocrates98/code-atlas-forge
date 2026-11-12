@@ -22,4 +22,3 @@ __all__ = [
     "probe_git",
     "scan",
 ]
-

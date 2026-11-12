@@ -16,17 +16,13 @@ from code_atlas.storage import connect, migrate
 _REPO = {
     "pkg/__init__.py": "",
     "pkg/orders.py": (
-        'def processCustomerOrders(items):\n'
+        "def processCustomerOrders(items):\n"
         '    """Process customer orders batch."""\n'
-        '    return len(items)\n\n'
-        'def refund_order(order_id):\n'
-        '    return order_id\n'
+        "    return len(items)\n\n"
+        "def refund_order(order_id):\n"
+        "    return order_id\n"
     ),
-    "web/app.ts": (
-        "export function renderDashboard() {\n"
-        "    return true;\n"
-        "}\n"
-    ),
+    "web/app.ts": ("export function renderDashboard() {\n    return true;\n}\n"),
 }
 
 
@@ -47,9 +43,7 @@ def env(tmp_path: Path) -> tuple[sqlite3.Connection, str]:
 
 def _search(env, q, **kw) -> object:
     conn, root = env
-    return SearchEngine(conn).search(
-        SearchRequest(query=q, repository_root=root, **kw)
-    )
+    return SearchEngine(conn).search(SearchRequest(query=q, repository_root=root, **kw))
 
 
 def _names(res) -> list[str]:
@@ -57,30 +51,23 @@ def _names(res) -> list[str]:
 
 
 def test_exact_and_fragment_and_prefix(env: tuple[sqlite3.Connection, str]) -> None:
-    assert "pkg.orders.processCustomerOrders" in _names(
-        _search(env, "processCustomerOrders"))
+    assert "pkg.orders.processCustomerOrders" in _names(_search(env, "processCustomerOrders"))
     # fragmento camelCase
-    assert "pkg.orders.processCustomerOrders" in _names(
-        _search(env, "customer"))
+    assert "pkg.orders.processCustomerOrders" in _names(_search(env, "customer"))
     # snake_case fragmento
     assert "pkg.orders.refund_order" in _names(_search(env, "refund"))
     # prefixo
-    assert "pkg.orders.processCustomerOrders" in _names(
-        _search(env, "proc*"))
+    assert "pkg.orders.processCustomerOrders" in _names(_search(env, "proc*"))
     # sem stemming inventado: "order" não casa "orders"
-    assert "pkg.orders.processCustomerOrders" not in _names(
-        _search(env, "order"))
+    assert "pkg.orders.processCustomerOrders" not in _names(_search(env, "order"))
 
 
 def test_qualified_and_docstring_and_signature(env: tuple[sqlite3.Connection, str]) -> None:
-    assert "pkg.orders.refund_order" in _names(
-        _search(env, "pkg.orders.refund_order"))
+    assert "pkg.orders.refund_order" in _names(_search(env, "pkg.orders.refund_order"))
     # docstring indexada
-    assert "pkg.orders.processCustomerOrders" in _names(
-        _search(env, "batch"))
+    assert "pkg.orders.processCustomerOrders" in _names(_search(env, "batch"))
     # token de signature (parâmetro)
-    assert "pkg.orders.refund_order" in _names(
-        _search(env, "order_id"))
+    assert "pkg.orders.refund_order" in _names(_search(env, "order_id"))
 
 
 def test_filters_language_kind_path(env: tuple[sqlite3.Connection, str]) -> None:
@@ -132,11 +119,10 @@ def test_snapshot_isolation_and_reindex(
 ) -> None:
     conn, root = env
     repo = Path(root)
-    snap1 = conn.execute(
-        "SELECT MAX(id) FROM snapshots").fetchone()[0]
+    snap1 = conn.execute("SELECT MAX(id) FROM snapshots").fetchone()[0]
     n1 = conn.execute(
-        "SELECT COUNT(*) c FROM fts_occurrences WHERE snapshot_id=?",
-        (snap1,)).fetchone()["c"]
+        "SELECT COUNT(*) c FROM fts_occurrences WHERE snapshot_id=?", (snap1,)
+    ).fetchone()["c"]
     assert n1 > 0
     # novo index → snapshot novo; busca só vê o READY atual
     (repo / "pkg" / "extra.py").write_text("def brand_new():\n    return 0\n")
@@ -152,9 +138,7 @@ def test_snapshot_isolation_and_reindex(
     assert all(h.occurrence_id for h in res2.items)
 
 
-def test_gc_removes_fts_rows(
-    env: tuple[sqlite3.Connection, str], tmp_path: Path
-) -> None:
+def test_gc_removes_fts_rows(env: tuple[sqlite3.Connection, str], tmp_path: Path) -> None:
     conn, root = env
     repo = Path(root)
     coord = IndexCoordinator(conn, snapshot_retention=1)
@@ -164,19 +148,14 @@ def test_gc_removes_fts_rows(
     (repo / "pkg" / "y.py").write_text("def yy():\n    return 2\n")
     coord.index(repo)
     # 3 snapshots; retention=1 → 2 STALE antigos podados (1 keep)
-    stale = conn.execute(
-        "SELECT COUNT(*) c FROM snapshots WHERE status='STALE'"
-    ).fetchone()["c"]
+    stale = conn.execute("SELECT COUNT(*) c FROM snapshots WHERE status='STALE'").fetchone()["c"]
     fts = conn.execute("SELECT COUNT(*) c FROM fts_occurrences").fetchone()["c"]
-    occ = conn.execute(
-        "SELECT COUNT(*) c FROM symbol_occurrences").fetchone()["c"]
+    occ = conn.execute("SELECT COUNT(*) c FROM symbol_occurrences").fetchone()["c"]
     assert stale <= 1
     assert fts == occ  # nenhuma linha órfã
 
 
-def test_update_exclusion_rollback(
-    env: tuple[sqlite3.Connection, str]
-) -> None:
+def test_update_exclusion_rollback(env: tuple[sqlite3.Connection, str]) -> None:
     """lf-0036: símbolo removido some do índice novo; index abortado no
     meio não publica linhas FTS parciais (transacional)."""
     conn, root = env
@@ -184,8 +163,7 @@ def test_update_exclusion_rollback(
     # remoção: arquivo some → símbolo some do snapshot novo
     (repo / "pkg" / "orders.py").write_text("def only_left():\n    pass\n")
     IndexCoordinator(conn).index(repo)
-    assert "pkg.orders.processCustomerOrders" not in _names(
-        _search(env, "customer"))
+    assert "pkg.orders.processCustomerOrders" not in _names(_search(env, "customer"))
     assert "pkg.orders.only_left" in _names(_search(env, "only_left"))
     # rollback: delete manual do snapshot READY no meio do "crash" —
     # busca anterior continua consistente (READY novo nunca publicado)
@@ -193,16 +171,15 @@ def test_update_exclusion_rollback(
     conn.execute(
         "INSERT INTO fts_occurrences (rowid, snapshot_id, name, terms,"
         " signature, docstring, path, language, kind)"
-        " VALUES (-999, -1, 'ghost', 'ghost', '', '', '', '', '')")
+        " VALUES (-999, -1, 'ghost', 'ghost', '', '', '', '', '')"
+    )
     conn.rollback()
     res = _search(env, "ghost")
     assert res.items == ()
 
 
 def test_tokenizer_units() -> None:
-    assert split_identifier("processCustomerOrders") == [
-        "process", "customer", "orders"]
+    assert split_identifier("processCustomerOrders") == ["process", "customer", "orders"]
     assert split_identifier("refund_order") == ["refund", "order"]
     assert split_identifier("HTTPServer") == ["http", "server"]
-    assert split_identifier("pkg.util.helper") == [
-        "pkg", "util", "helper"]
+    assert split_identifier("pkg.util.helper") == ["pkg", "util", "helper"]

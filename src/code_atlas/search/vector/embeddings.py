@@ -37,21 +37,17 @@ class SqliteEmbeddingCache:
     def __init__(self, conn: sqlite3.Connection) -> None:
         self._conn = conn
 
-    def get(
-        self, model: EmbeddingModelInfo, chash: str
-    ) -> list[float] | None:
+    def get(self, model: EmbeddingModelInfo, chash: str) -> list[float] | None:
         row = self._conn.execute(
-            self._GET, (model.model_id, model.version, chash),
+            self._GET,
+            (model.model_id, model.version, chash),
         ).fetchone()
         return unpack_vector(row["vector"]) if row else None
 
-    def put(
-        self, model: EmbeddingModelInfo, chash: str, vector: list[float]
-    ) -> None:
+    def put(self, model: EmbeddingModelInfo, chash: str, vector: list[float]) -> None:
         self._conn.execute(
             self._PUT,
-            (model.model_id, model.version, chash, len(vector),
-             pack_vector(vector)),
+            (model.model_id, model.version, chash, len(vector), pack_vector(vector)),
         )
 
     def commit(self) -> None:

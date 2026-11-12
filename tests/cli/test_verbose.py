@@ -49,9 +49,7 @@ def test_index_sem_verbose_stderr_limpo(
     assert "[index]" not in capsys.readouterr().err
 
 
-def test_index_verbose_noop(
-    ws: Path, sample: Path, capsys: pytest.CaptureFixture[str]
-) -> None:
+def test_index_verbose_noop(ws: Path, sample: Path, capsys: pytest.CaptureFixture[str]) -> None:
     assert cli.main(["index", str(sample)]) == 0
     capsys.readouterr()
     rc = cli.main(["index", str(sample), "--verbose"])

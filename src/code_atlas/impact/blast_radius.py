@@ -50,22 +50,30 @@ def _sym(conn: sqlite3.Connection, occ_id: int) -> _Hit | None:
     if row is None:
         return None
     key = f"{row['language']}:{row['kind']}:{row['qualified_name']}"
-    return _Hit(key, str(row["qualified_name"]), str(row["language"]),
-                str(row["kind"]), int(row["occ_id"]),
-                str(row["relative_path"]))
+    return _Hit(
+        key,
+        str(row["qualified_name"]),
+        str(row["language"]),
+        str(row["kind"]),
+        int(row["occ_id"]),
+        str(row["relative_path"]),
+    )
 
 
 def _frontier_pending(
-    conn: sqlite3.Connection, snapshot_id: int, occ: int,
-    origin_key: str, origins: dict[str, int],
-    visited: set[tuple[int, str]], limits: ImpactLimits,
+    conn: sqlite3.Connection,
+    snapshot_id: int,
+    occ: int,
+    origin_key: str,
+    origins: dict[str, int],
+    visited: set[tuple[int, str]],
+    limits: ImpactLimits,
 ) -> bool:
     """``True`` se o nó de fronteira (emitido em ``hops >= max_depth``,
     nunca enfileirado) ainda tinha consumidor atravessável para a
     origem — ou o scan de vizinhos excedeu ``max_nodes`` (sonda +1:
     a cauda não-vista pode esconder trabalho, lf-0151)."""
-    rows = conn.execute(
-        _IN_SQL, (snapshot_id, occ, limits.max_nodes + 1)).fetchall()
+    rows = conn.execute(_IN_SQL, (snapshot_id, occ, limits.max_nodes + 1)).fetchall()
     if len(rows) > limits.max_nodes:
         return True
     for r in rows:
@@ -80,7 +88,8 @@ def _frontier_pending(
 
 
 def blast(
-    conn: sqlite3.Connection, snapshot_id: int,
+    conn: sqlite3.Connection,
+    snapshot_id: int,
     origins: dict[str, int],  # symbol_key → occurrence_id alterado
     limits: ImpactLimits,
     *,
@@ -102,8 +111,7 @@ def blast(
     # consumidor preservam caminhos alternativos; ciclo continua
     # cortado por (nó visitado na mesma linha de origem).
     visited: set[tuple[int, str]] = set()
-    queue: deque[tuple[int, str, list[int], list[str], list[str], int]] = (
-        deque())
+    queue: deque[tuple[int, str, list[int], list[str], list[str], int]] = deque()
     for key, occ in origins.items():
         queue.append((occ, key, [], [], [], 0))
     edge_scan_capped = False
@@ -117,12 +125,10 @@ def blast(
         visited.add(vkey)
         # +1 linha de sonda: distingue fit exato de overflow real —
         # só o overflow descarta trabalho (lf-0151).
-        rows = conn.execute(
-            _IN_SQL, (snapshot_id, occ,
-                      limits.max_nodes + 1)).fetchall()
+        rows = conn.execute(_IN_SQL, (snapshot_id, occ, limits.max_nodes + 1)).fetchall()
         if len(rows) > limits.max_nodes:
             edge_scan_capped = True
-            rows = rows[:limits.max_nodes]
+            rows = rows[: limits.max_nodes]
         for r in rows:
             consumer_occ = int(r["from_id"])
             if (consumer_occ, origin_key) in visited:
@@ -135,37 +141,48 @@ def blast(
             new_st = [*statuses, str(r["resolution_status"])]
             verified = all(s == "resolved" for s in new_st)
             hops = len(new_rels)
-            kind = (ImpactKind.DIRECT if hops == 1 and verified
-                    else ImpactKind.TRANSITIVE if verified
-                    else ImpactKind.POSSIBLE)
-            strength = (EvidenceStrength.VERIFIED if verified
-                        else EvidenceStrength.POSSIBLE)
+            kind = (
+                ImpactKind.DIRECT
+                if hops == 1 and verified
+                else ImpactKind.TRANSITIVE
+                if verified
+                else ImpactKind.POSSIBLE
+            )
+            strength = EvidenceStrength.VERIFIED if verified else EvidenceStrength.POSSIBLE
             path = ImpactPath(
                 origin_symbol_key=origin_key,
-                affected_symbol_key=hit.key, hops=hops,
+                affected_symbol_key=hit.key,
+                hops=hops,
                 relation_ids=tuple(new_rels),
                 intermediate_keys=tuple(new_mid),
                 resolution_statuses=tuple(new_st),
                 fully_verified=verified,
-                reason=(f"{r['type']} via relation {r['id']}"
-                        + reason_suffix))
-            out.append(ImpactCandidate(
-                symbol_key=hit.key, qualified_name=hit.qname,
-                language=hit.language, kind=hit.kind, impact=kind,
-                strength=strength, path=path,
-                source_path=hit.path, occurrence_id=hit.occ_id))
+                reason=(f"{r['type']} via relation {r['id']}" + reason_suffix),
+            )
+            out.append(
+                ImpactCandidate(
+                    symbol_key=hit.key,
+                    qualified_name=hit.qname,
+                    language=hit.language,
+                    kind=hit.kind,
+                    impact=kind,
+                    strength=strength,
+                    path=path,
+                    source_path=hit.path,
+                    occurrence_id=hit.occ_id,
+                )
+            )
             if len(out) >= limits.max_paths:
                 return tuple(out), True
             if hops < limits.max_depth:
-                queue.append((consumer_occ, origin_key,
-                              new_rels, new_mid, new_st, depth + 1))
+                queue.append((consumer_occ, origin_key, new_rels, new_mid, new_st, depth + 1))
             else:
                 # fronteira de depth: emitido mas nunca expandido —
                 # sonda decide se o corte descartou trabalho.
                 frontier.append((consumer_occ, origin_key))
 
     depth_cut = any(
-        _frontier_pending(conn, snapshot_id, occ, key, origins,
-                          visited, limits)
-        for occ, key in dict.fromkeys(frontier))
+        _frontier_pending(conn, snapshot_id, occ, key, origins, visited, limits)
+        for occ, key in dict.fromkeys(frontier)
+    )
     return tuple(out), edge_scan_capped or depth_cut

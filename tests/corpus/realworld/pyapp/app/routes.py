@@ -1,4 +1,5 @@
 """Rotas HTTP — validação + dispatch."""
+
 import json
 
 from app.services import BillingService, UserService
@@ -28,5 +29,4 @@ def get_outstanding(query: dict) -> tuple[int, bytes]:
     user = _USERS.find_by_email(query.get("email", ""))
     if user is None:
         return 404, b'{"error": "user not found"}'
-    return 200, json.dumps(
-        {"cents": _BILLING.outstanding(user)}).encode()
+    return 200, json.dumps({"cents": _BILLING.outstanding(user)}).encode()

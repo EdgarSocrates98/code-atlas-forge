@@ -14,7 +14,7 @@ from typing import Any
 WIRE_VARINT = 0
 WIRE_FIXED64 = 1
 WIRE_LEN = 2
-WIRE_SGROUP = 3   # deprecated — rejeitado explicitamente
+WIRE_SGROUP = 3  # deprecated — rejeitado explicitamente
 WIRE_EGROUP = 4
 WIRE_FIXED32 = 5
 
@@ -161,8 +161,7 @@ class Reader:
             raise self._err(f"cannot skip wire type {wire}")
 
 
-def decode_message(buf: bytes, spec: dict[int, tuple[str, Any]],
-                   path: str = "") -> dict[str, Any]:
+def decode_message(buf: bytes, spec: dict[int, tuple[str, Any]], path: str = "") -> dict[str, Any]:
     """Decodifica uma mensagem conforme `spec` {field_no: (name, kind)}.
 
     `kind` é um string-dispatch: "varint","int32","sint","bool","fixed32",
@@ -203,12 +202,20 @@ def _read_field(r: Reader, kind: Any, wire: int, path: str) -> Any:
         return decode_message(r.bytes_(), kind[0], path=path)
 
     readers: dict[str, Any] = {
-        "varint": r.varint, "int32": r.int32, "sint": r.sint,
-        "bool": r.bool_, "fixed32": r.fixed32, "fixed64": r.fixed64,
-        "sfixed32": r.sfixed32, "sfixed64": r.sfixed64,
-        "double": r.double, "float": r.float_, "bytes": r.bytes_,
+        "varint": r.varint,
+        "int32": r.int32,
+        "sint": r.sint,
+        "bool": r.bool_,
+        "fixed32": r.fixed32,
+        "fixed64": r.fixed64,
+        "sfixed32": r.sfixed32,
+        "sfixed64": r.sfixed64,
+        "double": r.double,
+        "float": r.float_,
+        "bytes": r.bytes_,
         "string": r.string,
-        "packed_int32": r.packed_int32, "packed_enum": r.packed_enum,
+        "packed_int32": r.packed_int32,
+        "packed_enum": r.packed_enum,
     }
     fn = readers.get(kind)
     if fn is None:

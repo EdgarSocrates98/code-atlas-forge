@@ -28,125 +28,180 @@ _ERR_INTERNAL = -32603
 _TOOLS: dict[str, dict[str, Any]] = {
     "atlas_search": {
         "description": "busca híbrida/lexical/graph/vector por símbolo",
-        "inputSchema": {"type": "object", "properties": {
-            "query": {"type": "string"},
-            "strategy": {"type": "string", "enum": [
-                "lexical", "structural", "graph", "hybrid", "vector"]},
-            "root": {"type": "string"},
-            "limit": {"type": "integer", "maximum": 200},
-        }, "required": ["query"], "additionalProperties": False},
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "query": {"type": "string"},
+                "strategy": {
+                    "type": "string",
+                    "enum": ["lexical", "structural", "graph", "hybrid", "vector"],
+                },
+                "root": {"type": "string"},
+                "limit": {"type": "integer", "maximum": 200},
+            },
+            "required": ["query"],
+            "additionalProperties": False,
+        },
     },
     "atlas_symbol": {
         "description": "detalhe de um símbolo (qualified_name)",
-        "inputSchema": {"type": "object", "properties": {
-            "name": {"type": "string"}, "root": {"type": "string"}},
-            "required": ["name"], "additionalProperties": False},
+        "inputSchema": {
+            "type": "object",
+            "properties": {"name": {"type": "string"}, "root": {"type": "string"}},
+            "required": ["name"],
+            "additionalProperties": False,
+        },
     },
     "atlas_references": {
         "description": "relações que tocam um símbolo (callers/callees)",
-        "inputSchema": {"type": "object", "properties": {
-            "name": {"type": "string"}, "root": {"type": "string"}},
-            "required": ["name"], "additionalProperties": False},
+        "inputSchema": {
+            "type": "object",
+            "properties": {"name": {"type": "string"}, "root": {"type": "string"}},
+            "required": ["name"],
+            "additionalProperties": False,
+        },
     },
     "atlas_dependencies": {
         "description": "dependências comprovadas do snapshot",
-        "inputSchema": {"type": "object", "properties": {
-            "root": {"type": "string"},
-            "relation_type": {"type": "string"}},
-            "additionalProperties": False},
+        "inputSchema": {
+            "type": "object",
+            "properties": {"root": {"type": "string"}, "relation_type": {"type": "string"}},
+            "additionalProperties": False,
+        },
     },
     "atlas_context": {
         "description": "context pack sob budget (orientation|focus|deep)",
-        "inputSchema": {"type": "object", "properties": {
-            "task": {"type": "string"},
-            "level": {"type": "string",
-                      "enum": ["orientation", "focus", "deep"]},
-            "budget": {"type": "integer", "maximum": 100000},
-            "root": {"type": "string"}},
-            "required": ["task"], "additionalProperties": False},
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "task": {"type": "string"},
+                "level": {"type": "string", "enum": ["orientation", "focus", "deep"]},
+                "budget": {"type": "integer", "maximum": 100000},
+                "root": {"type": "string"},
+            },
+            "required": ["task"],
+            "additionalProperties": False,
+        },
     },
     "atlas_evidence": {
         "description": "evidências + proveniência de uma aresta/símbolo",
-        "inputSchema": {"type": "object", "properties": {
-            "name": {"type": "string"}, "root": {"type": "string"}},
-            "required": ["name"], "additionalProperties": False},
+        "inputSchema": {
+            "type": "object",
+            "properties": {"name": {"type": "string"}, "root": {"type": "string"}},
+            "required": ["name"],
+            "additionalProperties": False,
+        },
     },
     "atlas_status": {
         "description": "estado do repositório/snapshot/capabilities",
-        "inputSchema": {"type": "object", "properties": {
-            "root": {"type": "string"}}, "additionalProperties": False},
+        "inputSchema": {
+            "type": "object",
+            "properties": {"root": {"type": "string"}},
+            "additionalProperties": False,
+        },
     },
     "atlas_expand": {
         "description": "expansão progressiva de símbolo no snapshot",
-        "inputSchema": {"type": "object", "properties": {
-            "name": {"type": "string"}, "root": {"type": "string"},
-            "delivered": {"type": "string"}},
-            "required": ["name"], "additionalProperties": False},
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "name": {"type": "string"},
+                "root": {"type": "string"},
+                "delivered": {"type": "string"},
+            },
+            "required": ["name"],
+            "additionalProperties": False,
+        },
     },
     "atlas_impact": {
         "description": "análise de impacto entre revisões/snapshots",
-        "inputSchema": {"type": "object", "properties": {
-            "base": {"type": "string"}, "target": {"type": "string"},
-            "symbol": {"type": "string"},
-            "root": {"type": "string"},
-            "known_only": {"type": "boolean"},
-            "max_paths": {"type": "integer", "maximum": 200}},
-            "additionalProperties": False},
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "base": {"type": "string"},
+                "target": {"type": "string"},
+                "symbol": {"type": "string"},
+                "root": {"type": "string"},
+                "known_only": {"type": "boolean"},
+                "max_paths": {"type": "integer", "maximum": 200},
+            },
+            "additionalProperties": False,
+        },
     },
     "atlas_diff": {
         "description": "ChangeSet git read-only entre revisões",
-        "inputSchema": {"type": "object", "properties": {
-            "base": {"type": "string"}, "target": {"type": "string"},
-            "root": {"type": "string"}},
-            "required": ["base"], "additionalProperties": False},
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "base": {"type": "string"},
+                "target": {"type": "string"},
+                "root": {"type": "string"},
+            },
+            "required": ["base"],
+            "additionalProperties": False,
+        },
     },
     "atlas_test_impact": {
         "description": "testes candidatos relacionados às mudanças",
-        "inputSchema": {"type": "object", "properties": {
-            "base": {"type": "string"}, "target": {"type": "string"},
-            "root": {"type": "string"}},
-            "additionalProperties": False},
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "base": {"type": "string"},
+                "target": {"type": "string"},
+                "root": {"type": "string"},
+            },
+            "additionalProperties": False,
+        },
     },
     "atlas_domains": {
-        "description": "adapters de domínio registrados "
-                       "(opt-in — listar não extrai)",
-        "inputSchema": {"type": "object", "properties": {},
-                        "additionalProperties": False},
+        "description": "adapters de domínio registrados (opt-in — listar não extrai)",
+        "inputSchema": {"type": "object", "properties": {}, "additionalProperties": False},
     },
     "atlas_domain_entity": {
         "description": "cartão de entidade de domínio: identidade, "
-                       "ocorrências, relações e evidência do snapshot",
-        "inputSchema": {"type": "object", "properties": {
-            "key": {"type": "string",
-                    "description": "identity_key 'dom:…' | id | "
-                                   "qualified_name"},
-            "root": {"type": "string"}},
-            "required": ["key"], "additionalProperties": False},
+        "ocorrências, relações e evidência do snapshot",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "key": {
+                    "type": "string",
+                    "description": "identity_key 'dom:…' | id | qualified_name",
+                },
+                "root": {"type": "string"},
+            },
+            "required": ["key"],
+            "additionalProperties": False,
+        },
     },
     "atlas_domain_lineage": {
-        "description": "linhagem READS/WRITES limitada (bounded BFS) "
-                       "de uma entidade de dados",
-        "inputSchema": {"type": "object", "properties": {
-            "entity": {"type": "string",
-                       "description": "identity_key | id | "
-                                      "qualified_name"},
-            "direction": {"type": "string",
-                          "enum": ["up", "down", "both"]},
-            "depth": {"type": "integer", "maximum": 8},
-            "limit": {"type": "integer", "maximum": 500},
-            "root": {"type": "string"}},
-            "required": ["entity"], "additionalProperties": False},
+        "description": "linhagem READS/WRITES limitada (bounded BFS) de uma entidade de dados",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "entity": {"type": "string", "description": "identity_key | id | qualified_name"},
+                "direction": {"type": "string", "enum": ["up", "down", "both"]},
+                "depth": {"type": "integer", "maximum": 8},
+                "limit": {"type": "integer", "maximum": 500},
+                "root": {"type": "string"},
+            },
+            "required": ["entity"],
+            "additionalProperties": False,
+        },
     },
     "atlas_federation_view": {
-        "description": "view federada de um workspace "
-                       "(repo→snapshot resolvido; read-only)",
-        "inputSchema": {"type": "object", "properties": {
-            "workspace": {"type": "string",
-                          "description": "nome ou id do workspace"},
-            "pins": {"type": "object",
-                     "description": "{repository_id: snapshot_id} "
-                                    "overrides de pin"}},
-            "required": ["workspace"], "additionalProperties": False},
+        "description": "view federada de um workspace (repo→snapshot resolvido; read-only)",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "workspace": {"type": "string", "description": "nome ou id do workspace"},
+                "pins": {
+                    "type": "object",
+                    "description": "{repository_id: snapshot_id} overrides de pin",
+                },
+            },
+            "required": ["workspace"],
+            "additionalProperties": False,
+        },
     },
 }
 
@@ -166,19 +221,24 @@ _PROMPTS: dict[str, str] = {
     "understand-component": (
         "Entenda {component}: 1) atlas_search pelo nome; 2) "
         "atlas_symbol no melhor hit; 3) atlas_context com a tarefa; "
-        "4) cite evidence e qualified_names reais — nunca invente."),
+        "4) cite evidence e qualified_names reais — nunca invente."
+    ),
     "locate-implementation": (
         "Localize {name}: atlas_search estratégia hybrid; depois "
-        "atlas_symbol no candidato; reporte path+span da ocorrência."),
+        "atlas_symbol no candidato; reporte path+span da ocorrência."
+    ),
     "explore-dependencies": (
         "Dependências de {symbol}: atlas_references + "
-        "atlas_dependencies; distinga resolved/ambiguous/unresolved."),
+        "atlas_dependencies; distinga resolved/ambiguous/unresolved."
+    ),
     "prepare-safe-change": (
         "Antes de mudar {symbol}: atlas_context level=deep; liste "
-        "impactados via atlas_references; preserve evidências."),
+        "impactados via atlas_references; preserve evidências."
+    ),
     "explain-code-path": (
         "Explique {path}: atlas_expand progressivo; cite arestas "
-        "comprovadas; marque o que é inferido vs resolvido."),
+        "comprovadas; marque o que é inferido vs resolvido."
+    ),
 }
 
 
@@ -205,8 +265,7 @@ class AtlasMcpServer:
             try:
                 msg = json.loads(line)
             except json.JSONDecodeError:
-                self._send(out_f, self._err(None, _ERR_PARSE,
-                                            "JSON inválido"))
+                self._send(out_f, self._err(None, _ERR_PARSE, "JSON inválido"))
                 continue
             resp = self._dispatch(msg)
             if resp is not None:
@@ -218,8 +277,7 @@ class AtlasMcpServer:
         out.flush()
 
     def _err(self, rid: Any, code: int, msg: str) -> dict[str, Any]:
-        return {"jsonrpc": "2.0", "id": rid,
-                "error": {"code": code, "message": msg}}
+        return {"jsonrpc": "2.0", "id": rid, "error": {"code": code, "message": msg}}
 
     def _ok(self, rid: Any, result: Any) -> dict[str, Any]:
         return {"jsonrpc": "2.0", "id": rid, "result": result}
@@ -230,48 +288,61 @@ class AtlasMcpServer:
         method = msg.get("method", "")
         params = msg.get("params") or {}
         if method == "initialize":
-            return self._ok(rid, {
-                "protocolVersion": params.get(
-                    "protocolVersion", PROTOCOL_VERSION),
-                "capabilities": {
-                    "tools": {}, "resources": {}, "prompts": {}},
-                "serverInfo": {"name": SERVER_NAME,
-                               "version": self._version()}})
+            return self._ok(
+                rid,
+                {
+                    "protocolVersion": params.get("protocolVersion", PROTOCOL_VERSION),
+                    "capabilities": {"tools": {}, "resources": {}, "prompts": {}},
+                    "serverInfo": {"name": SERVER_NAME, "version": self._version()},
+                },
+            )
         if method == "notifications/initialized":
             return None
         if method == "ping":
             return self._ok(rid, {})
         if method == "tools/list":
-            return self._ok(rid, {"tools": [
-                {"name": n, **t} for n, t in sorted(_TOOLS.items())]})
+            return self._ok(rid, {"tools": [{"name": n, **t} for n, t in sorted(_TOOLS.items())]})
         if method == "tools/call":
             return self._tools_call(rid, params)
-        if method in ("resources/list", "resources/read",
-                      "prompts/list", "prompts/get"):
+        if method in ("resources/list", "resources/read", "prompts/list", "prompts/get"):
             return self._dispatch_meta(rid, method, params)
         return self._err(rid, _ERR_METHOD, f"método desconhecido: {method}")
 
-    def _dispatch_meta(
-        self, rid: Any, method: str, params: dict[str, Any]
-    ) -> dict[str, Any]:
+    def _dispatch_meta(self, rid: Any, method: str, params: dict[str, Any]) -> dict[str, Any]:
         if method == "resources/list":
-            return self._ok(rid, {"resources": [
-                {"uri": u, "name": n, "mimeType": "application/json"}
-                for u, n in _RESOURCES]})
+            return self._ok(
+                rid,
+                {
+                    "resources": [
+                        {"uri": u, "name": n, "mimeType": "application/json"} for u, n in _RESOURCES
+                    ]
+                },
+            )
         if method == "resources/read":
             return self._resources_read(rid, params)
         if method == "prompts/list":
-            return self._ok(rid, {"prompts": [
-                {"name": n, "description": t.split(":")[0]}
-                for n, t in sorted(_PROMPTS.items())]})
+            return self._ok(
+                rid,
+                {
+                    "prompts": [
+                        {"name": n, "description": t.split(":")[0]}
+                        for n, t in sorted(_PROMPTS.items())
+                    ]
+                },
+            )
         if method == "prompts/get":
             name = params.get("name", "")
             if name not in _PROMPTS:
                 return self._err(rid, _ERR_PARAMS, f"prompt '{name}'?")
-            return self._ok(rid, {
-                "description": name,
-                "messages": [{"role": "user", "content": {
-                    "type": "text", "text": _PROMPTS[name]}}]})
+            return self._ok(
+                rid,
+                {
+                    "description": name,
+                    "messages": [
+                        {"role": "user", "content": {"type": "text", "text": _PROMPTS[name]}}
+                    ],
+                },
+            )
         return self._err(rid, _ERR_METHOD, f"método desconhecido: {method}")
 
     def _ctx(self, params: dict[str, Any]) -> _Ctx:
@@ -301,9 +372,7 @@ class AtlasMcpServer:
         return __version__
 
     # ---------------------------------------------------- tools
-    def _tools_call(
-        self, rid: Any, params: dict[str, Any]
-    ) -> dict[str, Any]:
+    def _tools_call(self, rid: Any, params: dict[str, Any]) -> dict[str, Any]:
         name = params.get("name", "")
         args = params.get("arguments") or {}
         if name not in _TOOLS:
@@ -321,10 +390,13 @@ class AtlasMcpServer:
             return self._err(rid, _ERR_INTERNAL, f"storage: {exc}")
         except Exception as exc:
             return self._err(rid, _ERR_INTERNAL, f"interno: {exc}")
-        return self._ok(rid, {
-            "content": [{"type": "text",
-                         "text": json.dumps(data, default=str)}],
-            "structuredContent": data})
+        return self._ok(
+            rid,
+            {
+                "content": [{"type": "text", "text": json.dumps(data, default=str)}],
+                "structuredContent": data,
+            },
+        )
 
     def _run_tool(self, name: str, args: dict[str, Any]) -> Any:
         from code_atlas.search import SearchEngine, SearchRequest
@@ -337,23 +409,28 @@ class AtlasMcpServer:
         ctx = self._ctx(args)
         try:
             if name == "atlas_search":
-                res = SearchEngine(ctx.conn).search(SearchRequest(
-                    query=str(args["query"]),
-                    strategy=str(args.get("strategy", "hybrid")),
-                    repository_root=ctx.root,
-                    snapshot_id=ctx.snapshot_id,
-                    limit=min(int(args.get("limit", 20)), 200)))
+                res = SearchEngine(ctx.conn).search(
+                    SearchRequest(
+                        query=str(args["query"]),
+                        strategy=str(args.get("strategy", "hybrid")),
+                        repository_root=ctx.root,
+                        snapshot_id=ctx.snapshot_id,
+                        limit=min(int(args.get("limit", 20)), 200),
+                    )
+                )
                 return res.to_dict()
             if name == "atlas_context":
                 from code_atlas.context import ContextEngine, ContextRequest
 
-                pack = ContextEngine(ctx.conn).build(ContextRequest(
-                    task=str(args["task"]),
-                    repository_root=ctx.root,
-                    snapshot_id=ctx.snapshot_id,
-                    level=str(args.get("level", "focus")),  # type: ignore[arg-type]
-                    budget_tokens=min(int(args.get("budget", 4000)),
-                                      100000)))
+                pack = ContextEngine(ctx.conn).build(
+                    ContextRequest(
+                        task=str(args["task"]),
+                        repository_root=ctx.root,
+                        snapshot_id=ctx.snapshot_id,
+                        level=str(args.get("level", "focus")),  # type: ignore[arg-type]
+                        budget_tokens=min(int(args.get("budget", 4000)), 100000),
+                    )
+                )
                 return pack.to_dict()
             if name == "atlas_expand":
                 import dataclasses
@@ -361,18 +438,17 @@ class AtlasMcpServer:
                 from code_atlas.context import ContextExpander
 
                 exp = ContextExpander(ctx.conn).expand(
-                    ctx.snapshot_id, str(args["name"]),
-                    delivered=frozenset(
-                        s for s in str(
-                            args.get("delivered", "")).split(",") if s))
+                    ctx.snapshot_id,
+                    str(args["name"]),
+                    delivered=frozenset(s for s in str(args.get("delivered", "")).split(",") if s),
+                )
                 return dataclasses.asdict(exp)
             if name == "atlas_status":
-
                 return {
-                    "root": ctx.root, "repo_id": ctx.repo_id,
+                    "root": ctx.root,
+                    "repo_id": ctx.repo_id,
                     "snapshot_id": ctx.snapshot_id,
-                    "capabilities": dataclasses_asdict_safe(
-                        SearchEngine(ctx.conn).capabilities()),
+                    "capabilities": dataclasses_asdict_safe(SearchEngine(ctx.conn).capabilities()),
                 }
             return self._run_symbol_tool(ctx, name, args)
         finally:
@@ -391,7 +467,10 @@ class AtlasMcpServer:
         return self._federation_view(args)
 
     def _run_symbol_tool(
-        self, ctx: _Ctx, name: str, args: dict[str, Any],
+        self,
+        ctx: _Ctx,
+        name: str,
+        args: dict[str, Any],
     ) -> dict[str, Any]:
         """Despacho das tools por qualified_name — cai nas de domínio."""
         if name == "atlas_symbol":
@@ -399,15 +478,17 @@ class AtlasMcpServer:
         if name == "atlas_references":
             return self._references(ctx, str(args["name"]))
         if name == "atlas_dependencies":
-            return self._dependencies(
-                ctx, str(args.get("relation_type") or ""))
+            return self._dependencies(ctx, str(args.get("relation_type") or ""))
         if name == "atlas_evidence":
             return self._evidence(ctx, str(args["name"]))
         return self._run_domain_tool(ctx, name, args)
 
     # ---------------------------------------------------- domains (lf-0123)
     def _run_domain_tool(
-        self, ctx: _Ctx, name: str, args: dict[str, Any],
+        self,
+        ctx: _Ctx,
+        name: str,
+        args: dict[str, Any],
     ) -> dict[str, Any]:
         """Despacho das tools de domínio — cai no impacto como último."""
         if name == "atlas_domain_entity":
@@ -427,23 +508,23 @@ class AtlasMcpServer:
             raise LookupError(err)
         return entity_detail(ctx.conn, entity, ctx.snapshot_id)
 
-    def _domain_lineage(
-        self, ctx: _Ctx, args: dict[str, Any]
-    ) -> dict[str, Any]:
+    def _domain_lineage(self, ctx: _Ctx, args: dict[str, Any]) -> dict[str, Any]:
         from code_atlas.domains.cli_surface import (
             lineage,
             resolve_single_entity,
         )
 
-        entity, err = resolve_single_entity(
-            ctx.conn, ctx.repo_id, str(args["entity"]))
+        entity, err = resolve_single_entity(ctx.conn, ctx.repo_id, str(args["entity"]))
         if entity is None:
             raise LookupError(err)
         return lineage(
-            ctx.conn, entity, ctx.snapshot_id,
+            ctx.conn,
+            entity,
+            ctx.snapshot_id,
             direction=str(args.get("direction") or "both"),
             depth=int(args.get("depth") or 2),
-            limit=min(500, int(args.get("limit") or 200)))
+            limit=min(500, int(args.get("limit") or 200)),
+        )
 
     def _federation_view(self, args: dict[str, Any]) -> dict[str, Any]:
         """``atlas_federation_view`` — view repo→snapshot do workspace."""
@@ -479,9 +560,9 @@ class AtlasMcpServer:
             " FROM symbols s WHERE s.repository_id = ? AND"
             " (s.qualified_name = ? OR s.qualified_name LIKE ?)"
             " ORDER BY s.qualified_name LIMIT 20",
-            (ctx.repo_id, name, f"%.{name}")).fetchall()
-        return {"symbols": [dict(r) for r in rows],
-                "snapshot_id": ctx.snapshot_id}
+            (ctx.repo_id, name, f"%.{name}"),
+        ).fetchall()
+        return {"symbols": [dict(r) for r in rows], "snapshot_id": ctx.snapshot_id}
 
     def _references(self, ctx: _Ctx, name: str) -> dict[str, Any]:
         rows = ctx.conn.execute(
@@ -494,13 +575,11 @@ class AtlasMcpServer:
             " LEFT JOIN symbols sb ON sb.id = b.logical_symbol_id"
             " WHERE r.snapshot_id = ? AND (sa.qualified_name = ?"
             " OR sb.qualified_name = ?) LIMIT 100",
-            (ctx.snapshot_id, name, name)).fetchall()
-        return {"references": [dict(r) for r in rows],
-                "snapshot_id": ctx.snapshot_id}
+            (ctx.snapshot_id, name, name),
+        ).fetchall()
+        return {"references": [dict(r) for r in rows], "snapshot_id": ctx.snapshot_id}
 
-    def _dependencies(
-        self, ctx: _Ctx, relation_type: str
-    ) -> dict[str, Any]:
+    def _dependencies(self, ctx: _Ctx, relation_type: str) -> dict[str, Any]:
         base = (
             "SELECT sa.qualified_name AS src, r.type,"
             " sb.qualified_name AS dst FROM relations r"
@@ -508,7 +587,8 @@ class AtlasMcpServer:
             " LEFT JOIN symbol_occurrences b ON b.id = r.to_id"
             " JOIN symbols sa ON sa.id = a.logical_symbol_id"
             " LEFT JOIN symbols sb ON sb.id = b.logical_symbol_id"
-            " WHERE r.snapshot_id = ?")
+            " WHERE r.snapshot_id = ?"
+        )
         params: list[Any] = [ctx.snapshot_id]
         if relation_type:
             sql = base + " AND r.type = ? LIMIT 200"
@@ -516,8 +596,7 @@ class AtlasMcpServer:
         else:
             sql = base + " LIMIT 200"
         rows = ctx.conn.execute(sql, params).fetchall()
-        return {"dependencies": [dict(r) for r in rows],
-                "snapshot_id": ctx.snapshot_id}
+        return {"dependencies": [dict(r) for r in rows], "snapshot_id": ctx.snapshot_id}
 
     def _evidence(self, ctx: _Ctx, name: str) -> dict[str, Any]:
         # lf-0054: colunas reais da tabela evidence (path/span/hash +
@@ -534,49 +613,64 @@ class AtlasMcpServer:
             "  JOIN symbols s ON s.id = o.logical_symbol_id"
             "  WHERE o.snapshot_id = ? AND s.qualified_name = ?)"
             " ORDER BY e.id LIMIT 200",
-            (ctx.snapshot_id, ctx.snapshot_id, name)).fetchall()
+            (ctx.snapshot_id, ctx.snapshot_id, name),
+        ).fetchall()
         # refs canônicas grounded por occurrence do símbolo (lf-0051)
         from code_atlas.search.refs import EvidenceGrounder
 
         grounder = EvidenceGrounder(ctx.conn)
         occ_ids = [
-            int(r["id"]) for r in ctx.conn.execute(
+            int(r["id"])
+            for r in ctx.conn.execute(
                 "SELECT o.id FROM symbol_occurrences o JOIN symbols s"
                 " ON s.id = o.logical_symbol_id"
                 " WHERE o.snapshot_id = ? AND s.qualified_name = ?"
                 " LIMIT 25",
-                (ctx.snapshot_id, name)).fetchall()
+                (ctx.snapshot_id, name),
+            ).fetchall()
         ]
         refs: list[dict[str, Any]] = []
         for oid in occ_ids:
-            occ = grounder.occurrence_ref(ctx.repo_id, ctx.snapshot_id,
-                                          oid)
+            occ = grounder.occurrence_ref(ctx.repo_id, ctx.snapshot_id, oid)
             if occ is not None:
-                refs.append({"kind": "syntactic-occurrence",
-                             "repository_id": occ.repository_id,
-                             "snapshot_id": occ.snapshot_id,
-                             "occurrence_id": occ.occurrence_id,
-                             "qualified_name": occ.qualified_name,
-                             "path": occ.source_path,
-                             "span": [occ.span_start, occ.span_end],
-                             "content_hash": occ.content_hash})
-        return {"evidence": [dict(r) for r in rows],
-                "refs": refs,
-                "snapshot_id": ctx.snapshot_id, "for": name}
+                refs.append(
+                    {
+                        "kind": "syntactic-occurrence",
+                        "repository_id": occ.repository_id,
+                        "snapshot_id": occ.snapshot_id,
+                        "occurrence_id": occ.occurrence_id,
+                        "qualified_name": occ.qualified_name,
+                        "path": occ.source_path,
+                        "span": [occ.span_start, occ.span_end],
+                        "content_hash": occ.content_hash,
+                    }
+                )
+        return {
+            "evidence": [dict(r) for r in rows],
+            "refs": refs,
+            "snapshot_id": ctx.snapshot_id,
+            "for": name,
+        }
 
     def _run_impact_tool(
-        self, ctx: _Ctx, name: str, args: dict[str, Any],
+        self,
+        ctx: _Ctx,
+        name: str,
+        args: dict[str, Any],
     ) -> dict[str, Any]:
         """Despacho das tools de impacto (Cycle 5)."""
         if name in ("atlas_impact", "atlas_test_impact"):
-            return self._impact(
-                ctx, args, tests_only=name == "atlas_test_impact")
+            return self._impact(ctx, args, tests_only=name == "atlas_test_impact")
         if name == "atlas_diff":
             return self._diff(ctx, args)
         raise LookupError(f"tool '{name}' não implementada")
 
     def _impact(
-        self, ctx: _Ctx, args: dict[str, Any], *, tests_only: bool,
+        self,
+        ctx: _Ctx,
+        args: dict[str, Any],
+        *,
+        tests_only: bool,
     ) -> dict[str, Any]:
         """atlas_impact/atlas_test_impact — mesmo ImpactEngine da CLI."""
         from code_atlas.impact.contracts import (
@@ -592,33 +686,33 @@ class AtlasMcpServer:
             target_revision=str(args.get("target") or ""),
             symbol=str(args["symbol"]) if args.get("symbol") else None,
             known_only=bool(args.get("known_only")),
-            limits=ImpactLimits(
-                max_paths=min(200, int(args.get("max_paths") or 50))))
+            limits=ImpactLimits(max_paths=min(200, int(args.get("max_paths") or 50))),
+        )
         res = ImpactEngine(ctx.conn).analyze(req)
         if tests_only:
-            res = replace(res, symbol_changes=(), contract_changes=(),
-                          impacts=())
+            res = replace(res, symbol_changes=(), contract_changes=(), impacts=())
         return _jsonable(res)  # type: ignore[return-value]
 
     def _diff(
-        self, ctx: _Ctx, args: dict[str, Any],
+        self,
+        ctx: _Ctx,
+        args: dict[str, Any],
     ) -> dict[str, Any]:
         """atlas_diff — ChangeSet git read-only (sem tocar workspace)."""
         from code_atlas.impact import diff_reader
         from code_atlas.impact.report import _jsonable
 
         cs, diags = diff_reader.read_diff(
-            Path(ctx.root), str(args["base"]),
-            str(args["target"]) if args.get("target") else None)
+            Path(ctx.root), str(args["base"]), str(args["target"]) if args.get("target") else None
+        )
         return {
             "change_set": _jsonable(cs),
             "diagnostics": [_jsonable(d) for d in diags],
-            "snapshot_id": ctx.snapshot_id}
+            "snapshot_id": ctx.snapshot_id,
+        }
 
     # ---------------------------------------------------- resources
-    def _resources_read(
-        self, rid: Any, params: dict[str, Any]
-    ) -> dict[str, Any]:
+    def _resources_read(self, rid: Any, params: dict[str, Any]) -> dict[str, Any]:
         uri = str(params.get("uri", ""))
         try:
             ctx = self._ctx({})
@@ -634,33 +728,42 @@ class AtlasMcpServer:
 
                 from code_atlas.search import SearchEngine
 
-                data = dataclasses.asdict(
-                    SearchEngine(ctx.conn).capabilities())
+                data = dataclasses.asdict(SearchEngine(ctx.conn).capabilities())
             elif uri == "atlas://graph":
                 row = ctx.conn.execute(
-                    "SELECT type, COUNT(*) AS c FROM relations"
-                    " WHERE snapshot_id = ? GROUP BY type",
-                    (ctx.snapshot_id,)).fetchall()
-                data = {"edges_by_type": {r["type"]: r["c"]
-                                          for r in row},
-                        "snapshot_id": ctx.snapshot_id}
+                    "SELECT type, COUNT(*) AS c FROM relations WHERE snapshot_id = ? GROUP BY type",
+                    (ctx.snapshot_id,),
+                ).fetchall()
+                data = {
+                    "edges_by_type": {r["type"]: r["c"] for r in row},
+                    "snapshot_id": ctx.snapshot_id,
+                }
             elif uri == "atlas://symbols":
                 rows = ctx.conn.execute(
                     "SELECT qualified_name, kind FROM symbols"
                     " WHERE repository_id = ? ORDER BY qualified_name"
-                    " LIMIT 100", (ctx.repo_id,)).fetchall()
+                    " LIMIT 100",
+                    (ctx.repo_id,),
+                ).fetchall()
                 data = {"symbols": [dict(r) for r in rows]}
             elif uri == "atlas://context":
-                data = {"hint": "use tools/call atlas_context",
-                        "snapshot_id": ctx.snapshot_id}
+                data = {"hint": "use tools/call atlas_context", "snapshot_id": ctx.snapshot_id}
             else:
-                return self._err(rid, _ERR_PARAMS,
-                                 f"uri desconhecida: {uri}")
+                return self._err(rid, _ERR_PARAMS, f"uri desconhecida: {uri}")
         finally:
             ctx.conn.close()
-        return self._ok(rid, {"contents": [{
-            "uri": uri, "mimeType": "application/json",
-            "text": json.dumps(data, default=str)}]})
+        return self._ok(
+            rid,
+            {
+                "contents": [
+                    {
+                        "uri": uri,
+                        "mimeType": "application/json",
+                        "text": json.dumps(data, default=str),
+                    }
+                ]
+            },
+        )
 
 
 def dataclasses_asdict_safe(obj: Any) -> dict[str, Any]:

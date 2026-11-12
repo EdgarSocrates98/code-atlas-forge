@@ -11,9 +11,7 @@ from pathlib import Path
 
 import pytest
 
-BENCH = (
-    Path(__file__).resolve().parents[2] / "benchmarks" / "bench_index.py"
-)
+BENCH = Path(__file__).resolve().parents[2] / "benchmarks" / "bench_index.py"
 spec = importlib.util.spec_from_file_location("bench_index", BENCH)
 assert spec is not None and spec.loader is not None
 bench_index = importlib.util.module_from_spec(spec)
@@ -23,8 +21,13 @@ spec.loader.exec_module(bench_index)
 def test_bench_smoke_measures_all_phases(tmp_path: Path) -> None:
     result = bench_index.bench_size(tmp_path, 30)
     for key in (
-        "total_s", "discovery_s", "parse_s", "graph_s",
-        "persist_residual_s", "noop_reindex_s", "db_size_mb",
+        "total_s",
+        "discovery_s",
+        "parse_s",
+        "graph_s",
+        "persist_residual_s",
+        "noop_reindex_s",
+        "db_size_mb",
         "peak_rss_mb",
     ):
         assert key in result, key

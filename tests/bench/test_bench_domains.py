@@ -11,9 +11,7 @@ from pathlib import Path
 
 import pytest
 
-BENCH = (
-    Path(__file__).resolve().parents[2] / "benchmarks" / "bench_domains.py"
-)
+BENCH = Path(__file__).resolve().parents[2] / "benchmarks" / "bench_domains.py"
 spec = importlib.util.spec_from_file_location("bench_domains", BENCH)
 assert spec is not None and spec.loader is not None
 bench_domains = importlib.util.module_from_spec(spec)

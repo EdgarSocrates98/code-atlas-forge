@@ -66,18 +66,78 @@ _MAX_DEPTH = 32  # subqueries/parênteses — além disso é patológico
 # erro de sincronização, não continuação.
 _EXPR_STOPS: frozenset[str] = frozenset(
     {
-        "FROM", "WHERE", "GROUP", "HAVING", "QUALIFY", "WINDOW", "ORDER",
-        "LIMIT", "OFFSET", "FETCH", "UNION", "INTERSECT", "EXCEPT",
-        "INTO", "ON", "USING", "JOIN", "INNER", "LEFT", "RIGHT", "FULL",
-        "CROSS", "NATURAL", "SEMI", "ANTI", "LATERAL", "PIVOT",
-        "TABLESAMPLE", "WHEN", "THEN", "ELSE", "END", "AS", "PARTITION",
-        "CLUSTER", "DISTRIBUTE", "SORT", "MATCHED", "SET", "VALUES",
-        "SELECT", "INSERT", "UPDATE", "DELETE", "MERGE", "CREATE", "USE",
-        "DROP", "ALTER", "GRANT", "REVOKE", "TRUNCATE", "SHOW",
-        "DESCRIBE", "EXPLAIN", "ANALYZE", "MSCK", "CACHE",
-        "UNCACHE", "REFRESH", "EXEC", "EXECUTE", "CALL", "PREPARE",
-        "DEALLOCATE", "COMMIT", "ROLLBACK", "VACUUM", "OPTIMIZE",
-        "LOAD", "EXPORT", "IMPORT",
+        "FROM",
+        "WHERE",
+        "GROUP",
+        "HAVING",
+        "QUALIFY",
+        "WINDOW",
+        "ORDER",
+        "LIMIT",
+        "OFFSET",
+        "FETCH",
+        "UNION",
+        "INTERSECT",
+        "EXCEPT",
+        "INTO",
+        "ON",
+        "USING",
+        "JOIN",
+        "INNER",
+        "LEFT",
+        "RIGHT",
+        "FULL",
+        "CROSS",
+        "NATURAL",
+        "SEMI",
+        "ANTI",
+        "LATERAL",
+        "PIVOT",
+        "TABLESAMPLE",
+        "WHEN",
+        "THEN",
+        "ELSE",
+        "END",
+        "AS",
+        "PARTITION",
+        "CLUSTER",
+        "DISTRIBUTE",
+        "SORT",
+        "MATCHED",
+        "SET",
+        "VALUES",
+        "SELECT",
+        "INSERT",
+        "UPDATE",
+        "DELETE",
+        "MERGE",
+        "CREATE",
+        "USE",
+        "DROP",
+        "ALTER",
+        "GRANT",
+        "REVOKE",
+        "TRUNCATE",
+        "SHOW",
+        "DESCRIBE",
+        "EXPLAIN",
+        "ANALYZE",
+        "MSCK",
+        "CACHE",
+        "UNCACHE",
+        "REFRESH",
+        "EXEC",
+        "EXECUTE",
+        "CALL",
+        "PREPARE",
+        "DEALLOCATE",
+        "COMMIT",
+        "ROLLBACK",
+        "VACUUM",
+        "OPTIMIZE",
+        "LOAD",
+        "EXPORT",
+        "IMPORT",
     }
 )
 
@@ -85,11 +145,34 @@ _ITEM_STOPS = _EXPR_STOPS | frozenset({"AS"})
 
 _UNSUPPORTED_START: frozenset[str] = frozenset(
     {
-        "DROP", "ALTER", "GRANT", "REVOKE", "ANALYZE", "EXPLAIN",
-        "DESCRIBE", "DESC", "SHOW", "MSCK", "CACHE", "UNCACHE",
-        "REFRESH", "SET", "RESET", "ADD", "JAR", "LOAD", "EXPORT",
-        "IMPORT", "VACUUM", "OPTIMIZE", "COMMIT", "ROLLBACK", "BEGIN",
-        "START", "TRANSACTION", "DEALLOCATE",
+        "DROP",
+        "ALTER",
+        "GRANT",
+        "REVOKE",
+        "ANALYZE",
+        "EXPLAIN",
+        "DESCRIBE",
+        "DESC",
+        "SHOW",
+        "MSCK",
+        "CACHE",
+        "UNCACHE",
+        "REFRESH",
+        "SET",
+        "RESET",
+        "ADD",
+        "JAR",
+        "LOAD",
+        "EXPORT",
+        "IMPORT",
+        "VACUUM",
+        "OPTIMIZE",
+        "COMMIT",
+        "ROLLBACK",
+        "BEGIN",
+        "START",
+        "TRANSACTION",
+        "DEALLOCATE",
     }
 )
 
@@ -97,8 +180,14 @@ _DYNAMIC_START: frozenset[str] = frozenset({"EXEC", "EXECUTE", "CALL"})
 
 _CREATE_SUB: frozenset[str] = frozenset(
     {
-        "SCHEMA", "DATABASE", "INDEX", "FUNCTION", "PROCEDURE", "ROLE",
-        "TRIGGER", "SEQUENCE",
+        "SCHEMA",
+        "DATABASE",
+        "INDEX",
+        "FUNCTION",
+        "PROCEDURE",
+        "ROLE",
+        "TRIGGER",
+        "SEQUENCE",
     }
 )
 
@@ -108,17 +197,42 @@ _CONSTRAINT_HEAD: frozenset[str] = frozenset(
 
 _INTERVAL_UNITS: frozenset[str] = frozenset(
     {
-        "YEAR", "QUARTER", "MONTH", "WEEK", "DAY", "HOUR", "MINUTE",
-        "SECOND", "MILLISECOND", "TO",
+        "YEAR",
+        "QUARTER",
+        "MONTH",
+        "WEEK",
+        "DAY",
+        "HOUR",
+        "MINUTE",
+        "SECOND",
+        "MILLISECOND",
+        "TO",
     }
 )
 
 _FN_FIELD_WORDS: frozenset[str] = frozenset(
     {
-        "BOTH", "LEADING", "TRAILING", "YEAR", "QUARTER", "MONTH", "WEEK",
-        "DAY", "HOUR", "MINUTE", "SECOND", "EPOCH", "TIMEZONE_HOUR",
-        "TIMEZONE_MINUTE", "TIMEZONE_ABBR", "DOW", "DOY", "CENTURY",
-        "DECADE", "MILLENNIUM", "ISOYEAR",
+        "BOTH",
+        "LEADING",
+        "TRAILING",
+        "YEAR",
+        "QUARTER",
+        "MONTH",
+        "WEEK",
+        "DAY",
+        "HOUR",
+        "MINUTE",
+        "SECOND",
+        "EPOCH",
+        "TIMEZONE_HOUR",
+        "TIMEZONE_MINUTE",
+        "TIMEZONE_ABBR",
+        "DOW",
+        "DOY",
+        "CENTURY",
+        "DECADE",
+        "MILLENNIUM",
+        "ISOYEAR",
     }
 )
 
@@ -221,8 +335,7 @@ def parse_file(text: str) -> ParsedFile:
     src = _Src(text)
     p = _P(toks, src)
     diags: list[ParseDiagnostic] = [
-        ParseDiagnostic(code=prob, severity="warning", message=prob)
-        for prob in problems
+        ParseDiagnostic(code=prob, severity="warning", message=prob) for prob in problems
     ]
     dialect = detect_dialect(text)
     statements: list[Statement] = []
@@ -259,8 +372,10 @@ def parse_file(text: str) -> ParsedFile:
             )
             p.resync()
     return ParsedFile(
-        statements=statements, diagnostics=diags,
-        dialect=dialect, problems=problems,
+        statements=statements,
+        diagnostics=diags,
+        dialect=dialect,
+        problems=problems,
     )
 
 
@@ -457,9 +572,7 @@ class _P:
             return self._statement_dml(t, ctes, start)
         return self._statement_aux(t, start)
 
-    def _statement_dml(
-        self, t: Token, ctes: list[Cte], start: Token
-    ) -> Statement:
+    def _statement_dml(self, t: Token, ctes: list[Cte], start: Token) -> Statement:
         """DML + CREATE — ``t`` é a keyword de início do statement."""
         if is_kw(t, "INSERT"):
             return self.insert_stmt(ctes, start)
@@ -479,8 +592,10 @@ class _P:
             self.i += 1
             name = self.name_chain(loose=True)
             return SUse(
-                kind="use", span=self.span(start.start, self.last_end()),
-                parts=name.parts, written=name.written,
+                kind="use",
+                span=self.span(start.start, self.last_end()),
+                parts=name.parts,
+                written=name.written,
             )
         if is_kw(t, "TRUNCATE"):
             self.i += 1
@@ -495,15 +610,19 @@ class _P:
             return self.prepare_stmt(start)
         if is_kw(t, *_DYNAMIC_START):
             st = SUnsupported(
-                kind="unsupported", span=self.span(start.start, t.end),
-                why="dynamic-exec", head=t.norm,
+                kind="unsupported",
+                span=self.span(start.start, t.end),
+                why="dynamic-exec",
+                head=t.norm,
             )
             self.skip_to_boundary()
             return st
         if is_kw(t, *_UNSUPPORTED_START):
             st = SUnsupported(
-                kind="unsupported", span=self.span(start.start, t.end),
-                why=t.norm.lower(), head=t.norm,
+                kind="unsupported",
+                span=self.span(start.start, t.end),
+                why=t.norm.lower(),
+                head=t.norm,
             )
             self.skip_to_boundary()
             return st
@@ -534,7 +653,9 @@ class _P:
             self.expect_punct(")")
             ctes.append(
                 Cte(
-                    name=name, columns=cols, query=q,
+                    name=name,
+                    columns=cols,
+                    query=q,
                     span=self.span(t.start, self.last_end()),
                     recursive=recursive,
                 )
@@ -584,10 +705,7 @@ class _P:
                 self.i += 1
         items: list[SelectItem] = []
         subs: list[SelectStmt] = []
-        if (
-            self.at_kw("FROM") or self.at_punct(";") or self.at_eof()
-            or self.at_punct(")")
-        ):
+        if self.at_kw("FROM") or self.at_punct(";") or self.at_eof() or self.at_punct(")"):
             raise ParseError("empty select list", self.cur())
         while True:
             items.append(self.select_item(subs))
@@ -599,8 +717,12 @@ class _P:
             sources = self.source_list(subs)
         self.tail_clauses(subs)
         return SelectStmt(
-            ctes=[], items=items, sources=sources, set_branches=[],
-            set_ops=[], tail_subqueries=subs,
+            ctes=[],
+            items=items,
+            sources=sources,
+            set_branches=[],
+            set_ops=[],
+            tail_subqueries=subs,
             span=self.span(start.start, self.last_end()),
         )
 
@@ -634,8 +756,17 @@ class _P:
         while not self.at_eof():
             t = self.cur()
             if t.kind == "number" or is_kw(
-                t, "ALL", "ROWS", "ROW", "ONLY", "WITH", "TIES",
-                "FIRST", "NEXT", "OFFSET", "PERCENT",
+                t,
+                "ALL",
+                "ROWS",
+                "ROW",
+                "ONLY",
+                "WITH",
+                "TIES",
+                "FIRST",
+                "NEXT",
+                "OFFSET",
+                "PERCENT",
             ):
                 self.i += 1
                 continue
@@ -649,8 +780,10 @@ class _P:
             self.i += 1
             star = StarRef(qualifier=(), span=self.span(start.start, start.end))
             return SelectItem(
-                refs=ExprRefs(), alias=None,
-                span=self.span(start.start, start.end), star=star,
+                refs=ExprRefs(),
+                alias=None,
+                span=self.span(start.start, start.end),
+                star=star,
             )
         refs = self.expr(_ITEM_STOPS)
         subs.extend(refs.subqueries)
@@ -666,8 +799,10 @@ class _P:
             self.i += 1
         star_ref = refs.top_star if not refs.cols else None
         return SelectItem(
-            refs=refs, alias=alias,
-            span=self.span(start.start, self.last_end()), star=star_ref,
+            refs=refs,
+            alias=alias,
+            span=self.span(start.start, self.last_end()),
+            star=star_ref,
         )
 
     # --- FROM ---------------------------------------------------------
@@ -680,8 +815,15 @@ class _P:
 
     _JOIN_MODS = frozenset(
         {
-            "INNER", "LEFT", "RIGHT", "FULL", "OUTER", "CROSS",
-            "NATURAL", "SEMI", "ANTI",
+            "INNER",
+            "LEFT",
+            "RIGHT",
+            "FULL",
+            "OUTER",
+            "CROSS",
+            "NATURAL",
+            "SEMI",
+            "ANTI",
         }
     )
 
@@ -713,7 +855,9 @@ class _P:
             elif self.accept_kw("USING"):
                 self.skip_balanced()
             left = SrcJoin(
-                left=left, right=right, kind=kind,
+                left=left,
+                right=right,
+                kind=kind,
                 span=self.span(start.start, self.last_end()),
             )
         return left
@@ -729,7 +873,8 @@ class _P:
             what = "lateral-view" if t.norm == "LATERAL" else "pivot"
             self._skip_source_tail()
             return SrcUnsupported(
-                what=what, written=t.norm,
+                what=what,
+                written=t.norm,
                 span=self.span(start.start, self.last_end()),
             )
         if self.at_kw("UNNEST"):
@@ -741,14 +886,13 @@ class _P:
         if t.kind == "dynamic":
             self.i += 1
             return SrcUnsupported(
-                what="dynamic", written=t.text,
+                what="dynamic",
+                written=t.text,
                 span=self.span(start.start, self.last_end()),
             )
         raise ParseError("expected table source", t)
 
-    def _primary_paren(
-        self, subs: list[SelectStmt], depth: int, start: Token
-    ) -> Source:
+    def _primary_paren(self, subs: list[SelectStmt], depth: int, start: Token) -> Source:
         """``( query )`` subquery ou ``( a JOIN b )`` grupo parentizado."""
         if is_kw(self.peek(), "SELECT", "WITH"):
             self.i += 1
@@ -756,7 +900,9 @@ class _P:
             self.expect_punct(")")
             alias, cols = self.opt_alias(cols=True)
             return SrcSub(
-                query=q, alias=alias, col_aliases=cols,
+                query=q,
+                alias=alias,
+                col_aliases=cols,
                 span=self.span(start.start, self.last_end()),
             )
         # fonte agrupada: ( a JOIN b … ) [alias]
@@ -765,7 +911,8 @@ class _P:
         self.expect_punct(")")
         alias, _ = self.opt_alias()
         return SrcGroup(
-            inner=inner, alias=alias,
+            inner=inner,
+            alias=alias,
             span=self.span(start.start, self.last_end()),
         )
 
@@ -778,7 +925,8 @@ class _P:
         self.accept_kw("ORDINALITY")
         self.opt_alias()
         return SrcUnsupported(
-            what="unnest", written=t.norm,
+            what="unnest",
+            written=t.norm,
             span=self.span(start.start, self.last_end()),
         )
 
@@ -791,7 +939,8 @@ class _P:
                 break
         alias, cols = self.opt_alias(cols=True)
         return SrcValues(
-            alias=alias, col_aliases=cols,
+            alias=alias,
+            col_aliases=cols,
             span=self.span(start.start, self.last_end()),
         )
 
@@ -803,13 +952,15 @@ class _P:
             self.skip_balanced()
             self.opt_alias()
             return SrcUnsupported(
-                what="table-function", written=t.text,
+                what="table-function",
+                written=t.text,
                 span=self.span(start.start, self.last_end()),
             )
         name = self.name_chain()
         alias, _ = self.opt_alias()
         return SrcTable(
-            name=name, alias=alias,
+            name=name,
+            alias=alias,
             span=self.span(start.start, self.last_end()),
         )
 
@@ -881,13 +1032,11 @@ class _P:
         # (ou raso) caem — bound por nível sobrevive ao fecho dos parênses
         if any(s.bound.values()):
             s.refs.cols = [
-                col for (col, d) in s.tagged
+                col
+                for (col, d) in s.tagged
                 if not (
                     len(col.parts) == 1
-                    and any(
-                        col.parts[0] in b
-                        for k, b in s.bound.items() if k <= d
-                    )
+                    and any(col.parts[0] in b for k, b in s.bound.items() if k <= d)
                 )
             ]
         return s.refs
@@ -952,10 +1101,7 @@ class _P:
         """``*``/``t.*`` — qualificador vem do colref imediatamente anterior."""
         qual: tuple[str, ...] = ()
         prev = self.toks[self.i - 1] if self.i else t
-        if (
-            prev.kind == "punct" and prev.text == "."
-            and s.tagged and s.tagged[-1][1] == s.lvl
-        ):
+        if prev.kind == "punct" and prev.text == "." and s.tagged and s.tagged[-1][1] == s.lvl:
             qual = s.tagged[-1][0].parts
             s.tagged.pop()
             s.refs.cols.pop()
@@ -967,9 +1113,7 @@ class _P:
         s.recent.clear()
         self.i += 1
 
-    def _expr_word(
-        self, s: _ExprScan, t: Token, stops: frozenset[str]
-    ) -> bool:
+    def _expr_word(self, s: _ExprScan, t: Token, stops: frozenset[str]) -> bool:
         """Palavra/qident dentro de ``expr`` — True = expressão terminou."""
         norm = t.norm
         # keywords só atuam como keywords quando não-quotadas
@@ -1011,9 +1155,7 @@ class _P:
         s.value_end = s.lvl == 0
         return False
 
-    def _expr_keyword(
-        self, s: _ExprScan, t: Token, stops: frozenset[str]
-    ) -> str:
+    def _expr_keyword(self, s: _ExprScan, t: Token, stops: frozenset[str]) -> str:
         """Keyword dentro de ``expr``: ``end``|``consumed``|``ident``.
 
         ``ident`` = a palavra não atua como keyword aqui — o caller
@@ -1030,9 +1172,7 @@ class _P:
             self.i += 1
             if self.cur().kind in ("string", "number"):
                 self.i += 1
-            while is_word(self.cur()) and (
-                self.cur().norm in _INTERVAL_UNITS
-            ):
+            while is_word(self.cur()) and (self.cur().norm in _INTERVAL_UNITS):
                 self.i += 1
             s.recent.clear()
             s.value_end = s.lvl == 0
@@ -1072,10 +1212,7 @@ class _P:
             s.value_end = s.lvl == 0 and s.case_depth == 0
             self.i += 1
             return "consumed"
-        if (
-            norm in ("WHEN", "THEN", "ELSE")
-            and s.case_depth == 0 and s.lvl == 0
-        ):
+        if norm in ("WHEN", "THEN", "ELSE") and s.case_depth == 0 and s.lvl == 0:
             return "end"
         return None
 
@@ -1135,7 +1272,8 @@ class _P:
         st = SInsert(
             kind="insert",
             span=self.span(start.start, self.last_end()),
-            target=target, overwrite=overwrite,
+            target=target,
+            overwrite=overwrite,
         )
         # (cols) opcional — '(' que NÃO abre select/values
         if self.at_punct("(") and not is_kw(self.peek(), "SELECT", "WITH", "VALUES"):
@@ -1198,7 +1336,10 @@ class _P:
         st = SUpdate(
             kind="update",
             span=self.span(start.start, self.last_end()),
-            target=target, target_alias=alias, sets=sets, ctes=ctes,
+            target=target,
+            target_alias=alias,
+            sets=sets,
+            ctes=ctes,
         )
         if self.accept_kw("FROM"):
             st.sources = self.source_list(st.tail_subqueries)
@@ -1216,7 +1357,8 @@ class _P:
         st = SDelete(
             kind="delete",
             span=self.span(start.start, self.last_end()),
-            target=target, ctes=ctes,
+            target=target,
+            ctes=ctes,
         )
         if self.accept_kw("USING"):
             st.sources = self.source_list(st.tail_subqueries)
@@ -1239,7 +1381,10 @@ class _P:
         st = SMerge(
             kind="merge",
             span=self.span(start.start, self.last_end()),
-            target=target, target_alias=alias, source=source, ctes=ctes,
+            target=target,
+            target_alias=alias,
+            source=source,
+            ctes=ctes,
             tail_subqueries=[*src_subs, *refs.subqueries],
         )
         while self.at_kw("WHEN"):
@@ -1278,9 +1423,7 @@ class _P:
         if self.accept_kw("DELETE"):
             return
         if self.accept_kw("INSERT"):
-            if self.at_punct("(") and not is_kw(
-                self.peek(), "SELECT", "WITH", "VALUES"
-            ):
+            if self.at_punct("(") and not is_kw(self.peek(), "SELECT", "WITH", "VALUES"):
                 st.insert_cols = self._col_list()
             self.expect_kw("VALUES")
             st.insert_exprs = self._values_row()
@@ -1314,19 +1457,25 @@ class _P:
                 break
         if self.accept_kw("TABLE"):
             return self.create_table(
-                start, or_replace=or_replace, temporary=temporary,
+                start,
+                or_replace=or_replace,
+                temporary=temporary,
                 external=external,
             )
         if self.accept_kw("VIEW"):
             return self.create_view(
-                start, or_replace=or_replace, temporary=temporary,
+                start,
+                or_replace=or_replace,
+                temporary=temporary,
                 materialized=materialized,
             )
         t = self.cur()
         if is_kw(t, *_CREATE_SUB):
             st = SUnsupported(
-                kind="unsupported", span=self.span(start.start, t.end),
-                why=f"create-{t.norm.lower()}", head=t.norm,
+                kind="unsupported",
+                span=self.span(start.start, t.end),
+                why=f"create-{t.norm.lower()}",
+                head=t.norm,
             )
             self.skip_to_boundary()
             return st
@@ -1342,7 +1491,9 @@ class _P:
         st = SCreateTable(
             kind="create-table",
             span=self.span(start.start, self.last_end()),
-            name=name, or_replace=or_replace, temporary=temporary,
+            name=name,
+            or_replace=or_replace,
+            temporary=temporary,
             external=external,
         )
         # primeira lista de parênteses logo após o nome = definição de colunas
@@ -1398,11 +1549,7 @@ class _P:
 
     def _skip_table_constraint(self) -> None:
         """Constraint de tabela — consome o item inteiro até ``,``/``)``."""
-        while (
-            not self.at_eof()
-            and not self.at_punct(",")
-            and not self.at_punct(")")
-        ):
+        while not self.at_eof() and not self.at_punct(",") and not self.at_punct(")"):
             if self.at_punct("("):
                 self.skip_balanced()
                 continue
@@ -1441,7 +1588,9 @@ class _P:
         st = SCreateView(
             kind="create-view",
             span=self.span(start.start, self.last_end()),
-            name=name, or_replace=or_replace, temporary=temporary,
+            name=name,
+            or_replace=or_replace,
+            temporary=temporary,
             materialized=materialized,
         )
         if self.at_punct("(") and not is_kw(self.peek(), "SELECT", "WITH"):
@@ -1477,7 +1626,8 @@ class _P:
             return SSelect(
                 kind="select",
                 span=self.span(start.start, self.last_end()),
-                query=q, prepared_name=name,
+                query=q,
+                prepared_name=name,
             )
         raise ParseError("PREPARE with non-SELECT body", self.cur())
 
@@ -1487,15 +1637,65 @@ class _P:
 # scan — apenas são consumidas sem virar colrefs.
 KEYWORDS_FOR_EXPR: frozenset[str] = frozenset(
     {
-        "AND", "OR", "NOT", "IN", "IS", "NULL", "LIKE", "ILIKE", "RLIKE",
-        "REGEXP", "BETWEEN", "EXISTS", "CAST", "TRY_CAST", "AS",
-        "DISTINCT", "ALL", "CASE", "WHEN", "THEN", "ELSE", "END",
-        "OVER", "FILTER", "WITHIN", "PARTITION", "ORDER", "BY", "ASC",
-        "DESC", "NULLS", "FIRST", "LAST", "GROUPING", "ROLLUP", "CUBE",
-        "SETS", "UNNEST", "ORDINALITY", "FROM", "FOR", "SEPARATOR",
-        "RESPECT", "IGNORE", "RANGE", "UNBOUNDED", "PRECEDING",
-        "FOLLOWING", "CURRENT", "TIES", "OTHERS", "EXCLUDE", "GROUPS",
-        "ARRAY", "MAP", "STRUCT", "ROW", "ESCAPE", "SIMILAR",
+        "AND",
+        "OR",
+        "NOT",
+        "IN",
+        "IS",
+        "NULL",
+        "LIKE",
+        "ILIKE",
+        "RLIKE",
+        "REGEXP",
+        "BETWEEN",
+        "EXISTS",
+        "CAST",
+        "TRY_CAST",
+        "AS",
+        "DISTINCT",
+        "ALL",
+        "CASE",
+        "WHEN",
+        "THEN",
+        "ELSE",
+        "END",
+        "OVER",
+        "FILTER",
+        "WITHIN",
+        "PARTITION",
+        "ORDER",
+        "BY",
+        "ASC",
+        "DESC",
+        "NULLS",
+        "FIRST",
+        "LAST",
+        "GROUPING",
+        "ROLLUP",
+        "CUBE",
+        "SETS",
+        "UNNEST",
+        "ORDINALITY",
+        "FROM",
+        "FOR",
+        "SEPARATOR",
+        "RESPECT",
+        "IGNORE",
+        "RANGE",
+        "UNBOUNDED",
+        "PRECEDING",
+        "FOLLOWING",
+        "CURRENT",
+        "TIES",
+        "OTHERS",
+        "EXCLUDE",
+        "GROUPS",
+        "ARRAY",
+        "MAP",
+        "STRUCT",
+        "ROW",
+        "ESCAPE",
+        "SIMILAR",
     }
 )
 
@@ -1503,8 +1703,17 @@ KEYWORDS_FOR_EXPR: frozenset[str] = frozenset(
 # palavra solta é alias implícito, não continuação da expressão.
 _EXPR_LITERALS: frozenset[str] = frozenset(
     {
-        "NULL", "TRUE", "FALSE", "DEFAULT", "CURRENT_DATE",
-        "CURRENT_TIME", "CURRENT_TIMESTAMP", "CURRENT_USER",
-        "SESSION_USER", "LOCALTIME", "LOCALTIMESTAMP", "USER",
+        "NULL",
+        "TRUE",
+        "FALSE",
+        "DEFAULT",
+        "CURRENT_DATE",
+        "CURRENT_TIME",
+        "CURRENT_TIMESTAMP",
+        "CURRENT_USER",
+        "SESSION_USER",
+        "LOCALTIME",
+        "LOCALTIMESTAMP",
+        "USER",
     }
 )

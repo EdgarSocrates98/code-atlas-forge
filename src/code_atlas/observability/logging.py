@@ -35,8 +35,9 @@ _TOKEN_RE = re.compile(
     r"aws[_-]?access|private[_-]?key|credential)\s*[:=]\s*\S+"
 )
 _LONG_SECRET_RE = re.compile(r"\b[A-Za-z0-9+/=_\-]{40,}\b")
-_PEM_RE = re.compile(r"-----BEGIN [A-Z ]+PRIVATE KEY-----.*?-----END [A-Z ]+PRIVATE KEY-----",
-                     re.DOTALL)
+_PEM_RE = re.compile(
+    r"-----BEGIN [A-Z ]+PRIVATE KEY-----.*?-----END [A-Z ]+PRIVATE KEY-----", re.DOTALL
+)
 # Controles C0/C1/DEL → escape ``\xNN`` (lf-0153, cycle-8.1 Phase 10):
 # linha de request hostil (``GET /\x1b[31m``) ou filename com ``\n``
 # podiam forjar linhas/sequências ANSI no stderr — logs são single-line
@@ -72,16 +73,19 @@ class RedactionFilter(logging.Filter):
         if isinstance(record.msg, str):
             record.msg = _redact_text(record.msg, self._home)
         if record.args:
-            record.args = tuple(
-                _redact_text(str(a), self._home) if isinstance(a, (str, Path)) else a
-                for a in record.args
-            ) if isinstance(record.args, tuple) else record.args
+            record.args = (
+                tuple(
+                    _redact_text(str(a), self._home) if isinstance(a, (str, Path)) else a
+                    for a in record.args
+                )
+                if isinstance(record.args, tuple)
+                else record.args
+            )
         if record.exc_info and record.exc_text is None:
             # lf-0153: traceback text contorna msg/args — pré-renderiza
             # escapado para que o Formatter não emita controles crus
             # (filename ``a\nb.py`` numa exceção forjaria linhas).
-            record.exc_text = escape_control(
-                logging.Formatter().formatException(record.exc_info))
+            record.exc_text = escape_control(logging.Formatter().formatException(record.exc_info))
         return True
 
 
@@ -125,6 +129,7 @@ def get_logger(name: str) -> logging.Logger:
 # ``SearchEngine.search_scoped``) medem com ``time.monotonic`` — o
 # guard só decide se o valor já medido vira uma linha DEBUG.
 
+
 def slow_ms(env: dict[str, str] | None = None) -> float | None:
     """Teto do slow-query guard em ms; ``None`` = desligado.
 
@@ -141,9 +146,7 @@ def slow_ms(env: dict[str, str] | None = None) -> float | None:
     return ms if ms > 0 else None
 
 
-def log_if_slow(
-    logger: logging.Logger, label: str, t0: float, detail: str = ""
-) -> None:
+def log_if_slow(logger: logging.Logger, label: str, t0: float, detail: str = "") -> None:
     """Emite ``DEBUG`` quando ``time.monotonic() - t0`` excede o teto.
 
     ``detail`` é contexto da chamada (rota, estratégia) — passa pelo
@@ -160,8 +163,7 @@ def log_if_slow(
     res_ms = time.get_clock_info("monotonic").resolution * 1000
     if elapsed + res_ms > ms:
         suffix = f" {detail}" if detail else ""
-        logger.debug("slow %s elapsed_ms=%.1f threshold_ms=%.0f%s",
-                     label, elapsed, ms, suffix)
+        logger.debug("slow %s elapsed_ms=%.1f threshold_ms=%.0f%s", label, elapsed, ms, suffix)
 
 
 _P = ParamSpec("_P")

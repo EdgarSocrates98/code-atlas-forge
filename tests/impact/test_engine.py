@@ -23,13 +23,10 @@ def two_snapshots(tmp_path):
     conn = build_eval_repo(root)
     # segunda revisão: muda corpo + remove função + muda assinatura
     inv = root / "pkg" / "inventory.py"
-    inv.write_text(
-        "def reserve_stock(sku, qty, warehouse=None):\n"
-        "    return True\n")
+    inv.write_text("def reserve_stock(sku, qty, warehouse=None):\n    return True\n")
     (root / "pkg" / "orders.py").write_text(
-        "class OrderService:\n"
-        "    def cancel_order(self, order_id):\n"
-        "        return True\n")
+        "class OrderService:\n    def cancel_order(self, order_id):\n        return True\n"
+    )
     IndexCoordinator(conn).index(root)
     yield conn, root
     conn.close()
@@ -37,35 +34,28 @@ def two_snapshots(tmp_path):
 
 def test_symbol_changes_detected(two_snapshots) -> None:
     conn, root = two_snapshots
-    res = ImpactEngine(conn).analyze(
-        ImpactRequest(repository_root=str(root)))
-    kinds = {s.qualified_name: s.change.value
-             for s in res.symbol_changes}
+    res = ImpactEngine(conn).analyze(ImpactRequest(repository_root=str(root)))
+    kinds = {s.qualified_name: s.change.value for s in res.symbol_changes}
     assert kinds.get("pkg.inventory.release_stock") == "removed"
     assert kinds.get("pkg.orders.OrderService.create_order") == "removed"
-    sig = [s for s in res.symbol_changes
-           if s.change.value == "signature_changed"]
+    sig = [s for s in res.symbol_changes if s.change.value == "signature_changed"]
     assert any("reserve_stock" in s.qualified_name for s in sig)
 
 
 def test_contract_classification(two_snapshots) -> None:
     conn, root = two_snapshots
-    res = ImpactEngine(conn).analyze(
-        ImpactRequest(repository_root=str(root)))
+    res = ImpactEngine(conn).analyze(ImpactRequest(repository_root=str(root)))
     classes = {c.classification for c in res.contract_changes}
     assert "public-symbol-removed" in classes
     # reserve_stock ganhou parâmetro opcional → provavelmente compatível
-    opt = [c for c in res.contract_changes
-           if "reserve_stock" in c.symbol_key]
+    opt = [c for c in res.contract_changes if "reserve_stock" in c.symbol_key]
     assert opt and opt[0].compatibility == "likely-compatible"
 
 
 def test_blast_radius_and_risk(two_snapshots) -> None:
     conn, root = two_snapshots
-    res = ImpactEngine(conn).analyze(
-        ImpactRequest(repository_root=str(root)))
-    assert res.risk.category.value in (
-        "low", "moderate", "high", "critical")
+    res = ImpactEngine(conn).analyze(ImpactRequest(repository_root=str(root)))
+    assert res.risk.category.value in ("low", "moderate", "high", "critical")
     for i in res.impacts:
         assert i.path and i.path.relation_ids
         assert isinstance(i.path.fully_verified, bool)
@@ -74,8 +64,8 @@ def test_blast_radius_and_risk(two_snapshots) -> None:
 def test_report_renders(two_snapshots) -> None:
     conn, root = two_snapshots
     from code_atlas.impact.report import to_json, to_markdown
-    res = ImpactEngine(conn).analyze(
-        ImpactRequest(repository_root=str(root)))
+
+    res = ImpactEngine(conn).analyze(ImpactRequest(repository_root=str(root)))
     j = to_json(res)
     assert '"schema_version": 1' in j
     md = to_markdown(res)
@@ -86,12 +76,11 @@ def test_no_snapshot_empty_result(tmp_path) -> None:
     conn = sqlite3.connect(":memory:")
     conn.row_factory = sqlite3.Row
     from code_atlas.storage.migrations import migrate
+
     migrate(conn)
-    res = ImpactEngine(conn).analyze(
-        ImpactRequest(repository_root=str(tmp_path)))
+    res = ImpactEngine(conn).analyze(ImpactRequest(repository_root=str(tmp_path)))
     assert res.symbol_changes == ()
-    assert any(d.code in ("snapshot-unavailable", "repo-not-indexed")
-               for d in res.diagnostics)
+    assert any(d.code in ("snapshot-unavailable", "repo-not-indexed") for d in res.diagnostics)
 
 
 def test_cross_repo_isolation(tmp_path) -> None:
@@ -101,24 +90,20 @@ def test_cross_repo_isolation(tmp_path) -> None:
     # mesmo atlas.db (parent comum) → dois repositories no mesmo banco
     conn_a = build_eval_repo(root_a)
     conn_b = build_eval_repo(root_b)
-    snaps = conn_a.execute(
-        "SELECT id, repository_id FROM snapshots ORDER BY id"
-    ).fetchall()
+    snaps = conn_a.execute("SELECT id, repository_id FROM snapshots ORDER BY id").fetchall()
     assert len({s[1] for s in snaps}) == 2  # A e B realmente distintos
     (root_a / "pkg" / "orders.py").write_text(
-        "class OrderService:\n"
-        "    def cancel_order(self, o):\n        return 1\n")
+        "class OrderService:\n    def cancel_order(self, o):\n        return 1\n"
+    )
     IndexCoordinator(conn_a).index(root_a)
-    res = ImpactEngine(conn_a).analyze(
-        ImpactRequest(repository_root=str(root_a)))
+    res = ImpactEngine(conn_a).analyze(ImpactRequest(repository_root=str(root_a)))
     assert res.target_snapshot_id is not None
     snap_repo = dict()
-    for r in conn_a.execute(
-            "SELECT id, repository_id FROM snapshots"):
+    for r in conn_a.execute("SELECT id, repository_id FROM snapshots"):
         snap_repo[r[0]] = r[1]
     repo_a = conn_a.execute(
-        "SELECT repository_id FROM snapshots WHERE id=?",
-        (res.target_snapshot_id,)).fetchone()[0]
+        "SELECT repository_id FROM snapshots WHERE id=?", (res.target_snapshot_id,)
+    ).fetchone()[0]
     for sid in (res.base_snapshot_id, res.target_snapshot_id):
         assert snap_repo[sid] == repo_a
     conn_b.close()

@@ -51,26 +51,50 @@ DOMAIN_PKGS = (SRC / "domains", SRC / "federation", SRC / "eval")
 
 # módulos de rede/SDK cloud — nenhum pode aparecer em código de domínio
 _NETWORK_BANNED = {
-    "socket", "urllib", "http", "httpx", "requests", "aiohttp",
-    "websocket", "ftplib", "smtplib", "telnetlib", "paramiko", "grpc",
-    "ssl", "asyncio", "boto", "boto3", "botocore", "azure", "google",
+    "socket",
+    "urllib",
+    "http",
+    "httpx",
+    "requests",
+    "aiohttp",
+    "websocket",
+    "ftplib",
+    "smtplib",
+    "telnetlib",
+    "paramiko",
+    "grpc",
+    "ssl",
+    "asyncio",
+    "boto",
+    "boto3",
+    "botocore",
+    "azure",
+    "google",
 }
 
 # execução de processos/conteúdo — proibida dentro dos pacotes de domínio
 _EXEC_BANNED_MODULES = {"subprocess", "pty", "shutil", "multiprocessing"}
 _EXEC_BANNED_NAMES = {"eval", "exec", "compile", "__import__", "import_module"}
 _EXEC_BANNED_ATTRS = {
-    "system", "popen", "spawnl", "spawnlp", "spawnv", "spawnvp",
-    "execl", "execlp", "execv", "execve", "execvp", "Popen",
+    "system",
+    "popen",
+    "spawnl",
+    "spawnlp",
+    "spawnv",
+    "spawnvp",
+    "execl",
+    "execlp",
+    "execv",
+    "execve",
+    "execvp",
+    "Popen",
 }
 
 
 def _domain_sources() -> list[Path]:
     out: list[Path] = []
     for pkg in DOMAIN_PKGS:
-        out.extend(
-            p for p in pkg.rglob("*.py") if "__pycache__" not in p.parts
-        )
+        out.extend(p for p in pkg.rglob("*.py") if "__pycache__" not in p.parts)
     return sorted(out)
 
 
@@ -192,13 +216,8 @@ def test_terraform_secret_values_never_persisted(tmp_path: Path) -> None:
     assert out.status == "success", out.error
     secrets = _fixture_secret_values()
     assert secrets
-    rows = conn.execute(
-        "SELECT qualified_name, name, attributes FROM domain_entities"
-    ).fetchall()
-    blob = "\n".join(
-        f"{r['qualified_name']}\n{r['name']}\n{r['attributes']}"
-        for r in rows
-    )
+    rows = conn.execute("SELECT qualified_name, name, attributes FROM domain_entities").fetchall()
+    blob = "\n".join(f"{r['qualified_name']}\n{r['name']}\n{r['attributes']}" for r in rows)
     blob += "\n" + "\n".join(
         str(v)
         for r in conn.execute(
@@ -207,8 +226,7 @@ def test_terraform_secret_values_never_persisted(tmp_path: Path) -> None:
         for v in r
     )
     blob += "\n" + "\n".join(
-        str(r["notes"])
-        for r in conn.execute("SELECT notes FROM evidence").fetchall()
+        str(r["notes"]) for r in conn.execute("SELECT notes FROM evidence").fetchall()
     )
     conn.close()
     for secret in secrets:
@@ -233,10 +251,7 @@ def test_terraform_interpolations_never_materialize(
 def _cicd_result() -> DomainExtractionResult:
     adapter = GitHubActionsAdapter.for_workspace(CICD_FIXTURE)
     wf = CICD_FIXTURE / ".github" / "workflows"
-    paths = tuple(
-        p.relative_to(CICD_FIXTURE).as_posix()
-        for p in sorted(wf.glob("*.yml"))
-    )
+    paths = tuple(p.relative_to(CICD_FIXTURE).as_posix() for p in sorted(wf.glob("*.yml")))
     return adapter.extract(
         DomainExtractionRequest(
             repository="git-remote:sec/cicd",
@@ -269,20 +284,16 @@ def test_secret_expression_stored_only_as_marker() -> None:
             "      - run: echo ${{ github.sha }}\n"
         )
     }
-    adapter = GitHubActionsAdapter(
-        lambda rel: files[rel].encode("utf-8") if rel in files else None
-    )
+    adapter = GitHubActionsAdapter(lambda rel: files[rel].encode("utf-8") if rel in files else None)
     res = adapter.extract(
         DomainExtractionRequest(
             repository="r",
-            artifacts=(
-                DiscoveredArtifact(path=".github/workflows/w.yml"),
-            ),
+            artifacts=(DiscoveredArtifact(path=".github/workflows/w.yml"),),
         )
     )
     blob = _harvest_strings(res)
-    assert "<secret>" in blob               # marcador armazenado
-    assert "${{" not in blob                # expressão nunca crua
+    assert "<secret>" in blob  # marcador armazenado
+    assert "${{" not in blob  # expressão nunca crua
     assert "secrets.RUNNER_LABEL" not in blob
     assert "secrets.MY_TOKEN" not in blob
     assert res.stats["secrets_redacted"] >= 1
@@ -294,9 +305,7 @@ def test_cicd_workspace_reader_confined(tmp_path: Path) -> None:
     wf.mkdir(parents=True)
     (wf / "ci.yml").write_text("name: x\non: push\n", encoding="utf-8")
     # "../escape.yml" resolve para fora do root — deve ser recusado
-    (tmp_path.parent / "escape.yml").write_text(
-        "name: evil\non: push\n", encoding="utf-8"
-    )
+    (tmp_path.parent / "escape.yml").write_text("name: evil\non: push\n", encoding="utf-8")
     adapter = GitHubActionsAdapter.for_workspace(tmp_path)
     res = adapter.extract(
         DomainExtractionRequest(
@@ -356,10 +365,7 @@ def test_no_public_bind_in_domain_packages() -> None:
         for node in ast.walk(tree):
             if isinstance(node, ast.Constant) and node.value == "0.0.0.0":
                 offenders.append(f"{py.name}:{node.lineno}:0.0.0.0")
-            elif (
-                isinstance(node, ast.Attribute)
-                and node.attr.startswith("INADDR")
-            ):
+            elif isinstance(node, ast.Attribute) and node.attr.startswith("INADDR"):
                 offenders.append(f"{py.name}:{node.lineno}:{node.attr}")
     assert offenders == []
 
@@ -399,10 +405,7 @@ def test_no_code_execution_in_domain_packages() -> None:
                 f = node.func
                 if isinstance(f, ast.Name) and f.id in _EXEC_BANNED_NAMES:
                     offenders.append(f"{py.name}:{node.lineno}:{f.id}()")
-                elif (
-                    isinstance(f, ast.Attribute)
-                    and f.attr in _EXEC_BANNED_ATTRS
-                ):
+                elif isinstance(f, ast.Attribute) and f.attr in _EXEC_BANNED_ATTRS:
                     offenders.append(f"{py.name}:{node.lineno}:.{f.attr}()")
     assert offenders == []
 
@@ -425,21 +428,11 @@ def test_domain_packages_import_only_stdlib() -> None:
             if isinstance(node, ast.Import):
                 for a in node.names:
                     top = a.name.split(".")[0]
-                    if (
-                        top not in sys.stdlib_module_names
-                        and top != "code_atlas"
-                    ):
+                    if top not in sys.stdlib_module_names and top != "code_atlas":
                         offenders.append(f"{py.name}:{node.lineno}:{a.name}")
-            elif (
-                isinstance(node, ast.ImportFrom)
-                and node.level == 0
-                and node.module
-            ):
+            elif isinstance(node, ast.ImportFrom) and node.level == 0 and node.module:
                 top = node.module.split(".")[0]
-                if (
-                    top not in sys.stdlib_module_names
-                    and top != "code_atlas"
-                ):
+                if top not in sys.stdlib_module_names and top != "code_atlas":
                     offenders.append(f"{py.name}:{node.lineno}:{node.module}")
     assert offenders == []
 
@@ -476,9 +469,7 @@ def _separator_offenders(py: Path) -> list[str]:
             and isinstance(node.right.value, str)
             and node.right.value.startswith(("/", "\\"))
         ):
-            out.append(
-                f"{py.name}:{node.lineno}:str()+{node.right.value!r}"
-            )
+            out.append(f"{py.name}:{node.lineno}:str()+{node.right.value!r}")
     return out
 
 
@@ -498,9 +489,7 @@ def test_no_os_path_or_separator_concat_in_domain_packages() -> None:
 def test_builtin_adapters_optional_but_present() -> None:
     """Os seis adapters built-in registram/habilitam — opt-in intacto."""
     reg = builtin_registry()
-    assert reg.domains() == (
-        "api", "aws-data", "cicd", "pyspark", "sql", "terraform"
-    )
+    assert reg.domains() == ("api", "aws-data", "cicd", "pyspark", "sql", "terraform")
     # desabilitar um domínio não afeta os demais — opcionalidade real
     reg.disable("terraform")
     assert not reg.is_enabled("terraform")

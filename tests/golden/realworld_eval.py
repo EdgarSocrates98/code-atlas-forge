@@ -47,12 +47,10 @@ def run(tmp: Path) -> dict[str, Any]:
         eng = SearchEngine(conns[proj])
         root = str((CORPUS / proj).resolve())
         for strat in ("structural", "lexical", "hybrid"):
-            res = eng.search(SearchRequest(
-                query=t["query"], strategy=strat,
-                repository_root=root, limit=10))
-            rec = evaluate_query(
-                t["id"], [h.qualified_name for h in res.items],
-                t["relevant"], 10)
+            res = eng.search(
+                SearchRequest(query=t["query"], strategy=strat, repository_root=root, limit=10)
+            )
+            rec = evaluate_query(t["id"], [h.qualified_name for h in res.items], t["relevant"], 10)
             by_strat.setdefault(strat, []).append(rec)
             by_cat.setdefault(f"{strat}:{t['category']}", []).append(rec)
             by_lang.setdefault(f"{strat}:{t['language']}", []).append(rec)
@@ -60,9 +58,7 @@ def run(tmp: Path) -> dict[str, Any]:
         "corpus": "vendored:pyapp+tsapi",
         "tasks": len(tasks),
         "macro": {s: aggregate(rs).macro for s, rs in by_strat.items()},
-        "by_category": {c: aggregate(rs).macro
-                        for c, rs in by_cat.items()},
-        "by_language": {lang: aggregate(rs).macro
-                        for lang, rs in by_lang.items()},
+        "by_category": {c: aggregate(rs).macro for c, rs in by_cat.items()},
+        "by_language": {lang: aggregate(rs).macro for lang, rs in by_lang.items()},
         "agent_e2e": {"not_run": "sem agente autorizado no ambiente"},
     }

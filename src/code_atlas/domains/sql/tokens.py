@@ -30,48 +30,196 @@ from dataclasses import dataclass
 KEYWORDS: frozenset[str] = frozenset(
     {
         # consulta / cláusulas
-        "SELECT", "FROM", "WHERE", "GROUP", "BY", "HAVING", "QUALIFY",
-        "ORDER", "LIMIT", "OFFSET", "FETCH", "NEXT", "ROWS", "ONLY",
-        "FIRST", "TOP", "WINDOW",
+        "SELECT",
+        "FROM",
+        "WHERE",
+        "GROUP",
+        "BY",
+        "HAVING",
+        "QUALIFY",
+        "ORDER",
+        "LIMIT",
+        "OFFSET",
+        "FETCH",
+        "NEXT",
+        "ROWS",
+        "ONLY",
+        "FIRST",
+        "TOP",
+        "WINDOW",
         # combinadores e joins
-        "UNION", "INTERSECT", "EXCEPT", "ALL", "DISTINCT", "AS",
-        "JOIN", "INNER", "LEFT", "RIGHT", "FULL", "OUTER", "CROSS",
-        "NATURAL", "SEMI", "ANTI", "ON", "USING",
+        "UNION",
+        "INTERSECT",
+        "EXCEPT",
+        "ALL",
+        "DISTINCT",
+        "AS",
+        "JOIN",
+        "INNER",
+        "LEFT",
+        "RIGHT",
+        "FULL",
+        "OUTER",
+        "CROSS",
+        "NATURAL",
+        "SEMI",
+        "ANTI",
+        "ON",
+        "USING",
         # CTE
-        "WITH", "RECURSIVE", "MATERIALIZED",
+        "WITH",
+        "RECURSIVE",
+        "MATERIALIZED",
         # expressão
-        "AND", "OR", "NOT", "IN", "IS", "NULL", "NULLS", "LIKE", "ILIKE",
-        "RLIKE", "REGEXP", "BETWEEN", "EXISTS", "CASE", "WHEN", "THEN",
-        "ELSE", "END", "ASC", "DESC",
+        "AND",
+        "OR",
+        "NOT",
+        "IN",
+        "IS",
+        "NULL",
+        "NULLS",
+        "LIKE",
+        "ILIKE",
+        "RLIKE",
+        "REGEXP",
+        "BETWEEN",
+        "EXISTS",
+        "CASE",
+        "WHEN",
+        "THEN",
+        "ELSE",
+        "END",
+        "ASC",
+        "DESC",
         # DML
-        "INSERT", "INTO", "OVERWRITE", "VALUES", "UPDATE", "SET",
-        "DELETE", "MERGE", "MATCHED",
+        "INSERT",
+        "INTO",
+        "OVERWRITE",
+        "VALUES",
+        "UPDATE",
+        "SET",
+        "DELETE",
+        "MERGE",
+        "MATCHED",
         # DDL
-        "CREATE", "REPLACE", "TEMP", "TEMPORARY", "GLOBAL", "EXTERNAL",
-        "TRANSIENT", "TABLE", "VIEW", "SCHEMA", "DATABASE", "USE",
-        "DROP", "ALTER", "TRUNCATE", "RENAME", "TO", "ADD", "COLUMN",
-        "COLUMNS", "CONSTRAINT", "PRIMARY", "FOREIGN", "REFERENCES",
-        "UNIQUE", "CHECK", "DEFAULT", "IF",
+        "CREATE",
+        "REPLACE",
+        "TEMP",
+        "TEMPORARY",
+        "GLOBAL",
+        "EXTERNAL",
+        "TRANSIENT",
+        "TABLE",
+        "VIEW",
+        "SCHEMA",
+        "DATABASE",
+        "USE",
+        "DROP",
+        "ALTER",
+        "TRUNCATE",
+        "RENAME",
+        "TO",
+        "ADD",
+        "COLUMN",
+        "COLUMNS",
+        "CONSTRAINT",
+        "PRIMARY",
+        "FOREIGN",
+        "REFERENCES",
+        "UNIQUE",
+        "CHECK",
+        "DEFAULT",
+        "IF",
         # opções de tabela (Athena/Spark/Hive)
-        "PARTITION", "PARTITIONED", "CLUSTERED", "SORTED", "DISTRIBUTED",
-        "SKEWED", "STORED", "LOCATION", "TBLPROPERTIES", "OPTIONS",
-        "COMMENT", "ROW", "FORMAT", "SERDE", "INPUTFORMAT", "OUTPUTFORMAT",
-        "DELIMITED", "FIELDS", "LINES", "COLLECTION", "MAP", "TERMINATED",
-        "ESCAPED", "DEFINED", "BUCKET", "BUCKETS", "ENGINE", "TABLESPACE",
-        "CHARSET", "COLLATE", "PROPERTIES",
+        "PARTITION",
+        "PARTITIONED",
+        "CLUSTERED",
+        "SORTED",
+        "DISTRIBUTED",
+        "SKEWED",
+        "STORED",
+        "LOCATION",
+        "TBLPROPERTIES",
+        "OPTIONS",
+        "COMMENT",
+        "ROW",
+        "FORMAT",
+        "SERDE",
+        "INPUTFORMAT",
+        "OUTPUTFORMAT",
+        "DELIMITED",
+        "FIELDS",
+        "LINES",
+        "COLLECTION",
+        "MAP",
+        "TERMINATED",
+        "ESCAPED",
+        "DEFINED",
+        "BUCKET",
+        "BUCKETS",
+        "ENGINE",
+        "TABLESPACE",
+        "CHARSET",
+        "COLLATE",
+        "PROPERTIES",
         # extensões de fonte de dados
-        "LATERAL", "UNNEST", "ORDINALITY", "PIVOT", "TABLESAMPLE",
-        "DISTRIBUTE", "CLUSTER", "SORT",
+        "LATERAL",
+        "UNNEST",
+        "ORDINALITY",
+        "PIVOT",
+        "TABLESAMPLE",
+        "DISTRIBUTE",
+        "CLUSTER",
+        "SORT",
         # funções analíticas/agregação com sintaxe especial
-        "OVER", "FILTER", "WITHIN", "GROUPING", "SETS", "ROLLUP", "CUBE",
+        "OVER",
+        "FILTER",
+        "WITHIN",
+        "GROUPING",
+        "SETS",
+        "ROLLUP",
+        "CUBE",
         # comandos não-SELECT (parseados como unsupported)
-        "EXPLAIN", "DESCRIBE", "SHOW", "ANALYZE", "MSCK",
-        "REPAIR", "CACHE", "UNCACHE", "REFRESH", "GRANT", "REVOKE",
-        "TRANSACTION", "COMMIT", "ROLLBACK", "BEGIN", "START", "RESET",
-        "EXEC", "EXECUTE", "CALL", "PREPARE", "DEALLOCATE", "IMMEDIATE",
-        "VACUUM", "OPTIMIZE", "LOAD", "DATA", "LOCAL", "INPATH",
-        "DIRECTORY", "EXPORT", "IMPORT", "FUNCTION", "PROCEDURE",
-        "INDEX", "TRIGGER", "SEQUENCE", "JAR", "FILE", "ROLE",
+        "EXPLAIN",
+        "DESCRIBE",
+        "SHOW",
+        "ANALYZE",
+        "MSCK",
+        "REPAIR",
+        "CACHE",
+        "UNCACHE",
+        "REFRESH",
+        "GRANT",
+        "REVOKE",
+        "TRANSACTION",
+        "COMMIT",
+        "ROLLBACK",
+        "BEGIN",
+        "START",
+        "RESET",
+        "EXEC",
+        "EXECUTE",
+        "CALL",
+        "PREPARE",
+        "DEALLOCATE",
+        "IMMEDIATE",
+        "VACUUM",
+        "OPTIMIZE",
+        "LOAD",
+        "DATA",
+        "LOCAL",
+        "INPATH",
+        "DIRECTORY",
+        "EXPORT",
+        "IMPORT",
+        "FUNCTION",
+        "PROCEDURE",
+        "INDEX",
+        "TRIGGER",
+        "SEQUENCE",
+        "JAR",
+        "FILE",
+        "ROLE",
     }
 )
 
@@ -93,7 +241,11 @@ _SPECIAL_ARG_FNS: frozenset[str] = frozenset(
 _MULTI_PUNCT: tuple[str, ...] = ("<=", ">=", "<>", "!=", "||", "::", "->", "=>")
 
 _DYNAMIC_OPEN: dict[str, str] = {
-    "{{": "}}", "{%": "%}", "${": "}", "@{": "}", "<%": "%>",
+    "{{": "}}",
+    "{%": "%}",
+    "${": "}",
+    "@{": "}",
+    "<%": "%>",
 }
 
 _STRING_PREFIXES = frozenset("eExXbBnNrR")
@@ -103,9 +255,9 @@ _STRING_PREFIXES = frozenset("eExXbBnNrR")
 class Token:
     """Unidade léxica com offsets de caractere (``start``/``end``)."""
 
-    kind: str   # word|qident|number|string|punct|param|dynamic|eof
-    text: str   # fatia crua do texto
-    norm: str   # word→UPPER (match de keyword); qident→miolo; demais→text
+    kind: str  # word|qident|number|string|punct|param|dynamic|eof
+    text: str  # fatia crua do texto
+    norm: str  # word→UPPER (match de keyword); qident→miolo; demais→text
     iname: str  # identidade: word→lower; qident→miolo com case preservado
     start: int
     end: int
@@ -146,9 +298,7 @@ def _scan_string(text: str, i: int, prefix: bool) -> int:
     return -1
 
 
-def _scan_comment(
-    text: str, i: int, n: int, problems: list[str]
-) -> int | None:
+def _scan_comment(text: str, i: int, n: int, problems: list[str]) -> int | None:
     """Comentários são consumidos — ``i`` novo ou ``None``."""
     if text.startswith("--", i):
         j = text.find("\n", i + 2)
@@ -162,9 +312,7 @@ def _scan_comment(
     return None
 
 
-def _scan_dynamic(
-    text: str, i: int, n: int, toks: list[Token]
-) -> int | None:
+def _scan_dynamic(text: str, i: int, n: int, toks: list[Token]) -> int | None:
     """Marcadores ``${}``/``{{}}``/``{% %}``/``@{}``/``<% %>``."""
     for op, cl in _DYNAMIC_OPEN.items():
         if not text.startswith(op, i):
@@ -194,9 +342,7 @@ def _scan_string_tok(
     return j
 
 
-def _scan_qident(
-    text: str, i: int, n: int, toks: list[Token], problems: list[str]
-) -> int | None:
+def _scan_qident(text: str, i: int, n: int, toks: list[Token], problems: list[str]) -> int | None:
     """``"…"``/````…```` — case preservado, ``""`` é escape interno."""
     c = text[i]
     if c not in ('"', "`"):
@@ -214,15 +360,13 @@ def _scan_qident(
         j += 1
     if not closed:
         problems.append("unterminated-quoted-ident")
-    inner = text[i + 1:j - 1] if closed else text[i + 1:j]
+    inner = text[i + 1 : j - 1] if closed else text[i + 1 : j]
     inner = inner.replace(c + c, c)
     toks.append(Token("qident", text[i:j], inner, inner, i, j))
     return j
 
 
-def _scan_word(
-    text: str, i: int, n: int, toks: list[Token]
-) -> int | None:
+def _scan_word(text: str, i: int, n: int, toks: list[Token]) -> int | None:
     """Identificadores e keywords — distinção fica para o parser."""
     c = text[i]
     if not (c.isalpha() or c == "_"):
@@ -235,14 +379,10 @@ def _scan_word(
     return j
 
 
-def _scan_number(
-    text: str, i: int, n: int, toks: list[Token]
-) -> int | None:
+def _scan_number(text: str, i: int, n: int, toks: list[Token]) -> int | None:
     """Literais numéricos — aproximação para pular, nunca avaliados."""
     c = text[i]
-    if not (
-        c.isdigit() or (c == "." and i + 1 < n and text[i + 1].isdigit())
-    ):
+    if not (c.isdigit() or (c == "." and i + 1 < n and text[i + 1].isdigit())):
         return None
     j = i + 1
     while j < n and (text[j].isalnum() or text[j] in "._+-"):
@@ -254,9 +394,7 @@ def _scan_number(
     return j
 
 
-def _scan_param(
-    text: str, i: int, n: int, toks: list[Token]
-) -> int | None:
+def _scan_param(text: str, i: int, n: int, toks: list[Token]) -> int | None:
     """``?``, ``$1``, ``:name`` — parâmetros, nunca colunas."""
     c = text[i]
     if c == "?" or (c == "$" and i + 1 < n and text[i + 1].isdigit()):
@@ -265,8 +403,11 @@ def _scan_param(
             j += 1
         toks.append(Token("param", text[i:j], text[i:j], text[i:j], i, j))
         return j
-    if c == ":" and not text.startswith("::", i) and i + 1 < n and (
-        text[i + 1].isalpha() or text[i + 1] == "_"
+    if (
+        c == ":"
+        and not text.startswith("::", i)
+        and i + 1 < n
+        and (text[i + 1].isalpha() or text[i + 1] == "_")
     ):
         j = i + 1
         while j < n and (text[j].isalnum() or text[j] in "_$"):
@@ -278,7 +419,7 @@ def _scan_param(
 
 def _scan_punct(text: str, i: int, toks: list[Token]) -> int:
     """Pontuação — token de 2 chars quando conhecido (``->``, ``::``…)."""
-    two = text[i:i + 2]
+    two = text[i : i + 2]
     if two in _MULTI_PUNCT:
         toks.append(Token("punct", two, two, two, i, i + 2))
         return i + 2

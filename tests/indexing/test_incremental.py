@@ -34,9 +34,7 @@ def dep_repo(tmp_path: Path) -> Path:
     (r / "pkg" / "app.py").write_text(
         "from .util import helper\n\n\ndef main():\n    return helper()\n"
     )
-    (r / "pkg" / "leaf.py").write_text(
-        "from .app import main\n\n\ndef run():\n    return main()\n"
-    )
+    (r / "pkg" / "leaf.py").write_text("from .app import main\n\n\ndef run():\n    return main()\n")
     (r / "solo.py").write_text("def isolated():\n    return 0\n")
     return r
 
@@ -67,8 +65,14 @@ def _canonical(db: sqlite3.Connection, snapshot_id: int) -> dict[str, set]:
         (snapshot_id,),
     ).fetchall()
     nodes = {
-        (r["kind"], r["qualified_name"], r["language"],
-         r["relative_path"], r["parse_status"], r["content_hash"])
+        (
+            r["kind"],
+            r["qualified_name"],
+            r["language"],
+            r["relative_path"],
+            r["parse_status"],
+            r["content_hash"],
+        )
         for r in occs
     }
     rels = db.execute(
@@ -91,9 +95,16 @@ def _canonical(db: sqlite3.Connection, snapshot_id: int) -> dict[str, set]:
         (snapshot_id,),
     ).fetchall()
     edges = {
-        (r["type"], r["fp"], r["fq"], r["tp"], r["tq"],
-         r["to_unresolved"] or "", r["resolution_status"],
-         r["confidence_class"])
+        (
+            r["type"],
+            r["fp"],
+            r["fq"],
+            r["tp"],
+            r["tq"],
+            r["to_unresolved"] or "",
+            r["resolution_status"],
+            r["confidence_class"],
+        )
         for r in rels
     }
     return {"nodes": nodes, "edges": edges}
@@ -114,8 +125,7 @@ def test_detector_added_modified_deleted_unchanged(tmp_path: Path) -> None:
     (repo / "gone.py").write_text("z = 1\n")
     s0 = scan(repo)
     inv = [
-        {"path": f.path, "language": f.language, "sha256": f.sha256,
-         "parse_status": "parsed"}
+        {"path": f.path, "language": f.language, "sha256": f.sha256, "parse_status": "parsed"}
         for f in s0.files
     ]
     versions = {"scanner": "v1", "parser:python": "p1"}
@@ -138,8 +148,7 @@ def test_detector_rename_only_on_hash_match(tmp_path: Path) -> None:
     (repo / "unrelated.py").write_text("w = 1\n")
     s0 = scan(repo)
     inv = [
-        {"path": f.path, "language": f.language, "sha256": f.sha256,
-         "parse_status": "parsed"}
+        {"path": f.path, "language": f.language, "sha256": f.sha256, "parse_status": "parsed"}
         for f in s0.files
     ]
     versions: dict[str, str] = {"scanner": "v1"}
@@ -161,8 +170,7 @@ def test_detector_analyzer_bump_reclassifies_language(tmp_path: Path) -> None:
     (repo / "b.ts").write_text("export const y = 1;\n")
     s0 = scan(repo)
     inv = [
-        {"path": f.path, "language": f.language, "sha256": f.sha256,
-         "parse_status": "parsed"}
+        {"path": f.path, "language": f.language, "sha256": f.sha256, "parse_status": "parsed"}
         for f in s0.files
     ]
     before = {"scanner": "v1", "parser:python": "p1", "parser:typescript": "t1"}
@@ -170,9 +178,7 @@ def test_detector_analyzer_bump_reclassifies_language(tmp_path: Path) -> None:
     cs = detect_changes(s0, inv, before, after)
     kinds = {c.path: str(c.kind) for c in cs.changes}
     assert kinds["a.py"] == "modified"
-    assert "analyzer version changed" in (
-        cs.for_path("a.py").reason if cs.for_path("a.py") else ""
-    )
+    assert "analyzer version changed" in (cs.for_path("a.py").reason if cs.for_path("a.py") else "")
     assert kinds["b.ts"] == "unchanged"
 
 
@@ -257,9 +263,7 @@ def test_incremental_single_file_change(db, dep_repo: Path) -> None:
     out0 = _index(db, dep_repo)
     assert out0.status == "success"
     # muda só util.py
-    (dep_repo / "pkg" / "util.py").write_text(
-        "def helper():\n    return 2\n"
-    )
+    (dep_repo / "pkg" / "util.py").write_text("def helper():\n    return 2\n")
     coord = IndexCoordinator(db)
     out = coord.index(dep_repo, incremental=True)
     assert out.status == "success"
@@ -297,9 +301,7 @@ def test_incremental_equals_full_reindex(db, dep_repo: Path) -> None:
 
 def test_incremental_importer_relations_reevaluated(db, dep_repo: Path) -> None:
     _index(db, dep_repo)
-    snap0 = Store(db).latest_ready_snapshot(
-        Store(db).repository_id_for(str(dep_repo.resolve()))
-    )
+    snap0 = Store(db).latest_ready_snapshot(Store(db).repository_id_for(str(dep_repo.resolve())))
     # remove helper → import de app quebra
     (dep_repo / "pkg" / "util.py").write_text("def other():\n    return 9\n")
     out = IndexCoordinator(db).index(dep_repo, incremental=True)
@@ -308,10 +310,7 @@ def test_incremental_importer_relations_reevaluated(db, dep_repo: Path) -> None:
     edges = _canonical(db, out.snapshot_id)["edges"]
     # CALLS main→helper deve ter virado unresolved (não pode ficar stale
     # apontando para símbolo removido — to_text fica em to_unresolved)
-    calls = {
-        e for e in edges
-        if e[0] == "CALLS" and e[5] == "helper" and e[1] == "pkg/app.py"
-    }
+    calls = {e for e in edges if e[0] == "CALLS" and e[5] == "helper" and e[1] == "pkg/app.py"}
     assert calls, "expected CALLS edge to helper text"
     assert all(e[6] == "unresolved" for e in calls)
 
@@ -321,9 +320,7 @@ def test_incremental_rename_and_delete(db, tmp_path: Path) -> None:
     repo.mkdir()
     (repo / "mod.py").write_text("def f():\n    return 1\n")
     (repo / "gone.py").write_text("def g():\n    return 2\n")
-    (repo / "use.py").write_text(
-        "from gone import g\n\n\ndef u():\n    return g()\n"
-    )
+    (repo / "use.py").write_text("from gone import g\n\n\ndef u():\n    return g()\n")
     _index(db, repo)
     (repo / "mod.py").rename(repo / "renamed.py")
     (repo / "gone.py").unlink()

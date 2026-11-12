@@ -88,9 +88,12 @@ def line_span(text: str, byte_offs: list[int], lineno: int) -> SourceSpan | None
     end = start + len(raw.encode("utf-8"))
     ncols = len(raw.encode("utf-8"))
     return SourceSpan(
-        start_byte=start, end_byte=end,
-        start_line=lineno, start_col=0,
-        end_line=lineno, end_col=ncols,
+        start_byte=start,
+        end_byte=end,
+        start_line=lineno,
+        start_col=0,
+        end_line=lineno,
+        end_col=ncols,
     )
 
 
@@ -142,7 +145,7 @@ def scan_args(text: str, open_paren: int) -> str | None:
         elif ch in ")]}":
             depth -= 1
             if depth == 0:
-                return text[open_paren + 1:i]
+                return text[open_paren + 1 : i]
         i += 1
     return None
 
@@ -206,7 +209,7 @@ def kwarg(args: list[str], name: str) -> str | None:
     for a in args:
         a = a.strip()
         if a.startswith(prefix):
-            return a[len(prefix):].strip()
+            return a[len(prefix) :].strip()
     return None
 
 
@@ -258,16 +261,16 @@ def parse_str_literal(tok: str, *, lang: str) -> StrLiteral | None:
         if "b" in prefix:
             return None  # bytes literal — não é URL
         close = _quoted_end(tok, m.end(), quote)
-        if close < 0 or tok[close + len(quote):].strip():
+        if close < 0 or tok[close + len(quote) :].strip():
             return None  # sem fechamento, ou concatenação após o literal
-        body = tok[m.end():close]
+        body = tok[m.end() : close]
         dynamic = "f" in prefix and ("{" in body)
         return StrLiteral(value=body, dynamic=dynamic)
     # ts
     q = tok[0]
     if q in ("'", '"', "`"):
         close = _quoted_end(tok, 1, q)
-        if close < 0 or tok[close + 1:].strip():
+        if close < 0 or tok[close + 1 :].strip():
             return None
         body = tok[1:close]
         return StrLiteral(value=body, dynamic=(q == "`" and "${" in body))

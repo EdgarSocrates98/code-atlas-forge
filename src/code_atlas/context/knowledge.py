@@ -55,9 +55,12 @@ def to_knowledge_context_pack(
         },
         "budget": pack.budget.limit,
     }
-    pack_id = "code-atlas:" + hashlib.sha256(
-        json.dumps(identity, sort_keys=True, separators=(",", ":")).encode("utf-8")
-    ).hexdigest()[:24]
+    pack_id = (
+        "code-atlas:"
+        + hashlib.sha256(
+            json.dumps(identity, sort_keys=True, separators=(",", ":")).encode("utf-8")
+        ).hexdigest()[:24]
+    )
     return {
         "schema": KNOWLEDGE_CONTEXT_PACK_SCHEMA,
         "pack_id": pack_id,
@@ -91,4 +94,3 @@ def to_knowledge_context_pack(
             for item_id, item in zip(selected, pack.items, strict=False)
         ],
     }
-

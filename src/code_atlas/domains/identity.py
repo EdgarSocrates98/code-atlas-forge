@@ -35,9 +35,7 @@ _SEP = "/"
 
 # Percent-encoding próprio: ``urllib.parse`` é proibido fora de ``api/``
 # (auditoria de rede lf-0086). Safe-set = RFC 3986 unreserved.
-_SAFE = frozenset(
-    "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789._-~"
-)
+_SAFE = frozenset("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789._-~")
 
 
 def _enc(part: str) -> str:
@@ -61,7 +59,7 @@ def _dec(part: str) -> str:
         ch = part[i]
         if ch == "%" and i + 3 <= n:
             try:
-                out.append(int(part[i + 1:i + 3], 16))
+                out.append(int(part[i + 1 : i + 3], 16))
                 i += 3
                 continue
             except ValueError:
@@ -81,18 +79,26 @@ class DomainIdentity:
     distintos).
     """
 
-    domain: str           # id do domínio produtor (adapter.domain_id)
-    repository: str       # identity_key lógica do repositório (lf-0021)
-    qualified_name: str   # nome qualificado definido pelo adapter
-    root: str = ""        # sub-raiz no monorepo; "" = raiz do repo
-    catalog: str = ""     # catálogo/conta/região (qualificador superior)
-    namespace: str = ""   # schema/database/módulo (qualificador inferior)
-    environment: str = "" # qualificador opcional de ambiente
-    snapshot: str = ""    # escopo de revisão; "" = identidade lógica
+    domain: str  # id do domínio produtor (adapter.domain_id)
+    repository: str  # identity_key lógica do repositório (lf-0021)
+    qualified_name: str  # nome qualificado definido pelo adapter
+    root: str = ""  # sub-raiz no monorepo; "" = raiz do repo
+    catalog: str = ""  # catálogo/conta/região (qualificador superior)
+    namespace: str = ""  # schema/database/módulo (qualificador inferior)
+    environment: str = ""  # qualificador opcional de ambiente
+    snapshot: str = ""  # escopo de revisão; "" = identidade lógica
 
     def __post_init__(self) -> None:
-        for f in ("domain", "repository", "qualified_name", "root",
-                  "catalog", "namespace", "environment", "snapshot"):
+        for f in (
+            "domain",
+            "repository",
+            "qualified_name",
+            "root",
+            "catalog",
+            "namespace",
+            "environment",
+            "snapshot",
+        ):
             object.__setattr__(self, f, getattr(self, f).strip())
         for f in ("domain", "repository", "qualified_name"):
             if not getattr(self, f):
@@ -100,8 +106,13 @@ class DomainIdentity:
 
     def _segments(self, *, include_snapshot: bool) -> tuple[str, ...]:
         seg = (
-            self.domain, self.repository, self.root, self.catalog,
-            self.namespace, self.environment, self.qualified_name,
+            self.domain,
+            self.repository,
+            self.root,
+            self.catalog,
+            self.namespace,
+            self.environment,
+            self.qualified_name,
         )
         if include_snapshot:
             return (*seg, self.snapshot)
@@ -127,9 +138,12 @@ class DomainIdentity:
         if not self.snapshot:
             return self
         return DomainIdentity(
-            domain=self.domain, repository=self.repository,
-            qualified_name=self.qualified_name, root=self.root,
-            catalog=self.catalog, namespace=self.namespace,
+            domain=self.domain,
+            repository=self.repository,
+            qualified_name=self.qualified_name,
+            root=self.root,
+            catalog=self.catalog,
+            namespace=self.namespace,
             environment=self.environment,
         )
 
@@ -145,5 +159,5 @@ class DomainIdentity:
         """Decodifica os segmentos de uma chave ``dom:…``; None se inválida."""
         if not key.startswith(f"{_SCHEME}:"):
             return None
-        body = key[len(_SCHEME) + 1:]
+        body = key[len(_SCHEME) + 1 :]
         return tuple(_dec(seg) for seg in body.split(_SEP))

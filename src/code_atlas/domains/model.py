@@ -66,7 +66,7 @@ class DomainRelationKind(StrEnum):
     ASSUMES_ROLE = "ASSUMES_ROLE"
     TRIGGERS = "TRIGGERS"
     DEPLOYS = "DEPLOYS"
-    TESTS = "TESTS"          # valor compartilhado com EdgeKind.TESTS
+    TESTS = "TESTS"  # valor compartilhado com EdgeKind.TESTS
     REFERENCES = "REFERENCES"  # valor compartilhado com EdgeKind.REFERENCES
 
 
@@ -94,9 +94,7 @@ class DomainEntity:
     id: int | None = None
 
     def __post_init__(self) -> None:
-        object.__setattr__(
-            self, "kind", _coerce(DomainEntityKind, self.kind, "kind")
-        )
+        object.__setattr__(self, "kind", _coerce(DomainEntityKind, self.kind, "kind"))
         if not self.name.strip():
             raise ValueError("domain entity requires name")
         object.__setattr__(
@@ -188,15 +186,11 @@ class DomainRelation:
             and self.to_symbol_occ_id is None
             and not self.to_unresolved
         ):
-            raise ValueError(
-                "domain relation requires to endpoint or to_unresolved"
-            )
+            raise ValueError("domain relation requires to endpoint or to_unresolved")
         if not self.resolver:
             raise ValueError("domain relation requires resolver provenance")
         if (
             self.confidence_class is ConfidenceClass.INFERRED
             and self.resolution_status is ResolutionStatus.RESOLVED
         ):
-            raise ValueError(
-                "inferred evidence can never be reported resolved"
-            )
+            raise ValueError("inferred evidence can never be reported resolved")

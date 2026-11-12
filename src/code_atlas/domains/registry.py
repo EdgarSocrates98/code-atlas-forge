@@ -48,16 +48,12 @@ def _version_key(version: str) -> tuple[tuple[int, ...], str]:
 def _check_adapter(adapter: DomainAdapter) -> None:
     """Validação mínima do contrato no momento do registro."""
     if not isinstance(adapter, DomainAdapter):
-        raise AdapterRegistryError(
-            f"object does not satisfy DomainAdapter: {adapter!r}"
-        )
+        raise AdapterRegistryError(f"object does not satisfy DomainAdapter: {adapter!r}")
     if not adapter.domain_id.strip():
         raise AdapterRegistryError("adapter requires non-empty domain_id")
     if not adapter.adapter_version.strip():
-        raise AdapterRegistryError(
-            f"adapter {adapter.domain_id!r} requires non-empty version"
-        )
-    adapter.entity_kinds()      # materializa — valida early
+        raise AdapterRegistryError(f"adapter {adapter.domain_id!r} requires non-empty version")
+    adapter.entity_kinds()  # materializa — valida early
     adapter.relation_kinds()
     adapter.confidence_model()
 
@@ -83,8 +79,7 @@ class DomainRegistry:
         versions = self._adapters.setdefault(adapter.domain_id, {})
         if adapter.adapter_version in versions:
             raise DuplicateAdapterError(
-                f"adapter already registered: "
-                f"{adapter.domain_id}@{adapter.adapter_version}"
+                f"adapter already registered: {adapter.domain_id}@{adapter.adapter_version}"
             )
         versions[adapter.adapter_version] = adapter
         if not enabled:
@@ -107,9 +102,7 @@ class DomainRegistry:
             self._disabled.discard(domain_id)
         return True
 
-    def discover_entrypoints(
-        self, group: str = ENTRYPOINT_GROUP
-    ) -> int:
+    def discover_entrypoints(self, group: str = ENTRYPOINT_GROUP) -> int:
         """Carrega adapters declarados via ``entry_points`` instalados.
 
         **Opt-in explícito** — nunca chamado automaticamente (ADR-0010):
@@ -123,9 +116,7 @@ class DomainRegistry:
         for ep in importlib.metadata.entry_points(group=group):
             try:
                 target = ep.load()
-                adapter: DomainAdapter = (
-                    target() if callable(target) else target
-                )
+                adapter: DomainAdapter = target() if callable(target) else target
                 self.register(adapter)
             except Exception as exc:  # diagnóstico honesto, não crash
                 self._entrypoint_errors.append(f"{ep.name}: {exc}")
@@ -150,9 +141,7 @@ class DomainRegistry:
         self._disabled.add(domain_id)
 
     def is_enabled(self, domain_id: str) -> bool:
-        return (
-            domain_id in self._adapters and domain_id not in self._disabled
-        )
+        return domain_id in self._adapters and domain_id not in self._disabled
 
     # --- lookup --------------------------------------------------------
 
@@ -167,18 +156,14 @@ class DomainRegistry:
         # versão mais alta por ordenação semver-ish — determinístico
         return versions[max(versions, key=_version_key)]
 
-    def get(
-        self, domain_id: str, version: str | None = None
-    ) -> DomainAdapter | None:
+    def get(self, domain_id: str, version: str | None = None) -> DomainAdapter | None:
         """Adapter registrado (habilitado ou não); ``None`` se ausente.
 
         ``version=None`` retorna a maior versão registrada.
         """
         return self._pick(domain_id, version)
 
-    def require(
-        self, domain_id: str, version: str | None = None
-    ) -> DomainAdapter:
+    def require(self, domain_id: str, version: str | None = None) -> DomainAdapter:
         """Adapter **habilitado** ou exceção tipada e honesta.
 
         - não registrado → ``UnknownDomainError``;
@@ -192,9 +177,7 @@ class DomainRegistry:
             raise AdapterDisabledError(f"domain disabled: {domain_id!r}")
         adapter = self._pick(domain_id, version)
         if adapter is None:
-            raise UnknownDomainError(
-                f"version not registered: {domain_id!r}@{version!r}"
-            )
+            raise UnknownDomainError(f"version not registered: {domain_id!r}@{version!r}")
         return adapter
 
     # --- inventário ------------------------------------------------------
@@ -209,9 +192,7 @@ class DomainRegistry:
 
     def adapters(self) -> tuple[DomainAdapter, ...]:
         """Todos os adapters registrados (habilitados e desabilitados)."""
-        return tuple(
-            a for versions in self._adapters.values() for a in versions.values()
-        )
+        return tuple(a for versions in self._adapters.values() for a in versions.values())
 
     def enabled(self) -> tuple[DomainAdapter, ...]:
         """Adapters habilitados — maior versão por domínio.

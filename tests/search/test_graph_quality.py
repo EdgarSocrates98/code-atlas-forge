@@ -19,10 +19,7 @@ _REPO = {
         "from .base import Repo\n\n\nclass Svc(Repo):\n"
         "    def run(self):\n        return self.load()\n"
     ),
-    "a/api.py": (
-        "from .svc import Svc\n\n\ndef handle():\n"
-        "    return Svc().run()\n"
-    ),
+    "a/api.py": ("from .svc import Svc\n\n\ndef handle():\n    return Svc().run()\n"),
 }
 
 
@@ -50,12 +47,12 @@ def test_intent_classification_deterministic() -> None:
 
 def test_multi_seed_includes_seed_and_neighbors(env) -> None:
     conn, root = env
-    res = SearchEngine(conn).search(SearchRequest(
-        query="Svc", repository_root=root, strategy="graph", limit=10))
+    res = SearchEngine(conn).search(
+        SearchRequest(query="Svc", repository_root=root, strategy="graph", limit=10)
+    )
     names = {h.qualified_name for h in res.items}
     assert any("Svc" in n for n in names)  # seed rotulado presente
-    seed_hits = [h for h in res.items
-                 if "graph-seed" in h.matched_fields]
+    seed_hits = [h for h in res.items if "graph-seed" in h.matched_fields]
     assert seed_hits, "seeds devem ser rotulados graph-seed"
     intent = [d for d in res.diagnostics if d.code == "graph-intent"]
     assert intent and "direction=" in intent[0].message
@@ -63,9 +60,9 @@ def test_multi_seed_includes_seed_and_neighbors(env) -> None:
 
 def test_direction_incoming_finds_importers(env) -> None:
     conn, root = env
-    res = SearchEngine(conn).search(SearchRequest(
-        query="who calls Svc", repository_root=root,
-        strategy="graph", limit=10))
+    res = SearchEngine(conn).search(
+        SearchRequest(query="who calls Svc", repository_root=root, strategy="graph", limit=10)
+    )
     names = {h.qualified_name for h in res.items}
     # a.api importa a.svc — incoming deve alcançá-lo se aresta resolved
     assert names, "incoming traversal não deve ser vazio"
@@ -73,23 +70,31 @@ def test_direction_incoming_finds_importers(env) -> None:
 
 def test_uncertainty_labels_preserved(env) -> None:
     conn, root = env
-    res = SearchEngine(conn).search(SearchRequest(
-        query="Svc", repository_root=root, strategy="graph", limit=20))
+    res = SearchEngine(conn).search(
+        SearchRequest(query="Svc", repository_root=root, strategy="graph", limit=20)
+    )
     labels = {
-        part.split("(")[-1].rstrip(")")
-        for h in res.items for part in h.evidence if "(" in part
+        part.split("(")[-1].rstrip(")") for h in res.items for part in h.evidence if "(" in part
     }
     # labels vêm de resolution_status persistido — nunca "resolved" falso
-    assert labels <= {
-        "resolved", "ambiguous", "unresolved", "external", "syntactic",
-    } or not labels
+    assert (
+        labels
+        <= {
+            "resolved",
+            "ambiguous",
+            "unresolved",
+            "external",
+            "syntactic",
+        }
+        or not labels
+    )
 
 
 def test_absent_edges_degrade_honestly(env) -> None:
     conn, root = env
-    res = SearchEngine(conn).search(SearchRequest(
-        query="nonexistent_xyz", repository_root=root,
-        strategy="graph"))
+    res = SearchEngine(conn).search(
+        SearchRequest(query="nonexistent_xyz", repository_root=root, strategy="graph")
+    )
     # sem seed → diagnóstico tipado, nunca hits inventados
     assert res.diagnostics
     assert any(d.code == "seed-not-found" for d in res.diagnostics)
@@ -97,9 +102,9 @@ def test_absent_edges_degrade_honestly(env) -> None:
 
 def test_multi_hop_reaches_transitive(env) -> None:
     conn, root = env
-    res = SearchEngine(conn).search(SearchRequest(
-        query="dependencies of api", repository_root=root,
-        strategy="graph", limit=20))
+    res = SearchEngine(conn).search(
+        SearchRequest(query="dependencies of api", repository_root=root, strategy="graph", limit=20)
+    )
     depths = {h.qualified_name: len(h.evidence) for h in res.items}
     # outgoing: api→svc→base; algum hit deve ter >=1 salto
     assert any(v >= 1 for v in depths.values()), depths

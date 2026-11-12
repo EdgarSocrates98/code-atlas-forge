@@ -55,8 +55,7 @@ def test_cli_journey_index_search_impact_context_diagnostics(
     repo, data, cfg = workspace["repo"], workspace["data"], workspace["cfg"]
 
     # --- 1. index fixture -------------------------------------------------
-    run = run_cli(["index", str(repo), "--json"], data_dir=data,
-                  config_dir=cfg)
+    run = run_cli(["index", str(repo), "--json"], data_dir=data, config_dir=cfg)
     assert run.exit_code == 0, f"index falhou: {run.stderr}"
     idx = _json(run.stdout)
     assert idx["status"] == "success"
@@ -67,8 +66,7 @@ def test_cli_journey_index_search_impact_context_diagnostics(
     assert snapshot_id >= 1
 
     # --- 2. search ---------------------------------------------------------
-    run = run_cli(["search", "hello", "--root", str(repo), "--json"],
-                  data_dir=data, config_dir=cfg)
+    run = run_cli(["search", "hello", "--root", str(repo), "--json"], data_dir=data, config_dir=cfg)
     assert run.exit_code == 0, f"search falhou: {run.stderr}"
     found = _json(run.stdout)
     assert found["total"] == 3
@@ -82,9 +80,10 @@ def test_cli_journey_index_search_impact_context_diagnostics(
 
     # --- 3. impact ---------------------------------------------------------
     run = run_cli(
-        ["impact", "symbol", "src.util.util", "--root", str(repo),
-         "--format", "json"],
-        data_dir=data, config_dir=cfg)
+        ["impact", "symbol", "src.util.util", "--root", str(repo), "--format", "json"],
+        data_dir=data,
+        config_dir=cfg,
+    )
     assert run.exit_code == 0, f"impact falhou: {run.stderr}"
     imp = _json(run.stdout)
     # Workspace sem git: revisões ancoram no snapshot indexado — o engine
@@ -104,27 +103,26 @@ def test_cli_journey_index_search_impact_context_diagnostics(
         assert cand["path"]["hops"] == len(refs)
     # Invariante do produto (lf-0135): zero falso-confidence.
     assert false_confidence_leaks(imp) == []
-    assert imp["risk"]["category"] in (
-        "low", "moderate", "high", "critical")
+    assert imp["risk"]["category"] in ("low", "moderate", "high", "critical")
 
     # --- 4. context pack ---------------------------------------------------
     run = run_cli(
-        ["context", "investigar util.py e quem o consome",
-         "--root", str(repo), "--format", "json"],
-        data_dir=data, config_dir=cfg)
+        ["context", "investigar util.py e quem o consome", "--root", str(repo), "--format", "json"],
+        data_dir=data,
+        config_dir=cfg,
+    )
     assert run.exit_code == 0, f"context falhou: {run.stderr}"
     pack = _json(run.stdout)
     assert pack["manifest"]["schema_version"] == 2
     assert pack["manifest"]["selected"] == len(pack["items"])
     assert pack["manifest"]["selected"] > 0
     assert "src/util.py" in pack["relevant_files"]
-    assert any(
-        s.startswith("src.util") for s in pack["selected_symbols"]), (
-        "pack sem o símbolo da tarefa")
+    assert any(s.startswith("src.util") for s in pack["selected_symbols"]), (
+        "pack sem o símbolo da tarefa"
+    )
 
     # --- 5. diagnostics ----------------------------------------------------
-    run = run_cli(["status", "--root", str(repo), "--json"],
-                  data_dir=data, config_dir=cfg)
+    run = run_cli(["status", "--root", str(repo), "--json"], data_dir=data, config_dir=cfg)
     assert run.exit_code == 0, f"status falhou: {run.stderr}"
     st = _json(run.stdout)
     assert st["initialized"] is True
@@ -148,9 +146,10 @@ def test_cli_journey_index_search_impact_context_diagnostics(
     missing = workspace["repo"].parent / "never-indexed"
     missing.mkdir()
     run = run_cli(
-        ["impact", "symbol", "src.util.util", "--root", str(missing),
-         "--format", "json"],
-        data_dir=data, config_dir=cfg)
+        ["impact", "symbol", "src.util.util", "--root", str(missing), "--format", "json"],
+        data_dir=data,
+        config_dir=cfg,
+    )
     assert run.exit_code == 0
     blocked = _json(run.stdout)
     codes = {d["code"] for d in blocked["diagnostics"]}

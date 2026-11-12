@@ -39,20 +39,20 @@ def _ids() -> tuple[int, int, int, int]:
     conn = sqlite3.connect(str(cli.db_path()))
     conn.row_factory = sqlite3.Row
     try:
-        repos = [
-            r["id"]
-            for r in conn.execute("SELECT id FROM repositories ORDER BY id")
-        ]
+        repos = [r["id"] for r in conn.execute("SELECT id FROM repositories ORDER BY id")]
         snaps = [
             (r["repository_id"], r["id"])
             for r in conn.execute(
                 "SELECT repository_id, id FROM snapshots"
-                " WHERE status='READY' ORDER BY repository_id")
+                " WHERE status='READY' ORDER BY repository_id"
+            )
         ]
         assert len(repos) == 2 and len(snaps) == 2
         return (
-            int(repos[0]), int(repos[1]),
-            int(snaps[0][1]), int(snaps[1][1]),
+            int(repos[0]),
+            int(repos[1]),
+            int(snaps[0][1]),
+            int(snaps[1][1]),
         )
     finally:
         conn.close()
@@ -75,31 +75,22 @@ class TestFederationCli:
         assert out["workspace"] == "ws1" and out["created"] is True
 
         # add por path (repo já indexado)
-        assert (
-            cli.main(["federation", "add", "ws1", str(root_a), "--json"])
-            == 0
-        )
+        assert cli.main(["federation", "add", "ws1", str(root_a), "--json"]) == 0
         assert _out(capsys)["repository_id"] == repo_a
         # add por id
-        assert (
-            cli.main(["federation", "add", "ws1", str(repo_b), "--json"])
-            == 0
-        )
+        assert cli.main(["federation", "add", "ws1", str(repo_b), "--json"]) == 0
         assert _out(capsys)["repository_id"] == repo_b
 
         assert cli.main(["federation", "view", "ws1", "--json"]) == 0
         view = _out(capsys)
         assert view["view_id"].startswith("fedview:")
-        assert {
-            m["repository_id"]: m["snapshot_id"]
-            for m in view["members"]
-        } == {repo_a: snap_a, repo_b: snap_b}
+        assert {m["repository_id"]: m["snapshot_id"] for m in view["members"]} == {
+            repo_a: snap_a,
+            repo_b: snap_b,
+        }
 
         # pin explícito — view_id muda somente se o snapshot mudar
-        assert (
-            cli.main(["federation", "pin", "ws1", str(repo_a),
-                      str(snap_a), "--json"]) == 0
-        )
+        assert cli.main(["federation", "pin", "ws1", str(repo_a), str(snap_a), "--json"]) == 0
         out = _out(capsys)
         assert out["pinned_snapshot_id"] == snap_a
         assert cli.main(["federation", "view", "ws1", "--json"]) == 0
@@ -112,10 +103,7 @@ class TestFederationCli:
         capsys.readouterr()
         assert cli.main(["federation", "create", "w", "--json"]) == 0
         capsys.readouterr()
-        assert (
-            cli.main(["federation", "add", "w",
-                      str(fed_env / "never_indexed"), "--json"]) != 0
-        )
+        assert cli.main(["federation", "add", "w", str(fed_env / "never_indexed"), "--json"]) != 0
 
     def test_view_requires_two_members(
         self, fed_env: Path, capsys: pytest.CaptureFixture[str]
@@ -128,9 +116,7 @@ class TestFederationCli:
         capsys.readouterr()
         assert cli.main(["federation", "view", "thin"]) != 0
 
-    def test_pin_validation_errors(
-        self, fed_env: Path, capsys: pytest.CaptureFixture[str]
-    ) -> None:
+    def test_pin_validation_errors(self, fed_env: Path, capsys: pytest.CaptureFixture[str]) -> None:
         root_a, _ = _index_two(fed_env)
         capsys.readouterr()
         repo_a, repo_b, _snap_a, snap_b = _ids()
@@ -140,21 +126,13 @@ class TestFederationCli:
         assert cli.main(["federation", "add", "w", str(repo_b)]) == 0
         capsys.readouterr()
         # snapshot estranho ao repo → erro tipado, não 0
-        assert (
-            cli.main(["federation", "pin", "w", str(repo_a),
-                      str(snap_b)]) != 0
-        )
+        assert cli.main(["federation", "pin", "w", str(repo_a), str(snap_b)]) != 0
         capsys.readouterr()
         # snapshot de outro workspace via texto não-numérico → erro
-        assert (
-            cli.main(["federation", "pin", "w", str(repo_a), "abc"])
-            != 0
-        )
+        assert cli.main(["federation", "pin", "w", str(repo_a), "abc"]) != 0
         capsys.readouterr()
         # pin em repo não-membro → erro
-        assert (
-            cli.main(["federation", "pin", "w", "424242", "1"]) != 0
-        )
+        assert cli.main(["federation", "pin", "w", "424242", "1"]) != 0
 
     def test_unknown_workspace_and_missing_args(
         self, fed_env: Path, capsys: pytest.CaptureFixture[str]

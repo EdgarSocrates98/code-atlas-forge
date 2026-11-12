@@ -44,15 +44,15 @@ IDS: tuple[str, ...] = tuple(t.task_id for t in _TASKS)
 #: sem piso fixado (braço pode variar por desenho de fixture).
 FLOORS: dict[str, dict[str, int]] = {
     #                 no_atlas  pack  impact  search
-    "blast-landing-orders":   {"na": 10, "pk": 5, "imp": 10, "se": 10},
-    "blast-iceberg-orders":   {"na": 4, "pk": 4, "imp": 4, "se": 4},
-    "blast-spark-orders":     {"na": 10, "pk": 9, "imp": 10, "se": 10},
-    "endpoint-pets-get":      {"na": 4, "pk": 4, "imp": 4, "se": 3},
-    "terraform-module":       {"na": 2, "pk": 2, "imp": 2, "se": 2},
-    "iam-role-glue":          {"na": 13, "pk": 9, "imp": 16, "se": 5},
-    "cicd-reusable":          {"na": 4, "pk": 4, "imp": 4, "se": 4},
-    "xdomain-sql-orders":     {"na": 5, "pk": 4, "imp": 5, "se": 4},
-    "who-calls-post-pets":    {"na": 1, "pk": 1, "imp": 1, "se": 0},
+    "blast-landing-orders": {"na": 10, "pk": 5, "imp": 10, "se": 10},
+    "blast-iceberg-orders": {"na": 4, "pk": 4, "imp": 4, "se": 4},
+    "blast-spark-orders": {"na": 10, "pk": 9, "imp": 10, "se": 10},
+    "endpoint-pets-get": {"na": 4, "pk": 4, "imp": 4, "se": 3},
+    "terraform-module": {"na": 2, "pk": 2, "imp": 2, "se": 2},
+    "iam-role-glue": {"na": 13, "pk": 9, "imp": 16, "se": 5},
+    "cicd-reusable": {"na": 4, "pk": 4, "imp": 4, "se": 4},
+    "xdomain-sql-orders": {"na": 5, "pk": 4, "imp": 5, "se": 4},
+    "who-calls-post-pets": {"na": 1, "pk": 1, "imp": 1, "se": 0},
 }
 
 
@@ -74,20 +74,21 @@ def _report(results: dict[str, Any], task_id: str) -> dict[str, Any]:
 
 @pytest.mark.parametrize("task_id", IDS)
 def test_pack_budget_respected(
-    task_id: str, all_scored: dict[str, Any],
+    task_id: str,
+    all_scored: dict[str, Any],
 ) -> None:
     """O pack nunca excede o orçamento declarado (4000 tokens)."""
     rep = _report(all_scored, task_id)
     pk = rep["pack_only"]
-    assert pk["status"] == "ok", (
-        f"{task_id}: pack status={pk['status']} — seed não resolveu")
+    assert pk["status"] == "ok", f"{task_id}: pack status={pk['status']} — seed não resolveu"
     assert pk["tokens"] <= pk["budget_tokens"] == PACK_BUDGET
     assert pk["tokens_estimated"] is True
 
 
 @pytest.mark.parametrize("task_id", IDS)
 def test_impact_answers_all_facts(
-    task_id: str, all_scored: dict[str, Any],
+    task_id: str,
+    all_scored: dict[str, Any],
 ) -> None:
     """O especialista responde o blast inteiro: ``impact`` alcança
     exatamente os fatos verificados de lf-0135, em 1 query."""
@@ -103,19 +104,20 @@ def test_impact_answers_all_facts(
 
 @pytest.mark.parametrize("task_id", IDS)
 def test_arm_fact_floors(
-    task_id: str, all_scored: dict[str, Any],
+    task_id: str,
+    all_scored: dict[str, Any],
 ) -> None:
     """Cada braço ≥ fatos medidos — um deficit novo falha até ser
     classificado (os pisos SÃO os valores medidos)."""
     rep = _report(all_scored, task_id)
     floor = FLOORS[task_id]
     for arm, key in (
-            ("no_atlas", "na"),
-            ("pack_only", "pk"),
-            ("atlas_plus_search.impact", "imp"),
-            ("atlas_plus_search.search", "se")):
-        block = (rep["atlas_plus_search"][arm.rsplit(".", 1)[1]]
-                 if "." in arm else rep[arm])
+        ("no_atlas", "na"),
+        ("pack_only", "pk"),
+        ("atlas_plus_search.impact", "imp"),
+        ("atlas_plus_search.search", "se"),
+    ):
+        block = rep["atlas_plus_search"][arm.rsplit(".", 1)[1]] if "." in arm else rep[arm]
         got = block["facts_answerable"]
         assert got >= floor[key], (
             f"{task_id}.{arm}: {got} facts < piso medido "
@@ -125,18 +127,22 @@ def test_arm_fact_floors(
 
 @pytest.mark.parametrize("task_id", IDS)
 def test_impact_covers_pack(
-    task_id: str, all_scored: dict[str, Any],
+    task_id: str,
+    all_scored: dict[str, Any],
 ) -> None:
     """Invariante de produto medida: o especialista cobre ≥ o pack
     (o pack é semente+1-hop; o impact é o blast completo)."""
     rep = _report(all_scored, task_id)
-    assert (rep["pack_only"]["facts_answerable"]
-            <= rep["atlas_plus_search"]["impact"]["facts_answerable"])
+    assert (
+        rep["pack_only"]["facts_answerable"]
+        <= rep["atlas_plus_search"]["impact"]["facts_answerable"]
+    )
 
 
 @pytest.mark.parametrize("task_id", IDS)
 def test_query_counts_honest(
-    task_id: str, all_scored: dict[str, Any],
+    task_id: str,
+    all_scored: dict[str, Any],
 ) -> None:
     """Queries contadas, não assumidas: pack=1, impact=1,
     search≤2, no_atlas≤rodadas+1."""

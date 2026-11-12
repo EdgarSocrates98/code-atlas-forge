@@ -38,16 +38,13 @@ def test_fastapi_app_and_router_endpoints(extract) -> None:
     by_qn = {_qn(e): e for e in endpoints}
     assert by_qn["GET /edge/health"].identity.namespace == "app.main#app"
     assert by_qn["GET /edge/health"].attributes["handler"] == "app.main.health"
-    assert (
-        by_qn["POST /v2/admin/users/{uid}"].identity.namespace
-        == "app.main#admin"
-    )
+    assert by_qn["POST /v2/admin/users/{uid}"].identity.namespace == "app.main#admin"
     assert by_qn["GET /pets/"].attributes["handler"] == "app.routers.list_pets"
 
 
 def test_fastapi_services_and_prefixes(extract) -> None:
     res = extract(["app/main.py", "app/routers.py"])
-    services = { _qn(s): s for s in _by_kind(res, DomainEntityKind.API_SERVICE) }
+    services = {_qn(s): s for s in _by_kind(res, DomainEntityKind.API_SERVICE)}
     assert services["app.main#app"].attributes["prefix"] == "/edge"
     assert services["app.main#app"].attributes["framework"] == "fastapi"
     assert services["app.main#admin"].attributes["prefix"] == "/admin"
@@ -56,13 +53,8 @@ def test_fastapi_services_and_prefixes(extract) -> None:
     # pets_router é montado em main.py mas declarado em routers.py —
     # serviço app.main#pets_router registra o mount observado.
     assert services["app.main#pets_router"].attributes["mounted_prefix"] == "/api"
-    assert (
-        services["app.main#pets_router"].attributes["receiver_declared"]
-        == "false"
-    )
-    assert (
-        services["app.routers#pets_router"].attributes["prefix"] == "/pets"
-    )
+    assert services["app.main#pets_router"].attributes["receiver_declared"] == "false"
+    assert services["app.routers#pets_router"].attributes["prefix"] == "/pets"
 
 
 def test_fastapi_relations_bridge_code_domain(extract) -> None:
@@ -72,14 +64,10 @@ def test_fastapi_relations_bridge_code_domain(extract) -> None:
     # handler symbol → endpoint (ponte código→domínio)
     by_from = {(r.from_symbol, _qn(r.to_identity)) for r in defines}
     assert ("app.main.health", "GET /edge/health") in by_from
-    assert (
-        "app.main.create_user", "POST /v2/admin/users/{uid}"
-    ) in by_from
+    assert ("app.main.create_user", "POST /v2/admin/users/{uid}") in by_from
     assert ("app.routers.list_pets", "GET /pets/") in by_from
     # app CONTAINS router services (include_router observado)
-    app_contains = {
-        (_qn(r.from_identity), _qn(r.to_identity)) for r in contains
-    }
+    app_contains = {(_qn(r.from_identity), _qn(r.to_identity)) for r in contains}
     assert ("app.main#app", "app.main#admin") in app_contains
     assert ("app.main#app", "app.main#pets_router") in app_contains
     # serviço CONTAINS endpoint — resolvido dentro do resultado
@@ -107,10 +95,7 @@ def test_fastapi_parse_uses_real_ast_not_regex(extract) -> None:
     # @app.get NÃO pode produzir endpoint.
     res = extract(["app/main.py", "app/routers.py"])
     endpoints = _by_kind(res, DomainEntityKind.API_ENDPOINT)
-    assert all(
-        not e.attributes["path"].startswith("#")
-        for e in endpoints
-    )
+    assert all(not e.attributes["path"].startswith("#") for e in endpoints)
     assert res.relations  # sanity
 
 
@@ -121,17 +106,16 @@ def test_express_ts_routes_heuristic(extract) -> None:
     res = extract(["web/routes.ts"])
     endpoints = _by_kind(res, DomainEntityKind.API_ENDPOINT)
     assert {_qn(e) for e in endpoints} == {
-        "GET /status", "POST /api/items", "GET /api/items/{id}",
+        "GET /status",
+        "POST /api/items",
+        "GET /api/items/{id}",
     }
     by_qn = {_qn(e): e for e in endpoints}
     assert by_qn["GET /status"].identity.namespace == "web.routes#app"
     assert by_qn["POST /api/items"].identity.namespace == "web.routes#router"
     # heurística declarada: express = convenção de receiver
     contains = _rels(res, "CONTAINS")
-    assert all(
-        r.resolution.confidence_class is ConfidenceClass.HEURISTIC
-        for r in contains
-    )
+    assert all(r.resolution.confidence_class is ConfidenceClass.HEURISTIC for r in contains)
     # mount observado: app.use("/api", router)
     assert ("web.routes#app", "web.routes#router") in {
         (_qn(r.from_identity), _qn(r.to_identity)) for r in contains
@@ -148,7 +132,4 @@ def test_express_js_regex_static(extract) -> None:
     assert ep.attributes["framework"] == "express"
     assert ep.attributes["source"] == "express-regex"
     contains = _rels(res, "CONTAINS")
-    assert all(
-        r.resolution.confidence_class is ConfidenceClass.HEURISTIC
-        for r in contains
-    )
+    assert all(r.resolution.confidence_class is ConfidenceClass.HEURISTIC for r in contains)

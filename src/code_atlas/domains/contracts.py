@@ -77,9 +77,9 @@ class DiscoveryRule:
     priorizar ou rotular artefatos por regra sem rodar o adapter.
     """
 
-    glob: str                     # fnmatch sobre path relativo POSIX
-    artifact_kind: str            # rótulo: "sql-script", "tf-module", …
-    required: bool = False        # False = artefato opcional/ausente é ok
+    glob: str  # fnmatch sobre path relativo POSIX
+    artifact_kind: str  # rótulo: "sql-script", "tf-module", …
+    required: bool = False  # False = artefato opcional/ausente é ok
     notes: str = ""
 
 
@@ -101,9 +101,7 @@ class ConfidenceModel:
 
     def __post_init__(self) -> None:
         for f in ("ceiling", "default"):
-            object.__setattr__(
-                self, f, ConfidenceClass(getattr(self, f))
-            )
+            object.__setattr__(self, f, ConfidenceClass(getattr(self, f)))
         if _CONFIDENCE_RANK[self.default] > _CONFIDENCE_RANK[self.ceiling]:
             raise ValueError("confidence default cannot exceed ceiling")
 
@@ -119,9 +117,9 @@ class ConfidenceModel:
 class DiscoveredArtifact:
     """Artefato concreto encontrado no repositório."""
 
-    path: str                     # relativo POSIX
-    artifact_kind: str = ""       # rótulo vindo da DiscoveryRule, se houver
-    sha256: str = ""              # hash do inventário, quando conhecido
+    path: str  # relativo POSIX
+    artifact_kind: str = ""  # rótulo vindo da DiscoveryRule, se houver
+    sha256: str = ""  # hash do inventário, quando conhecido
 
 
 @dataclass(frozen=True)
@@ -161,9 +159,7 @@ class ExtractedDomainEntity:
     evidence: tuple[int, ...] = ()
 
     def __post_init__(self) -> None:
-        object.__setattr__(
-            self, "kind", DomainEntityKind(self.kind)
-        )
+        object.__setattr__(self, "kind", DomainEntityKind(self.kind))
 
 
 @dataclass(frozen=True)
@@ -179,9 +175,9 @@ class ExtractedDomainRelation:
     """
 
     relation_type: str
-    path: str                     # artefato de origem da observação
+    path: str  # artefato de origem da observação
     from_identity: DomainIdentity | None = None
-    from_symbol: str = ""         # qualified name do símbolo de origem
+    from_symbol: str = ""  # qualified name do símbolo de origem
     to_identity: DomainIdentity | None = None
     to_symbol: str = ""
     to_unresolved: str = ""
@@ -192,22 +188,16 @@ class ExtractedDomainRelation:
     def __post_init__(self) -> None:
         if self.from_identity is None and not self.from_symbol:
             raise ValueError("extracted relation requires a from endpoint")
-        if (
-            self.to_identity is None
-            and not self.to_symbol
-            and not self.to_unresolved
-        ):
-            raise ValueError(
-                "extracted relation requires to endpoint or to_unresolved"
-            )
+        if self.to_identity is None and not self.to_symbol and not self.to_unresolved:
+            raise ValueError("extracted relation requires to endpoint or to_unresolved")
 
 
 @dataclass(frozen=True)
 class DomainDiagnostic:
     """Diagnóstico de adapter (artefato inválido, ambiguidade, recusa)."""
 
-    code: str                     # ex.: "unsupported-artifact", "parse-error"
-    severity: str                 # info | warning | error
+    code: str  # ex.: "unsupported-artifact", "parse-error"
+    severity: str  # info | warning | error
     message: str
     path: str = ""
     adapter_id: str = ""
@@ -266,9 +256,7 @@ class DomainAdapter(Protocol):
         """Regras declarativas de onde os artefatos do domínio vivem."""
         ...
 
-    def extract(
-        self, request: DomainExtractionRequest
-    ) -> DomainExtractionResult:
+    def extract(self, request: DomainExtractionRequest) -> DomainExtractionResult:
         """Extrai entidades/relações dos artefatos — nunca levanta para
         conteúdo ruim; falhas viram ``DomainDiagnostic``."""
         ...

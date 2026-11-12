@@ -58,10 +58,7 @@ def test_secret_defaults_never_leak(
 def test_sensitive_variables_are_listed_but_redacted(
     full_result: DomainExtractionResult,
 ) -> None:
-    root = next(
-        e for e in full_result.entities
-        if e.identity.qualified_name == "module.root"
-    )
+    root = next(e for e in full_result.entities if e.identity.qualified_name == "module.root")
     sensitive = root.attributes["sensitive_variables"].split(",")
     assert "db_password" in sensitive
     assert "api_token" in sensitive
@@ -92,8 +89,13 @@ def test_no_raw_interpolation_in_stored_values(
 
 def test_is_sensitive_name_pattern() -> None:
     for name in (
-        "password", "db_password", "api_secret", "TOKEN",
-        "key_pair", "aws_credential", "client_secret",
+        "password",
+        "db_password",
+        "api_secret",
+        "TOKEN",
+        "key_pair",
+        "aws_credential",
+        "client_secret",
     ):
         assert is_sensitive_name(name), name
     for safe in ("environment", "bucket", "ami_id", "replicas"):
@@ -102,10 +104,7 @@ def test_is_sensitive_name_pattern() -> None:
 
 def test_redact_and_sanitize_units() -> None:
     assert redact_if_sensitive("password", "hunter2") == "[REDACTED]"
-    assert (
-        redact_if_sensitive("env", "dev-${aws_s3_bucket.b.id}")
-        == "dev-${dynamic}"
-    )
+    assert redact_if_sensitive("env", "dev-${aws_s3_bucket.b.id}") == "dev-${dynamic}"
     assert sanitize_value("a-${x}-b-${y}") == "a-${dynamic}-b-${dynamic}"
 
 

@@ -36,12 +36,8 @@ from code_atlas.domains.identity import DomainIdentity
 from code_atlas.domains.model import DomainEntityKind
 from code_atlas.parsers.contracts import SourceSpan
 
-HTTP_METHODS = frozenset(
-    {"get", "put", "post", "delete", "options", "head", "patch", "trace"}
-)
-_PATH_ITEM_META = frozenset(
-    {"parameters", "summary", "description", "servers", "$ref"}
-)
+HTTP_METHODS = frozenset({"get", "put", "post", "delete", "options", "head", "patch", "trace"})
+_PATH_ITEM_META = frozenset({"parameters", "summary", "description", "servers", "$ref"})
 
 
 def spec_flavor(doc: YamlValue) -> str | None:
@@ -111,8 +107,9 @@ def _operation_refs(op: Mapping[str, YamlValue], flavor: str) -> list[str]:
     return refs
 
 
-def _server_info(doc: Mapping[str, YamlValue], flavor: str, sink: Emit,
-                 path: str) -> tuple[str, str, int]:
+def _server_info(
+    doc: Mapping[str, YamlValue], flavor: str, sink: Emit, path: str
+) -> tuple[str, str, int]:
     """``(server_url, base_path, servers_count)`` do primeiro servidor."""
     if flavor == "openapi3":
         servers = _as_list(doc.get("servers"))
@@ -124,8 +121,10 @@ def _server_info(doc: Mapping[str, YamlValue], flavor: str, sink: Emit,
                 break
         if url and "{" in url:
             sink.diag(
-                "server-url-template", "info",
-                f"server URL carries template vars: {url!r}", path,
+                "server-url-template",
+                "info",
+                f"server URL carries template vars: {url!r}",
+                path,
             )
         base = common.url_path(url) if url else "/"
         return url, ("" if base == "/" else base), len(servers)
@@ -166,7 +165,8 @@ def extract_spec(
     server_url, base_path, n_servers = _server_info(top, flavor, sink, path)
     if n_servers > 1:
         sink.diag(
-            "multi-server", "info",
+            "multi-server",
+            "info",
             f"{n_servers} servers declared — first used for base_path",
             path,
         )
@@ -186,9 +186,7 @@ def extract_spec(
         attributes={
             "format": fmt,
             "spec_version": spec_version,
-            "api_version": _as_str(
-                top.get("openapi", top.get("swagger", ""))
-            ),
+            "api_version": _as_str(top.get("openapi", top.get("swagger", ""))),
         },
         evidence=(sink.evi(path, content_hash, span_at(contract_line)),),
     )
@@ -222,7 +220,8 @@ def extract_spec(
         from_identity=contract,
         to_identity=service,
         resolution=sink.resolution(
-            ResolutionStatus.RESOLVED, ConfidenceClass.SYNTACTIC,
+            ResolutionStatus.RESOLVED,
+            ConfidenceClass.SYNTACTIC,
             target=service,
         ),
         span=span_at(contract_line),
@@ -232,15 +231,19 @@ def extract_spec(
     paths = _as_map(top.get("paths"))
     if not paths:
         sink.diag(
-            "empty-paths", "info",
-            "spec declares no paths entries", path,
+            "empty-paths",
+            "info",
+            "spec declares no paths entries",
+            path,
         )
     for raw_path, item in paths.items():
         if not raw_path.startswith("/"):
             if not raw_path.startswith("x-"):
                 sink.diag(
-                    "path-key-ignored", "info",
-                    f"paths key not a route: {raw_path!r}", path,
+                    "path-key-ignored",
+                    "info",
+                    f"paths key not a route: {raw_path!r}",
+                    path,
                 )
             continue
         item_map = _as_map(item)
@@ -249,8 +252,10 @@ def extract_spec(
                 continue
             if method.lower() not in HTTP_METHODS:
                 sink.diag(
-                    "path-key-ignored", "info",
-                    f"path item key not an HTTP method: {method!r}", path,
+                    "path-key-ignored",
+                    "info",
+                    f"path item key not an HTTP method: {method!r}",
+                    path,
                 )
                 continue
             _emit_operation(
@@ -320,7 +325,8 @@ def _emit_operation(
         from_identity=service,
         to_identity=ep,
         resolution=sink.resolution(
-            ResolutionStatus.RESOLVED, ConfidenceClass.SYNTACTIC,
+            ResolutionStatus.RESOLVED,
+            ConfidenceClass.SYNTACTIC,
             target=ep,
         ),
         span=span,
@@ -347,14 +353,14 @@ def make_key_line(
     key_lines: Mapping[tuple[str, ...], int],
 ) -> Callable[[tuple[str, ...]], int | None]:
     """Callback ``key_line`` para YAML — lookup direto do mapa do parser."""
+
     def _lookup(path: tuple[str, ...]) -> int | None:
         return key_lines.get(path)
+
     return _lookup
 
 
-def _json_find(
-    lines: list[str], key: str, start: int, end: int
-) -> int | None:
+def _json_find(lines: list[str], key: str, start: int, end: int) -> int | None:
     pat = re.compile(rf'"{re.escape(key)}"\s*:')
     for i in range(start, min(end, len(lines))):
         if pat.search(lines[i]):
@@ -362,9 +368,7 @@ def _json_find(
     return None
 
 
-def _json_paths_lookup(
-    lines: list[str], path: tuple[str, ...]
-) -> int | None:
+def _json_paths_lookup(lines: list[str], path: tuple[str, ...]) -> int | None:
     start = _json_find(lines, "paths", 0, len(lines))
     if start is None:
         return None

@@ -139,11 +139,7 @@ class FederatedView:
     @property
     def snapshot_map(self) -> dict[int, int]:
         """``{repository_id: snapshot_id}`` dos membros resolvidos."""
-        return {
-            m.repository_id: m.snapshot_id
-            for m in self.members
-            if m.snapshot_id is not None
-        }
+        return {m.repository_id: m.snapshot_id for m in self.members if m.snapshot_id is not None}
 
     def to_dict(self) -> dict[str, object]:
         return {
@@ -209,9 +205,7 @@ def compute_view_id(
         "schema": int(schema),
         "members": members,
     }
-    digest = hashlib.sha256(
-        json.dumps(payload, sort_keys=True).encode("utf-8")
-    ).hexdigest()
+    digest = hashlib.sha256(json.dumps(payload, sort_keys=True).encode("utf-8")).hexdigest()
     return f"fedview:{digest}"
 
 
@@ -225,8 +219,8 @@ class SharedOccurrence:
     occurrence_id: int
     domain: str
     kind: str
-    identity_key: str      # chave lógica completa (repo-scoped)
-    shared_key: str        # chave sem o segmento repository (join federado)
+    identity_key: str  # chave lógica completa (repo-scoped)
+    shared_key: str  # chave sem o segmento repository (join federado)
     qualified_name: str
     name: str
     catalog: str
@@ -270,7 +264,7 @@ class FederatedEdge:
     ``computed=True`` declara a proveniência honesta.
     """
 
-    kind: str               # intra | shared_entity
+    kind: str  # intra | shared_entity
     from_entity_id: int
     to_entity_id: int
     from_repo: int

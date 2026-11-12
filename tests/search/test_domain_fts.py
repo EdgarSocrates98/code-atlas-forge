@@ -54,8 +54,7 @@ def env(tmp_path: Path):
         p.write_text(content)
     conn = connect(tmp_path / "atlas.db")
     migrate(conn)
-    out = IndexCoordinator(
-        conn, domain_registry=_registry(repo)).index(repo)
+    out = IndexCoordinator(conn, domain_registry=_registry(repo)).index(repo)
     assert out.status == "success" and out.snapshot_id is not None
     yield conn, str(repo), out.snapshot_id
     conn.close()
@@ -71,17 +70,18 @@ def _domain_facet(conn, root, snap, q: str, **kw):
 def test_persist_populates_domain_fts(env) -> None:
     conn, _root, snap = env
     occ = conn.execute(
-        "SELECT COUNT(*) FROM domain_entity_occurrences"
-        " WHERE snapshot_id = ?", (snap,)).fetchone()[0]
-    fts = conn.execute(
-        "SELECT COUNT(*) FROM domain_fts WHERE snapshot_id = ?",
-        (snap,)).fetchone()[0]
+        "SELECT COUNT(*) FROM domain_entity_occurrences WHERE snapshot_id = ?", (snap,)
+    ).fetchone()[0]
+    fts = conn.execute("SELECT COUNT(*) FROM domain_fts WHERE snapshot_id = ?", (snap,)).fetchone()[
+        0
+    ]
     assert occ > 0 and fts == occ
     # rowid = id da ocorrência — mesmo desenho de fts_occurrences
     orphan = conn.execute(
         "SELECT COUNT(*) FROM domain_fts f"
         " WHERE NOT EXISTS (SELECT 1 FROM domain_entity_occurrences d"
-        "                  WHERE d.id = f.rowid)").fetchone()[0]
+        "                  WHERE d.id = f.rowid)"
+    ).fetchone()[0]
     assert orphan == 0
 
 
@@ -137,12 +137,11 @@ def test_rebuild_domain_fts_backfills_snapshot(env) -> None:
     assert not DomainEntitySearch(conn)._fts_usable_for(snap)
     n = store.rebuild_domain_fts(snap)
     occ = conn.execute(
-        "SELECT COUNT(*) FROM domain_entity_occurrences"
-        " WHERE snapshot_id = ?", (snap,)).fetchone()[0]
+        "SELECT COUNT(*) FROM domain_entity_occurrences WHERE snapshot_id = ?", (snap,)
+    ).fetchone()[0]
     assert n == occ
     items, _t, diags = _domain_facet(conn, root, snap, "orders")
-    assert items and not any(
-        d.code == "domain-fts-fallback" for d in diags)
+    assert items and not any(d.code == "domain-fts-fallback" for d in diags)
 
 
 def test_fts_scope_is_snapshot_and_repository(env, tmp_path: Path) -> None:
@@ -150,11 +149,8 @@ def test_fts_scope_is_snapshot_and_repository(env, tmp_path: Path) -> None:
     conn, root, snap1 = env
     # snapshot 2: repo editado → novo READY; snap1 vira STALE com rows.
     repo_p = Path(root)
-    (repo_p / "q2.sql").write_text(
-        "CREATE VIEW mart.v_extra AS SELECT * FROM mart.orders;\n")
-    out = IndexCoordinator(
-        conn, domain_registry=_registry(repo_p)).index(
-            repo_p, force=True)
+    (repo_p / "q2.sql").write_text("CREATE VIEW mart.v_extra AS SELECT * FROM mart.orders;\n")
+    out = IndexCoordinator(conn, domain_registry=_registry(repo_p)).index(repo_p, force=True)
     assert out.status == "success" and out.snapshot_id != snap1
     snap2 = out.snapshot_id
     # snap1 (STALE) ainda tem suas rows e responde pelo próprio escopo
@@ -174,9 +170,7 @@ def test_fts_accent_behavior_honest_difference(env) -> None:
     A diferença é testada nos dois caminhos para nunca ser assumida.
     """
     conn, root, snap = env
-    conn.execute(
-        "UPDATE domain_entities SET name = 'São Orders'"
-        " WHERE qualified_name = 'orders'")
+    conn.execute("UPDATE domain_entities SET name = 'São Orders' WHERE qualified_name = 'orders'")
     Store(conn).rebuild_domain_fts(snap)
     items, _t, _d = _domain_facet(conn, root, snap, "sao")
     assert any(h.name == "São Orders" for h in items)
@@ -192,33 +186,26 @@ def test_fts_accent_behavior_honest_difference(env) -> None:
 def test_gc_stale_snapshots_removes_domain_fts_rows(env) -> None:
     conn, root, _snap1 = env
     repo_p = Path(root)
-    (repo_p / "q2.sql").write_text(
-        "CREATE VIEW mart.v_extra AS SELECT * FROM mart.orders;\n")
-    out = IndexCoordinator(
-        conn, domain_registry=_registry(repo_p)).index(
-            repo_p, force=True)
+    (repo_p / "q2.sql").write_text("CREATE VIEW mart.v_extra AS SELECT * FROM mart.orders;\n")
+    out = IndexCoordinator(conn, domain_registry=_registry(repo_p)).index(repo_p, force=True)
     assert out.status == "success"
     store = Store(conn)
-    doomed = conn.execute(
-        "SELECT id FROM snapshots WHERE status='STALE'").fetchall()
+    doomed = conn.execute("SELECT id FROM snapshots WHERE status='STALE'").fetchall()
     assert doomed
     removed = store.gc_stale_snapshots(
-        repository_id=conn.execute(
-            "SELECT MIN(id) FROM repositories").fetchone()[0],
+        repository_id=conn.execute("SELECT MIN(id) FROM repositories").fetchone()[0],
         keep=0,
     )
     assert removed == len(doomed)
     left = conn.execute(
-        "SELECT COUNT(*) FROM domain_fts f"
-        " WHERE f.snapshot_id NOT IN (SELECT id FROM snapshots)"
+        "SELECT COUNT(*) FROM domain_fts f WHERE f.snapshot_id NOT IN (SELECT id FROM snapshots)"
     ).fetchone()[0]
     assert left == 0
     # snapshot vivo mantém cobertura
-    ready = conn.execute(
-        "SELECT id FROM snapshots WHERE status='READY'").fetchone()[0]
+    ready = conn.execute("SELECT id FROM snapshots WHERE status='READY'").fetchone()[0]
     live = conn.execute(
-        "SELECT COUNT(*) FROM domain_fts WHERE snapshot_id = ?",
-        (ready,)).fetchone()[0]
+        "SELECT COUNT(*) FROM domain_fts WHERE snapshot_id = ?", (ready,)
+    ).fetchone()[0]
     assert live > 0
 
 
@@ -227,18 +214,16 @@ def test_fts_ordering_deterministic_across_calls(env) -> None:
     a, _ta, _da = _domain_facet(conn, root, snap, "orders")
     b, _tb, _db = _domain_facet(conn, root, snap, "orders")
     assert [(h.entity_id, h.qualified_name) for h in a] == [
-        (h.entity_id, h.qualified_name) for h in b]
+        (h.entity_id, h.qualified_name) for h in b
+    ]
 
 
 def test_via_relation_union_preserves_contract(env) -> None:
     """Expansão entity↔entity segue citando aresta real em evidence."""
     conn, root, _snap = env
-    res = SearchEngine(conn).search(
-        SearchRequest(query="orders", repository_root=root))
-    related = [h for h in res.domain_items
-               if h.matched_fields == ("via_relation",)]
+    res = SearchEngine(conn).search(SearchRequest(query="orders", repository_root=root))
+    related = [h for h in res.domain_items if h.matched_fields == ("via_relation",)]
     assert related, "v_orders lê mart.orders — aresta real esperada"
     for h in related:
-        assert any(e.startswith("via=") and ":rel:" in e
-                   for e in h.evidence)
+        assert any(e.startswith("via=") and ":rel:" in e for e in h.evidence)
         assert h.score < 1.0

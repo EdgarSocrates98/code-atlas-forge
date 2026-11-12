@@ -19,7 +19,7 @@ import argparse
 import json
 import sys
 import tempfile
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
 _REPO_ROOT = Path(__file__).resolve().parents[1]
@@ -58,31 +58,35 @@ def _status_line(domain: str, report: dict) -> str:
 
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__)
-    ap.add_argument("--check", action="store_true",
-                    help="exit 1 quando algum cenário diverge do golden")
-    ap.add_argument("--bless", action="store_true",
-                    help="regrava evaluation/golden/*.json com o estado "
-                         "medido atual (REVISAR diff antes de commitar)")
-    ap.add_argument("--domain", default="",
-                    help="roda um único cenário (id em --list)")
-    ap.add_argument("--list", action="store_true",
-                    help="lista cenários e sai")
-    ap.add_argument("--out", default=str(LATEST),
-                    help="destino do JSON de resultados")
+    ap.add_argument(
+        "--check", action="store_true", help="exit 1 quando algum cenário diverge do golden"
+    )
+    ap.add_argument(
+        "--bless",
+        action="store_true",
+        help="regrava evaluation/golden/*.json com o estado "
+        "medido atual (REVISAR diff antes de commitar)",
+    )
+    ap.add_argument("--domain", default="", help="roda um único cenário (id em --list)")
+    ap.add_argument("--list", action="store_true", help="lista cenários e sai")
+    ap.add_argument("--out", default=str(LATEST), help="destino do JSON de resultados")
     args = ap.parse_args()
 
     if args.list:
         for spec in DOMAIN_SPECS:
-            print(f"{spec.eval_id:12s} {spec.fixture} "
-                  f"adapters={','.join(spec.adapter_ids)}"
-                  f"{' +cross' if spec.cross else ''}")
+            print(
+                f"{spec.eval_id:12s} {spec.fixture} "
+                f"adapters={','.join(spec.adapter_ids)}"
+                f"{' +cross' if spec.cross else ''}"
+            )
         return 0
 
     if args.bless:
         GOLDEN_DIR.mkdir(parents=True, exist_ok=True)
         specs = (
             [s for s in DOMAIN_SPECS if s.eval_id == args.domain]
-            if args.domain else list(DOMAIN_SPECS)
+            if args.domain
+            else list(DOMAIN_SPECS)
         )
         with tempfile.TemporaryDirectory(prefix="domain-eval-bless-") as wd:
             for spec in specs:
@@ -90,18 +94,19 @@ def main() -> int:
                 golden = report_to_golden(report)
                 out = GOLDEN_DIR / f"{spec.eval_id}.json"
                 out.write_text(
-                    json.dumps(golden, indent=2, ensure_ascii=False,
-                               sort_keys=False) + "\n",
+                    json.dumps(golden, indent=2, ensure_ascii=False, sort_keys=False) + "\n",
                     encoding="utf-8",
                 )
                 n = len(report.get("edges", ()))
-                print(f"blessed {out.relative_to(_REPO_ROOT)} "
-                      f"({n} edges) — REVISAR contra a fixture")
+                print(
+                    f"blessed {out.relative_to(_REPO_ROOT)} ({n} edges) — REVISAR contra a fixture"
+                )
         return 0
 
     with tempfile.TemporaryDirectory(prefix="domain-eval-") as wd:
         if args.domain:
             from code_atlas.eval.domain_eval import spec_by_id
+
             spec = spec_by_id(args.domain)
             report = run_domain_eval(_REPO_ROOT, spec, Path(wd))
             golden = None
@@ -110,25 +115,23 @@ def main() -> int:
                 golden = json.loads(gpath.read_text(encoding="utf-8"))
             diffs = diff_report(report, golden) if golden else []
             report["check"] = {
-                "golden": golden is not None, "diffs": diffs,
+                "golden": golden is not None,
+                "diffs": diffs,
                 "pass": not diffs,
             }
             results = {
                 "schema": 1,
-                "generated_at": datetime.now(timezone.utc)
-                .isoformat(timespec="seconds"),
+                "generated_at": datetime.now(UTC).isoformat(timespec="seconds"),
                 "domains": {spec.eval_id: report},
-                "summary": {"scenarios": 1,
-                            "golden_compared": int(golden is not None),
-                            "all_pass": not diffs},
+                "summary": {
+                    "scenarios": 1,
+                    "golden_compared": int(golden is not None),
+                    "all_pass": not diffs,
+                },
             }
         else:
-            results = evaluate_all(
-                _REPO_ROOT, GOLDEN_DIR, work_dir=Path(wd)
-            )
-            results["generated_at"] = (
-                datetime.now(timezone.utc).isoformat(timespec="seconds")
-            )
+            results = evaluate_all(_REPO_ROOT, GOLDEN_DIR, work_dir=Path(wd))
+            results["generated_at"] = datetime.now(UTC).isoformat(timespec="seconds")
 
     out_path = Path(args.out)
     out_path.parent.mkdir(parents=True, exist_ok=True)

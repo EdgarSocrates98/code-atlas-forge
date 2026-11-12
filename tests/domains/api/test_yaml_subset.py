@@ -10,20 +10,20 @@ def _codes(doc) -> list[str]:
 
 
 def test_basic_mapping_and_scalars() -> None:
-    doc = parse_yaml_subset(
-        "a: 1\nb: 2.5\nc: true\nd: null\ne: hello world\nf: 'quoted'\n"
-    )
+    doc = parse_yaml_subset("a: 1\nb: 2.5\nc: true\nd: null\ne: hello world\nf: 'quoted'\n")
     assert doc.issues == ()
     assert doc.value == {
-        "a": 1, "b": 2.5, "c": True, "d": None,
-        "e": "hello world", "f": "quoted",
+        "a": 1,
+        "b": 2.5,
+        "c": True,
+        "d": None,
+        "e": "hello world",
+        "f": "quoted",
     }
 
 
 def test_nested_map_and_key_lines() -> None:
-    doc = parse_yaml_subset(
-        "top:\n  mid:\n    leaf: x\nother: y\n"
-    )
+    doc = parse_yaml_subset("top:\n  mid:\n    leaf: x\nother: y\n")
     assert doc.value == {"top": {"mid": {"leaf": "x"}}, "other": "y"}
     assert doc.key_lines[("top",)] == 1
     assert doc.key_lines[("top", "mid")] == 2
@@ -47,9 +47,7 @@ def test_sequences_scalar_and_inline_maps() -> None:
 
 
 def test_flow_values() -> None:
-    doc = parse_yaml_subset(
-        "tags: [pets, listing]\nobj: {a: 1, b: [x, y]}\nempty: []\n"
-    )
+    doc = parse_yaml_subset("tags: [pets, listing]\nobj: {a: 1, b: [x, y]}\nempty: []\n")
     assert doc.value == {
         "tags": ["pets", "listing"],
         "obj": {"a": 1, "b": ["x", "y"]},
@@ -58,9 +56,7 @@ def test_flow_values() -> None:
 
 
 def test_comments_and_doc_markers() -> None:
-    doc = parse_yaml_subset(
-        "---\n# header comment\na: 1  # trailing\n\nb: \"# not comment\"\n...\n"
-    )
+    doc = parse_yaml_subset('---\n# header comment\na: 1  # trailing\n\nb: "# not comment"\n...\n')
     assert doc.value == {"a": 1, "b": "# not comment"}
 
 
@@ -71,9 +67,7 @@ def test_multi_document_warns_and_uses_first() -> None:
 
 
 def test_block_scalars() -> None:
-    doc = parse_yaml_subset(
-        "lit: |\n  line one\n  line two\nfold: >\n  part a\n  part b\n"
-    )
+    doc = parse_yaml_subset("lit: |\n  line one\n  line two\nfold: >\n  part a\n  part b\n")
     v = doc.value
     assert isinstance(v, dict)
     assert v["lit"] == "line one\nline two\n"
@@ -81,9 +75,7 @@ def test_block_scalars() -> None:
 
 
 def test_anchors_aliases_merge_keys_are_diagnostics() -> None:
-    doc = parse_yaml_subset(
-        "defaults: &d\n  x: 1\nuse:\n  <<: *d\n"
-    )
+    doc = parse_yaml_subset("defaults: &d\n  x: 1\nuse:\n  <<: *d\n")
     codes = _codes(doc)
     assert "yaml-anchor-unsupported" in codes
     assert "yaml-merge-key-unsupported" in codes
@@ -97,9 +89,7 @@ def test_duplicate_keys_warn_first_wins() -> None:
 
 
 def test_quoted_keys_and_paths() -> None:
-    doc = parse_yaml_subset(
-        'paths:\n  /pets/{petId}:\n    get: 1\n  "/weird:key": 2\n'
-    )
+    doc = parse_yaml_subset('paths:\n  /pets/{petId}:\n    get: 1\n  "/weird:key": 2\n')
     v = doc.value
     assert isinstance(v, dict)
     assert v["paths"] == {"/pets/{petId}": {"get": 1}, "/weird:key": 2}

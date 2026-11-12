@@ -24,8 +24,7 @@ def _imports(res):
 
 
 def _bindings(res):
-    return {r.name: r.target for r in res.references
-            if r.context == "import-member"}
+    return {r.name: r.target for r in res.references if r.context == "import-member"}
 
 
 # -- import x = require (P1 — axios cjs helpers) ------------------------
@@ -68,14 +67,11 @@ import './side';
 def test_export_equals_assignment_reference(engine: ParseEngine) -> None:
     """`export = axios` (CJS/UMD): a expressão vira referência
     export-assignment — o módulo inteiro é o export."""
-    res = engine.parse(
-        "index.d.cts",
-        b"declare const axios: number;\nexport = axios;\n")
+    res = engine.parse("index.d.cts", b"declare const axios: number;\nexport = axios;\n")
     refs = [r for r in res.references if r.context == "export-assignment"]
     assert [r.name for r in refs] == ["axios"]
     # `declare const` também vira símbolo (declarador sem valor)
-    assert any(s.name == "axios" and s.kind == "symbol"
-               for s in res.symbols)
+    assert any(s.name == "axios" and s.kind == "symbol" for s in res.symbols)
 
 
 def test_export_from_creates_imports_and_bindings(
@@ -109,8 +105,7 @@ def test_export_local_specifiers_are_references(
 def test_export_default_anonymous(engine: ParseEngine) -> None:
     res = engine.parse(
         "b/d.ts",
-        b"export default function () { return 1 }\n"
-        b"export default class {}\n",
+        b"export default function () { return 1 }\nexport default class {}\n",
     )
     defaults = [s for s in res.symbols if s.name == "default"]
     assert {s.kind for s in defaults} == {"function", "class"}
@@ -125,8 +120,7 @@ def test_export_default_named_keeps_name(engine: ParseEngine) -> None:
 
 
 def test_export_declare_unwraps(engine: ParseEngine) -> None:
-    res = engine.parse(
-        "b/dc.ts", b"export declare class DC { m(): void }\n")
+    res = engine.parse("b/dc.ts", b"export declare class DC { m(): void }\n")
     names = {s.qualified_name: s for s in res.symbols}
     assert names["b.dc.DC"].kind == "class"
     assert "export" in names["b.dc.DC"].modifiers
@@ -152,8 +146,7 @@ def test_dynamic_import_nonliteral_diagnostic(
         b"export async function go(n: string) { return import(n); }\n",
     )
     assert _imports(res) == []
-    assert any(d.code == "dynamic-import-nonliteral"
-               for d in res.diagnostics)
+    assert any(d.code == "dynamic-import-nonliteral" for d in res.diagnostics)
 
 
 def test_require_call_and_binding(engine: ParseEngine) -> None:
@@ -163,8 +156,7 @@ def test_require_call_and_binding(engine: ParseEngine) -> None:
         b"const axios = require('axios').default;\n"
         b"require('side');\n",
     )
-    assert {r.to_name for r in _imports(res)} == {
-        "assert", "axios", "side"}
+    assert {r.to_name for r in _imports(res)} == {"assert", "axios", "side"}
     b = _bindings(res)
     assert b["assert"] == "assert"
     assert b["axios"] == "axios.default"
@@ -179,9 +171,7 @@ def test_require_call_and_binding(engine: ParseEngine) -> None:
 def test_namespace_scopes_children(engine: ParseEngine) -> None:
     res = engine.parse(
         "n.ts",
-        b"export namespace Config {\n"
-        b"  export function read(): string { return 'x' }\n"
-        b"}\n",
+        b"export namespace Config {\n  export function read(): string { return 'x' }\n}\n",
     )
     names = {s.qualified_name: s for s in res.symbols}
     assert names["n.Config"].kind == "symbol"
@@ -202,6 +192,7 @@ def test_declare_namespace_and_module(engine: ParseEngine) -> None:
 
 def test_module_name_dcts_dmts() -> None:
     from code_atlas.parsers.languages.typescript import module_name
+
     assert module_name("index.d.cts") == "index"
     assert module_name("index.d.mts") == "index"
     assert module_name("a/x.cts") == "a.x"
@@ -219,8 +210,7 @@ def test_decorators_class_and_method(engine: ParseEngine) -> None:
     names = {s.qualified_name: s for s in res.symbols}
     assert names["d.Svc"].decorators == ("Injectable()",)
     assert names["d.Svc.y"].decorators == ("memo",)
-    decs = {(r.name, r.scope_path)
-            for r in res.references if r.context == "decorator"}
+    decs = {(r.name, r.scope_path) for r in res.references if r.context == "decorator"}
     assert ("Injectable", ("Svc",)) in decs
     assert ("memo", ("Svc", "y")) in decs
     # `@Injectable()` não gera CALLS espúrio para Injectable

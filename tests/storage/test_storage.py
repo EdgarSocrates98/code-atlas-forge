@@ -14,25 +14,33 @@ from code_atlas.storage import connect, migrate, schema_version
 from code_atlas.storage.store import Store
 
 EXPECTED_TABLES = {
-    "schema_migrations", "repositories", "snapshots", "source_files",
-    "file_inventory", "symbols", "symbol_occurrences", "relations",
-    "evidence", "index_jobs",
+    "schema_migrations",
+    "repositories",
+    "snapshots",
+    "source_files",
+    "file_inventory",
+    "symbols",
+    "symbol_occurrences",
+    "relations",
+    "evidence",
+    "index_jobs",
 }
 
 
 def _tables(conn: sqlite3.Connection) -> set[str]:
-    rows = conn.execute(
-        "SELECT name FROM sqlite_master WHERE type IN ('table','view')"
-    ).fetchall()
+    rows = conn.execute("SELECT name FROM sqlite_master WHERE type IN ('table','view')").fetchall()
     return {r["name"] for r in rows}
 
 
 def test_migrations_fresh_db(db: sqlite3.Connection) -> None:
     assert schema_version(db) >= 1
     assert _tables(db) >= EXPECTED_TABLES
-    fts_tables = {r["name"] for r in db.execute(
-        "SELECT name FROM sqlite_master WHERE type='table' AND name='fts_symbols'"
-    )}
+    fts_tables = {
+        r["name"]
+        for r in db.execute(
+            "SELECT name FROM sqlite_master WHERE type='table' AND name='fts_symbols'"
+        )
+    }
     assert fts_tables == {"fts_symbols"}  # build tem FTS5
 
 
@@ -46,9 +54,7 @@ def test_migrations_idempotent(db: sqlite3.Connection) -> None:
 def test_migrations_checksum_drift_detected(tmp_path: Path) -> None:
     conn = connect(tmp_path / "x.db")
     migrate(conn)
-    conn.execute(
-        "UPDATE schema_migrations SET checksum = 'tampered' WHERE version = 1"
-    )
+    conn.execute("UPDATE schema_migrations SET checksum = 'tampered' WHERE version = 1")
     conn.commit()
     from code_atlas.storage.migrations import MigrationError
 
@@ -65,8 +71,7 @@ def test_pragmas(db: sqlite3.Connection) -> None:
 def test_fk_enforced(db: sqlite3.Connection) -> None:
     with pytest.raises(sqlite3.IntegrityError):
         db.execute(
-            "INSERT INTO snapshots (repository_id, worktree_digest, status) "
-            "VALUES (?, ?, 'READY')",
+            "INSERT INTO snapshots (repository_id, worktree_digest, status) VALUES (?, ?, 'READY')",
             (999, "d"),
         )
 
@@ -79,9 +84,7 @@ def test_snapshot_lifecycle_happy_path(
     assert out.files_indexed == 2
     snap = Store(db).snapshot_by_id(out.snapshot_id)  # type: ignore[arg-type]
     assert snap is not None and snap.status is SnapshotStatus.READY
-    job = db.execute(
-        "SELECT status FROM index_jobs WHERE id = ?", (out.job_id,)
-    ).fetchone()
+    job = db.execute("SELECT status FROM index_jobs WHERE id = ?", (out.job_id,)).fetchone()
     assert job["status"] == "success"
 
 
@@ -133,8 +136,9 @@ def test_failed_index_preserves_ready(
     store.insert_inventory_rows = orig
 
     ready = Store(db).latest_ready_snapshot(
-        db.execute("SELECT repository_id FROM snapshots WHERE id = ?",
-                   (first.snapshot_id,)).fetchone()["repository_id"]
+        db.execute(
+            "SELECT repository_id FROM snapshots WHERE id = ?", (first.snapshot_id,)
+        ).fetchone()["repository_id"]
     )
     assert ready is not None and ready.id == first.snapshot_id
     assert ready.status is SnapshotStatus.READY
@@ -195,9 +199,7 @@ def test_atomic_publish_single_commit(
     fk = db.execute("PRAGMA foreign_key_check").fetchall()
     assert fk == []
     # exatamente 1 READY por repo
-    ready = db.execute(
-        "SELECT COUNT(*) AS c FROM snapshots WHERE status = 'READY'"
-    ).fetchone()
+    ready = db.execute("SELECT COUNT(*) AS c FROM snapshots WHERE status = 'READY'").fetchone()
     assert ready["c"] == 1
 
 

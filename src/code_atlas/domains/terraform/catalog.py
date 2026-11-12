@@ -23,9 +23,7 @@ _RESOURCE_CLASS_PREFIXES: tuple[tuple[str, tuple[str, ...]], ...] = (
     ("cloudwatch", ("aws_cloudwatch_",)),
 )
 
-RESOURCE_CLASSES: frozenset[str] = frozenset(
-    cls for cls, _ in _RESOURCE_CLASS_PREFIXES
-) | {"other"}
+RESOURCE_CLASSES: frozenset[str] = frozenset(cls for cls, _ in _RESOURCE_CLASS_PREFIXES) | {"other"}
 
 
 def provider_of(resource_type: str) -> str:

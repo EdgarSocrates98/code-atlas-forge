@@ -52,8 +52,13 @@ class FakeLspServer:
     """Servidor stdio fake — comportamento configurável por flags."""
 
     caps: frozenset[str] = frozenset(
-        {"definitionProvider", "referencesProvider",
-         "documentSymbolProvider", "workspaceSymbolProvider"})
+        {
+            "definitionProvider",
+            "referencesProvider",
+            "documentSymbolProvider",
+            "workspaceSymbolProvider",
+        }
+    )
     hang: bool = False
     crash_after: int | None = None
     server_name: str = "fake-lsp"
@@ -81,16 +86,20 @@ class FakeLspServer:
                     return  # morre: fecha streams no finally
                 if self.hang:
                     continue  # nunca responde → timeout no cliente
-                if (self.push_diagnostics_uri
-                        and not self._pushed):
+                if self.push_diagnostics_uri and not self._pushed:
                     self._pushed = True
-                    writer.write(_frame({
-                        "jsonrpc": "2.0",
-                        "method": "textDocument/publishDiagnostics",
-                        "params": {
-                            "uri": self.push_diagnostics_uri,
-                            "diagnostics": self.push_diagnostics,
-                        }}))
+                    writer.write(
+                        _frame(
+                            {
+                                "jsonrpc": "2.0",
+                                "method": "textDocument/publishDiagnostics",
+                                "params": {
+                                    "uri": self.push_diagnostics_uri,
+                                    "diagnostics": self.push_diagnostics,
+                                },
+                            }
+                        )
+                    )
                 resp = self._dispatch(msg["method"], msg["id"])
                 writer.write(_frame(resp))
                 writer.flush()
@@ -103,8 +112,7 @@ class FakeLspServer:
             caps = {c: True for c in self.caps}
             result = {
                 "capabilities": caps,
-                "serverInfo": {"name": self.server_name,
-                               "version": self.server_version},
+                "serverInfo": {"name": self.server_name, "version": self.server_version},
             }
         elif method == "shutdown":
             result = None
@@ -115,9 +123,11 @@ class FakeLspServer:
         elif method in ("textDocument/documentSymbol", "workspace/symbol"):
             result = []
         else:
-            return {"jsonrpc": "2.0", "id": rid,
-                    "error": {"code": -32601,
-                              "message": f"unknown {method}"}}
+            return {
+                "jsonrpc": "2.0",
+                "id": rid,
+                "error": {"code": -32601, "message": f"unknown {method}"},
+            }
         return {"jsonrpc": "2.0", "id": rid, "result": result}
 
 
@@ -126,8 +136,10 @@ def pipe_pair():
     c_r_fd, s_w_fd = os.pipe()
     s_r_fd, c_w_fd = os.pipe()
     return (
-        os.fdopen(c_r_fd, "rb"), os.fdopen(c_w_fd, "wb"),
-        os.fdopen(s_r_fd, "rb"), os.fdopen(s_w_fd, "wb"),
+        os.fdopen(c_r_fd, "rb"),
+        os.fdopen(c_w_fd, "wb"),
+        os.fdopen(s_r_fd, "rb"),
+        os.fdopen(s_w_fd, "wb"),
     )
 
 
@@ -136,7 +148,6 @@ def start_fake(server: FakeLspServer):
     from code_atlas.resolvers.lsp.transport import JsonRpcTransport
 
     c_r, c_w, s_r, s_w = pipe_pair()
-    t = threading.Thread(
-        target=server.serve, args=(s_r, s_w), daemon=True)
+    t = threading.Thread(target=server.serve, args=(s_r, s_w), daemon=True)
     t.start()
     return JsonRpcTransport(c_r, c_w), (s_r, s_w, t)

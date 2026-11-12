@@ -46,28 +46,34 @@ def _cosine(a: list[float], b: list[float]) -> float:
 class BruteForceIndex:
     """Scan O(n·dim) com filtro de snapshot — honesto, sem deps."""
 
-    def __init__(
-        self, conn: sqlite3.Connection, model_id: str, model_version: str
-    ) -> None:
+    def __init__(self, conn: sqlite3.Connection, model_id: str, model_version: str) -> None:
         self._conn = conn
         self._model_id = model_id
         self._model_version = model_version
 
     def upsert(
-        self, snapshot_id: int, occurrence_id: int,
-        symbol_key: str, vector: list[float],
+        self,
+        snapshot_id: int,
+        occurrence_id: int,
+        symbol_key: str,
+        vector: list[float],
         content_hash: str = "",
     ) -> None:
         self._conn.execute(
             _UPSERT,
-            (snapshot_id, occurrence_id, symbol_key, self._model_id,
-             self._model_version, len(vector), content_hash,
-             pack_vector(vector)),
+            (
+                snapshot_id,
+                occurrence_id,
+                symbol_key,
+                self._model_id,
+                self._model_version,
+                len(vector),
+                content_hash,
+                pack_vector(vector),
+            ),
         )
 
-    def search(
-        self, snapshot_id: int, query: list[float], limit: int
-    ) -> list[VectorSearchResult]:
+    def search(self, snapshot_id: int, query: list[float], limit: int) -> list[VectorSearchResult]:
         rows = self._conn.execute(
             "SELECT occurrence_id, symbol_key, vector "
             "FROM vector_embeddings "
@@ -108,8 +114,7 @@ class SqliteVecIndex(BruteForceIndex):
     """
 
     def __init__(
-        self, conn: sqlite3.Connection, model_id: str,
-        model_version: str, dim: int
+        self, conn: sqlite3.Connection, model_id: str, model_version: str, dim: int
     ) -> None:
         super().__init__(conn, model_id, model_version)
         self._dim = dim
@@ -125,24 +130,21 @@ class SqliteVecIndex(BruteForceIndex):
         conn.execute(create_vec_sql)
 
     def upsert(
-        self, snapshot_id: int, occurrence_id: int,
-        symbol_key: str, vector: list[float],
+        self,
+        snapshot_id: int,
+        occurrence_id: int,
+        symbol_key: str,
+        vector: list[float],
         content_hash: str = "",
     ) -> None:
-        super().upsert(
-            snapshot_id, occurrence_id, symbol_key, vector, content_hash)
+        super().upsert(snapshot_id, occurrence_id, symbol_key, vector, content_hash)
+        self._conn.execute("DELETE FROM vec_symbols WHERE occurrence_id = ?", (occurrence_id,))
         self._conn.execute(
-            "DELETE FROM vec_symbols WHERE occurrence_id = ?",
-            (occurrence_id,))
-        self._conn.execute(
-            "INSERT INTO vec_symbols "
-            "(snapshot_id, occurrence_id, embedding) VALUES (?, ?, ?)",
+            "INSERT INTO vec_symbols (snapshot_id, occurrence_id, embedding) VALUES (?, ?, ?)",
             (snapshot_id, occurrence_id, pack_vector(vector)),
         )
 
-    def search(
-        self, snapshot_id: int, query: list[float], limit: int
-    ) -> list[VectorSearchResult]:
+    def search(self, snapshot_id: int, query: list[float], limit: int) -> list[VectorSearchResult]:
         try:
             rows = self._conn.execute(
                 "SELECT occurrence_id, distance FROM vec_symbols "
@@ -164,6 +166,4 @@ class SqliteVecIndex(BruteForceIndex):
 
     def delete_snapshot(self, snapshot_id: int) -> None:
         super().delete_snapshot(snapshot_id)
-        self._conn.execute(
-            "DELETE FROM vec_symbols WHERE snapshot_id = ?",
-            (snapshot_id,))
+        self._conn.execute("DELETE FROM vec_symbols WHERE snapshot_id = ?", (snapshot_id,))

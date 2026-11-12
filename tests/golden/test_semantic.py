@@ -46,14 +46,15 @@ def test_shadowed_import_never_resolves_to_imported(tmp_path: Path) -> None:
     sem ordem textual o desfecho honesto é ambiguous."""
     rels = _rels(tmp_path / "a.db", CORPUS_DIR / "py_advanced")
     edge = next(
-        r for r in rels if r[0] == "CALLS" and r[1] == "pkg.shadowed.use"
-        and "helper" in r[2]
+        r for r in rels if r[0] == "CALLS" and r[1] == "pkg.shadowed.use" and "helper" in r[2]
     )
     assert edge[3] == "ambiguous", edge
     # nunca resolved para o alvo plausível-mas-errado
     assert not any(
-        r[0] == "CALLS" and r[1] == "pkg.shadowed.use"
-        and r[2] == "pkg.util.helper" and r[3] == "resolved"
+        r[0] == "CALLS"
+        and r[1] == "pkg.shadowed.use"
+        and r[2] == "pkg.util.helper"
+        and r[3] == "resolved"
         for r in rels
     )
 
@@ -61,13 +62,8 @@ def test_shadowed_import_never_resolves_to_imported(tmp_path: Path) -> None:
 def test_homonymous_picks_bound_import_not_sibling(tmp_path: Path) -> None:
     """`process` importado de dup_a resolve para dup_a — nunca dup_b."""
     rels = _rels(tmp_path / "b.db", CORPUS_DIR / "py_advanced")
-    assert (
-        "CALLS", "main.main", "pkg.dup_a.process", "resolved", "resolved"
-    ) in rels
-    assert not any(
-        r[0] == "CALLS" and r[1] == "main.main" and "dup_b" in r[2]
-        for r in rels
-    )
+    assert ("CALLS", "main.main", "pkg.dup_a.process", "resolved", "resolved") in rels
+    assert not any(r[0] == "CALLS" and r[1] == "main.main" and "dup_b" in r[2] for r in rels)
 
 
 def test_star_import_gives_module_edge_not_member(tmp_path: Path) -> None:
@@ -75,13 +71,14 @@ def test_star_import_gives_module_edge_not_member(tmp_path: Path) -> None:
     o membro `star_fn` NÃO é resolvido (sem binding real)."""
     rels = _rels(tmp_path / "c.db", CORPUS_DIR / "py_advanced")
     assert (
-        "IMPORTS", "pkg.star_user", "pkg.star_target",
-        "resolved", "resolved",
+        "IMPORTS",
+        "pkg.star_user",
+        "pkg.star_target",
+        "resolved",
+        "resolved",
     ) in rels
     assert not any(
-        r[0] == "CALLS" and r[1] == "pkg.star_user.use_star"
-        and r[3] == "resolved"
-        for r in rels
+        r[0] == "CALLS" and r[1] == "pkg.star_user.use_star" and r[3] == "resolved" for r in rels
     )
 
 
@@ -90,13 +87,13 @@ def test_barrel_member_calls_stay_honest(tmp_path: Path) -> None:
     reexportados (`Thing`, `otherFn`) não viram resolved por coincidência
     de nome — resolver sintático não segue `export { X }`."""
     rels = _rels(tmp_path / "d.db", CORPUS_DIR / "ts_advanced")
-    assert (
-        "IMPORTS", "src.use", "src.barrel.index", "resolved", "resolved"
-    ) in rels
+    assert ("IMPORTS", "src.use", "src.barrel.index", "resolved", "resolved") in rels
     for text in ("Thing", "otherFn"):
         assert not any(
-            r[0] == "CALLS" and r[1] == "src.use.useAll"
-            and r[2] == f"src.barrel.index.{text}" and r[3] == "resolved"
+            r[0] == "CALLS"
+            and r[1] == "src.use.useAll"
+            and r[2] == f"src.barrel.index.{text}"
+            and r[3] == "resolved"
             for r in rels
         ), text
 
@@ -104,15 +101,14 @@ def test_barrel_member_calls_stay_honest(tmp_path: Path) -> None:
 def test_circular_imports_resolve_both_ways(tmp_path: Path) -> None:
     """Ciclo a↔b: ambas arestas IMPORTS resolvidas, calls nos dois lados."""
     rels = _rels(tmp_path / "e.db", CORPUS_DIR / "py_advanced")
+    assert ("IMPORTS", "pkg.cycle_a", "pkg.cycle_b", "resolved", "resolved") in rels
+    assert ("IMPORTS", "pkg.cycle_b", "pkg.cycle_a", "resolved", "resolved") in rels
     assert (
-        "IMPORTS", "pkg.cycle_a", "pkg.cycle_b", "resolved", "resolved"
-    ) in rels
-    assert (
-        "IMPORTS", "pkg.cycle_b", "pkg.cycle_a", "resolved", "resolved"
-    ) in rels
-    assert (
-        "CALLS", "pkg.cycle_a.alpha", "pkg.cycle_b.beta",
-        "resolved", "resolved",
+        "CALLS",
+        "pkg.cycle_a.alpha",
+        "pkg.cycle_b.beta",
+        "resolved",
+        "resolved",
     ) in rels
 
 
@@ -120,13 +116,8 @@ def test_relative_import_forms_resolve(tmp_path: Path) -> None:
     """`from . import util` e `from .util import helper` — ambos
     resolvem para pkg.util (regressão do separador `..`)."""
     rels = _rels(tmp_path / "f.db", CORPUS_DIR / "py_advanced")
-    assert (
-        "IMPORTS", "pkg.rel", "pkg.util", "resolved", "resolved"
-    ) in rels
-    assert not any(
-        r[0] == "IMPORTS" and r[1] == "pkg.rel" and r[3] != "resolved"
-        for r in rels
-    )
+    assert ("IMPORTS", "pkg.rel", "pkg.util", "resolved", "resolved") in rels
+    assert not any(r[0] == "IMPORTS" and r[1] == "pkg.rel" and r[3] != "resolved" for r in rels)
 
 
 # --- incremental-state fixtures ---------------------------------------
@@ -144,7 +135,8 @@ def test_invalidation_single_file_change(tmp_path: Path) -> None:
     old = target.read_text()
 
     res = evaluate_incremental(
-        repo, tmp_path / "i.db",
+        repo,
+        tmp_path / "i.db",
         mutate=lambda: target.write_text(old + "\n\ndef added():\n    return 1\n"),
         restore=lambda: target.write_text(old),
     )
@@ -152,8 +144,7 @@ def test_invalidation_single_file_change(tmp_path: Path) -> None:
     assert res["reuse_symbol_ids_stable"]
     assert res["plan_actions"].get("pkg/dup_a.py") == "reparse"
     assert "pkg/core.py" in {
-        p for p, a in res["plan_actions"].items()
-        if a == "revalidate-relations"
+        p for p, a in res["plan_actions"].items() if a == "revalidate-relations"
     }
 
 
@@ -162,7 +153,8 @@ def test_invalidation_rename_pair(tmp_path: Path) -> None:
     src, dst = repo / "pkg" / "dup_a.py", repo / "pkg" / "renamed.py"
 
     res = evaluate_incremental(
-        repo, tmp_path / "r.db",
+        repo,
+        tmp_path / "r.db",
         mutate=lambda: src.rename(dst),
         restore=lambda: dst.rename(src),
     )
@@ -177,7 +169,8 @@ def test_invalidation_delete(tmp_path: Path) -> None:
     old = target.read_bytes()
 
     res = evaluate_incremental(
-        repo, tmp_path / "d.db",
+        repo,
+        tmp_path / "d.db",
         mutate=target.unlink,
         restore=lambda: target.write_bytes(old),
     )
@@ -205,9 +198,7 @@ def test_scip_bad_fixtures_rejected(tmp_path: Path) -> None:
 
     # wrong repo root — binding de revisão rejeita por default
     wrong = tmp_path / "wrong_root.scip"
-    wrong.write_bytes(
-        index_bytes("file:///other/repo", [], tool=tool_info())
-    )
+    wrong.write_bytes(index_bytes("file:///other/repo", [], tool=tool_info()))
     workspace = tmp_path / "ws"
     workspace.mkdir()
     out = load_index(wrong, workspace_root=workspace)
@@ -236,7 +227,5 @@ def test_lsp_absent_typed_error_not_crash() -> None:
 
 def test_lsp_disabled_by_default() -> None:
     """Opt-in é o default — nada spawn sem `enabled=True` explícito."""
-    spec = LspServerSpec(
-        name="x", cmd=("whatever",), languages=frozenset()
-    )
+    spec = LspServerSpec(name="x", cmd=("whatever",), languages=frozenset())
     assert spec.enabled is False

@@ -31,7 +31,7 @@ class K(B1, B2):
     async def am(self): pass
 '''.encode()
 
-TS_SRC = b'''import {a as b} from "m";
+TS_SRC = b"""import {a as b} from "m";
 import * as ns from "n";
 export interface I extends J {}
 export class C extends B implements I, K {
@@ -42,11 +42,11 @@ const f = async (x: number) => x;
 type T = string;
 enum E { A }
 export default function g() {}
-'''
+"""
 
-TSX_SRC = b'''export const Card = (p: {t: string}) => <div title={p.t}>x</div>;
+TSX_SRC = b"""export const Card = (p: {t: string}) => <div title={p.t}>x</div>;
 const el = <Card t="hi"/>;
-'''
+"""
 
 
 @pytest.fixture()
@@ -193,12 +193,8 @@ def test_no_tree_sitter_outside_parsers() -> None:
         for node in ast.walk(tree):
             if isinstance(node, ast.Import):
                 offenders += [
-                    f"{py}:{node.lineno}"
-                    for a in node.names
-                    if a.name.startswith("tree_sitter")
+                    f"{py}:{node.lineno}" for a in node.names if a.name.startswith("tree_sitter")
                 ]
-            elif isinstance(node, ast.ImportFrom) and (
-                node.module or ""
-            ).startswith("tree_sitter"):
+            elif isinstance(node, ast.ImportFrom) and (node.module or "").startswith("tree_sitter"):
                 offenders.append(f"{py}:{node.lineno}")
     assert offenders == []

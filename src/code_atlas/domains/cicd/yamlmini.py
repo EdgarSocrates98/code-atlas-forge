@@ -35,9 +35,20 @@ _ALIAS_TOKEN = re.compile(r"^\*[^\s,[\]{}]+")
 _TAG_TOKEN = re.compile(r"^!(?:[^\s!]+!)?[^\s,[\]{}]*")
 
 _ESCAPES = {
-    "0": "\0", "a": "\a", "b": "\b", "t": "\t", "n": "\n",
-    "v": "\v", "f": "\f", "r": "\r", "e": "\x1b", '"': '"',
-    "\\": "\\", "/": "/", "_": "\xa0", "N": "\x85",
+    "0": "\0",
+    "a": "\a",
+    "b": "\b",
+    "t": "\t",
+    "n": "\n",
+    "v": "\v",
+    "f": "\f",
+    "r": "\r",
+    "e": "\x1b",
+    '"': '"',
+    "\\": "\\",
+    "/": "/",
+    "_": "\xa0",
+    "N": "\x85",
 }
 
 
@@ -45,11 +56,11 @@ _ESCAPES = {
 class YamlDiagnostic:
     """Problema estrutural do subconjunto YAML — posicional e honesto."""
 
-    code: str        # ex.: "anchor-unsupported", "expected-key", "tab-indent"
-    severity: str    # "error" | "warning" | "info"
+    code: str  # ex.: "anchor-unsupported", "expected-key", "tab-indent"
+    severity: str  # "error" | "warning" | "info"
     message: str
-    line: int = 0    # 1-based; 0 = arquivo inteiro
-    col: int = 0     # 0-based (char)
+    line: int = 0  # 1-based; 0 = arquivo inteiro
+    col: int = 0  # 0-based (char)
 
 
 @dataclass(frozen=True)
@@ -63,7 +74,7 @@ class YNode:
     kind: YNodeKind
     span: SourceSpan
     value: str = ""
-    style: str = ""   # plain|single|double|literal|folded|flow — auditoria
+    style: str = ""  # plain|single|double|literal|folded|flow — auditoria
     pairs: tuple[tuple[YNode, YNode], ...] = ()
     items: tuple[YNode, ...] = ()
 
@@ -83,9 +94,7 @@ class YNode:
 
     def keys(self) -> tuple[str, ...]:
         """Chaves escalares do mapa, na ordem declarada."""
-        return tuple(
-            k.value for k, _ in self.pairs if k.kind == "scalar"
-        )
+        return tuple(k.value for k, _ in self.pairs if k.kind == "scalar")
 
     def scalar_text(self) -> str | None:
         """Texto do escalar; ``None`` quando o nó não é escalar."""
@@ -100,9 +109,7 @@ class YNode:
         if self.kind == "scalar":
             return (self.value,) if self.value else ()
         if self.kind == "seq":
-            return tuple(
-                it.value for it in self.items if it.kind == "scalar"
-            )
+            return tuple(it.value for it in self.items if it.kind == "scalar")
         return ()
 
 
@@ -110,11 +117,11 @@ class YNode:
 class _Line:
     """Linha física com posição — base de todos os spans."""
 
-    num: int          # 1-based
-    byte0: int        # byte offset do início da linha no documento
-    raw: str          # conteúdo sem newline
-    indent: int       # colunas de espaço à esquerda (tab conta 1)
-    body: str         # raw[indent:]
+    num: int  # 1-based
+    byte0: int  # byte offset do início da linha no documento
+    raw: str  # conteúdo sem newline
+    indent: int  # colunas de espaço à esquerda (tab conta 1)
+    body: str  # raw[indent:]
 
 
 def _is_blank_or_comment(line: _Line) -> bool:
@@ -144,28 +151,29 @@ class _Parser:
             ws = body[:ws_len]
             if "\t" in ws:
                 self._diag(
-                    "tab-indent", "error",
-                    "tab in indentation is unsupported YAML subset", n, 0,
+                    "tab-indent",
+                    "error",
+                    "tab in indentation is unsupported YAML subset",
+                    n,
+                    0,
                 )
-            self.lines.append(
-                _Line(n, pos, body, ws_len, body[ws_len:])
-            )
+            self.lines.append(_Line(n, pos, body, ws_len, body[ws_len:]))
             pos += len(rl.encode("utf-8")) + 1
         self.n = len(self.lines)
 
     # --- diagnósticos / spans ------------------------------------------
 
     def _diag(
-        self, code: str, severity: str, message: str,
-        line: int = 0, col: int = 0,
+        self,
+        code: str,
+        severity: str,
+        message: str,
+        line: int = 0,
+        col: int = 0,
     ) -> None:
-        self.diags.append(
-            YamlDiagnostic(code, severity, message, line, col)
-        )
+        self.diags.append(YamlDiagnostic(code, severity, message, line, col))
 
-    def _span(
-        self, l1: int, c1: int, l2: int, c2: int
-    ) -> SourceSpan:
+    def _span(self, l1: int, c1: int, l2: int, c2: int) -> SourceSpan:
         """Span em bytes: ``l*`` são índices 0-based de linha."""
         a = self.lines[l1]
         b = self.lines[l2]
@@ -202,8 +210,10 @@ class _Parser:
         if i is not None and self.lines[i].body.lstrip().startswith("%"):
             while i is not None and self.lines[i].body.lstrip().startswith("%"):
                 self._diag(
-                    "directive-unsupported", "warning",
-                    "YAML directive ignored", self.lines[i].num,
+                    "directive-unsupported",
+                    "warning",
+                    "YAML directive ignored",
+                    self.lines[i].num,
                 )
                 i = self._sig(i + 1)
             while i is not None and self.lines[i].body.strip() == "---":
@@ -219,7 +229,8 @@ class _Parser:
             if stripped in _DOC_MARKERS:
                 if stripped == "---":
                     self._diag(
-                        "multi-document-unsupported", "warning",
+                        "multi-document-unsupported",
+                        "warning",
                         "additional YAML document ignored",
                         self.lines[j].num,
                     )
@@ -228,9 +239,11 @@ class _Parser:
                     in_extra_doc = False
             elif not in_extra_doc:
                 self._diag(
-                    "unparsed-trailing-content", "error",
+                    "unparsed-trailing-content",
+                    "error",
                     "line could not be attached to the document tree",
-                    self.lines[j].num, self.lines[j].indent,
+                    self.lines[j].num,
+                    self.lines[j].indent,
                 )
             j = self._sig(j + 1)
         return node
@@ -280,10 +293,7 @@ class _Parser:
 
     @staticmethod
     def _is_key_colon(body: str, k: int) -> bool:
-        return (
-            body[k] == ":"
-            and (k + 1 == len(body) or body[k + 1] == " ")
-        )
+        return body[k] == ":" and (k + 1 == len(body) or body[k + 1] == " ")
 
     def _plain_key_pos(self, body: str) -> int | None:
         depth = 0
@@ -313,9 +323,11 @@ class _Parser:
                 break
             if ln.indent > indent:
                 self._diag(
-                    "unexpected-indent", "error",
+                    "unexpected-indent",
+                    "error",
                     "line indented deeper than enclosing map",
-                    ln.num, ln.indent,
+                    ln.num,
+                    ln.indent,
                 )
                 i = j + 1
                 continue
@@ -326,8 +338,7 @@ class _Parser:
             if pair is not None:
                 pairs.append(pair)
         return (
-            YNode(kind="map", pairs=tuple(pairs),
-                  span=self._join_span(first, pairs)),
+            YNode(kind="map", pairs=tuple(pairs), span=self._join_span(first, pairs)),
             i,
         )
 
@@ -339,45 +350,53 @@ class _Parser:
         kpos = self._split_key(ln.body)
         if kpos is None:
             self._diag(
-                "expected-key", "error",
+                "expected-key",
+                "error",
                 "line inside mapping has no 'key:' separator",
-                ln.num, ln.indent,
+                ln.num,
+                ln.indent,
             )
             return None, j + 1
         raw_key = ln.body[:kpos].strip()
         key = self._decode_key(raw_key, j)
         if key in seen:
             self._diag(
-                "duplicate-key", "warning",
+                "duplicate-key",
+                "warning",
                 f"duplicate mapping key {key!r}: later entry wins",
-                ln.num, ln.indent,
+                ln.num,
+                ln.indent,
             )
         seen[key] = j
         if key == "<<":
             self._diag(
-                "merge-key-unsupported", "warning",
+                "merge-key-unsupported",
+                "warning",
                 "merge key '<<' is outside the supported subset",
-                ln.num, ln.indent,
+                ln.num,
+                ln.indent,
             )
         key_node = YNode(
-            kind="scalar", value=key, style="key",
+            kind="scalar",
+            value=key,
+            style="key",
             span=self._span(j, ln.indent, j, ln.indent + len(raw_key)),
         )
-        rest = ln.body[kpos + 1:]
+        rest = ln.body[kpos + 1 :]
         stripped = rest.strip()
         if not stripped:
             child, i = self._map_value_block(j, indent)
             return (key_node, child), i
         child, i = self._parse_inline(
-            stripped, j,
+            stripped,
+            j,
             ln.indent + kpos + 1 + len(rest) - len(rest.lstrip()),
-            indent, j + 1,
+            indent,
+            j + 1,
         )
         return (key_node, child), i
 
-    def _map_value_block(
-        self, j: int, indent: int
-    ) -> tuple[YNode, int]:
+    def _map_value_block(self, j: int, indent: int) -> tuple[YNode, int]:
         """Valor de ``key:`` vazio: bloco mais fundo ou seq mesmo indent."""
         j2 = self._sig(j + 1)
         if (
@@ -387,20 +406,14 @@ class _Parser:
         ):
             return self._parse_seq(j2, indent)
         child, i = self.parse_block(j + 1, indent + 1)
-        return (
-            child if child is not None else self._null_at(j)
-        ), i
+        return (child if child is not None else self._null_at(j)), i
 
-    def _join_span(
-        self, first_line: int, pairs: list[tuple[YNode, YNode]]
-    ) -> SourceSpan:
+    def _join_span(self, first_line: int, pairs: list[tuple[YNode, YNode]]) -> SourceSpan:
         first = self.lines[first_line]
         if pairs:
             last = pairs[-1][1].span
             return SourceSpan(
-                start_byte=first.byte0 + len(
-                    first.raw[: first.indent].encode("utf-8")
-                ),
+                start_byte=first.byte0 + len(first.raw[: first.indent].encode("utf-8")),
                 end_byte=last.end_byte,
                 start_line=first_line + 1,
                 start_col=first.indent,
@@ -430,9 +443,11 @@ class _Parser:
                 break
             if ln.indent > indent:
                 self._diag(
-                    "unexpected-indent", "error",
+                    "unexpected-indent",
+                    "error",
                     "sequence item indented deeper than sequence",
-                    ln.num, ln.indent,
+                    ln.num,
+                    ln.indent,
                 )
                 i = j + 1
                 continue
@@ -455,14 +470,13 @@ class _Parser:
                 # parse_block recusou a linha virtual (ex.: marcador de
                 # documento como item) — avançar para nunca ciclar.
                 i = j + 1
-            items.append(
-                child if child is not None else self._null_at(j)
-            )
+            items.append(child if child is not None else self._null_at(j))
         end = items[-1].span if items else self._eol_span(first)
         start = self.lines[first]
         return (
             YNode(
-                kind="seq", items=tuple(items),
+                kind="seq",
+                items=tuple(items),
                 span=SourceSpan(
                     start_byte=start.byte0 + start.indent,
                     end_byte=end.end_byte,
@@ -517,8 +531,12 @@ class _Parser:
     # --- valores inline ------------------------------------------------
 
     def _parse_inline(
-        self, text: str, line_idx: int, col: int,
-        parent_indent: int, next_i: int,
+        self,
+        text: str,
+        line_idx: int,
+        col: int,
+        parent_indent: int,
+        next_i: int,
     ) -> tuple[YNode, int]:
         """Valor na mesma linha do ``key:``/``- `` — escalar, flow ou bloco."""
         head = text[0]
@@ -526,50 +544,59 @@ class _Parser:
             m = _BLOCK_HEADER.match(text)
             if m is None:
                 self._diag(
-                    "block-scalar-header", "error",
+                    "block-scalar-header",
+                    "error",
                     f"unsupported block scalar header {text!r}",
-                    self.lines[line_idx].num, col,
+                    self.lines[line_idx].num,
+                    col,
                 )
                 return self._plain_node(text, line_idx, col), next_i
             style = "literal" if m.group(1) == "|" else "folded"
             return self._block_scalar(
-                parent_indent, next_i, style, m.group(2), line_idx, col,
+                parent_indent,
+                next_i,
+                style,
+                m.group(2),
+                line_idx,
+                col,
             )
         if head == "&":
             self._diag(
-                "anchor-unsupported", "warning",
+                "anchor-unsupported",
+                "warning",
                 f"anchor {text.split()[0]!r} outside subset; value kept",
-                self.lines[line_idx].num, col,
+                self.lines[line_idx].num,
+                col,
             )
             m = _ANCHOR_TOKEN.match(text)
-            rest = text[m.end():].lstrip() if m else ""
+            rest = text[m.end() :].lstrip() if m else ""
             if not rest:
                 child, i2 = self.parse_block(next_i, parent_indent + 1)
-                return (
-                    child if child is not None else self._null_at(line_idx)
-                ), i2
+                return (child if child is not None else self._null_at(line_idx)), i2
             return self._plain_node(rest, line_idx, col), next_i
         if head == "*":
             self._diag(
-                "alias-unsupported", "error",
+                "alias-unsupported",
+                "error",
                 f"alias {text.split()[0]!r} cannot be resolved — no "
                 "anchor table; value reported as null",
-                self.lines[line_idx].num, col,
+                self.lines[line_idx].num,
+                col,
             )
             return self._null_at(line_idx), next_i
         if head == "!":
             self._diag(
-                "tag-unsupported", "warning",
+                "tag-unsupported",
+                "warning",
                 f"tag {text.split()[0]!r} outside subset; value kept",
-                self.lines[line_idx].num, col,
+                self.lines[line_idx].num,
+                col,
             )
             m = _TAG_TOKEN.match(text)
-            rest = text[m.end():].lstrip() if m else ""
+            rest = text[m.end() :].lstrip() if m else ""
             if not rest:
                 child, i2 = self.parse_block(next_i, parent_indent + 1)
-                return (
-                    child if child is not None else self._null_at(line_idx)
-                ), i2
+                return (child if child is not None else self._null_at(line_idx)), i2
             return self._plain_node(rest, line_idx, col), next_i
         if head in "[{":
             return self._parse_flow(text, line_idx, col), next_i
@@ -579,26 +606,29 @@ class _Parser:
     def _plain_node(self, text: str, line_idx: int, col: int) -> YNode:
         value = _cut_comment(text).strip()
         return YNode(
-            kind="scalar", value=value, style="plain",
+            kind="scalar",
+            value=value,
+            style="plain",
             span=self._span(line_idx, col, line_idx, col + len(text)),
         )
 
-    def _inline_scalar(
-        self, text: str, line_idx: int, col: int
-    ) -> tuple[YNode, int]:
+    def _inline_scalar(self, text: str, line_idx: int, col: int) -> tuple[YNode, int]:
         """Escalar inline: quoted ou plain com comment-cut."""
         if text and text[0] in "'\"":
             value, end = self._decode_quoted(text, 0, line_idx, col)
             trailing = text[end:].strip()
             if trailing and not trailing.startswith("#"):
                 self._diag(
-                    "scalar-trailing-content", "warning",
+                    "scalar-trailing-content",
+                    "warning",
                     "content after closing quote ignored",
-                    self.lines[line_idx].num, col + end,
+                    self.lines[line_idx].num,
+                    col + end,
                 )
             return (
                 YNode(
-                    kind="scalar", value=value,
+                    kind="scalar",
+                    value=value,
                     style="single" if text[0] == "'" else "double",
                     span=self._span(line_idx, col, line_idx, col + end),
                 ),
@@ -607,10 +637,10 @@ class _Parser:
         value = _cut_comment(text).strip()
         return (
             YNode(
-                kind="scalar", value=value, style="plain",
-                span=self._span(
-                    line_idx, col, line_idx, col + len(text)
-                ),
+                kind="scalar",
+                value=value,
+                style="plain",
+                span=self._span(line_idx, col, line_idx, col + len(text)),
             ),
             len(text),
         )
@@ -624,25 +654,30 @@ class _Parser:
         trailing = text[pos:].strip()
         if trailing and not trailing.startswith("#"):
             self._diag(
-                "flow-trailing-content", "error",
+                "flow-trailing-content",
+                "error",
                 "content after flow collection ignored",
-                self.lines[line_idx].num, col + pos,
+                self.lines[line_idx].num,
+                col + pos,
             )
         return YNode(
-            kind=node.kind, value=node.value, style="flow",
-            pairs=node.pairs, items=node.items,
+            kind=node.kind,
+            value=node.value,
+            style="flow",
+            pairs=node.pairs,
+            items=node.items,
             span=self._span(line_idx, col, line_idx, col + pos),
         )
 
-    def _flow_node(
-        self, s: str, pos: int, line_idx: int, col: int
-    ) -> tuple[YNode | None, int]:
+    def _flow_node(self, s: str, pos: int, line_idx: int, col: int) -> tuple[YNode | None, int]:
         pos = self._flow_ws(s, pos)
         if pos >= len(s):
             self._diag(
-                "flow-unexpected-end", "error",
+                "flow-unexpected-end",
+                "error",
                 "flow collection ended unexpectedly",
-                self.lines[line_idx].num, col + pos,
+                self.lines[line_idx].num,
+                col + pos,
             )
             return None, pos
         ch = s[pos]
@@ -653,10 +688,12 @@ class _Parser:
         if ch in "'\"":
             value, end = self._decode_quoted(s, pos, line_idx, col)
             return (
-                YNode(kind="scalar", value=value,
-                      style="single" if s[pos] == "'" else "double",
-                      span=self._span(
-                          line_idx, col + pos, line_idx, col + end)),
+                YNode(
+                    kind="scalar",
+                    value=value,
+                    style="single" if s[pos] == "'" else "double",
+                    span=self._span(line_idx, col + pos, line_idx, col + end),
+                ),
                 end,
             )
         # escalar plain dentro de flow: até , ] } — ou ':' seguido de
@@ -666,17 +703,17 @@ class _Parser:
             ch = s[pos]
             if ch in ",]}":
                 break
-            if (
-                ch == ":"
-                and (pos + 1 == len(s) or s[pos + 1] in " ,]}")
-            ):
+            if ch == ":" and (pos + 1 == len(s) or s[pos + 1] in " ,]}"):
                 break
             pos += 1
         raw = s[start:pos].strip()
         return (
-            YNode(kind="scalar", value=raw, style="flow",
-                  span=self._span(
-                      line_idx, col + start, line_idx, col + pos)),
+            YNode(
+                kind="scalar",
+                value=raw,
+                style="flow",
+                span=self._span(line_idx, col + start, line_idx, col + pos),
+            ),
             pos,
         )
 
@@ -685,9 +722,7 @@ class _Parser:
             pos += 1
         return pos
 
-    def _flow_seq(
-        self, s: str, pos: int, line_idx: int, col: int
-    ) -> tuple[YNode | None, int]:
+    def _flow_seq(self, s: str, pos: int, line_idx: int, col: int) -> tuple[YNode | None, int]:
         items: list[YNode] = []
         start = pos
         pos += 1
@@ -695,21 +730,27 @@ class _Parser:
             pos = self._flow_ws(s, pos)
             if pos >= len(s):
                 self._diag(
-                    "flow-unclosed", "error",
-                    "flow sequence missing ']'", self.lines[line_idx].num,
+                    "flow-unclosed",
+                    "error",
+                    "flow sequence missing ']'",
+                    self.lines[line_idx].num,
                     col + start,
                 )
                 return (
-                    YNode(kind="seq", items=tuple(items),
-                          span=self._span(
-                              line_idx, col + start, line_idx, col + pos)),
+                    YNode(
+                        kind="seq",
+                        items=tuple(items),
+                        span=self._span(line_idx, col + start, line_idx, col + pos),
+                    ),
                     pos,
                 )
             if s[pos] == "]":
                 return (
-                    YNode(kind="seq", items=tuple(items),
-                          span=self._span(
-                              line_idx, col + start, line_idx, col + pos + 1)),
+                    YNode(
+                        kind="seq",
+                        items=tuple(items),
+                        span=self._span(line_idx, col + start, line_idx, col + pos + 1),
+                    ),
                     pos + 1,
                 )
             if s[pos] == ",":
@@ -718,16 +759,16 @@ class _Parser:
             item, pos = self._flow_node(s, pos, line_idx, col)
             if item is None:
                 return (
-                    YNode(kind="seq", items=tuple(items),
-                          span=self._span(
-                              line_idx, col + start, line_idx, col + pos)),
+                    YNode(
+                        kind="seq",
+                        items=tuple(items),
+                        span=self._span(line_idx, col + start, line_idx, col + pos),
+                    ),
                     pos,
                 )
             items.append(item)
 
-    def _flow_map(
-        self, s: str, pos: int, line_idx: int, col: int
-    ) -> tuple[YNode | None, int]:
+    def _flow_map(self, s: str, pos: int, line_idx: int, col: int) -> tuple[YNode | None, int]:
         pairs: list[tuple[YNode, YNode]] = []
         start = pos
         pos += 1
@@ -735,21 +776,27 @@ class _Parser:
             pos = self._flow_ws(s, pos)
             if pos >= len(s):
                 self._diag(
-                    "flow-unclosed", "error",
-                    "flow mapping missing '}'", self.lines[line_idx].num,
+                    "flow-unclosed",
+                    "error",
+                    "flow mapping missing '}'",
+                    self.lines[line_idx].num,
                     col + start,
                 )
                 return (
-                    YNode(kind="map", pairs=tuple(pairs),
-                          span=self._span(
-                              line_idx, col + start, line_idx, col + pos)),
+                    YNode(
+                        kind="map",
+                        pairs=tuple(pairs),
+                        span=self._span(line_idx, col + start, line_idx, col + pos),
+                    ),
                     pos,
                 )
             if s[pos] == "}":
                 return (
-                    YNode(kind="map", pairs=tuple(pairs),
-                          span=self._span(
-                              line_idx, col + start, line_idx, col + pos + 1)),
+                    YNode(
+                        kind="map",
+                        pairs=tuple(pairs),
+                        span=self._span(line_idx, col + start, line_idx, col + pos + 1),
+                    ),
                     pos + 1,
                 )
             if s[pos] == ",":
@@ -772,17 +819,24 @@ class _Parser:
                 val = self._null_at(line_idx)
             pairs.append((key_node, val))
         return (
-            YNode(kind="map", pairs=tuple(pairs),
-                  span=self._span(
-                      line_idx, col + start, line_idx, col + pos)),
+            YNode(
+                kind="map",
+                pairs=tuple(pairs),
+                span=self._span(line_idx, col + start, line_idx, col + pos),
+            ),
             pos,
         )
 
     # --- escalares de bloco ---------------------------------------------
 
     def _block_scalar(
-        self, parent_indent: int, i: int, style: str,
-        chomp: str, header_line: int, header_col: int,
+        self,
+        parent_indent: int,
+        i: int,
+        style: str,
+        chomp: str,
+        header_line: int,
+        header_col: int,
     ) -> tuple[YNode, int]:
         """``|``/``>`` com chomping; consome linhas mais indentadas.
 
@@ -794,10 +848,14 @@ class _Parser:
         end_line = vals[-1][0] if vals else header_line
         return (
             YNode(
-                kind="scalar", value=value, style=style,
+                kind="scalar",
+                value=value,
+                style=style,
                 span=self._span(
-                    header_line, header_col,
-                    end_line, len(self.lines[end_line].raw),
+                    header_line,
+                    header_col,
+                    end_line,
+                    len(self.lines[end_line].raw),
                 ),
             ),
             j,
@@ -822,9 +880,11 @@ class _Parser:
                 content_indent = ln.indent
             if ln.indent < content_indent:
                 self._diag(
-                    "block-scalar-indent", "warning",
+                    "block-scalar-indent",
+                    "warning",
                     "line less indented than block scalar content",
-                    ln.num, ln.indent,
+                    ln.num,
+                    ln.indent,
                 )
             keep = min(ln.indent, content_indent)
             vals.append((j, ln.raw[keep:], ln.indent > content_indent))
@@ -835,9 +895,7 @@ class _Parser:
         return vals, j
 
     @staticmethod
-    def _block_scalar_text(
-        vals: list[tuple[int, str, bool]], style: str, chomp: str
-    ) -> str:
+    def _block_scalar_text(vals: list[tuple[int, str, bool]], style: str, chomp: str) -> str:
         if style == "literal":
             text = "\n".join(v for _, v, _ in vals)
         else:
@@ -878,9 +936,7 @@ class _Parser:
             pos += 1
         return None
 
-    def _decode_quoted(
-        self, s: str, pos: int, line_idx: int, col: int
-    ) -> tuple[str, int]:
+    def _decode_quoted(self, s: str, pos: int, line_idx: int, col: int) -> tuple[str, int]:
         q = s[pos]
         out: list[str] = []
         pos += 1
@@ -898,9 +954,11 @@ class _Parser:
                     out.append(_ESCAPES[esc])
                 else:
                     self._diag(
-                        "unknown-escape", "warning",
+                        "unknown-escape",
+                        "warning",
                         f"unknown escape \\{esc} kept literally",
-                        self.lines[line_idx].num, col + pos,
+                        self.lines[line_idx].num,
+                        col + pos,
                     )
                     out.append(ch + esc)
                 pos += 2
@@ -908,16 +966,17 @@ class _Parser:
             out.append(ch)
             pos += 1
         self._diag(
-            "unterminated-quote", "error",
-            "quoted scalar never closes", self.lines[line_idx].num, col,
+            "unterminated-quote",
+            "error",
+            "quoted scalar never closes",
+            self.lines[line_idx].num,
+            col,
         )
         return "".join(out), pos
 
     def _decode_key(self, raw: str, line_idx: int) -> str:
         if raw and raw[0] in "'\"":
-            value, _ = self._decode_quoted(
-                raw, 0, line_idx, self.lines[line_idx].indent
-            )
+            value, _ = self._decode_quoted(raw, 0, line_idx, self.lines[line_idx].indent)
             return value
         return raw
 
@@ -927,9 +986,7 @@ class MiniYamlResult:
     """Resultado honesto: árvore + diagnósticos, nunca exceção."""
 
     root: YNode | None
-    diagnostics: tuple[YamlDiagnostic, ...] = field(
-        default_factory=tuple
-    )
+    diagnostics: tuple[YamlDiagnostic, ...] = field(default_factory=tuple)
 
 
 def parse(text: str) -> MiniYamlResult:
@@ -939,7 +996,8 @@ def parse(text: str) -> MiniYamlResult:
         root = parser.parse_document()
     except Exception as exc:  # robustez: bug vira diagnóstico, nunca crash
         parser._diag(
-            "parser-internal-error", "error",
+            "parser-internal-error",
+            "error",
             f"internal parser failure: {exc}",
         )
         return MiniYamlResult(None, tuple(parser.diags))

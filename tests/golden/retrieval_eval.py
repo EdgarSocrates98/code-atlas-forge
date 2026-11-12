@@ -84,9 +84,7 @@ def _qnames(res: Any) -> list[str]:
 
 
 def _ndcg(ranked: list[str], relevant: set[str], k: int) -> float:
-    dcg = sum(
-        1.0 / (i + 1) for i, q in enumerate(ranked[:k]) if q in relevant
-    )
+    dcg = sum(1.0 / (i + 1) for i, q in enumerate(ranked[:k]) if q in relevant)
     ideal = min(len(relevant), k)
     idcg = sum(1.0 / (i + 1) for i in range(ideal))
     return dcg / idcg if idcg else 0.0
@@ -120,18 +118,20 @@ def retrieval_block(tmp: Path, *, runs: int = 3) -> dict[str, Any]:
                 last = None
                 for _ in range(runs):
                     t0 = time.monotonic()
-                    last = engine.search(SearchRequest(
-                        query=task["query"], repository_root=str(root),
-                        strategy=strat, limit=k,
-                    ))
+                    last = engine.search(
+                        SearchRequest(
+                            query=task["query"],
+                            repository_root=str(root),
+                            strategy=strat,
+                            limit=k,
+                        )
+                    )
                     lat.append((time.monotonic() - t0) * 1000.0)
                 ranked = _qnames(last)
-                records.append(evaluate_query(
-                    task["id"], ranked, rel, k))
+                records.append(evaluate_query(task["id"], ranked, rel, k))
                 fp += len([q for q in ranked if rel.get(q, 0) == 0])
                 ev = [h for h in last.items if h.evidence]
-                ev_vals.append(
-                    len(ev) / len(last.items) if last.items else 1.0)
+                ev_vals.append(len(ev) / len(last.items) if last.items else 1.0)
                 lat_vals.append(statistics.median(lat))
             rep = aggregate(records)
             by_cat: dict[str, list[MetricRecord]] = {}
@@ -140,31 +140,25 @@ def retrieval_block(tmp: Path, *, runs: int = 3) -> dict[str, Any]:
                 by_cat.setdefault(task["category"], []).append(rec)
                 by_lang.setdefault(task["language"], []).append(rec)
             sm: dict[str, Any] = rep.macro | rep.micro  # chaves planas
-            sm["evidence_validity"] = round(
-                statistics.median(ev_vals), 4)
+            sm["evidence_validity"] = round(statistics.median(ev_vals), 4)
             sm["latency_ms"] = round(statistics.median(lat_vals), 3)
-            sm["latency_range_ms"] = [
-                round(min(lat_vals), 2), round(max(lat_vals), 2)]
+            sm["latency_range_ms"] = [round(min(lat_vals), 2), round(max(lat_vals), 2)]
             sm["false_positive_hits"] = fp
             sm["macro"] = rep.macro
             sm["micro"] = rep.micro
             sm["median"] = rep.median
             sm["no_relevant"] = rep.no_relevant
-            sm["per_category"] = {
-                c: aggregate(rs).macro for c, rs in by_cat.items()}
-            sm["per_language"] = {
-                lang: aggregate(rs).macro for lang, rs in by_lang.items()}
+            sm["per_category"] = {c: aggregate(rs).macro for c, rs in by_cat.items()}
+            sm["per_language"] = {lang: aggregate(rs).macro for lang, rs in by_lang.items()}
             # aliases retro-compatíveis (macro)
             sm["precision"] = round(rep.macro["precision_at_k"], 4)
-            sm["recall"] = round(
-                rep.macro.get("recall_at_k", 0.0), 4)
+            sm["recall"] = round(rep.macro.get("recall_at_k", 0.0), 4)
             sm["mrr"] = round(rep.macro["mrr"], 4)
             sm["ndcg"] = round(rep.macro["ndcg_at_k"], 4)
             out["strategies"][label] = sm
         out["context"] = _context_block(conn, root, tasks)
         out["not_run"] = [
-            "tarefas agenticas ponta-a-ponta (sem provider de IA no "
-            "ambiente — Grill Gate lf-0035)",
+            "tarefas agenticas ponta-a-ponta (sem provider de IA no ambiente — Grill Gate lf-0035)",
             "repos publicos externos (rede indisponivel — offline-first)",
         ]
         out["token_economy_rule"] = (
@@ -178,7 +172,9 @@ def retrieval_block(tmp: Path, *, runs: int = 3) -> dict[str, Any]:
 
 
 def _context_block(
-    conn: sqlite3.Connection, root: Path, tasks: list[dict],
+    conn: sqlite3.Connection,
+    root: Path,
+    tasks: list[dict],
 ) -> dict[str, Any]:
     engine = ContextEngine(conn)
     budgets = (4000, 800)
@@ -187,10 +183,14 @@ def _context_block(
         required = set(task["required_context"])
         row: dict[str, Any] = {"task": task["id"], "levels": {}}
         for budget in budgets:
-            pack = engine.build(ContextRequest(
-                repository_root=str(root), task=task["query"],
-                level="focus", budget_tokens=budget,
-            ))
+            pack = engine.build(
+                ContextRequest(
+                    repository_root=str(root),
+                    task=task["query"],
+                    level="focus",
+                    budget_tokens=budget,
+                )
+            )
             delivered = {it.symbol_key for it in pack.items}
             ids = [it.item_id for it in pack.items]
             with_ev = sum(1 for it in pack.items if it.evidence)
@@ -199,20 +199,20 @@ def _context_block(
                 "tokens_estimated": est,
                 "budget_compliant": est <= pack.budget.limit,
                 "items": len(pack.items),
-                "evidence_density": (
-                    round(with_ev / len(pack.items), 4)
-                    if pack.items else 0.0
-                ),
+                "evidence_density": (round(with_ev / len(pack.items), 4) if pack.items else 0.0),
                 "required_coverage": (
-                    round(len(delivered & required) / len(required), 4)
-                    if required else 0.0
+                    round(len(delivered & required) / len(required), 4) if required else 0.0
                 ),
                 "redundant_ids": len(ids) - len(set(ids)),
             }
-        critical = engine.build(ContextRequest(
-            repository_root=str(root), task=task["query"],
-            level="focus", budget_tokens=4000,
-        ))
+        critical = engine.build(
+            ContextRequest(
+                repository_root=str(root),
+                task=task["query"],
+                level="focus",
+                budget_tokens=4000,
+            )
+        )
         got = {it.symbol_key for it in critical.items}
         row["missing_critical"] = sorted(required - got)
         per_task.append(row)
@@ -221,8 +221,7 @@ def _context_block(
         "budgets": list(budgets),
         "missing_critical_rate": round(miss / len(per_task), 4),
         "budget_violations": sum(
-            1 for r in per_task for lv in r["levels"].values()
-            if not lv["budget_compliant"]
+            1 for r in per_task for lv in r["levels"].values() if not lv["budget_compliant"]
         ),
         "per_task": per_task,
     }

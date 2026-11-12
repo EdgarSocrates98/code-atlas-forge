@@ -33,13 +33,15 @@ def env(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
 @needs_git
 def test_full_flow_on_git_repo(env: Path, capsys: pytest.CaptureFixture[str]) -> None:
     env_git = {
-        "GIT_AUTHOR_NAME": "t", "GIT_AUTHOR_EMAIL": "t@t",
-        "GIT_COMMITTER_NAME": "t", "GIT_COMMITTER_EMAIL": "t@t",
-        "HOME": str(env), "PATH": os.environ["PATH"],
+        "GIT_AUTHOR_NAME": "t",
+        "GIT_AUTHOR_EMAIL": "t@t",
+        "GIT_COMMITTER_NAME": "t",
+        "GIT_COMMITTER_EMAIL": "t@t",
+        "HOME": str(env),
+        "PATH": os.environ["PATH"],
     }
     for args in (["init", "-q"], ["add", "-A"], ["commit", "-qm", "init"]):
-        subprocess.run([GIT, "-C", str(env), *args], check=True, env=env_git,
-                       capture_output=True)
+        subprocess.run([GIT, "-C", str(env), *args], check=True, env=env_git, capture_output=True)
 
     assert cli.main(["init", "--root", str(env)]) == 0
     capsys.readouterr()
@@ -78,8 +80,16 @@ def test_cli_offline_no_network_imports() -> None:
     """
     src = Path(__file__).resolve().parents[2] / "src"
     api_boundary = (src / "code_atlas" / "api").resolve()
-    banned = {"socket", "urllib", "requests", "http", "ftplib", "smtplib",
-              "telnetlib", "asyncio"}  # asyncio abriria sockets
+    banned = {
+        "socket",
+        "urllib",
+        "requests",
+        "http",
+        "ftplib",
+        "smtplib",
+        "telnetlib",
+        "asyncio",
+    }  # asyncio abriria sockets
     offenders: list[str] = []
     for py in src.rglob("*.py"):
         if api_boundary in py.resolve().parents:
@@ -100,8 +110,14 @@ def test_cli_no_forge_imports() -> None:
     agente — o ui/kit compartilhado é vendored byte-parity, não
     dependência de pacote (checagem em nível de import, não de texto)."""
     src = Path(__file__).resolve().parents[2] / "src"
-    banned = {"forge_lens", "forge_agent_bridge", "data_sentinel",
-              "sparkforge_aws", "product_forge", "theforge"}
+    banned = {
+        "forge_lens",
+        "forge_agent_bridge",
+        "data_sentinel",
+        "sparkforge_aws",
+        "product_forge",
+        "theforge",
+    }
     offenders: list[str] = []
     for py in src.rglob("*.py"):
         tree = ast.parse(py.read_text(encoding="utf-8"))
@@ -112,7 +128,6 @@ def test_cli_no_forge_imports() -> None:
             elif isinstance(node, ast.ImportFrom) and node.module:
                 names = [node.module.split(".")[0]]
             offenders.extend(
-                f"{py.name}:{n}" for n in names
-                if n in banned or n.startswith(("claude", "codex"))
+                f"{py.name}:{n}" for n in names if n in banned or n.startswith(("claude", "codex"))
             )
     assert offenders == []

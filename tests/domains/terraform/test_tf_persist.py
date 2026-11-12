@@ -31,8 +31,7 @@ def workspace(tmp_path: Path) -> tuple[sqlite3.Connection, int, int, dict[str, i
     file_ids = {
         r["relative_path"]: int(r["id"])
         for r in conn.execute(
-            "SELECT id, relative_path FROM source_files"
-            " WHERE repository_id = ?",
+            "SELECT id, relative_path FROM source_files WHERE repository_id = ?",
             (snap.repository_id,),
         )
     }
@@ -64,23 +63,27 @@ def test_persist_domain_result_end_to_end(
         "LEFT JOIN domain_entities de2 ON de2.id = to2.entity_id"
     ).fetchall()
     edges = {
-        (r["qualified_name"], r["relation_type"],
-         r["tgt"] or r["to_unresolved"], r["resolution_status"])
+        (
+            r["qualified_name"],
+            r["relation_type"],
+            r["tgt"] or r["to_unresolved"],
+            r["resolution_status"],
+        )
         for r in rows
     }
+    assert ("aws_glue_job.etl", "DEPENDS_ON", "aws_s3_bucket.data", "resolved") in edges
+    assert ("aws_glue_job.etl", "ASSUMES_ROLE", "aws_iam_role.glue", "resolved") in edges
     assert (
-        "aws_glue_job.etl", "DEPENDS_ON", "aws_s3_bucket.data", "resolved"
-    ) in edges
-    assert (
-        "aws_glue_job.etl", "ASSUMES_ROLE", "aws_iam_role.glue", "resolved"
-    ) in edges
-    assert (
-        "module.network", "PROVISIONS", "aws_s3_bucket.flow_logs",
+        "module.network",
+        "PROVISIONS",
+        "aws_s3_bucket.flow_logs",
         "resolved",
     ) in edges
     assert (
-        "data.terraform_remote_state.network", "REFERENCES",
-        "remote-state:s3", "external",
+        "data.terraform_remote_state.network",
+        "REFERENCES",
+        "remote-state:s3",
+        "external",
     ) in edges
 
 
@@ -96,9 +99,7 @@ def test_persisted_entities_have_no_secrets(
         ("domain_relations", "to_unresolved"),
         ("evidence", "notes"),
     ):
-        rows = conn.execute(
-            f"SELECT {col} AS v FROM {table}"
-        ).fetchall()
+        rows = conn.execute(f"SELECT {col} AS v FROM {table}").fetchall()
         blob = "\n".join(str(r["v"]) for r in rows)
         for secret in (
             "sup3r-s3cret-do-not-leak",

@@ -16,20 +16,11 @@ from code_atlas.storage import connect, migrate
 # grafo: engine.run chama helper + greeter; cli chama run; cycle: a↔b
 _REPO = {
     "pkg/__init__.py": "",
-    "pkg/util.py": (
-        "def helper():\n    return 1\n\n"
-        "def greeter():\n    return helper()\n"
-    ),
+    "pkg/util.py": ("def helper():\n    return 1\n\ndef greeter():\n    return helper()\n"),
     "pkg/engine.py": (
-        "from pkg.util import helper, greeter\n\n"
-        "def run():\n"
-        "    return helper() + greeter()\n"
+        "from pkg.util import helper, greeter\n\ndef run():\n    return helper() + greeter()\n"
     ),
-    "pkg/cli.py": (
-        "from pkg.engine import run\n\n"
-        "def main():\n"
-        "    return run()\n"
-    ),
+    "pkg/cli.py": ("from pkg.engine import run\n\ndef main():\n    return run()\n"),
     "pkg/cycle_a.py": "from pkg.cycle_b import fb\n\ndef fa():\n    return fb()\n",
     "pkg/cycle_b.py": "from pkg.cycle_a import fa\n\ndef fb():\n    return fa()\n",
 }
@@ -51,9 +42,7 @@ def env(tmp_path: Path):
 
 
 def _snap(conn) -> int:
-    return int(conn.execute(
-        "SELECT MAX(id) FROM snapshots WHERE status='READY'"
-    ).fetchone()[0])
+    return int(conn.execute("SELECT MAX(id) FROM snapshots WHERE status='READY'").fetchone()[0])
 
 
 def test_callers_callees_direction(env) -> None:
@@ -79,9 +68,7 @@ def test_cycle_safety_terminates(env) -> None:
     snap = _snap(conn)
     g = GraphRetrieval(conn)
     seed = g.seed_occurrences(snap, "pkg.cycle_a.fa")
-    hits, stats = g.traverse(
-        snap, seed, direction="both", limits=TraversalLimits(depth=10)
-    )
+    hits, stats = g.traverse(snap, seed, direction="both", limits=TraversalLimits(depth=10))
     # ciclo a↔b termina — nunca loop infinito
     names = {h.qualified_name for h in hits}
     assert "pkg.cycle_b.fb" in names
@@ -94,7 +81,9 @@ def test_limits_honored_and_reported(env) -> None:
     g = GraphRetrieval(conn)
     seed = g.seed_occurrences(snap, "pkg.util.helper")
     hits, stats = g.traverse(
-        snap, seed, direction="incoming",
+        snap,
+        seed,
+        direction="incoming",
         limits=TraversalLimits(depth=4, max_results=1),
     )
     assert len(hits) == 1
@@ -103,25 +92,31 @@ def test_limits_honored_and_reported(env) -> None:
 
 def test_explain_path_per_hit(env) -> None:
     conn, root = env
-    res = SearchEngine(conn).search(SearchRequest(
-        query="pkg.util.helper", strategy="graph",
-        repository_root=root, limit=10,
-    ))
+    res = SearchEngine(conn).search(
+        SearchRequest(
+            query="pkg.util.helper",
+            strategy="graph",
+            repository_root=root,
+            limit=10,
+        )
+    )
     assert res.ranking_version == "graph-structural-v1"
-    hit = next(
-        h for h in res.items if h.qualified_name == "pkg.engine.run")
+    hit = next(h for h in res.items if h.qualified_name == "pkg.engine.run")
     # caminho explicável: evidence traz os saltos de relação
     assert hit.evidence and any(
-        "CALLS:" in e or "IMPORTS:" in e or "REFERENCES:" in e
-        for e in hit.evidence)
+        "CALLS:" in e or "IMPORTS:" in e or "REFERENCES:" in e for e in hit.evidence
+    )
 
 
 def test_seed_not_found_typed(env) -> None:
     conn, root = env
-    res = SearchEngine(conn).search(SearchRequest(
-        query="nonexistent.symbol", strategy="graph",
-        repository_root=root,
-    ))
+    res = SearchEngine(conn).search(
+        SearchRequest(
+            query="nonexistent.symbol",
+            strategy="graph",
+            repository_root=root,
+        )
+    )
     assert res.items == ()
     assert any(d.code == "seed-not-found" for d in res.diagnostics)
 

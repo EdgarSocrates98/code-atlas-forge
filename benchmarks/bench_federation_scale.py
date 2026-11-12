@@ -74,10 +74,7 @@ def _repo_files(i: int, rng: random.Random) -> dict[str, str]:
             f"SELECT * FROM mart.t{i};\n"
             f"CREATE VIEW mart.v{i} AS SELECT * FROM mart.orders;\n"
         ),
-        "app/mod.py": (
-            "def shared_handler():\n"
-            f"    return {i}\n"
-        ),
+        "app/mod.py": (f"def shared_handler():\n    return {i}\n"),
     }
     # variância determinística de tamanho — alguns repos maiores
     for j in range(1 + i % 3):
@@ -130,13 +127,12 @@ def _time(fn: Callable[[], object], repeats: int) -> dict[str, float]:
 
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__)
-    ap.add_argument("--repos", type=int, default=5,
-                    help="membros do workspace federado (default 5)")
-    ap.add_argument("--repeats", type=int, default=9,
-                    help="repetições por medição (default 9)")
+    ap.add_argument(
+        "--repos", type=int, default=5, help="membros do workspace federado (default 5)"
+    )
+    ap.add_argument("--repeats", type=int, default=9, help="repetições por medição (default 9)")
     ap.add_argument("--json", metavar="PATH", help="escreve o resultado em JSON")
-    ap.add_argument("--keep", action="store_true",
-                    help="preserva o workspace temporário")
+    ap.add_argument("--keep", action="store_true", help="preserva o workspace temporário")
     args = ap.parse_args()
     if args.repos < 2:
         ap.error("--repos >= 2 (federação exige >= 2 membros)")
@@ -149,6 +145,7 @@ def main() -> int:
     finally:
         if not args.keep:
             import shutil
+
             shutil.rmtree(workdir, ignore_errors=True)
     if args.keep:
         result["workdir"] = str(workdir)
@@ -173,23 +170,18 @@ def _run(args: argparse.Namespace, workdir: Path) -> dict:
     repos: list[int] = []
     for i in range(args.repos):
         root = _write_repo(workdir / f"repo_{i}", _repo_files(i, rng))
-        payload = _cli(
-            ["index", str(root), "--domains", "sql,api", "--json"])
+        payload = _cli(["index", str(root), "--domains", "sql,api", "--json"])
         assert payload["snapshot_id"], payload
         snaps.append(int(payload["snapshot_id"]))
     _cli(["federation", "create", "scale", "--json"])
     for i in range(args.repos):
-        payload = _cli(
-            ["federation", "add", "scale", str(workdir / f"repo_{i}"),
-             "--json"])
+        payload = _cli(["federation", "add", "scale", str(workdir / f"repo_{i}"), "--json"])
         repos.append(int(payload["repository_id"]))
     # workspaces parciais 2..N para a curva de escala
     for k in range(2, args.repos):
         _cli(["federation", "create", f"scale-{k}", "--json"])
         for i in range(k):
-            _cli(
-                ["federation", "add", f"scale-{k}", str(repos[i]),
-                 "--json"])
+            _cli(["federation", "add", f"scale-{k}", str(repos[i]), "--json"])
     setup_s = round(time.perf_counter() - t0, 3)
 
     conn = connect(cli.db_path())
@@ -232,16 +224,12 @@ def _measure(
         g = fed.graph(ws, depth=1)
         res = eng.search(SearchRequest(query="orders"), ws.id)
         scaling[str(k)] = {
-            "resolve_view": _time(
-                lambda ws=ws: fed.resolve_view(ws), rep),
-            "entity_lookup": _time(
-                lambda ws=ws: fed.entity_occurrences(ws, skey_orders),
-                rep),
-            "graph_depth1": _time(
-                lambda ws=ws: fed.graph(ws, depth=1), rep),
+            "resolve_view": _time(lambda ws=ws: fed.resolve_view(ws), rep),
+            "entity_lookup": _time(lambda ws=ws: fed.entity_occurrences(ws, skey_orders), rep),
+            "graph_depth1": _time(lambda ws=ws: fed.graph(ws, depth=1), rep),
             "search_all_members": _time(
-                lambda ws=ws: eng.search(
-                    SearchRequest(query="orders"), ws.id), rep),
+                lambda ws=ws: eng.search(SearchRequest(query="orders"), ws.id), rep
+            ),
             "graph_nodes": len(g.nodes),
             "graph_edges": len(g.edges),
             "search_items": len(res.items),
@@ -251,21 +239,16 @@ def _measure(
 
     # --- 1 vs N dentro do mesmo workspace ------------------------------
     ws = fed.get_workspace("scale")
-    res_one = eng.search(
-        SearchRequest(query="orders"), ws.id,
-        repository_id=repos[0])
+    res_one = eng.search(SearchRequest(query="orders"), ws.id, repository_id=repos[0])
     res_sym = eng.search(SearchRequest(query="shared_handler"), ws.id)
     one_vs_n = {
         "search_one_member": _time(
-            lambda: eng.search(
-                SearchRequest(query="orders"), ws.id,
-                repository_id=repos[0]), rep),
-        "search_all_members": _time(
-            lambda: eng.search(SearchRequest(query="orders"), ws.id),
-            rep),
+            lambda: eng.search(SearchRequest(query="orders"), ws.id, repository_id=repos[0]), rep
+        ),
+        "search_all_members": _time(lambda: eng.search(SearchRequest(query="orders"), ws.id), rep),
         "search_symbols_all_members": _time(
-            lambda: eng.search(
-                SearchRequest(query="shared_handler"), ws.id), rep),
+            lambda: eng.search(SearchRequest(query="shared_handler"), ws.id), rep
+        ),
         "symbol_items_all_members": len(res_sym.items),
         "one_member_items": len(res_one.items),
         "one_member_domain_items": len(res_one.domain_items),
@@ -276,23 +259,19 @@ def _measure(
     # --- isolamento por pin sob stress --------------------------------
     root_0 = workdir / "repo_0"
     (root_0 / "grow.sql").write_text("SELECT * FROM mart.grown;\n")
-    snap0_new = int(
-        _cli(["index", str(root_0), "--domains", "sql,api", "--json"])
-        ["snapshot_id"])
+    snap0_new = int(_cli(["index", str(root_0), "--domains", "sql,api", "--json"])["snapshot_id"])
     view_pinned = fed.resolve_view(ws, {repos[0]: snaps[0]})
     view_latest = fed.resolve_view(ws)
-    res_pinned = eng.search(
-        SearchRequest(query="grown"), ws.id, pins={repos[0]: snaps[0]})
+    res_pinned = eng.search(SearchRequest(query="grown"), ws.id, pins={repos[0]: snaps[0]})
     res_latest = eng.search(SearchRequest(query="grown"), ws.id)
     leaks = [
-        h for h in res_pinned.domain_items
+        h
+        for h in res_pinned.domain_items
         if h.repository_id == repos[0] and h.snapshot_id != snaps[0]
-    ] + [
-        h for h in res_pinned.items
-        if h.repository_id == repos[0] and h.snapshot_id != snaps[0]
-    ]
+    ] + [h for h in res_pinned.items if h.repository_id == repos[0] and h.snapshot_id != snaps[0]]
     found_new = [
-        h for h in res_latest.domain_items
+        h
+        for h in res_latest.domain_items
         if h.repository_id == repos[0] and h.snapshot_id == snap0_new
     ]
     isolation = {

@@ -119,10 +119,7 @@ class WorkspaceConfig:
             raise ConfigError(f"config {path}: [indexing] must be a table")
         retain = idx.get("retain_snapshots", 0)
         if not isinstance(retain, int) or isinstance(retain, bool) or retain < 0:
-            raise ConfigError(
-                f"config {path}: [indexing].retain_snapshots must be an "
-                "integer >= 0"
-            )
+            raise ConfigError(f"config {path}: [indexing].retain_snapshots must be an integer >= 0")
         return WorkspaceConfig(
             root=root,
             schema_version=int(raw.get("schema_version", 0)),

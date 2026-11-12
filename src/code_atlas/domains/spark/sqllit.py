@@ -89,16 +89,12 @@ def delegate_sql_literal(
         if e.kind is DomainEntityKind.DATA_TRANSFORMATION
     }
     _remap_entities(sink, fx, trans_keys, path, sha, call_evi, call_span)
-    sources, unresolved = _remap_relations(
-        sink, fx, trans_keys, path, call_evi, call_span, t_ident
-    )
+    sources, unresolved = _remap_relations(sink, fx, trans_keys, path, call_evi, call_span, t_ident)
     _flow_diagnostics(sink, fx, path, lit.line, parsed.statements)
     return sources, unresolved
 
 
-def _role_map(
-    sink: Sink, fx: FileExtraction
-) -> dict[str, set[str]]:
+def _role_map(sink: Sink, fx: FileExtraction) -> dict[str, set[str]]:
     """Role do alvo por relação — chaveado por logical_key retaggada."""
     role_of: dict[str, set[str]] = {}
     for r in fx.relations:
@@ -130,8 +126,12 @@ def _remap_entities(
         attrs = dict(e.attributes)
         attrs["via"] = "spark.sql"
         sink.add_entity(
-            ident, e.kind, e.name,
-            path=path, span=call_span, content_hash=sha,
+            ident,
+            e.kind,
+            e.name,
+            path=path,
+            span=call_span,
+            content_hash=sha,
             attributes=attrs,
             roles=tuple(sorted(role_of.get(ident.logical_key(), ()))),
             evidence=(call_evi,),
@@ -162,31 +162,38 @@ def _remap_relations(
         if to_i is None:
             unresolved = True
         sink.add_rel(
-            r.relation_type, from_i,
-            path=path, to_i=to_i,
+            r.relation_type,
+            from_i,
+            path=path,
+            to_i=to_i,
             to_text=r.to_unresolved if to_i is None else "",
-            span=call_span, evidence=(call_evi,),
+            span=call_span,
+            evidence=(call_evi,),
             resolution=r.resolution,
         )
-        if (
-            r.relation_type == DomainRelationKind.READS_FROM.value
-            and to_i is not None
-        ):
+        if r.relation_type == DomainRelationKind.READS_FROM.value and to_i is not None:
             sources.add(to_i.logical_key())
     return sources, unresolved
 
 
 def _flow_diagnostics(
-    sink: Sink, fx: FileExtraction, path: str, line: int,
+    sink: Sink,
+    fx: FileExtraction,
+    path: str,
+    line: int,
     statements: object,
 ) -> None:
     for d in fx.diagnostics:
         sink.diag(
-            d.code, d.severity,
-            f"spark.sql@L{line}: {d.message}", path,
+            d.code,
+            d.severity,
+            f"spark.sql@L{line}: {d.message}",
+            path,
         )
     if not statements:
         sink.diag(
-            "empty-sql", "info",
-            f"spark.sql@L{line}: literal has no statements", path,
+            "empty-sql",
+            "info",
+            f"spark.sql@L{line}: literal has no statements",
+            path,
         )

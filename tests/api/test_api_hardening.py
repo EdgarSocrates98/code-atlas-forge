@@ -1,4 +1,5 @@
 """Contrato de hardening — headers, teto de resposta, rate limit, timeout."""
+
 from __future__ import annotations
 
 import http.client
@@ -23,6 +24,7 @@ def _index_db(tmp: Path) -> Path:
     db = tmp / "atlas.db"
     from code_atlas.indexing.coordinator import IndexCoordinator
     from code_atlas.storage import connect, migrate
+
     conn = connect(db)
     migrate(conn)
     IndexCoordinator(conn).index(root)
@@ -55,13 +57,13 @@ class _ServerCase(unittest.TestCase):
             static.mkdir()
             (static / "index.html").write_text("<html>atlas</html>")
         cls.server = serve(
-            str(db), port=0,
+            str(db),
+            port=0,
             rate_limit=cls.rate_limit or server_mod.RATE_LIMIT,
-            request_timeout=(cls.request_timeout
-                             or server_mod.REQUEST_TIMEOUT),
-            static_root=static)
-        cls.thread = threading.Thread(target=cls.server.serve_forever,
-                                      daemon=True)
+            request_timeout=(cls.request_timeout or server_mod.REQUEST_TIMEOUT),
+            static_root=static,
+        )
+        cls.thread = threading.Thread(target=cls.server.serve_forever, daemon=True)
         cls.thread.start()
 
     @classmethod
@@ -105,8 +107,7 @@ class TestRateLimit(_ServerCase):
     with_static = True
 
     def test_429_after_threshold(self) -> None:
-        codes = [
-            _req(self.server.url, "/health")[0] for _ in range(3)]
+        codes = [_req(self.server.url, "/health")[0] for _ in range(3)]
         self.assertEqual(codes, [200, 200, 200])
         code, body, headers = _req(self.server.url, "/health")
         self.assertEqual(code, 429)
@@ -127,8 +128,7 @@ class TestRequestTimeout(_ServerCase):
     request_timeout = 0.5
 
     def test_idle_keepalive_reaped(self) -> None:
-        conn = http.client.HTTPConnection("127.0.0.1", self.server.port,
-                                          timeout=10)
+        conn = http.client.HTTPConnection("127.0.0.1", self.server.port, timeout=10)
         conn.request("GET", "/api/v1/health")
         resp = conn.getresponse()
         self.assertEqual(resp.status, 200)

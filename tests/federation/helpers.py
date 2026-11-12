@@ -41,9 +41,7 @@ paths:
 
 REPO_A_FILES = {
     "spec/openapi.yaml": OPENAPI_SPEC,
-    "q.sql": (
-        "CREATE VIEW mart.v_orders AS SELECT * FROM mart.orders;\n"
-    ),
+    "q.sql": ("CREATE VIEW mart.v_orders AS SELECT * FROM mart.orders;\n"),
 }
 
 REPO_B_FILES = {
@@ -52,7 +50,7 @@ REPO_B_FILES = {
     "app/client.py": (
         "import requests\n\n\n"
         "def go():\n"
-        "    return requests.get(\"https://api.orders.example/v1/orders\")\n"
+        '    return requests.get("https://api.orders.example/v1/orders")\n'
     ),
 }
 

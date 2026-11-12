@@ -91,9 +91,7 @@ class _RelAcc:
 class Sink:
     """Acumulador determinístico da saída de ``extract``."""
 
-    def __init__(
-        self, request: DomainExtractionRequest, adapter_version: str
-    ) -> None:
+    def __init__(self, request: DomainExtractionRequest, adapter_version: str) -> None:
         self.request = request
         self.version = adapter_version
         self.entities: dict[str, _EntAcc] = {}
@@ -135,9 +133,7 @@ class Sink:
         self._evidx[key] = idx
         return idx
 
-    def diag(
-        self, code: str, severity: str, message: str, path: str = ""
-    ) -> None:
+    def diag(self, code: str, severity: str, message: str, path: str = "") -> None:
         if (code, message) in self._diag_seen:
             return
         self._diag_seen.add((code, message))
@@ -146,8 +142,11 @@ class Sink:
             return
         self.diagnostics.append(
             DomainDiagnostic(
-                code=code, severity=severity, message=message,
-                path=path, adapter_id=DOMAIN_ID,
+                code=code,
+                severity=severity,
+                message=message,
+                path=path,
+                adapter_id=DOMAIN_ID,
             )
         )
 
@@ -166,17 +165,19 @@ class Sink:
         """catalog/namespace/qualified_name a partir das partes do nome."""
         req = self.request
         if len(parts) >= 3:
-            catalog, namespace, name = (
-                parts[0], ".".join(parts[1:-1]), parts[-1]
-            )
+            catalog, namespace, name = (parts[0], ".".join(parts[1:-1]), parts[-1])
         elif len(parts) == 2:
             catalog, namespace, name = "", parts[0], parts[1]
         else:
             catalog, namespace, name = "", "", parts[0]
         return DomainIdentity(
-            domain=DOMAIN_ID, repository=req.repository, root=req.root,
-            catalog=catalog, namespace=namespace,
-            environment=req.environment, qualified_name=name,
+            domain=DOMAIN_ID,
+            repository=req.repository,
+            root=req.root,
+            catalog=catalog,
+            namespace=namespace,
+            environment=req.environment,
+            qualified_name=name,
         )
 
     def path_ident(self, literal: str) -> DomainIdentity:
@@ -187,15 +188,20 @@ class Sink:
         """
         req = self.request
         return DomainIdentity(
-            domain=DOMAIN_ID, repository=req.repository, root=req.root,
-            environment=req.environment, qualified_name=literal.strip(),
+            domain=DOMAIN_ID,
+            repository=req.repository,
+            root=req.root,
+            environment=req.environment,
+            qualified_name=literal.strip(),
         )
 
     def transform_ident(self, path: str, anchor: str) -> DomainIdentity:
         """Entidade ``data_transformation`` — âncora ``<var>@<line>``."""
         req = self.request
         return DomainIdentity(
-            domain=DOMAIN_ID, repository=req.repository, root=req.root,
+            domain=DOMAIN_ID,
+            repository=req.repository,
+            root=req.root,
             environment=req.environment,
             qualified_name=f"{path}#{anchor}",
         )
@@ -208,9 +214,12 @@ class Sink:
         adapter emite carregue ``domain="pyspark"``.
         """
         return DomainIdentity(
-            domain=DOMAIN_ID, repository=ident.repository,
-            root=ident.root, catalog=ident.catalog,
-            namespace=ident.namespace, environment=ident.environment,
+            domain=DOMAIN_ID,
+            repository=ident.repository,
+            root=ident.root,
+            catalog=ident.catalog,
+            namespace=ident.namespace,
+            environment=ident.environment,
             qualified_name=ident.qualified_name,
         )
 
@@ -243,9 +252,14 @@ class Sink:
         attrs = dict(attributes or {})
         acc = _EntAcc(
             entity=ExtractedDomainEntity(
-                identity=ident, kind=kind, name=name, path=path,
-                span=span, content_hash=content_hash,
-                attributes=attrs, evidence=(),
+                identity=ident,
+                kind=kind,
+                name=name,
+                path=path,
+                span=span,
+                content_hash=content_hash,
+                attributes=attrs,
+                evidence=(),
             ),
             ev=set(evidence),
             roles=set(roles),
@@ -282,10 +296,14 @@ class Sink:
             )
         self.relations[key] = _RelAcc(
             rel=ExtractedDomainRelation(
-                relation_type=rtype, path=path,
-                from_identity=from_i, to_identity=to_i,
-                to_unresolved=to_text, resolution=resolution,
-                span=span, evidence=(),
+                relation_type=rtype,
+                path=path,
+                from_identity=from_i,
+                to_identity=to_i,
+                to_unresolved=to_text,
+                resolution=resolution,
+                span=span,
+                evidence=(),
             ),
             ev=set(evidence),
         )
@@ -296,12 +314,11 @@ class Sink:
         if self._truncated:
             self.diagnostics.append(
                 DomainDiagnostic(
-                    code="diagnostics-truncated", severity="info",
-                    message=(
-                        f"{self._truncated} further diagnostics "
-                        f"suppressed (cap {_DIAG_CAP})"
-                    ),
-                    path="", adapter_id=DOMAIN_ID,
+                    code="diagnostics-truncated",
+                    severity="info",
+                    message=(f"{self._truncated} further diagnostics suppressed (cap {_DIAG_CAP})"),
+                    path="",
+                    adapter_id=DOMAIN_ID,
                 )
             )
 
@@ -313,23 +330,28 @@ class Sink:
                 attrs["roles"] = ",".join(sorted(acc.roles))
             entities.append(
                 ExtractedDomainEntity(
-                    identity=acc.entity.identity, kind=acc.entity.kind,
-                    name=acc.entity.name, path=acc.entity.path,
+                    identity=acc.entity.identity,
+                    kind=acc.entity.kind,
+                    name=acc.entity.name,
+                    path=acc.entity.path,
                     span=acc.entity.span,
                     content_hash=acc.entity.content_hash,
-                    attributes=attrs, evidence=tuple(sorted(acc.ev)),
+                    attributes=attrs,
+                    evidence=tuple(sorted(acc.ev)),
                 )
             )
         relations = [
             ExtractedDomainRelation(
-                relation_type=acc.rel.relation_type, path=acc.rel.path,
+                relation_type=acc.rel.relation_type,
+                path=acc.rel.path,
                 from_identity=acc.rel.from_identity,
                 from_symbol=acc.rel.from_symbol,
                 to_identity=acc.rel.to_identity,
                 to_symbol=acc.rel.to_symbol,
                 to_unresolved=acc.rel.to_unresolved,
                 resolution=acc.rel.resolution,
-                span=acc.rel.span, evidence=tuple(sorted(acc.ev)),
+                span=acc.rel.span,
+                evidence=tuple(sorted(acc.ev)),
             )
             for acc in self.relations.values()
         ]

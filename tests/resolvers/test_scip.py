@@ -64,8 +64,7 @@ def valid_index() -> bytes:
             occurrence(SYM_HELPER, slr(3, 15, 21), roles=0),  # call site
         ],
     )
-    return index_bytes(ROOT, [doc_util, doc_engine],
-                     tool=tool_info("scip-python", "0.11.0"))
+    return index_bytes(ROOT, [doc_util, doc_engine], tool=tool_info("scip-python", "0.11.0"))
 
 
 # -- decoder / importer ---------------------------------------------------
@@ -171,15 +170,13 @@ def test_revision_binding_rejects_wrong_root(tmp_path: Path) -> None:
 def test_revision_binding_opt_in(tmp_path: Path) -> None:
     f = tmp_path / "index.scip"
     f.write_bytes(index_bytes("file:///other/repo", [document("a.py")]))
-    out = load_index(f, workspace_root=tmp_path,
-                   allow_revision_mismatch=True)
+    out = load_index(f, workspace_root=tmp_path, allow_revision_mismatch=True)
     assert out.ok
     assert any("allowed by flag" in w for w in out.warnings)
 
 
 def test_project_root_matches(tmp_path: Path) -> None:
-    idx = parse_index(index_bytes(
-        tmp_path.as_uri(), [document("a.py")]))
+    idx = parse_index(index_bytes(tmp_path.as_uri(), [document("a.py")]))
     assert project_root_matches(idx, tmp_path)
     assert not project_root_matches(idx, tmp_path / "other")
 
@@ -207,11 +204,10 @@ def test_parse_symbol_malformed() -> None:
     assert parse_symbol("not a symbol") is None
 
 
-
-
 def _prov_current() -> IndexProvenance:
     """Proveniência explícita 'current' para testes do resolver."""
     return IndexProvenance(validation_status="current")
+
 
 # -- ScipResolver e2e -------------------------------------------------------
 
@@ -224,24 +220,22 @@ def _build_universe(tmp_path: Path) -> GraphBuilder:
     repo = tmp_path / "repo"
     (repo / "pkg").mkdir(parents=True)
     (repo / "pkg" / "__init__.py").write_text("")
-    (repo / "pkg" / "util.py").write_text(
-        "def helper():\n    return 1\n")
+    (repo / "pkg" / "util.py").write_text("def helper():\n    return 1\n")
     (repo / "pkg" / "engine.py").write_text(
         "from pkg.util import helper\n\n"
         "class Engine:\n"
         "    def run(self):\n"
-        "        return helper()\n")
+        "        return helper()\n"
+    )
     s = scan(repo)
     eng = ParseEngine()
-    results = eng.parse_batch(
-        [(f.path, (repo / f.path).read_bytes()) for f in s.files])
+    results = eng.parse_batch([(f.path, (repo / f.path).read_bytes()) for f in s.files])
     b = GraphBuilder()
     b.build("repo", s, results)
     return b
 
 
-def test_scip_resolver_conformance(tmp_path: Path,
-                                   valid_index: bytes) -> None:
+def test_scip_resolver_conformance(tmp_path: Path, valid_index: bytes) -> None:
     b = _build_universe(tmp_path)
     idx = parse_index(valid_index)
     resolver = ScipResolver(idx, b.universe, _prov_current())
@@ -250,8 +244,7 @@ def test_scip_resolver_conformance(tmp_path: Path,
     assert caps.tier == 1  # SEMANTIC_INDEX
 
 
-def test_scip_resolves_via_coordinator(tmp_path: Path,
-                                       valid_index: bytes) -> None:
+def test_scip_resolves_via_coordinator(tmp_path: Path, valid_index: bytes) -> None:
     b = _build_universe(tmp_path)
     idx = parse_index(valid_index)
     from code_atlas.resolvers.registry import ResolverRegistry
@@ -262,10 +255,14 @@ def test_scip_resolves_via_coordinator(tmp_path: Path,
     coord = ResolverCoordinator(reg)
 
     req = ResolutionRequest(
-        name="helper", kind="call", path="pkg/engine.py", language="python",
+        name="helper",
+        kind="call",
+        path="pkg/engine.py",
+        language="python",
         # call site `helper()` — linha 4 (1-based) = scip line 3 (0-based)
-        span=SourceSpan(start_byte=0, end_byte=0,
-                        start_line=4, start_col=15, end_line=4, end_col=21),
+        span=SourceSpan(
+            start_byte=0, end_byte=0, start_line=4, start_col=15, end_line=4, end_col=21
+        ),
     )
     res = coord.resolve(req)
     assert res.reference is not None
@@ -275,22 +272,18 @@ def test_scip_resolves_via_coordinator(tmp_path: Path,
     assert "scip-python" in res.reference.provenance.detail
 
 
-def test_scip_document_not_in_index(tmp_path: Path,
-                                    valid_index: bytes) -> None:
+def test_scip_document_not_in_index(tmp_path: Path, valid_index: bytes) -> None:
     b = _build_universe(tmp_path)
     resolver = ScipResolver(parse_index(valid_index), b.universe, _prov_current())
-    res = resolver.resolve(
-        ResolutionRequest(name="x", kind="call", path="nope.py"))
+    res = resolver.resolve(ResolutionRequest(name="x", kind="call", path="nope.py"))
     assert res.reference is None
     assert res.diagnostics[0].code == "document-not-in-index"
 
 
-def test_scip_symbol_not_in_snapshot_external(tmp_path: Path,
-                                              valid_index: bytes) -> None:
+def test_scip_symbol_not_in_snapshot_external(tmp_path: Path, valid_index: bytes) -> None:
     b = _build_universe(tmp_path)
     resolver = ScipResolver(parse_index(valid_index), b.universe, _prov_current())
-    req = ResolutionRequest(name="y", kind="reference",
-                            path="pkg/engine.py")
+    req = ResolutionRequest(name="y", kind="reference", path="pkg/engine.py")
     res = resolver.resolve_symbol(req, f"{PKG} `other/lib.py`/thing().")
     assert res.reference is not None
     assert res.reference.status == "external"
@@ -305,8 +298,11 @@ def test_no_protobuf_import_anywhere() -> None:
         tree = ast.parse(f.read_text(encoding="utf-8"))
         for node in ast.walk(tree):
             if isinstance(node, (ast.Import, ast.ImportFrom)):
-                names = [a.name for a in node.names] if isinstance(
-                    node, ast.Import) else [node.module or ""]
+                names = (
+                    [a.name for a in node.names]
+                    if isinstance(node, ast.Import)
+                    else [node.module or ""]
+                )
                 for n in names:
                     assert "protobuf" not in n, f"{f}: imports protobuf"
 

@@ -45,9 +45,7 @@ class Store:
 
     # --- repositories -------------------------------------------------
 
-    def get_or_create_repository(
-        self, identity_key: str, root_handle: str = ""
-    ) -> int:
+    def get_or_create_repository(self, identity_key: str, root_handle: str = "") -> int:
         """Repo estável por **identidade lógica** (lf-0021), não por path.
 
         ``identity_key`` vem de ``discovery.identity`` (git remote →
@@ -71,8 +69,7 @@ class Store:
                 )
             return int(row["id"])
         self._conn.execute(
-            "INSERT OR IGNORE INTO repositories (root_handle, identity_key) "
-            "VALUES (?, ?)",
+            "INSERT OR IGNORE INTO repositories (root_handle, identity_key) VALUES (?, ?)",
             (root_handle, identity_key),
         )
         row2 = self._conn.execute(
@@ -95,9 +92,7 @@ class Store:
         return int(row["id"]) if row else None
 
     def repository_by_id(self, repo_id: int) -> Repository | None:
-        row = self._conn.execute(
-            "SELECT * FROM repositories WHERE id = ?", (repo_id,)
-        ).fetchone()
+        row = self._conn.execute("SELECT * FROM repositories WHERE id = ?", (repo_id,)).fetchone()
         if row is None:
             return None
         return Repository(
@@ -119,9 +114,7 @@ class Store:
         return _snapshot_from_row(row) if row else None
 
     def snapshot_by_id(self, snapshot_id: int) -> Snapshot | None:
-        row = self._conn.execute(
-            "SELECT * FROM snapshots WHERE id = ?", (snapshot_id,)
-        ).fetchone()
+        row = self._conn.execute("SELECT * FROM snapshots WHERE id = ?", (snapshot_id,)).fetchone()
         return _snapshot_from_row(row) if row else None
 
     def insert_snapshot(
@@ -219,8 +212,7 @@ class Store:
             " ORDER BY id DESC LIMIT -1 OFFSET ?"
         )
         _sql_jobs = (
-            "UPDATE index_jobs SET snapshot_id = NULL"
-            " WHERE snapshot_id IN (" + _doomed + ")"
+            "UPDATE index_jobs SET snapshot_id = NULL WHERE snapshot_id IN (" + _doomed + ")"
         )
         _sql_parent = (
             "UPDATE snapshots SET parent_snapshot_id = NULL"
@@ -233,9 +225,7 @@ class Store:
             " ORDER BY id DESC LIMIT -1 OFFSET ?"
         )
         doomed_ids = [
-            int(r["id"]) for r in self._conn.execute(
-                _sql_doomed_ids, (repository_id, keep)
-            )
+            int(r["id"]) for r in self._conn.execute(_sql_doomed_ids, (repository_id, keep))
         ]
         self._conn.execute(_sql_jobs, (repository_id, keep))
         self._conn.execute(_sql_parent, (repository_id, keep))
@@ -251,8 +241,7 @@ class Store:
 
     def _has_table(self, name: str) -> bool:
         row = self._conn.execute(
-            "SELECT 1 FROM sqlite_master WHERE type IN ('table','shadow')"
-            " AND name = ?",
+            "SELECT 1 FROM sqlite_master WHERE type IN ('table','shadow') AND name = ?",
             (name,),
         ).fetchone()
         return row is not None
@@ -287,8 +276,7 @@ class Store:
         """
         flist = list(files)
         existing = self._conn.execute(
-            "SELECT id, relative_path FROM source_files"
-            " WHERE repository_id = ?",
+            "SELECT id, relative_path FROM source_files WHERE repository_id = ?",
             (repository_id,),
         ).fetchall()
         ids = {r["relative_path"]: int(r["id"]) for r in existing}
@@ -299,14 +287,12 @@ class Store:
                 " relative_path, language, sha256, size_bytes, ignored)"
                 " VALUES (?, ?, ?, ?, ?, ?)",
                 [
-                    (repository_id, f.path, f.language, f.sha256,
-                     f.size_bytes, int(f.ignored))
+                    (repository_id, f.path, f.language, f.sha256, f.size_bytes, int(f.ignored))
                     for f in missing
                 ],
             )
             refetch = self._conn.execute(
-                "SELECT id, relative_path FROM source_files"
-                " WHERE repository_id = ?",
+                "SELECT id, relative_path FROM source_files WHERE repository_id = ?",
                 (repository_id,),
             ).fetchall()
             ids = {r["relative_path"]: int(r["id"]) for r in refetch}
@@ -364,9 +350,7 @@ class Store:
             for r in rows
         ]
 
-    def module_import_edges(
-        self, snapshot_id: int
-    ) -> list[tuple[str, str | None, str, str]]:
+    def module_import_edges(self, snapshot_id: int) -> list[tuple[str, str | None, str, str]]:
         """Arestas IMPORTS do snapshot mapeadas para paths.
 
         Retorna ``(importer_path, imported_path|None, to_unresolved,
@@ -388,14 +372,9 @@ class Store:
             """,
             (snapshot_id,),
         ).fetchall()
-        return [
-            (r["importer"], r["imported"], r["to_text"] or "", r["status"])
-            for r in rows
-        ]
+        return [(r["importer"], r["imported"], r["to_text"] or "", r["status"]) for r in rows]
 
-    def snapshot_file_symbols(
-        self, snapshot_id: int
-    ) -> list[tuple[str, str, str, str, int]]:
+    def snapshot_file_symbols(self, snapshot_id: int) -> list[tuple[str, str, str, str, int]]:
         """Símbolos com ocorrência no snapshot, por arquivo.
 
         Retorna ``(path, kind, qualified_name, language, source_file_id)``
@@ -415,8 +394,7 @@ class Store:
             (snapshot_id,),
         ).fetchall()
         return [
-            (r["path"], r["kind"], r["qualified_name"], r["language"],
-             r["source_file_id"])
+            (r["path"], r["kind"], r["qualified_name"], r["language"], r["source_file_id"])
             for r in rows
         ]
 
@@ -466,14 +444,10 @@ class Store:
         """
         uniq = sorted(set(keys))
         existing = self._conn.execute(
-            "SELECT id, language, qualified_name, kind FROM symbols"
-            " WHERE repository_id = ?",
+            "SELECT id, language, qualified_name, kind FROM symbols WHERE repository_id = ?",
             (repository_id,),
         ).fetchall()
-        ids = {
-            (r["language"], r["qualified_name"], r["kind"]): int(r["id"])
-            for r in existing
-        }
+        ids = {(r["language"], r["qualified_name"], r["kind"]): int(r["id"]) for r in existing}
         pre = set(ids)
         missing = [k for k in uniq if k not in ids]
         if missing:
@@ -484,29 +458,20 @@ class Store:
                 [(repository_id, *k) for k in missing],
             )
             refetch = self._conn.execute(
-                "SELECT id, language, qualified_name, kind FROM symbols"
-                " WHERE repository_id = ?",
+                "SELECT id, language, qualified_name, kind FROM symbols WHERE repository_id = ?",
                 (repository_id,),
             ).fetchall()
-            ids = {
-                (r["language"], r["qualified_name"], r["kind"]): int(r["id"])
-                for r in refetch
-            }
+            ids = {(r["language"], r["qualified_name"], r["kind"]): int(r["id"]) for r in refetch}
         return ids, set(ids) - pre
 
-    def insert_symbols_batch(
-        self, rows: Iterable[tuple[int, str, str, str]]
-    ) -> None:
+    def insert_symbols_batch(self, rows: Iterable[tuple[int, str, str, str]]) -> None:
         """FTS: inserts em lote — chamado só para símbolos novos."""
         self._conn.executemany(
-            "INSERT INTO fts_symbols (rowid, qualified_name, language, kind) "
-            "VALUES (?, ?, ?, ?)",
+            "INSERT INTO fts_symbols (rowid, qualified_name, language, kind) VALUES (?, ?, ?, ?)",
             list(rows),
         )
 
-    def insert_fts_occurrences_batch(
-        self, rows: Iterable[tuple[object, ...]]
-    ) -> None:
+    def insert_fts_occurrences_batch(self, rows: Iterable[tuple[object, ...]]) -> None:
         """lf-0036 — FTS por-ocorrência (snapshot-scoped): rowid = id da
         ocorrência; campos já vêm tokenizados do persist."""
         self._conn.executemany(
@@ -523,8 +488,7 @@ class Store:
         # DELETE em FTS regular: placeholder único via json_each (SQL
         # constante — auditoria AST proíbe IN dinâmico).
         self._conn.execute(
-            "DELETE FROM fts_occurrences WHERE snapshot_id IN"
-            " (SELECT value FROM json_each(?))",
+            "DELETE FROM fts_occurrences WHERE snapshot_id IN (SELECT value FROM json_each(?))",
             (json.dumps(ids),),
         )
 
@@ -533,8 +497,7 @@ class Store:
         if not ids:
             return
         self._conn.execute(
-            "DELETE FROM domain_fts WHERE snapshot_id IN"
-            " (SELECT value FROM json_each(?))",
+            "DELETE FROM domain_fts WHERE snapshot_id IN (SELECT value FROM json_each(?))",
             (json.dumps(ids),),
         )
 
@@ -550,36 +513,30 @@ class Store:
         ph = ",".join("?" for _ in range(ncols))
         for i in range(0, len(rows), self._BATCH):
             chunk = rows[i : i + self._BATCH]
-            stmt = sql_prefix + ",".join(
-                "(" + ph + ")" for _ in chunk
-            ) + " RETURNING id"
-            cur = self._conn.execute(
-                stmt, [v for row in chunk for v in row]
-            )
+            stmt = sql_prefix + ",".join("(" + ph + ")" for _ in chunk) + " RETURNING id"
+            cur = self._conn.execute(stmt, [v for row in chunk for v in row])
             out.extend(int(r["id"]) for r in cur.fetchall())
         return out
 
-    def insert_occurrences_batch(
-        self, rows: list[tuple[object, ...]]
-    ) -> list[int]:
+    def insert_occurrences_batch(self, rows: list[tuple[object, ...]]) -> list[int]:
         """Batch de ocorrências — retorna ids na ordem das linhas."""
         return self._insert_returning(
             "INSERT INTO symbol_occurrences (snapshot_id, logical_symbol_id,"
             " source_file_id, span_start, span_end, line, col, content_hash,"
             " parse_status) VALUES ",
-            rows, 9,
+            rows,
+            9,
         )
 
-    def insert_evidence_batch(
-        self, rows: list[tuple[object, ...]]
-    ) -> list[int]:
+    def insert_evidence_batch(self, rows: list[tuple[object, ...]]) -> list[int]:
         """Batch de evidências — retorna ids na ordem das linhas."""
         return self._insert_returning(
             "INSERT INTO evidence (snapshot_id, source_file_id, path, span,"
             " content_hash, extractor, extractor_version, notes,"
             " resolver_id, resolver_version, evidence_tier, index_hash,"
             " validation_status) VALUES ",
-            rows, 13,
+            rows,
+            13,
         )
 
     def insert_evidence(
@@ -605,9 +562,18 @@ class Store:
             "validation_status) "
             "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
             (
-                snapshot_id, source_file_id, path, span_json, content_hash,
-                extractor, extractor_version, notes, resolver_id,
-                resolver_version, evidence_tier, index_hash,
+                snapshot_id,
+                source_file_id,
+                path,
+                span_json,
+                content_hash,
+                extractor,
+                extractor_version,
+                notes,
+                resolver_id,
+                resolver_version,
+                evidence_tier,
+                index_hash,
                 validation_status,
             ),
         )
@@ -642,8 +608,7 @@ class Store:
         if not items:
             return {}
         existing = self._conn.execute(
-            "SELECT id, identity_key FROM domain_entities"
-            " WHERE repository_id = ?",
+            "SELECT id, identity_key FROM domain_entities WHERE repository_id = ?",
             (repository_id,),
         ).fetchall()
         ids = {r["identity_key"]: int(r["id"]) for r in existing}
@@ -665,24 +630,19 @@ class Store:
                         items[k].identity.catalog,
                         items[k].identity.namespace,
                         items[k].identity.environment,
-                        json.dumps(
-                            dict(items[k].attributes), sort_keys=True
-                        ),
+                        json.dumps(dict(items[k].attributes), sort_keys=True),
                     )
                     for k in missing
                 ],
             )
             refetch = self._conn.execute(
-                "SELECT id, identity_key FROM domain_entities"
-                " WHERE repository_id = ?",
+                "SELECT id, identity_key FROM domain_entities WHERE repository_id = ?",
                 (repository_id,),
             ).fetchall()
             ids = {r["identity_key"]: int(r["id"]) for r in refetch}
         return ids
 
-    def insert_domain_occurrences_batch(
-        self, rows: list[tuple[object, ...]]
-    ) -> list[int]:
+    def insert_domain_occurrences_batch(self, rows: list[tuple[object, ...]]) -> list[int]:
         """Batch de ocorrências de domínio — retorna ids na ordem.
 
         ``rows``: (snapshot_id, entity_id, source_file_id, span_start,
@@ -693,7 +653,8 @@ class Store:
             "INSERT INTO domain_entity_occurrences (snapshot_id, entity_id,"
             " source_file_id, span_start, span_end, line, col, content_hash,"
             " attributes, extraction_status) VALUES ",
-            rows, 10,
+            rows,
+            10,
         )
 
     def insert_domain_relations(self, rows: Iterable[tuple[object, ...]]) -> int:
@@ -727,9 +688,7 @@ class Store:
 
         return fts5_available(self._conn)
 
-    def insert_domain_fts_batch(
-        self, rows: Iterable[tuple[object, ...]]
-    ) -> None:
+    def insert_domain_fts_batch(self, rows: Iterable[tuple[object, ...]]) -> None:
         """FTS de domínio em lote — rowid = id de ``domain_entity_occurrences``.
 
         ``rows``: (occ_id, snapshot_id, entity_id, name, qualified_name,
@@ -780,13 +739,19 @@ class Store:
 
         fts_rows = [
             (
-                int(r["occ_id"]), int(r["snapshot_id"]), int(r["entity_id"]),
-                str(r["name"] or ""), str(r["qualified_name"]),
+                int(r["occ_id"]),
+                int(r["snapshot_id"]),
+                int(r["entity_id"]),
+                str(r["name"] or ""),
+                str(r["qualified_name"]),
                 index_terms(
-                    str(r["name"] or ""), str(r["qualified_name"]),
+                    str(r["name"] or ""),
+                    str(r["qualified_name"]),
                     str(r["path"] or ""),
                 ),
-                str(r["path"] or ""), str(r["domain"]), str(r["kind"]),
+                str(r["path"] or ""),
+                str(r["domain"]),
+                str(r["kind"]),
             )
             for r in rows
         ]
@@ -814,25 +779,19 @@ class Store:
             (snapshot_id,),
         ).fetchall()
         return [
-            (r["domain"], r["kind"], r["qualified_name"], r["identity_key"],
-             r["path"])
+            (r["domain"], r["kind"], r["qualified_name"], r["identity_key"], r["path"])
             for r in rows
         ]
 
-    def domain_entity_id_for(
-        self, repository_id: int, identity_key: str
-    ) -> int | None:
+    def domain_entity_id_for(self, repository_id: int, identity_key: str) -> int | None:
         """Row id de ``domain_entities`` por chave lógica canônica."""
         row = self._conn.execute(
-            "SELECT id FROM domain_entities"
-            " WHERE repository_id = ? AND identity_key = ?",
+            "SELECT id FROM domain_entities WHERE repository_id = ? AND identity_key = ?",
             (repository_id, identity_key),
         ).fetchone()
         return int(row["id"]) if row else None
 
-    def domain_occurrences_for(
-        self, snapshot_id: int, entity_id: int
-    ) -> list[int]:
+    def domain_occurrences_for(self, snapshot_id: int, entity_id: int) -> list[int]:
         """Ids de ocorrências de uma entidade num snapshot."""
         rows = self._conn.execute(
             "SELECT id FROM domain_entity_occurrences"
@@ -841,9 +800,7 @@ class Store:
         ).fetchall()
         return [int(r["id"]) for r in rows]
 
-    def symbol_occurrences_for_name(
-        self, snapshot_id: int, qualified_name: str
-    ) -> list[int]:
+    def symbol_occurrences_for_name(self, snapshot_id: int, qualified_name: str) -> list[int]:
         """Ocorrências de código num snapshot por qualified_name.
 
         Ponte código↔domínio (lf-0117/0120): endpoints ``*_symbol_occ_id``
@@ -891,9 +848,7 @@ class Store:
 
     # --- resolução cross-domain (lf-0117, Phase 9) ---------------------
 
-    def domain_occurrences_snapshot(
-        self, snapshot_id: int
-    ) -> list[sqlite3.Row]:
+    def domain_occurrences_snapshot(self, snapshot_id: int) -> list[sqlite3.Row]:
         """Ocorrências de domínio do snapshot com a entidade lógica.
 
         Junta ``domain_entity_occurrences`` + ``domain_entities`` +
@@ -918,9 +873,7 @@ class Store:
             (snapshot_id,),
         ).fetchall()
 
-    def domain_relations_snapshot(
-        self, snapshot_id: int
-    ) -> list[sqlite3.Row]:
+    def domain_relations_snapshot(self, snapshot_id: int) -> list[sqlite3.Row]:
         """Todas as rows de ``domain_relations`` do snapshot (ordem de id).
 
         O resolver lê o conjunto inteiro — re-resolve só as
@@ -952,9 +905,7 @@ class Store:
             (snapshot_id,),
         ).fetchall()
 
-    def file_symbol_occurrences(
-        self, snapshot_id: int
-    ) -> list[tuple[str, int]]:
+    def file_symbol_occurrences(self, snapshot_id: int) -> list[tuple[str, int]]:
         """``(path, occ_id)`` de símbolos FILE com ocorrência no snapshot.
 
         Ponte domínio→código (lf-0117): ``qualified_name`` de nó FILE é

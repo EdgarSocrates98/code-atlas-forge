@@ -83,10 +83,10 @@ def _index_db(tmp: Path) -> Path:
     return db
 
 
-def _req(url: str, path: str, method: str = "GET",
-         headers: dict | None = None) -> tuple[int, bytes, dict]:
-    r = urllib.request.Request(
-        url + path, method=method, headers=headers or {})
+def _req(
+    url: str, path: str, method: str = "GET", headers: dict | None = None
+) -> tuple[int, bytes, dict]:
+    r = urllib.request.Request(url + path, method=method, headers=headers or {})
     try:
         with urllib.request.urlopen(r, timeout=10) as resp:
             return resp.status, resp.read(), dict(resp.headers)
@@ -135,11 +135,9 @@ class _StaticCase:
         # fora do root — alvo de traversal e de symlink
         cls.outside = tmp / "outside.json"
         cls.outside.write_text('{"pwn": true}')
-        cls.server = serve(str(cls.db), port=0, static_root=static,
-                           verbose=False)
+        cls.server = serve(str(cls.db), port=0, static_root=static, verbose=False)
         cls.static = static
-        cls.thread = threading.Thread(
-            target=cls.server.serve_forever, daemon=True)
+        cls.thread = threading.Thread(target=cls.server.serve_forever, daemon=True)
         cls.thread.start()
         cls.base = cls.server.url.removesuffix("/api/v1")
 
@@ -161,19 +159,22 @@ class TestExplorerDistServing(_StaticCase):
     def _get(self, path: str, headers: dict | None = None):
         return _req(self.base, path, headers=headers)
 
-    @pytest.mark.parametrize("path", [
-        "/../outside.json",
-        "/../../outside.json",
-        "/%2e%2e/outside.json",
-        "/%2E%2E%2Foutside.json",
-        "/..%2foutside.json",
-        "/%2e%2e%2f%2e%2e%2fetc%2fpasswd",
-        "/....//outside.json",
-        "/sub/../../outside.json",
-        "//etc/passwd",
-        "/%5c..%5coutside.json",
-        "/..\\..\\outside.json",
-    ])
+    @pytest.mark.parametrize(
+        "path",
+        [
+            "/../outside.json",
+            "/../../outside.json",
+            "/%2e%2e/outside.json",
+            "/%2E%2E%2Foutside.json",
+            "/..%2foutside.json",
+            "/%2e%2e%2f%2e%2e%2fetc%2fpasswd",
+            "/....//outside.json",
+            "/sub/../../outside.json",
+            "//etc/passwd",
+            "/%5c..%5coutside.json",
+            "/..\\..\\outside.json",
+        ],
+    )
     def test_traversal_variants_never_serve_outside(self, path: str) -> None:
         code, body, _ = self._get(path)
         assert b'"pwn"' not in body, (path, code)
@@ -185,23 +186,19 @@ class TestExplorerDistServing(_StaticCase):
         """``GET http://host/../x`` — urlparse extrai só o path."""
         resp = _raw(
             self.server.port,
-            b"GET http://127.0.0.1/../outside.json HTTP/1.1\r\n"
-            b"Host: 127.0.0.1\r\n\r\n")
+            b"GET http://127.0.0.1/../outside.json HTTP/1.1\r\nHost: 127.0.0.1\r\n\r\n",
+        )
         assert b'"pwn"' not in resp
 
     def test_malformed_absolute_uri_is_typed_400(self) -> None:
         """``GET http://[ `` — urlparse levanta ValueError (N2 → 400)."""
-        resp = _raw(
-            self.server.port,
-            b"GET http://[ HTTP/1.1\r\nHost: 127.0.0.1\r\n\r\n")
+        resp = _raw(self.server.port, b"GET http://[ HTTP/1.1\r\nHost: 127.0.0.1\r\n\r\n")
         status = resp.split(b"\r\n", 1)[0]
         assert b" 400 " in status, status
 
     def test_nul_byte_in_path_is_typed_400(self) -> None:
         """NUL estoura ``resolve()`` com ValueError — era 500 (N2)."""
-        resp = _raw(
-            self.server.port,
-            b"GET /a\x00b HTTP/1.1\r\nHost: 127.0.0.1\r\n\r\n")
+        resp = _raw(self.server.port, b"GET /a\x00b HTTP/1.1\r\nHost: 127.0.0.1\r\n\r\n")
         status = resp.split(b"\r\n", 1)[0]
         assert b" 400 " in status, status
         assert b"bad-request" in resp
@@ -256,16 +253,18 @@ class TestExplorerDistServing(_StaticCase):
         """Range/If-Modified-Since/If-None-Match hostis: ignorados —
         sempre 200 com corpo inteiro; nenhum cabeçalho de cache
         (Accept-Ranges/ETag/Last-Modified) é anunciado."""
-        code, body, headers = self._get("/app.js", headers={
-            "Range": "bytes=999999-",
-            "If-Modified-Since": "garbage;;",
-            "If-None-Match": "*",
-            "If-Range": "nonsense",
-        })
+        code, body, headers = self._get(
+            "/app.js",
+            headers={
+                "Range": "bytes=999999-",
+                "If-Modified-Since": "garbage;;",
+                "If-None-Match": "*",
+                "If-Range": "nonsense",
+            },
+        )
         assert code == 200
         assert b"console.log(1)" in body
-        for h in ("Accept-Ranges", "ETag", "Last-Modified",
-                  "Content-Range"):
+        for h in ("Accept-Ranges", "ETag", "Last-Modified", "Content-Range"):
             assert headers.get(h) is None, h
 
     def test_oversized_asset_rejected_before_full_read(self) -> None:
@@ -294,9 +293,7 @@ class TestSymlinkedStaticRoot:
     """``static_root`` inteiro trocado por symlink — o resolve() por
     request ancora no alvo real e a allowlist de suffix ainda morde."""
 
-    def test_suffix_allowlist_still_applies_via_symlinked_root(
-        self, tmp_path: Path
-    ) -> None:
+    def test_suffix_allowlist_still_applies_via_symlinked_root(self, tmp_path: Path) -> None:
         real = tmp_path / "real-dist"
         real.mkdir()
         (real / "index.html").write_text("<html>ok</html>")
@@ -333,6 +330,7 @@ class TestExplorerStaticRootResolution:
 
     def test_packaged_dist_preferred_over_repo_hint(self) -> None:
         from code_atlas.api.server import explorer_static_root
+
         root = explorer_static_root(REPO_ROOT)
         if (PACKAGED_DIST / "index.html").is_file():
             # dist empacotada existe → sempre vence o checkout dev
@@ -344,6 +342,7 @@ class TestExplorerStaticRootResolution:
 
     def test_hint_without_index_html_returns_none(self) -> None:
         from code_atlas.api.server import explorer_static_root
+
         with tempfile.TemporaryDirectory() as td:
             hint = Path(td)
             (hint / "explorer" / "dist").mkdir(parents=True)
@@ -356,6 +355,7 @@ class TestExplorerStaticRootResolution:
 
     def test_dev_checkout_candidates(self) -> None:
         from code_atlas.api.server import explorer_static_root
+
         with tempfile.TemporaryDirectory() as td:
             hint = Path(td)
             dist = hint / "explorer" / "dist" / "explorer" / "browser"
@@ -372,6 +372,7 @@ class TestExplorerStaticRootResolution:
         de request/ambiente; ``..`` no hint é resolvido pelo fs e
         ainda exige ``index.html`` real."""
         from code_atlas.api.server import explorer_static_root
+
         with tempfile.TemporaryDirectory() as td:
             weird = Path(td) / ".." / (Path(td).name)
             root = explorer_static_root(weird)
@@ -392,10 +393,8 @@ class _DoSCase:
         cls._tmp = tempfile.TemporaryDirectory()
         tmp = Path(cls._tmp.name)
         cls.db = _index_db(tmp)
-        cls.server = serve(str(cls.db), port=0,
-                           request_timeout=cls.request_timeout)
-        cls.thread = threading.Thread(
-            target=cls.server.serve_forever, daemon=True)
+        cls.server = serve(str(cls.db), port=0, request_timeout=cls.request_timeout)
+        cls.thread = threading.Thread(target=cls.server.serve_forever, daemon=True)
         cls.thread.start()
 
     @classmethod
@@ -410,12 +409,10 @@ class TestRequestDosBounds(_DoSCase):
     timeout por conexão contra dribles lentos."""
 
     def test_more_than_100_headers_rejected(self) -> None:
-        hdrs = b"".join(
-            b"X-Fill-%d: v\r\n" % i for i in range(150))
+        hdrs = b"".join(b"X-Fill-%d: v\r\n" % i for i in range(150))
         resp = _raw(
-            self.server.port,
-            b"GET /api/v1/health HTTP/1.1\r\nHost: 127.0.0.1\r\n"
-            + hdrs + b"\r\n")
+            self.server.port, b"GET /api/v1/health HTTP/1.1\r\nHost: 127.0.0.1\r\n" + hdrs + b"\r\n"
+        )
         status = resp.split(b"\r\n", 1)[0]
         assert b" 431 " in status or b" 400 " in status, status
 
@@ -423,24 +420,24 @@ class TestRequestDosBounds(_DoSCase):
         resp = _raw(
             self.server.port,
             b"GET /api/v1/health HTTP/1.1\r\nHost: 127.0.0.1\r\n"
-            b"X-Big: " + b"A" * 70000 + b"\r\n\r\n")
+            b"X-Big: " + b"A" * 70000 + b"\r\n\r\n",
+        )
         status = resp.split(b"\r\n", 1)[0]
         assert b" 431 " in status or b" 400 " in status, status
 
     def test_request_line_over_64k_rejected(self) -> None:
         resp = _raw(
             self.server.port,
-            b"GET /api/v1/" + b"a" * 70000 + b" HTTP/1.1\r\n"
-            b"Host: 127.0.0.1\r\n\r\n")
+            b"GET /api/v1/" + b"a" * 70000 + b" HTTP/1.1\r\nHost: 127.0.0.1\r\n\r\n",
+        )
         status = resp.split(b"\r\n", 1)[0]
-        assert (b" 414 " in status or b" 400 " in status
-                or b" 431 " in status), status
+        assert b" 414 " in status or b" 400 " in status or b" 431 " in status, status
 
     def test_header_without_colon_bounded(self) -> None:
         resp = _raw(
             self.server.port,
-            b"GET /api/v1/health HTTP/1.1\r\nHost: 127.0.0.1\r\n"
-            b"Garbage-No-Colon\r\n\r\n")
+            b"GET /api/v1/health HTTP/1.1\r\nHost: 127.0.0.1\r\nGarbage-No-Colon\r\n\r\n",
+        )
         # stdlib tolera ou rejeita — o contrato é: nunca trava, nunca 5xx solto
         status = resp.split(b"\r\n", 1)[0]
         assert b"HTTP/1.1" in status
@@ -455,15 +452,15 @@ class TestRequestDosBounds(_DoSCase):
             b"Content-Type: application/json\r\n"
             b"Transfer-Encoding: chunked\r\n\r\n"
             b"5\r\nhello\r\n0\r\n\r\n",
-            wait=0.6)
+            wait=0.6,
+        )
         status = resp.split(b"\r\n", 1)[0]
         assert b" 400 " in status or b" 404 " in status, status
 
     def test_slow_dribble_request_line_reaped(self) -> None:
         """Slow-loris: um byte inicial e silêncio — o timeout da
         conexão fecha antes do próximo tick (request_timeout=1.0)."""
-        s = socket.create_connection(
-            ("127.0.0.1", self.server.port), timeout=10)
+        s = socket.create_connection(("127.0.0.1", self.server.port), timeout=10)
         try:
             s.sendall(b"GET /api")  # request line incompleta
             t0 = time.monotonic()
@@ -482,9 +479,7 @@ class TestRequestDosBounds(_DoSCase):
         """Mini-flood de conexões ociosas — daemon_threads + timeout
         impedem esgotamento; o servidor segue respondendo."""
         socks = [
-            socket.create_connection(
-                ("127.0.0.1", self.server.port), timeout=10)
-            for _ in range(16)
+            socket.create_connection(("127.0.0.1", self.server.port), timeout=10) for _ in range(16)
         ]
         try:
             code, body, _ = _req(self.server.url, "/health")
@@ -503,23 +498,26 @@ class TestLogInjection:
     """N1: bytes de controle vindos de request line / filename hostil
     não podem forjar linhas nem sequências ANSI no terminal."""
 
-    @pytest.mark.parametrize("raw,expected", [
-        ("a\nb", "a\\x0ab"),
-        ("a\rb", "a\\x0db"),
-        ("x\x1b[31mred", "x\\x1b[31mred"),
-        ("nul\x00byte", "nul\\x00byte"),
-        ("del\x7fc1\x9f", "del\\x7fc1\\x9f"),
-        ("tab\there", "tab\\x09here"),
-        ("plain text 123", "plain text 123"),
-    ])
+    @pytest.mark.parametrize(
+        "raw,expected",
+        [
+            ("a\nb", "a\\x0ab"),
+            ("a\rb", "a\\x0db"),
+            ("x\x1b[31mred", "x\\x1b[31mred"),
+            ("nul\x00byte", "nul\\x00byte"),
+            ("del\x7fc1\x9f", "del\\x7fc1\\x9f"),
+            ("tab\there", "tab\\x09here"),
+            ("plain text 123", "plain text 123"),
+        ],
+    )
     def test_escape_control_unit(self, raw: str, expected: str) -> None:
         assert escape_control(raw) == expected
 
     def test_redaction_filter_escapes_msg_and_args(self) -> None:
         filt = RedactionFilter(home="")
         rec = logging.LogRecord(
-            "t", logging.WARNING, __file__, 1,
-            "req %s", ("GET /\x1b[31m\nforged",), None)
+            "t", logging.WARNING, __file__, 1, "req %s", ("GET /\x1b[31m\nforged",), None
+        )
         filt.filter(rec)
         out = rec.getMessage()
         assert "\x1b" not in out and "\n" not in out
@@ -533,9 +531,8 @@ class TestLogInjection:
             raise ValueError("boom")
         except ValueError:
             import sys
-            rec = logging.LogRecord(
-                "t", logging.ERROR, __file__, 1, "failed", (),
-                sys.exc_info())
+
+            rec = logging.LogRecord("t", logging.ERROR, __file__, 1, "failed", (), sys.exc_info())
             filt.filter(rec)
         assert rec.exc_text is not None
         assert "\n" not in rec.exc_text
@@ -546,6 +543,7 @@ class TestLogInjection:
         """``--verbose``: mesmo que um campo futuro carregue texto
         não-confiável, nenhuma linha forjada nem ANSI sai."""
         from code_atlas.cli import _index_progress
+
         _index_progress("stage\x1b[7m", {"path": "a\nb.py", "ms": 1})
         err = capsys.readouterr().err
         assert "\x1b" not in err
@@ -577,17 +575,15 @@ class TestLogInjection:
         """Cliente que abre e reseta (SO_LINGER=0) gerava um traceback
         por conexão no stderr — log-flood trivial. Transporte cala."""
         import struct
+
         db = _index_db(tmp_path)
         srv = serve(str(db), port=0)
         t = threading.Thread(target=srv.serve_forever, daemon=True)
         t.start()
         try:
             for _ in range(8):
-                s = socket.create_connection(
-                    ("127.0.0.1", srv.port), timeout=10)
-                s.setsockopt(
-                    socket.SOL_SOCKET, socket.SO_LINGER,
-                    struct.pack("ii", 1, 0))
+                s = socket.create_connection(("127.0.0.1", srv.port), timeout=10)
+                s.setsockopt(socket.SOL_SOCKET, socket.SO_LINGER, struct.pack("ii", 1, 0))
                 s.sendall(b"GET /api")
                 s.close()  # RST imediato — handler lê reset
             time.sleep(0.5)
@@ -609,9 +605,7 @@ class TestLogInjection:
         t = threading.Thread(target=srv.serve_forever, daemon=True)
         t.start()
         try:
-            _raw(srv.port,
-                 b"GET /x\x1b[31m HTTP/1.1\r\nHost: 127.0.0.1\r\n\r\n",
-                 wait=0.6)
+            _raw(srv.port, b"GET /x\x1b[31m HTTP/1.1\r\nHost: 127.0.0.1\r\n\r\n", wait=0.6)
             time.sleep(0.4)
         finally:
             srv.shutdown()
@@ -634,8 +628,7 @@ class _DiagCase:
         tmp = Path(cls._tmp.name)
         cls.db = _index_db(tmp)
         cls.server = serve(str(cls.db), port=0)
-        cls.thread = threading.Thread(
-            target=cls.server.serve_forever, daemon=True)
+        cls.thread = threading.Thread(target=cls.server.serve_forever, daemon=True)
         cls.thread.start()
 
     @classmethod
@@ -659,9 +652,7 @@ class TestDiagnosticsDisclosure(_DiagCase):
         obs = self._diag()["observability"]
         assert set(obs) == {"log_level", "log_format", "slow_ms"}
 
-    def test_arbitrary_env_never_leaks(
-        self, monkeypatch: pytest.MonkeyPatch
-    ) -> None:
+    def test_arbitrary_env_never_leaks(self, monkeypatch: pytest.MonkeyPatch) -> None:
         """Env fora da allowlist de observabilidade — incluindo valores
         secret-shaped — nunca aparece no payload."""
         monkeypatch.setenv("AWS_SECRET_ACCESS_KEY", "AKIA" + "F" * 36)
@@ -689,8 +680,8 @@ class TestDiagnosticsDisclosure(_DiagCase):
         diag = self._diag()
         assert diag["database"]["path"] == str(self.db)
         code, _body, _ = _req(
-            self.server.url, "/diagnostics",
-            headers={"Origin": "https://evil.example"})
+            self.server.url, "/diagnostics", headers={"Origin": "https://evil.example"}
+        )
         assert code == 403
 
     def test_last_job_has_no_traceback_or_query(self) -> None:
@@ -699,8 +690,7 @@ class TestDiagnosticsDisclosure(_DiagCase):
             job = repo["last_job"]
             if job is None:
                 continue
-            assert set(job) <= {"id", "status", "started_at",
-                                "finished_at", "stage_ms"}
+            assert set(job) <= {"id", "status", "started_at", "finished_at", "stage_ms"}
 
 
 # ---------------------------------------------------------------------------
@@ -759,8 +749,7 @@ class TestCspPostMigration:
             for path in ("/health", "/no-route"):
                 _code, _body, headers = _req(srv.url, path)
                 assert "Content-Security-Policy" in headers
-                assert "object-src 'none'" in \
-                    headers["Content-Security-Policy"]
+                assert "object-src 'none'" in headers["Content-Security-Policy"]
         finally:
             srv.shutdown()
 
@@ -775,26 +764,31 @@ class TestBuildReleaseScript:
     roda — mas env hostil/malformado deve falhar CEDO e com FATAL
     tipado, nunca viajar para dentro do pipeline (N5)."""
 
-    def _run(self, env_extra: dict[str, str] | None = None,
-             cwd: Path | None = None, *argv: str) -> subprocess.CompletedProcess:
+    def _run(
+        self, env_extra: dict[str, str] | None = None, cwd: Path | None = None, *argv: str
+    ) -> subprocess.CompletedProcess:
         env = dict(os.environ)
         env.update(env_extra or {})
         return subprocess.run(
             ["bash", str(BUILD_SCRIPT), *argv],
-            capture_output=True, text=True, timeout=30,
-            cwd=cwd or REPO_ROOT, env=env)
+            capture_output=True,
+            text=True,
+            timeout=30,
+            cwd=cwd or REPO_ROOT,
+            env=env,
+        )
 
     @POSIX_ONLY
     def test_bash_syntax_valid(self) -> None:
-        r = subprocess.run(["bash", "-n", str(BUILD_SCRIPT)],
-                           capture_output=True, text=True, timeout=15)
+        r = subprocess.run(
+            ["bash", "-n", str(BUILD_SCRIPT)], capture_output=True, text=True, timeout=15
+        )
         assert r.returncode == 0, r.stderr
 
     @POSIX_ONLY
     def test_non_numeric_source_date_epoch_fails_fast(self) -> None:
         """SDE hostil do ambiente → FATAL antes de npm/build (N5)."""
-        for bad in ("abc", "123;id", "$(id)", "12 34", "-1",
-                    "9999999999999999999999x"):
+        for bad in ("abc", "123;id", "$(id)", "12 34", "-1", "9999999999999999999999x"):
             r = self._run({"SOURCE_DATE_EPOCH": bad}, None, "--api-only")
             assert r.returncode == 2, (bad, r.stdout, r.stderr)
             assert "SOURCE_DATE_EPOCH" in r.stderr
@@ -811,8 +805,7 @@ class TestBuildReleaseScript:
         """cwd hostil não move o ROOT — o script ancora em
         ``BASH_SOURCE``; rodar de /tmp falha igual pelo SDE."""
         with tempfile.TemporaryDirectory() as td:
-            r = self._run({"SOURCE_DATE_EPOCH": "nope"}, Path(td),
-                          "--api-only")
+            r = self._run({"SOURCE_DATE_EPOCH": "nope"}, Path(td), "--api-only")
         assert r.returncode == 2
         assert "SOURCE_DATE_EPOCH" in r.stderr
 
@@ -838,6 +831,7 @@ class TestVerboseProgressHonest:
         self, tmp_path: Path, capsys: pytest.CaptureFixture[str]
     ) -> None:
         from code_atlas.cli import _index_progress
+
         root = tmp_path / "repo"
         root.mkdir()
         (root / "ok.py").write_text("x = 1\n")
@@ -846,8 +840,7 @@ class TestVerboseProgressHonest:
         conn = connect(tmp_path / "atlas.db")
         migrate(conn)
         try:
-            out = IndexCoordinator(conn).index(
-                root, force=True, progress=_index_progress)
+            out = IndexCoordinator(conn).index(root, force=True, progress=_index_progress)
             assert out.status == "success"
         finally:
             conn.close()

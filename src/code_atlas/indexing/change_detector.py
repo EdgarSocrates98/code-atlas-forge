@@ -133,19 +133,20 @@ def detect_changes(
     }
     current = {f.path: f for f in scan.files}
 
-    analyzer_keys, resolver_keys = _affected_languages(
-        prior_versions, current_versions
-    )
-    bumped_langs = {
-        key.split(":", 1)[1] for key in analyzer_keys if key.startswith("parser:")
-    }
+    analyzer_keys, resolver_keys = _affected_languages(prior_versions, current_versions)
+    bumped_langs = {key.split(":", 1)[1] for key in analyzer_keys if key.startswith("parser:")}
     # analyzer não-linguístico mudou (scanner/scan_mode): sem prova de
     # extração idêntica → todos os arquivos pré-existentes reclassificam.
     global_bump = any(not k.startswith("parser:") for k in analyzer_keys)
 
     changes, added = _classify_present(
-        current, prior, bumped_langs, global_bump,
-        analyzer_keys, prior_versions, current_versions,
+        current,
+        prior,
+        bumped_langs,
+        global_bump,
+        analyzer_keys,
+        prior_versions,
+        current_versions,
     )
     deleted = {p: pf for p, pf in prior.items() if p not in current}
     _mark_deleted(changes, deleted)
@@ -176,19 +177,14 @@ def _classify_present(
         prev = prior.get(path)
         if prev is None:
             added[path] = f
-            changes.append(
-                FileChange(path, ChangeKind.ADDED, "not in previous snapshot")
-            )
+            changes.append(FileChange(path, ChangeKind.ADDED, "not in previous snapshot"))
             continue
         if global_bump or prev.language in bumped_langs:
-            key = (
-                f"parser:{prev.language}"
-                if prev.language in bumped_langs
-                else analyzer_keys[0]
-            )
+            key = f"parser:{prev.language}" if prev.language in bumped_langs else analyzer_keys[0]
             changes.append(
                 FileChange(
-                    path, ChangeKind.MODIFIED,
+                    path,
+                    ChangeKind.MODIFIED,
                     f"analyzer version changed "
                     f"({prior_versions.get(key)} -> "
                     f"{current_versions.get(key)})",
@@ -198,28 +194,21 @@ def _classify_present(
             # sem hash não há prova de conteúdo idêntico → conservador
             changes.append(
                 FileChange(
-                    path, ChangeKind.MODIFIED,
+                    path,
+                    ChangeKind.MODIFIED,
                     "content hash unavailable (cannot prove identical)",
                 )
             )
         elif prev.sha256 != f.sha256:
-            changes.append(
-                FileChange(path, ChangeKind.MODIFIED, "content hash differs")
-            )
+            changes.append(FileChange(path, ChangeKind.MODIFIED, "content hash differs"))
         else:
-            changes.append(
-                FileChange(path, ChangeKind.UNCHANGED, "identical content hash")
-            )
+            changes.append(FileChange(path, ChangeKind.UNCHANGED, "identical content hash"))
     return changes, added
 
 
-def _mark_deleted(
-    changes: list[FileChange], deleted: dict[str, _PriorFile]
-) -> None:
+def _mark_deleted(changes: list[FileChange], deleted: dict[str, _PriorFile]) -> None:
     for path in sorted(deleted):
-        changes.append(
-            FileChange(path, ChangeKind.DELETED, "absent from current manifest")
-        )
+        changes.append(FileChange(path, ChangeKind.DELETED, "absent from current manifest"))
 
 
 def _swap_added(changes: list[FileChange], path: str, new: FileChange) -> None:
@@ -251,10 +240,13 @@ def _mark_renames(
         if cands:
             old = cands.pop(0)
             _swap_added(
-                changes, path,
+                changes,
+                path,
                 FileChange(
-                    path, ChangeKind.RENAMED,
-                    f"content-identical to deleted {old}", old_path=old,
+                    path,
+                    ChangeKind.RENAMED,
+                    f"content-identical to deleted {old}",
+                    old_path=old,
                 ),
             )
 
@@ -269,10 +261,11 @@ def _mark_added_bumps(
         f = added[path]
         if f.language in bumped_langs:
             _swap_added(
-                changes, path,
+                changes,
+                path,
                 FileChange(
-                    path, ChangeKind.ADDED,
-                    "not in previous snapshot; analyzer bumped for "
-                    f"{f.language}",
+                    path,
+                    ChangeKind.ADDED,
+                    f"not in previous snapshot; analyzer bumped for {f.language}",
                 ),
             )

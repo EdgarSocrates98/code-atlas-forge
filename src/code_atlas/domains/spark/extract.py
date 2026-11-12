@@ -30,9 +30,7 @@ from code_atlas.domains.spark.walk import _Walker
 _MAX_BYTES = 2 * 1024 * 1024  # 2 MiB — acima disso: diagnóstico, skip
 
 
-def _read_artifact(
-    base_path: Path, rel_path: str, sink: Sink
-) -> tuple[str, str] | None:
+def _read_artifact(base_path: Path, rel_path: str, sink: Sink) -> tuple[str, str] | None:
     """Lê o artefato → ``(texto, sha256-bytes)``; ``None`` + diag em falha."""
     base = base_path.resolve()
     # containment por pathlib — ``startswith`` em string aceitaria irmãos
@@ -41,7 +39,8 @@ def _read_artifact(
     p = artifact_path_confined(rel_path, base)
     if p is None:
         sink.diag(
-            "artifact-outside-root", "warning",
+            "artifact-outside-root",
+            "warning",
             f"{rel_path}: artifact path escapes repository root",
             rel_path,
         )
@@ -49,13 +48,16 @@ def _read_artifact(
     raw = read_file_verified(p, base)
     if raw is None:
         sink.diag(
-            "read-error", "error",
-            "cannot read artifact: unsafe or vanished", rel_path,
+            "read-error",
+            "error",
+            "cannot read artifact: unsafe or vanished",
+            rel_path,
         )
         return None
     if len(raw) > _MAX_BYTES:
         sink.diag(
-            "artifact-too-large", "info",
+            "artifact-too-large",
+            "info",
             f"skipping {rel_path}: {len(raw)} bytes > {_MAX_BYTES}",
             rel_path,
         )
@@ -65,8 +67,10 @@ def _read_artifact(
         text = raw.decode("utf-8")
     except UnicodeDecodeError as exc:
         sink.diag(
-            "decode-error", "error",
-            f"artifact is not valid utf-8: {exc}", rel_path,
+            "decode-error",
+            "error",
+            f"artifact is not valid utf-8: {exc}",
+            rel_path,
         )
         return None
     return text, sha
@@ -82,7 +86,8 @@ def extract(
     for art in sorted(request.artifacts, key=lambda a: a.path):
         if not art.path.lower().endswith(".py"):
             sink.diag(
-                "unsupported-artifact", "info",
+                "unsupported-artifact",
+                "info",
                 f"{art.path}: adapter extracts only Python (.py) "
                 f"artifacts — {art.artifact_kind or 'unknown'} skipped",
                 art.path,
@@ -99,7 +104,8 @@ def extract(
             _Walker(sink, art.path, sha, text).run()
         except Exception as exc:  # honestidade: crash vira diagnóstico
             sink.diag(
-                "adapter-crash", "error",
+                "adapter-crash",
+                "error",
                 f"{type(exc).__name__} while walking {art.path}: {exc}",
                 art.path,
             )

@@ -55,8 +55,7 @@ def _qs(handler: BaseHTTPRequestHandler) -> dict[str, str]:
     return {k: v[0] for k, v in raw.items() if v}
 
 
-def _int(params: dict[str, str], key: str, default: int = 0,
-         cap: int = _MAX_LIMIT) -> int:
+def _int(params: dict[str, str], key: str, default: int = 0, cap: int = _MAX_LIMIT) -> int:
     try:
         v = int(params.get(key, "") or default)
     except ValueError as exc:
@@ -83,8 +82,7 @@ def _repo(conn: Any, params: dict[str, str]) -> int:
 
 
 def _all_repos(store: Store) -> list[int]:
-    rows = store.conn.execute(
-        "SELECT id FROM repositories ORDER BY id").fetchall()
+    rows = store.conn.execute("SELECT id FROM repositories ORDER BY id").fetchall()
     return [int(r["id"]) for r in rows]
 
 
@@ -97,11 +95,9 @@ def _snapshot(conn: Any, repo_id: int, params: dict[str, str]) -> int:
         except ValueError as exc:
             raise ApiError("bad-param", "snapshot_id inválido") from exc
         if snap is None or snap.repository_id != repo_id:
-            raise ApiError("snapshot-not-found",
-                           "snapshot inexistente no repositório", 404)
+            raise ApiError("snapshot-not-found", "snapshot inexistente no repositório", 404)
         if snap.status != "READY":
-            raise ApiError("snapshot-not-ready",
-                           f"snapshot {snap.id} está {snap.status}", 409)
+            raise ApiError("snapshot-not-ready", f"snapshot {snap.id} está {snap.status}", 409)
         assert snap.id is not None
         return snap.id
     snap = store.latest_ready_snapshot(repo_id)
@@ -117,7 +113,8 @@ _NODE_SELECT = (
     "f.relative_path AS path, o.span_start, o.span_end, o.parse_status "
     "FROM symbol_occurrences o "
     "JOIN symbols s ON s.id = o.logical_symbol_id "
-    "JOIN source_files f ON f.id = o.source_file_id ")
+    "JOIN source_files f ON f.id = o.source_file_id "
+)
 
 
 def _row_to_node(row: Any) -> dict[str, Any]:
@@ -135,62 +132,68 @@ def _row_to_node(row: Any) -> dict[str, Any]:
 
 
 _NODES_IN_QUERY = (
-    _NODE_SELECT +
-    "WHERE o.snapshot_id = ? AND o.id IN (SELECT value FROM json_each(?))")
+    _NODE_SELECT + "WHERE o.snapshot_id = ? AND o.id IN (SELECT value FROM json_each(?))"
+)
 _NODE_BY_ID_QUERY = _NODE_SELECT + "WHERE o.snapshot_id = ? AND o.id = ?"
 
 
 _COUNT_QUERIES = {
-    "file_inventory":
-        "SELECT COUNT(*) AS n FROM file_inventory WHERE snapshot_id = ?",
-    "symbol_occurrences":
-        "SELECT COUNT(*) AS n FROM symbol_occurrences WHERE snapshot_id = ?",
-    "relations":
-        "SELECT COUNT(*) AS n FROM relations WHERE snapshot_id = ?",
-    "evidence":
-        "SELECT COUNT(*) AS n FROM evidence WHERE snapshot_id = ?",
+    "file_inventory": "SELECT COUNT(*) AS n FROM file_inventory WHERE snapshot_id = ?",
+    "symbol_occurrences": "SELECT COUNT(*) AS n FROM symbol_occurrences WHERE snapshot_id = ?",
+    "relations": "SELECT COUNT(*) AS n FROM relations WHERE snapshot_id = ?",
+    "evidence": "SELECT COUNT(*) AS n FROM evidence WHERE snapshot_id = ?",
 }
 
 
 # --- handlers -----------------------------------------------------------
 
 
-def _health(server: _AtlasHttpd, conn: Any, _p: dict[str, str],
-            _b: dict[str, Any] | None) -> dict[str, Any]:
+def _health(
+    server: _AtlasHttpd, conn: Any, _p: dict[str, str], _b: dict[str, Any] | None
+) -> dict[str, Any]:
     return {"status": "ok", "service": "code-atlas-api", "version": 1}
 
 
-def _capabilities(server: _AtlasHttpd, conn: Any, _p: dict[str, str],
-                  _b: dict[str, Any] | None) -> dict[str, Any]:
+def _capabilities(
+    server: _AtlasHttpd, conn: Any, _p: dict[str, str], _b: dict[str, Any] | None
+) -> dict[str, Any]:
     from code_atlas.search.engine import SearchEngine
+
     caps = dataclasses.asdict(SearchEngine(conn).capabilities())
     return {"search": caps, "api_version": 1, "readonly": True}
 
 
-def _repositories(server: _AtlasHttpd, conn: Any, _p: dict[str, str],
-                  _b: dict[str, Any] | None) -> dict[str, Any]:
+def _repositories(
+    server: _AtlasHttpd, conn: Any, _p: dict[str, str], _b: dict[str, Any] | None
+) -> dict[str, Any]:
     rows = conn.execute(
         "SELECT id, identity_key, root_handle FROM repositories ORDER BY id"
     ).fetchall()
-    items = [{"id": r["id"], "identity_key": r["identity_key"],
-              "root_handle": r["root_handle"]} for r in rows]
+    items = [
+        {"id": r["id"], "identity_key": r["identity_key"], "root_handle": r["root_handle"]}
+        for r in rows
+    ]
     return {"items": items, "total": len(items)}
 
 
-def _snapshots(server: _AtlasHttpd, conn: Any, repo_id: str,
-               _b: dict[str, Any] | None) -> dict[str, Any]:
+def _snapshots(
+    server: _AtlasHttpd, conn: Any, repo_id: str, _b: dict[str, Any] | None
+) -> dict[str, Any]:
     try:
         rid = int(repo_id)
     except ValueError as exc:
         raise ApiError("bad-param", "repository_id inválido") from exc
     rows = conn.execute(
         "SELECT id, status, commit_sha, git_ref, created_at FROM snapshots "
-        "WHERE repository_id = ? ORDER BY id DESC LIMIT 100", (rid,)).fetchall()
+        "WHERE repository_id = ? ORDER BY id DESC LIMIT 100",
+        (rid,),
+    ).fetchall()
     return {"items": [dict(r) for r in rows]}
 
 
-def _graph_overview(server: _AtlasHttpd, conn: Any, p: dict[str, str],
-                    _b: dict[str, Any] | None) -> dict[str, Any]:
+def _graph_overview(
+    server: _AtlasHttpd, conn: Any, p: dict[str, str], _b: dict[str, Any] | None
+) -> dict[str, Any]:
     """Visão macro: nós agregados por arquivo — nunca o grafo inteiro."""
     rid = _repo(conn, p)
     sid = _snapshot(conn, rid, p)
@@ -203,13 +206,19 @@ def _graph_overview(server: _AtlasHttpd, conn: Any, p: dict[str, str],
         "JOIN source_files f ON f.id = o.source_file_id "
         "WHERE o.snapshot_id = ? "
         "GROUP BY f.id ORDER BY symbols DESC LIMIT ?",
-        (sid, limit)).fetchall()
+        (sid, limit),
+    ).fetchall()
     total = conn.execute(
-        "SELECT COUNT(DISTINCT source_file_id) AS n FROM symbol_occurrences "
-        "WHERE snapshot_id = ?", (sid,)).fetchone()["n"]
-    return {"snapshot_id": sid, "repository_id": rid,
-            "items": [dict(r) for r in rows], "total_files": total,
-            "truncated": len(rows) < total}
+        "SELECT COUNT(DISTINCT source_file_id) AS n FROM symbol_occurrences WHERE snapshot_id = ?",
+        (sid,),
+    ).fetchone()["n"]
+    return {
+        "snapshot_id": sid,
+        "repository_id": rid,
+        "items": [dict(r) for r in rows],
+        "total_files": total,
+        "truncated": len(rows) < total,
+    }
 
 
 def _row_to_edge(row: Any, snapshot_id: int) -> dict[str, Any]:
@@ -229,8 +238,9 @@ def _row_to_edge(row: Any, snapshot_id: int) -> dict[str, Any]:
     }
 
 
-def _graph_neighbors(server: _AtlasHttpd, conn: Any, p: dict[str, str],
-                     _b: dict[str, Any] | None) -> dict[str, Any]:
+def _graph_neighbors(
+    server: _AtlasHttpd, conn: Any, p: dict[str, str], _b: dict[str, Any] | None
+) -> dict[str, Any]:
     rid = _repo(conn, p)
     sid = _snapshot(conn, rid, p)
     direction = p.get("direction", "out")
@@ -248,32 +258,33 @@ def _graph_neighbors(server: _AtlasHttpd, conn: Any, p: dict[str, str],
         "  OR (? = 'in' AND to_id = ?) "
         "  OR (? = 'both' AND (from_id = ? OR to_id = ?))"
         ") ORDER BY id LIMIT ?",
-        (sid, direction, occ_id, direction, occ_id,
-         direction, occ_id, occ_id, limit)).fetchall()
+        (sid, direction, occ_id, direction, occ_id, direction, occ_id, occ_id, limit),
+    ).fetchall()
     occ_ids = {e["from_id"] for e in edges} | {e["to_id"] for e in edges}
     occ_ids.discard(0)
     occ_ids.discard(None)
     nodes = []
     if occ_ids:
-        nodes = conn.execute(
-            _NODES_IN_QUERY,
-            (sid, json.dumps(sorted(occ_ids)))).fetchall()
-    return {"snapshot_id": sid,
-            "edges": [_row_to_edge(e, sid) for e in edges],
-            "nodes": [_row_to_node(n) for n in nodes],
-            "truncated": len(edges) == limit}
+        nodes = conn.execute(_NODES_IN_QUERY, (sid, json.dumps(sorted(occ_ids)))).fetchall()
+    return {
+        "snapshot_id": sid,
+        "edges": [_row_to_edge(e, sid) for e in edges],
+        "nodes": [_row_to_node(n) for n in nodes],
+        "truncated": len(edges) == limit,
+    }
 
 
-def _file_occurrences(server: _AtlasHttpd, conn: Any, file_id: str,
-                      p: dict[str, str]) -> dict[str, Any]:
+def _file_occurrences(
+    server: _AtlasHttpd, conn: Any, file_id: str, p: dict[str, str]
+) -> dict[str, Any]:
     """Ocorrências de símbolo de um arquivo — escopo snapshot do repo dele."""
     try:
         fid = int(file_id)
     except ValueError as exc:
         raise ApiError("bad-param", "file_id inválido") from exc
     frow = conn.execute(
-        "SELECT id, repository_id, relative_path, language FROM source_files "
-        "WHERE id = ?", (fid,)).fetchone()
+        "SELECT id, repository_id, relative_path, language FROM source_files WHERE id = ?", (fid,)
+    ).fetchone()
     if frow is None:
         raise ApiError("file-not-found", "arquivo inexistente", 404)
     rid = int(frow["repository_id"])
@@ -288,32 +299,43 @@ def _file_occurrences(server: _AtlasHttpd, conn: Any, file_id: str,
         "JOIN symbols s ON s.id = o.logical_symbol_id "
         "WHERE o.snapshot_id = ? AND o.source_file_id = ? "
         "ORDER BY o.line, o.col, o.id LIMIT ? OFFSET ?",
-        (sid, fid, limit, offset)).fetchall()
+        (sid, fid, limit, offset),
+    ).fetchall()
     total = conn.execute(
-        "SELECT COUNT(*) AS n FROM symbol_occurrences "
-        "WHERE snapshot_id = ? AND source_file_id = ?",
-        (sid, fid)).fetchone()["n"]
-    items = [{
-        "id": f"occ:{r['occurrence_id']}",
-        "occurrence_id": r["occurrence_id"],
-        "symbol_id": r["symbol_id"],
-        "qualified_name": r["qname"],
-        "kind": r["kind"],
-        "span_start": r["span_start"],
-        "span_end": r["span_end"],
-        "line": r["line"],
-        "col": r["col"],
-        "content_hash": r["content_hash"],
-        "parse_status": r["parse_status"],
-    } for r in rows]
-    return {"file_id": fid, "repository_id": rid, "snapshot_id": sid,
-            "path": frow["relative_path"], "language": frow["language"],
-            "items": items, "total": total, "limit": limit, "offset": offset,
-            "truncated": offset + len(items) < total}
+        "SELECT COUNT(*) AS n FROM symbol_occurrences WHERE snapshot_id = ? AND source_file_id = ?",
+        (sid, fid),
+    ).fetchone()["n"]
+    items = [
+        {
+            "id": f"occ:{r['occurrence_id']}",
+            "occurrence_id": r["occurrence_id"],
+            "symbol_id": r["symbol_id"],
+            "qualified_name": r["qname"],
+            "kind": r["kind"],
+            "span_start": r["span_start"],
+            "span_end": r["span_end"],
+            "line": r["line"],
+            "col": r["col"],
+            "content_hash": r["content_hash"],
+            "parse_status": r["parse_status"],
+        }
+        for r in rows
+    ]
+    return {
+        "file_id": fid,
+        "repository_id": rid,
+        "snapshot_id": sid,
+        "path": frow["relative_path"],
+        "language": frow["language"],
+        "items": items,
+        "total": total,
+        "limit": limit,
+        "offset": offset,
+        "truncated": offset + len(items) < total,
+    }
 
 
-def _symbol(server: _AtlasHttpd, conn: Any, sym_id: str,
-            p: dict[str, str]) -> dict[str, Any]:
+def _symbol(server: _AtlasHttpd, conn: Any, sym_id: str, p: dict[str, str]) -> dict[str, Any]:
     rid = _repo(conn, p)
     sid = _snapshot(conn, rid, p)
     try:
@@ -326,7 +348,8 @@ def _symbol(server: _AtlasHttpd, conn: Any, sym_id: str,
     counts = conn.execute(
         "SELECT type, resolution_status, COUNT(*) AS n FROM relations "
         "WHERE snapshot_id = ? AND (from_id = ? OR to_id = ?) GROUP BY 1,2",
-        (sid, occ_id, occ_id)).fetchall()
+        (sid, occ_id, occ_id),
+    ).fetchall()
     out = _row_to_node(row)
     out["relations_summary"] = [dict(c) for c in counts]
     return out
@@ -335,8 +358,7 @@ def _symbol(server: _AtlasHttpd, conn: Any, sym_id: str,
 def _search_strategy(p: dict[str, str]) -> str:
     """Estratégia pedida — default hybrid, valor desconhecido → hybrid."""
     s = p.get("strategy", "hybrid")
-    return s if s in (
-        "lexical", "structural", "hybrid", "vector", "graph") else "hybrid"
+    return s if s in ("lexical", "structural", "hybrid", "vector", "graph") else "hybrid"
 
 
 def _search_repo_filter(conn: Any, p: dict[str, str]) -> int | None:
@@ -353,8 +375,9 @@ def _search_repo_filter(conn: Any, p: dict[str, str]) -> int | None:
     return repo_id
 
 
-def _search(server: _AtlasHttpd, conn: Any, p: dict[str, str],
-            _b: dict[str, Any] | None) -> dict[str, Any]:
+def _search(
+    server: _AtlasHttpd, conn: Any, p: dict[str, str], _b: dict[str, Any] | None
+) -> dict[str, Any]:
     """Busca de símbolos + faceta de domínio (lf-0119).
 
     ``workspace=``/``federation=`` ativa a busca federada (mesmo
@@ -364,6 +387,7 @@ def _search(server: _AtlasHttpd, conn: Any, p: dict[str, str],
     """
     from code_atlas.search.contracts import SearchRequest
     from code_atlas.search.engine import SearchEngine
+
     q = p.get("q", "")
     if not q or len(q) > 300:
         raise ApiError("bad-param", "q obrigatório (≤300 chars)")
@@ -380,14 +404,19 @@ def _search(server: _AtlasHttpd, conn: Any, p: dict[str, str],
         language=p.get("language") or None,
         kind=p.get("kind") or None,
         path=p.get("path") or None,
-        domain=doms[0] if doms else None)
+        domain=doms[0] if doms else None,
+    )
     if workspace:
         from code_atlas.search.federated import FederatedSearchEngine
+
         pins = _parse_pins(p)
         return _fed_call(
-            lambda: FederatedSearchEngine(conn).search(
-                req, workspace, pins, repository_id=repo_filter
-            ).to_dict())
+            lambda: (
+                FederatedSearchEngine(conn)
+                .search(req, workspace, pins, repository_id=repo_filter)
+                .to_dict()
+            )
+        )
     # repo escolhido: repository_id (explícito) > repository_root > 1º repo
     root = p.get("repository_root", "")
     if repo_filter is not None:
@@ -395,58 +424,64 @@ def _search(server: _AtlasHttpd, conn: Any, p: dict[str, str],
         assert repo is not None  # validado em _search_repo_filter
         root = repo.root_handle
     elif not root:
-        first = conn.execute(
-            "SELECT root_handle FROM repositories ORDER BY id LIMIT 1"
-        ).fetchone()
+        first = conn.execute("SELECT root_handle FROM repositories ORDER BY id LIMIT 1").fetchone()
         root = str(first["root_handle"]) if first else ""
     elif store.repository_id_for(root) is None:
         raise ApiError("repo-not-indexed", "repositório não indexado", 404)
-    res = SearchEngine(conn).search(
-        dataclasses.replace(req, repository_root=root))
+    res = SearchEngine(conn).search(dataclasses.replace(req, repository_root=root))
     return dataclasses.asdict(res)
 
 
-def _context(server: _AtlasHttpd, conn: Any, _p: dict[str, str],
-             body: dict[str, Any] | None) -> dict[str, Any]:
+def _context(
+    server: _AtlasHttpd, conn: Any, _p: dict[str, str], body: dict[str, Any] | None
+) -> dict[str, Any]:
     from code_atlas.context.contracts import ContextRequest
     from code_atlas.context.engine import ContextEngine
+
     body = body or {}
     task = str(body.get("task", ""))[:2000]
     if not task:
         raise ApiError("bad-param", "task obrigatória")
-    pack = ContextEngine(conn).build(ContextRequest(
-        task=task,
-        repository_root=str(body.get("repository_root", ""))[:1000],
-        snapshot_id=body.get("snapshot_id"),
-        level=body.get("level", "focus"),
-        budget_tokens=min(int(body.get("budget_tokens", 4000)), 64000),
-        max_symbols=min(int(body.get("max_symbols", 50)), 200)))
+    pack = ContextEngine(conn).build(
+        ContextRequest(
+            task=task,
+            repository_root=str(body.get("repository_root", ""))[:1000],
+            snapshot_id=body.get("snapshot_id"),
+            level=body.get("level", "focus"),
+            budget_tokens=min(int(body.get("budget_tokens", 4000)), 64000),
+            max_symbols=min(int(body.get("max_symbols", 50)), 200),
+        )
+    )
     return pack.to_dict()
 
 
-def _impact(server: _AtlasHttpd, conn: Any, _p: dict[str, str],
-            body: dict[str, Any] | None) -> dict[str, Any]:
+def _impact(
+    server: _AtlasHttpd, conn: Any, _p: dict[str, str], body: dict[str, Any] | None
+) -> dict[str, Any]:
     from code_atlas.impact.contracts import ImpactRequest
     from code_atlas.impact.engine import ImpactEngine
+
     body = body or {}
     root = str(body.get("repository_root", ""))
     if not root or len(root) > 1000:
         raise ApiError("bad-param", "repository_root obrigatório")
-    res = ImpactEngine(conn).analyze(ImpactRequest(
-        repository_root=root,
-        base_revision=str(body.get("base_revision", "HEAD"))[:200],
-        target_revision=str(body.get("target_revision", ""))[:200],
-        symbol=str(body.get("symbol"))[:300] if body.get("symbol") else None,
-        file=str(body.get("file"))[:1000] if body.get("file") else None,
-        base_snapshot_id=body.get("base_snapshot_id"),
-        target_snapshot_id=body.get("target_snapshot_id"),
-        include_possible=bool(body.get("include_possible", True)),
-        known_only=bool(body.get("known_only", False))))
+    res = ImpactEngine(conn).analyze(
+        ImpactRequest(
+            repository_root=root,
+            base_revision=str(body.get("base_revision", "HEAD"))[:200],
+            target_revision=str(body.get("target_revision", ""))[:200],
+            symbol=str(body.get("symbol"))[:300] if body.get("symbol") else None,
+            file=str(body.get("file"))[:1000] if body.get("file") else None,
+            base_snapshot_id=body.get("base_snapshot_id"),
+            target_snapshot_id=body.get("target_snapshot_id"),
+            include_possible=bool(body.get("include_possible", True)),
+            known_only=bool(body.get("known_only", False)),
+        )
+    )
     return dataclasses.asdict(res)
 
 
-def _evidence(server: _AtlasHttpd, conn: Any, ev_id: str,
-              p: dict[str, str]) -> dict[str, Any]:
+def _evidence(server: _AtlasHttpd, conn: Any, ev_id: str, p: dict[str, str]) -> dict[str, Any]:
     rid = _repo(conn, p)
     sid = _snapshot(conn, rid, p)
     try:
@@ -456,26 +491,33 @@ def _evidence(server: _AtlasHttpd, conn: Any, ev_id: str,
     row = conn.execute(
         "SELECT id, extractor, extractor_version, notes, path, span, "
         "content_hash FROM evidence WHERE snapshot_id = ? AND id = ?",
-        (sid, occ_id)).fetchone()
+        (sid, occ_id),
+    ).fetchone()
     if row is None:
         raise ApiError("evidence-not-found", "evidência inexistente", 404)
     refs = conn.execute(
         "SELECT id, from_id, to_id, type, resolution_status FROM relations "
         "WHERE snapshot_id = ? AND evidence_ids LIKE ? LIMIT 100",
-        (sid, f"%{occ_id}%")).fetchall()
-    return {"snapshot_id": sid, "evidence": dict(row),
-            "referencing_relations": [dict(r) for r in refs]}
+        (sid, f"%{occ_id}%"),
+    ).fetchall()
+    return {
+        "snapshot_id": sid,
+        "evidence": dict(row),
+        "referencing_relations": [dict(r) for r in refs],
+    }
 
 
-def _index_status(server: _AtlasHttpd, conn: Any, _p: dict[str, str],
-                  _b: dict[str, Any] | None) -> dict[str, Any]:
+def _index_status(
+    server: _AtlasHttpd, conn: Any, _p: dict[str, str], _b: dict[str, Any] | None
+) -> dict[str, Any]:
     repos = conn.execute(
         "SELECT r.id, r.root_handle, "
         "(SELECT COUNT(*) FROM snapshots s WHERE s.repository_id = r.id "
         " AND s.status = 'READY') AS ready, "
         "(SELECT MAX(id) FROM snapshots s WHERE s.repository_id = r.id "
         " AND s.status = 'READY') AS latest_ready "
-        "FROM repositories r ORDER BY r.id").fetchall()
+        "FROM repositories r ORDER BY r.id"
+    ).fetchall()
     items = []
     for r in repos:
         sid = r["latest_ready"]
@@ -483,9 +525,15 @@ def _index_status(server: _AtlasHttpd, conn: Any, _p: dict[str, str],
         if sid:
             for tbl, sql in _COUNT_QUERIES.items():
                 counts[tbl] = conn.execute(sql, (sid,)).fetchone()["n"]
-        items.append({"repository_id": r["id"], "root_handle": r["root_handle"],
-                      "ready_snapshots": r["ready"], "latest_ready": sid,
-                      "counts": counts})
+        items.append(
+            {
+                "repository_id": r["id"],
+                "root_handle": r["root_handle"],
+                "ready_snapshots": r["ready"],
+                "latest_ready": sid,
+                "counts": counts,
+            }
+        )
     return {"items": items}
 
 
@@ -502,11 +550,9 @@ def _index_status(server: _AtlasHttpd, conn: Any, _p: dict[str, str],
 _LOG = get_logger("code_atlas.api")
 
 _DIAG_COUNT_QUERIES = {
-    "domain_entity_occurrences":
-        "SELECT COUNT(*) AS n FROM domain_entity_occurrences "
-        "WHERE snapshot_id = ?",
-    "domain_relations":
-        "SELECT COUNT(*) AS n FROM domain_relations WHERE snapshot_id = ?",
+    "domain_entity_occurrences": "SELECT COUNT(*) AS n FROM domain_entity_occurrences "
+    "WHERE snapshot_id = ?",
+    "domain_relations": "SELECT COUNT(*) AS n FROM domain_relations WHERE snapshot_id = ?",
 }
 
 
@@ -537,29 +583,32 @@ def _diag_repo_job(conn: Any, repo_id: int) -> dict[str, Any] | None:
     job = conn.execute(
         "SELECT id, status, started_at, finished_at, counts "
         "FROM index_jobs WHERE repository_id = ? "
-        "ORDER BY id DESC LIMIT 1", (repo_id,)).fetchone()
+        "ORDER BY id DESC LIMIT 1",
+        (repo_id,),
+    ).fetchone()
     if job is None:
         return None
     jcounts = json.loads(job["counts"] or "{}")
     return {
-        "id": job["id"], "status": job["status"],
+        "id": job["id"],
+        "status": job["status"],
         "started_at": job["started_at"],
         "finished_at": job["finished_at"],
         "stage_ms": {
-            k.removeprefix("stage_ms_"): v
-            for k, v in jcounts.items() if k.startswith("stage_ms_")
+            k.removeprefix("stage_ms_"): v for k, v in jcounts.items() if k.startswith("stage_ms_")
         },
     }
 
 
-def _diagnostics(server: _AtlasHttpd, conn: Any, _p: dict[str, str],
-                 _b: dict[str, Any] | None) -> dict[str, Any]:
+def _diagnostics(
+    server: _AtlasHttpd, conn: Any, _p: dict[str, str], _b: dict[str, Any] | None
+) -> dict[str, Any]:
     from code_atlas.search.engine import SearchEngine
     from code_atlas.storage.migrations import schema_version
 
     tables = {
-        str(r["name"]) for r in conn.execute(
-            "SELECT name FROM sqlite_master WHERE type IN ('table','view')")
+        str(r["name"])
+        for r in conn.execute("SELECT name FROM sqlite_master WHERE type IN ('table','view')")
     }
     db_file = Path(server.db_path)
     wal_file = db_file.with_name(db_file.name + "-wal")
@@ -576,7 +625,8 @@ def _diagnostics(server: _AtlasHttpd, conn: Any, _p: dict[str, str],
         " AND s.status = 'BUILDING') AS building, "
         "(SELECT MAX(id) FROM snapshots s WHERE s.repository_id = r.id "
         " AND s.status = 'READY') AS latest_ready "
-        "FROM repositories r ORDER BY r.id").fetchall():
+        "FROM repositories r ORDER BY r.id"
+    ).fetchall():
         sid = r["latest_ready"]
         counts: dict[str, int] = {}
         analyzers: dict[str, str] = {}
@@ -586,32 +636,38 @@ def _diagnostics(server: _AtlasHttpd, conn: Any, _p: dict[str, str],
                 counts[tbl] = conn.execute(sql, (sid,)).fetchone()["n"]
             for tbl, sql in _DIAG_COUNT_QUERIES.items():
                 if tbl in tables:
-                    counts[tbl] = conn.execute(
-                        sql, (sid,)).fetchone()["n"]
+                    counts[tbl] = conn.execute(sql, (sid,)).fetchone()["n"]
             srow = conn.execute(
-                "SELECT analyzer_versions, created_at FROM snapshots "
-                "WHERE id = ?", (sid,)).fetchone()
+                "SELECT analyzer_versions, created_at FROM snapshots WHERE id = ?", (sid,)
+            ).fetchone()
             if srow is not None:
                 analyzers = json.loads(srow["analyzer_versions"] or "{}")
                 created_at = srow["created_at"]
-        repos.append({
-            "repository_id": r["id"],
-            "identity_key": r["identity_key"],
-            "root_handle": r["root_handle"],
-            "snapshots": {"ready": r["ready"], "failed": r["failed"],
-                          "stale": r["stale"], "building": r["building"]},
-            "latest_ready": sid,
-            "latest_ready_created_at": created_at,
-            "counts": counts,
-            # versões reais que produziram o READY — fonte autoritativa
-            # de "quais parsers/resolvers/domínios construíram isto".
-            "analyzer_versions": analyzers,
-            "last_job": _diag_repo_job(conn, r["id"]),
-        })
+        repos.append(
+            {
+                "repository_id": r["id"],
+                "identity_key": r["identity_key"],
+                "root_handle": r["root_handle"],
+                "snapshots": {
+                    "ready": r["ready"],
+                    "failed": r["failed"],
+                    "stale": r["stale"],
+                    "building": r["building"],
+                },
+                "latest_ready": sid,
+                "latest_ready_created_at": created_at,
+                "counts": counts,
+                # versões reais que produziram o READY — fonte autoritativa
+                # de "quais parsers/resolvers/domínios construíram isto".
+                "analyzer_versions": analyzers,
+                "last_job": _diag_repo_job(conn, r["id"]),
+            }
+        )
     adapters: list[dict[str, Any]] = []
     adapters_error = ""
     try:
         from code_atlas.domains.cli_surface import adapters_report
+
         adapters = adapters_report()
     except Exception as exc:
         # inventário é metadado de adapters built-in — uma falha de
@@ -624,21 +680,17 @@ def _diagnostics(server: _AtlasHttpd, conn: Any, _p: dict[str, str],
         "api_version": 1,
         "version": __version__,
         "readonly": True,
-        "uptime_s": (round(time.monotonic() - started, 3)
-                     if isinstance(started, (int, float)) else None),
-        "runtime": {"python": sys.version.split()[0],
-                    "sqlite": sqlite3.sqlite_version},
+        "uptime_s": (
+            round(time.monotonic() - started, 3) if isinstance(started, (int, float)) else None
+        ),
+        "runtime": {"python": sys.version.split()[0], "sqlite": sqlite3.sqlite_version},
         "schema_version": schema_version(conn),
         "database": {
             "path": str(db_file),
-            "size_bytes": (db_file.stat().st_size
-                           if db_file.is_file() else 0),
-            "wal_bytes": (wal_file.stat().st_size
-                          if wal_file.is_file() else 0),
-            "journal_mode": str(conn.execute(
-                "PRAGMA journal_mode").fetchone()[0]),
-            "page_count": int(conn.execute(
-                "PRAGMA page_count").fetchone()[0]),
+            "size_bytes": (db_file.stat().st_size if db_file.is_file() else 0),
+            "wal_bytes": (wal_file.stat().st_size if wal_file.is_file() else 0),
+            "journal_mode": str(conn.execute("PRAGMA journal_mode").fetchone()[0]),
+            "page_count": int(conn.execute("PRAGMA page_count").fetchone()[0]),
         },
         "fts": {
             "fts5_build": _fts5_build_probe(),
@@ -650,9 +702,10 @@ def _diagnostics(server: _AtlasHttpd, conn: Any, _p: dict[str, str],
         "repositories": repos,
         "federation": {
             "workspaces": (
-                conn.execute("SELECT COUNT(*) AS n "
-                             "FROM federation_workspaces").fetchone()["n"]
-                if "federation_workspaces" in tables else 0),
+                conn.execute("SELECT COUNT(*) AS n FROM federation_workspaces").fetchone()["n"]
+                if "federation_workspaces" in tables
+                else 0
+            ),
         },
         "adapters": {"domain": adapters, "error": adapters_error},
         "observability": {
@@ -713,18 +766,21 @@ def _parse_pins(p: dict[str, str]) -> dict[int, int]:
     return out
 
 
-def _fed_workspaces(server: _AtlasHttpd, conn: Any, _p: dict[str, str],
-                    _b: dict[str, Any] | None) -> dict[str, Any]:
+def _fed_workspaces(
+    server: _AtlasHttpd, conn: Any, _p: dict[str, str], _b: dict[str, Any] | None
+) -> dict[str, Any]:
     rows = conn.execute(
         "SELECT w.id, w.name, w.created_at, "
         "(SELECT COUNT(*) FROM federation_members m "
         " WHERE m.workspace_id = w.id) AS members "
-        "FROM federation_workspaces w ORDER BY w.name").fetchall()
+        "FROM federation_workspaces w ORDER BY w.name"
+    ).fetchall()
     return {"items": [dict(r) for r in rows], "total": len(rows)}
 
 
-def _fed_workspace(server: _AtlasHttpd, conn: Any, ws_id: str,
-                   _p: dict[str, str]) -> dict[str, Any]:
+def _fed_workspace(
+    server: _AtlasHttpd, conn: Any, ws_id: str, _p: dict[str, str]
+) -> dict[str, Any]:
     fed = Federation(conn)
     ws = _fed_call(lambda: fed.get_workspace(int(ws_id)))
     rows = conn.execute(
@@ -733,49 +789,49 @@ def _fed_workspace(server: _AtlasHttpd, conn: Any, ws_id: str,
         "FROM federation_members m "
         "JOIN repositories r ON r.id = m.repository_id "
         "WHERE m.workspace_id = ? ORDER BY m.repository_id",
-        (ws.id,)).fetchall()
-    return {"id": ws.id, "name": ws.name, "created_at": ws.created_at,
-            "members": [dict(r) for r in rows]}
+        (ws.id,),
+    ).fetchall()
+    return {
+        "id": ws.id,
+        "name": ws.name,
+        "created_at": ws.created_at,
+        "members": [dict(r) for r in rows],
+    }
 
 
-def _fed_view(server: _AtlasHttpd, conn: Any, ws_id: str,
-              p: dict[str, str]) -> dict[str, Any]:
+def _fed_view(server: _AtlasHttpd, conn: Any, ws_id: str, p: dict[str, str]) -> dict[str, Any]:
     fed = Federation(conn)
     pins = _parse_pins(p)
-    return _fed_call(
-        lambda: fed.resolve_view(fed.get_workspace(int(ws_id)), pins)
-        .to_dict()
-    )
+    return _fed_call(lambda: fed.resolve_view(fed.get_workspace(int(ws_id)), pins).to_dict())
 
 
-def _fed_entity_occurrences(server: _AtlasHttpd, conn: Any, ws_id: str,
-                            key: str, p: dict[str, str]) -> dict[str, Any]:
+def _fed_entity_occurrences(
+    server: _AtlasHttpd, conn: Any, ws_id: str, key: str, p: dict[str, str]
+) -> dict[str, Any]:
     fed = Federation(conn)
     pins = _parse_pins(p)
     logical_key = unquote(key)[:2000]
     return _fed_call(
-        lambda: fed.entity_occurrences(
-            fed.get_workspace(int(ws_id)), logical_key, pins
-        )
+        lambda: fed.entity_occurrences(fed.get_workspace(int(ws_id)), logical_key, pins)
     )
 
 
-def _fed_graph(server: _AtlasHttpd, conn: Any, ws_id: str,
-               p: dict[str, str]) -> dict[str, Any]:
+def _fed_graph(server: _AtlasHttpd, conn: Any, ws_id: str, p: dict[str, str]) -> dict[str, Any]:
     fed = Federation(conn)
     pins = _parse_pins(p)
     depth = _int(p, "depth", 1, cap=8)
     limit = _int(p, "limit", 500, cap=5000)
     return _fed_call(
         lambda: fed.graph(
-            fed.get_workspace(int(ws_id)), depth=depth, limit=limit,
+            fed.get_workspace(int(ws_id)),
+            depth=depth,
+            limit=limit,
             pins=pins,
         ).to_dict()
     )
 
 
-def _fed_search(server: _AtlasHttpd, conn: Any, ws_id: str,
-                p: dict[str, str]) -> dict[str, Any]:
+def _fed_search(server: _AtlasHttpd, conn: Any, ws_id: str, p: dict[str, str]) -> dict[str, Any]:
     """Busca federada num workspace (lf-0119).
 
     Cada membro é pesquisado no PRÓPRIO escopo ``(repo, snapshot)``
@@ -786,6 +842,7 @@ def _fed_search(server: _AtlasHttpd, conn: Any, ws_id: str,
     """
     from code_atlas.search.contracts import SearchRequest
     from code_atlas.search.federated import FederatedSearchEngine
+
     q = p.get("q", "")
     if not q or len(q) > 300:
         raise ApiError("bad-param", "q obrigatório (≤300 chars)")
@@ -800,12 +857,16 @@ def _fed_search(server: _AtlasHttpd, conn: Any, ws_id: str,
         language=p.get("language") or None,
         kind=p.get("kind") or None,
         path=p.get("path") or None,
-        domain=doms[0] if doms else None)
+        domain=doms[0] if doms else None,
+    )
     pins = _parse_pins(p)
     return _fed_call(
-        lambda: FederatedSearchEngine(conn).search(
-            req, int(ws_id), pins, repository_id=repo_filter
-        ).to_dict())
+        lambda: (
+            FederatedSearchEngine(conn)
+            .search(req, int(ws_id), pins, repository_id=repo_filter)
+            .to_dict()
+        )
+    )
 
 
 # --- domínios (lf-0122, Phase 14 — somente leitura) --------------------
@@ -818,7 +879,10 @@ def _fed_search(server: _AtlasHttpd, conn: Any, ws_id: str,
 
 _DOMAIN_PARAM = re.compile(r"^[a-zA-Z0-9_.\-]{1,100}$")
 _LINEAGE_KINDS = (
-    "data_table", "data_view", "iceberg_table", "data_column",
+    "data_table",
+    "data_view",
+    "iceberg_table",
+    "data_column",
     "data_transformation",
 )
 # Tipos que carregam fluxo de dados — a travessia upstream/downstream do
@@ -837,8 +901,7 @@ def _csv_filter(raw: str, param: str, max_items: int = 8) -> list[str]:
         if not value:
             continue
         if not _DOMAIN_PARAM.fullmatch(value):
-            raise ApiError(
-                "bad-param", f"parâmetro {param} inválido: {value!r}")
+            raise ApiError("bad-param", f"parâmetro {param} inválido: {value!r}")
         out.append(value)
         if len(out) > max_items:
             raise ApiError(
@@ -875,8 +938,9 @@ def _domain_entity_dto(row: Any) -> dict[str, Any]:
     }
 
 
-def _domains(server: _AtlasHttpd, conn: Any, p: dict[str, str],
-             _b: dict[str, Any] | None) -> dict[str, Any]:
+def _domains(
+    server: _AtlasHttpd, conn: Any, p: dict[str, str], _b: dict[str, Any] | None
+) -> dict[str, Any]:
     """Inventário de domínios: kinds presentes + contagens honestas.
 
     ``entities`` conta as entidades lógicas do repositório (estáveis
@@ -893,21 +957,21 @@ def _domains(server: _AtlasHttpd, conn: Any, p: dict[str, str],
         "  ON deo.entity_id = de.id AND deo.snapshot_id = ? "
         "WHERE de.repository_id = ? "
         "GROUP BY de.domain, de.kind ORDER BY de.domain, de.kind",
-        (sid, rid)).fetchall()
+        (sid, rid),
+    ).fetchall()
     domains: dict[str, dict[str, Any]] = {}
     for r in rows:
-        dom = domains.setdefault(r["domain"], {"domain": r["domain"],
-                                               "kinds": []})
-        dom["kinds"].append({"kind": r["kind"],
-                             "entities": r["entities"],
-                             "occurrences": r["occurrences"]})
+        dom = domains.setdefault(r["domain"], {"domain": r["domain"], "kinds": []})
+        dom["kinds"].append(
+            {"kind": r["kind"], "entities": r["entities"], "occurrences": r["occurrences"]}
+        )
     items = [domains[d] for d in sorted(domains)]
-    return {"repository_id": rid, "snapshot_id": sid,
-            "items": items, "total_domains": len(items)}
+    return {"repository_id": rid, "snapshot_id": sid, "items": items, "total_domains": len(items)}
 
 
-def _domain_entities(server: _AtlasHttpd, conn: Any, p: dict[str, str],
-                     _b: dict[str, Any] | None) -> dict[str, Any]:
+def _domain_entities(
+    server: _AtlasHttpd, conn: Any, p: dict[str, str], _b: dict[str, Any] | None
+) -> dict[str, Any]:
     """Entidades de domínio com ocorrência no snapshot — paginado."""
     rid = _repo(conn, p)
     sid = _snapshot(conn, rid, p)
@@ -926,10 +990,8 @@ def _domain_entities(server: _AtlasHttpd, conn: Any, p: dict[str, str],
         where.append(f"de.kind IN ({_in_clause(kinds)})")
         args += kinds
     if q:
-        like = ("%" + q.replace("\\", "\\\\").replace("%", "\\%")
-                .replace("_", "\\_") + "%")
-        where.append("(de.qualified_name LIKE ? ESCAPE '\\' "
-                     "OR de.name LIKE ? ESCAPE '\\')")
+        like = "%" + q.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_") + "%"
+        where.append("(de.qualified_name LIKE ? ESCAPE '\\' OR de.name LIKE ? ESCAPE '\\')")
         args += [like, like]
     where_sql = " AND ".join(where)
 
@@ -949,26 +1011,34 @@ def _domain_entities(server: _AtlasHttpd, conn: Any, p: dict[str, str],
         f"WHERE {where_sql} "
         "GROUP BY de.id "
         "ORDER BY de.domain, de.kind, de.qualified_name, de.id "
-        "LIMIT ? OFFSET ?")
+        "LIMIT ? OFFSET ?"
+    )
     rows = conn.execute(entities_sql, (*args, limit, offset)).fetchall()
     count_sql = (
         "SELECT COUNT(DISTINCT de.id) AS n "
         "FROM domain_entities de "
         "JOIN domain_entity_occurrences deo "
         "  ON deo.entity_id = de.id AND deo.snapshot_id = ? "
-        f"WHERE {where_sql}")
+        f"WHERE {where_sql}"
+    )
     total = conn.execute(count_sql, args).fetchone()["n"]
-    return {"repository_id": rid, "snapshot_id": sid,
-            "items": [_domain_entity_dto(r) for r in rows],
-            "total": total, "limit": limit, "offset": offset,
-            "truncated": offset + len(rows) < total}
+    return {
+        "repository_id": rid,
+        "snapshot_id": sid,
+        "items": [_domain_entity_dto(r) for r in rows],
+        "total": total,
+        "limit": limit,
+        "offset": offset,
+        "truncated": offset + len(rows) < total,
+    }
 
 
 _DOMAIN_EDGE_SELECT = (
     "SELECT id, snapshot_id, from_entity_occ_id, from_symbol_occ_id, "
     "to_entity_occ_id, to_symbol_occ_id, to_unresolved, type, "
     "resolution_status, confidence_class, resolver, evidence_ids "
-    "FROM domain_relations ")
+    "FROM domain_relations "
+)
 
 _DOMAIN_OCC_SELECT = (
     "SELECT deo.id AS occ_id, deo.entity_id, deo.extraction_status, "
@@ -976,7 +1046,8 @@ _DOMAIN_OCC_SELECT = (
     "de.name, sf.relative_path AS path "
     "FROM domain_entity_occurrences deo "
     "JOIN domain_entities de ON de.id = deo.entity_id "
-    "LEFT JOIN source_files sf ON sf.id = deo.source_file_id ")
+    "LEFT JOIN source_files sf ON sf.id = deo.source_file_id "
+)
 
 
 def _hydrate_domain_endpoints(
@@ -984,19 +1055,18 @@ def _hydrate_domain_endpoints(
 ) -> tuple[dict[int, dict[str, Any]], dict[int, dict[str, Any]]]:
     """Resolve os endpoints de um lote de arestas — 2 queries no máximo."""
     ent_ids = sorted(
-        ({r["from_entity_occ_id"] for r in rows}
-         | {r["to_entity_occ_id"] for r in rows}) - {None})
+        ({r["from_entity_occ_id"] for r in rows} | {r["to_entity_occ_id"] for r in rows}) - {None}
+    )
     sym_ids = sorted(
-        ({r["from_symbol_occ_id"] for r in rows}
-         | {r["to_symbol_occ_id"] for r in rows}) - {None})
+        ({r["from_symbol_occ_id"] for r in rows} | {r["to_symbol_occ_id"] for r in rows}) - {None}
+    )
     ents: dict[int, dict[str, Any]] = {}
     if ent_ids:
         occ_by_ids_sql = (
-            _DOMAIN_OCC_SELECT +
-            "WHERE deo.snapshot_id = ? "
-            "AND deo.id IN (SELECT value FROM json_each(?))")
-        for r in conn.execute(
-            occ_by_ids_sql, (sid, json.dumps(ent_ids))).fetchall():
+            _DOMAIN_OCC_SELECT + "WHERE deo.snapshot_id = ? "
+            "AND deo.id IN (SELECT value FROM json_each(?))"
+        )
+        for r in conn.execute(occ_by_ids_sql, (sid, json.dumps(ent_ids))).fetchall():
             occ = int(r["occ_id"])
             eid = int(r["entity_id"])
             ents[occ] = {
@@ -1014,12 +1084,11 @@ def _hydrate_domain_endpoints(
             }
     syms: dict[int, dict[str, Any]] = {}
     if sym_ids:
-        for r in conn.execute(
-            _NODES_IN_QUERY, (sid, json.dumps(sym_ids))).fetchall():
+        for r in conn.execute(_NODES_IN_QUERY, (sid, json.dumps(sym_ids))).fetchall():
             occ = int(r["occurrence_id"])
             node = _row_to_node(r)
             syms[occ] = {
-                "ref": node["id"],          # occ:{id}
+                "ref": node["id"],  # occ:{id}
                 "endpoint": "symbol",
                 "occurrence_id": occ,
                 "qualified_name": node["qname"],
@@ -1031,7 +1100,8 @@ def _hydrate_domain_endpoints(
 
 
 def _domain_endpoint(
-    row: Any, side: str,
+    row: Any,
+    side: str,
     ents: dict[int, dict[str, Any]],
     syms: dict[int, dict[str, Any]],
 ) -> dict[str, Any]:
@@ -1045,19 +1115,21 @@ def _domain_endpoint(
         found = ents.get(int(eid))
         if found is not None:
             return found
-        return {"ref": f"de_occ:{eid}", "endpoint": "entity",
-                "occurrence_id": int(eid), "stale": True}
+        return {
+            "ref": f"de_occ:{eid}",
+            "endpoint": "entity",
+            "occurrence_id": int(eid),
+            "stale": True,
+        }
     oid = row[f"{side}_symbol_occ_id"]
     if oid is not None:
         found = syms.get(int(oid))
         if found is not None:
             return found
-        return {"ref": f"occ:{oid}", "endpoint": "symbol",
-                "occurrence_id": int(oid), "stale": True}
+        return {"ref": f"occ:{oid}", "endpoint": "symbol", "occurrence_id": int(oid), "stale": True}
     if side == "to" and row["to_unresolved"]:
         label = str(row["to_unresolved"])
-        return {"ref": f"unresolved:{label}", "endpoint": "unresolved",
-                "label": label}
+        return {"ref": f"unresolved:{label}", "endpoint": "unresolved", "label": label}
     return {"ref": f"{side}:none", "endpoint": "unknown"}
 
 
@@ -1086,8 +1158,9 @@ def _domain_edges_dto(conn: Any, sid: int, rows: list[Any]) -> list[dict[str, An
     return [_domain_edge_dto(r, ents, syms) for r in rows]
 
 
-def _domain_relations(server: _AtlasHttpd, conn: Any, p: dict[str, str],
-                      _b: dict[str, Any] | None) -> dict[str, Any]:
+def _domain_relations(
+    server: _AtlasHttpd, conn: Any, p: dict[str, str], _b: dict[str, Any] | None
+) -> dict[str, Any]:
     """Arestas de domínio do snapshot — filtro por ``type=a,b``."""
     rid = _repo(conn, p)
     sid = _snapshot(conn, rid, p)
@@ -1103,15 +1176,23 @@ def _domain_relations(server: _AtlasHttpd, conn: Any, p: dict[str, str],
     rows = conn.execute(edges_sql, (*args, limit, offset)).fetchall()
     count_sql = f"SELECT COUNT(*) AS n FROM domain_relations {where}"
     total = conn.execute(count_sql, args).fetchone()["n"]
-    return {"repository_id": rid, "snapshot_id": sid,
-            "edges": _domain_edges_dto(conn, sid, rows),
-            "total": total, "limit": limit, "offset": offset,
-            "truncated": offset + len(rows) < total}
+    return {
+        "repository_id": rid,
+        "snapshot_id": sid,
+        "edges": _domain_edges_dto(conn, sid, rows),
+        "total": total,
+        "limit": limit,
+        "offset": offset,
+        "truncated": offset + len(rows) < total,
+    }
 
 
-def _domain_entity_neighbors(server: _AtlasHttpd, conn: Any,
-                             entity_id: str, p: dict[str, str],
-                             ) -> dict[str, Any]:
+def _domain_entity_neighbors(
+    server: _AtlasHttpd,
+    conn: Any,
+    entity_id: str,
+    p: dict[str, str],
+) -> dict[str, Any]:
     """Ego de uma entidade em ``domain_relations`` (por ocorrências)."""
     try:
         eid = int(entity_id)
@@ -1121,13 +1202,13 @@ def _domain_entity_neighbors(server: _AtlasHttpd, conn: Any,
         "SELECT id, repository_id, domain, kind, identity_key, "
         "qualified_name, name, catalog, namespace, environment, "
         "attributes FROM domain_entities WHERE id = ?",
-        (eid,)).fetchone()
+        (eid,),
+    ).fetchone()
     if ent is None:
         raise ApiError("domain-entity-not-found", "entidade inexistente", 404)
     rid = _repo(conn, p)
     if rid != int(ent["repository_id"]):
-        raise ApiError("domain-entity-not-found",
-                       "entidade fora do repositório ativo", 404)
+        raise ApiError("domain-entity-not-found", "entidade fora do repositório ativo", 404)
     sid = _snapshot(conn, rid, p)
     direction = p.get("direction", "both")
     if direction not in ("in", "out", "both"):
@@ -1146,57 +1227,69 @@ def _domain_entity_neighbors(server: _AtlasHttpd, conn: Any,
             conds.append(f"to_entity_occ_id IN ({marks})")
             args += occ_ids
         ego_sql = (
-            _DOMAIN_EDGE_SELECT +
-            f"WHERE snapshot_id = ? AND ({' OR '.join(conds)}) "
-            "ORDER BY id LIMIT ?")
+            _DOMAIN_EDGE_SELECT + f"WHERE snapshot_id = ? AND ({' OR '.join(conds)}) "
+            "ORDER BY id LIMIT ?"
+        )
         edges = conn.execute(ego_sql, (*args, limit)).fetchall()
     entity_dto = {
-        "id": eid, "domain": ent["domain"], "kind": ent["kind"],
-        "qualified_name": ent["qualified_name"], "name": ent["name"],
-        "catalog": ent["catalog"], "namespace": ent["namespace"],
+        "id": eid,
+        "domain": ent["domain"],
+        "kind": ent["kind"],
+        "qualified_name": ent["qualified_name"],
+        "name": ent["name"],
+        "catalog": ent["catalog"],
+        "namespace": ent["namespace"],
         "environment": ent["environment"],
         "attributes": json.loads(ent["attributes"] or "{}"),
         "occurrences": len(occ_ids),
     }
-    return {"repository_id": rid, "snapshot_id": sid,
-            "entity": entity_dto,
-            "edges": _domain_edges_dto(conn, sid, edges),
-            "truncated": len(edges) == limit}
+    return {
+        "repository_id": rid,
+        "snapshot_id": sid,
+        "entity": entity_dto,
+        "edges": _domain_edges_dto(conn, sid, edges),
+        "truncated": len(edges) == limit,
+    }
 
 
 def _lineage_root(conn: Any, rid: int, table: str) -> Any:
     """Resolve ``?table=`` — id numérico ou qualified_name/name exato."""
     if table.isdigit():
         row = conn.execute(
-            "SELECT * FROM domain_entities WHERE id = ? AND repository_id = ?",
-            (int(table), rid)).fetchone()
+            "SELECT * FROM domain_entities WHERE id = ? AND repository_id = ?", (int(table), rid)
+        ).fetchone()
         if row is None:
-            raise ApiError("lineage-target-not-found",
-                           f"entidade {table} inexistente no repositório", 404)
+            raise ApiError(
+                "lineage-target-not-found", f"entidade {table} inexistente no repositório", 404
+            )
         return row
     root_sql = (
         "SELECT * FROM domain_entities WHERE repository_id = ? "
         f"AND kind IN ({_in_clause(list(_LINEAGE_KINDS))}) "
-        "AND (qualified_name = ? OR name = ?) ORDER BY id")
-    rows = conn.execute(
-        root_sql, (rid, *_LINEAGE_KINDS, table, table)).fetchall()
+        "AND (qualified_name = ? OR name = ?) ORDER BY id"
+    )
+    rows = conn.execute(root_sql, (rid, *_LINEAGE_KINDS, table, table)).fetchall()
     if not rows:
         raise ApiError(
             "lineage-target-not-found",
-            f"tabela {table!r} não encontrada — use o id da entidade "
-            "ou o qualified_name exato", 404)
+            f"tabela {table!r} não encontrada — use o id da entidade ou o qualified_name exato",
+            404,
+        )
     if len(rows) > 1:
-        cands = ", ".join(
-            f"#{r['id']} {r['qualified_name']}" for r in rows[:5])
+        cands = ", ".join(f"#{r['id']} {r['qualified_name']}" for r in rows[:5])
         raise ApiError(
             "lineage-target-ambiguous",
-            f"{table!r} é ambíguo ({len(rows)} entidades: {cands}) — "
-            "refaça com o id da entidade", 409)
+            f"{table!r} é ambíguo ({len(rows)} entidades: {cands}) — refaça com o id da entidade",
+            409,
+        )
     return rows[0]
 
 
 def _lineage_step(
-    conn: Any, sid: int, ent_occs: list[int], sym_occs: list[int],
+    conn: Any,
+    sid: int,
+    ent_occs: list[int],
+    sym_occs: list[int],
     upstream: bool,
 ) -> list[Any]:
     """Um passo de BFS — regras de direção por tipo de aresta.
@@ -1210,24 +1303,25 @@ def _lineage_step(
     e_json = json.dumps(ent_occs)
     s_json = json.dumps(sym_occs)
     if upstream:
-        cond = ("(type IN ('WRITES_TO','TRANSFORMS') AND ("
-                "to_entity_occ_id IN (SELECT value FROM json_each(?)) OR "
-                "to_symbol_occ_id IN (SELECT value FROM json_each(?)))) "
-                "OR (type IN ('READS_FROM','DERIVES_FROM') AND ("
-                "from_entity_occ_id IN (SELECT value FROM json_each(?)) OR "
-                "from_symbol_occ_id IN (SELECT value FROM json_each(?))))")
+        cond = (
+            "(type IN ('WRITES_TO','TRANSFORMS') AND ("
+            "to_entity_occ_id IN (SELECT value FROM json_each(?)) OR "
+            "to_symbol_occ_id IN (SELECT value FROM json_each(?)))) "
+            "OR (type IN ('READS_FROM','DERIVES_FROM') AND ("
+            "from_entity_occ_id IN (SELECT value FROM json_each(?)) OR "
+            "from_symbol_occ_id IN (SELECT value FROM json_each(?))))"
+        )
     else:
-        cond = ("(type IN ('WRITES_TO','TRANSFORMS') AND ("
-                "from_entity_occ_id IN (SELECT value FROM json_each(?)) OR "
-                "from_symbol_occ_id IN (SELECT value FROM json_each(?)))) "
-                "OR (type IN ('READS_FROM','DERIVES_FROM') AND ("
-                "to_entity_occ_id IN (SELECT value FROM json_each(?)) OR "
-                "to_symbol_occ_id IN (SELECT value FROM json_each(?))))")
-    step_sql = (
-        _DOMAIN_EDGE_SELECT +
-        f"WHERE snapshot_id = ? AND ({cond}) ORDER BY id")
-    rows: list[Any] = conn.execute(
-        step_sql, (sid, e_json, s_json, e_json, s_json)).fetchall()
+        cond = (
+            "(type IN ('WRITES_TO','TRANSFORMS') AND ("
+            "from_entity_occ_id IN (SELECT value FROM json_each(?)) OR "
+            "from_symbol_occ_id IN (SELECT value FROM json_each(?)))) "
+            "OR (type IN ('READS_FROM','DERIVES_FROM') AND ("
+            "to_entity_occ_id IN (SELECT value FROM json_each(?)) OR "
+            "to_symbol_occ_id IN (SELECT value FROM json_each(?))))"
+        )
+    step_sql = _DOMAIN_EDGE_SELECT + f"WHERE snapshot_id = ? AND ({cond}) ORDER BY id"
+    rows: list[Any] = conn.execute(step_sql, (sid, e_json, s_json, e_json, s_json)).fetchall()
     return rows
 
 
@@ -1239,25 +1333,39 @@ def _lineage_neighbor(row: Any, upstream: bool) -> tuple[str, Any, str]:
     """
     if upstream:
         if row["type"] in _LINEAGE_WRITE:
-            return ("entity", row["from_entity_occ_id"], "from") \
-                if row["from_entity_occ_id"] is not None else (
-                    "symbol", row["from_symbol_occ_id"], "from")
-        return ("entity", row["to_entity_occ_id"], "to") \
-            if row["to_entity_occ_id"] is not None else (
-                "symbol", row["to_symbol_occ_id"], "to")
+            return (
+                ("entity", row["from_entity_occ_id"], "from")
+                if row["from_entity_occ_id"] is not None
+                else ("symbol", row["from_symbol_occ_id"], "from")
+            )
+        return (
+            ("entity", row["to_entity_occ_id"], "to")
+            if row["to_entity_occ_id"] is not None
+            else ("symbol", row["to_symbol_occ_id"], "to")
+        )
     if row["type"] in _LINEAGE_WRITE:
-        return ("entity", row["to_entity_occ_id"], "to") \
-            if row["to_entity_occ_id"] is not None else (
-                "symbol", row["to_symbol_occ_id"], "to")
-    return ("entity", row["from_entity_occ_id"], "from") \
-        if row["from_entity_occ_id"] is not None else (
-            "symbol", row["from_symbol_occ_id"], "from")
+        return (
+            ("entity", row["to_entity_occ_id"], "to")
+            if row["to_entity_occ_id"] is not None
+            else ("symbol", row["to_symbol_occ_id"], "to")
+        )
+    return (
+        ("entity", row["from_entity_occ_id"], "from")
+        if row["from_entity_occ_id"] is not None
+        else ("symbol", row["from_symbol_occ_id"], "from")
+    )
 
 
 def _lineage_absorb(
-    conn: Any, store: Store, sid: int, row: Any, upstream: bool,
-    dist: int, lane: str,
-    nodes: dict[str, dict[str, Any]], visited: set[str],
+    conn: Any,
+    store: Store,
+    sid: int,
+    row: Any,
+    upstream: bool,
+    dist: int,
+    lane: str,
+    nodes: dict[str, dict[str, Any]],
+    visited: set[str],
     queue: list[tuple[str, list[int], list[int], int, str]],
 ) -> bool:
     """Absorve o vizinho de uma aresta — False quando o cap de nós bate."""
@@ -1265,18 +1373,24 @@ def _lineage_absorb(
     if nid is None:
         # alvo textual não resolvido — entra como nó honesto, nunca expande
         nref = f"unresolved:{row['id']}"
-        nodes.setdefault(nref, {
-            "ref": nref, "endpoint": "unresolved",
-            "label": str(row["to_unresolved"] or ""),
-            "distance": dist + 1, "lane": lane})
+        nodes.setdefault(
+            nref,
+            {
+                "ref": nref,
+                "endpoint": "unresolved",
+                "label": str(row["to_unresolved"] or ""),
+                "distance": dist + 1,
+                "lane": lane,
+            },
+        )
         return True
     eid: int | None = None
     if kind == "entity":
         # dedup por ENTIDADE — uma entidade pode ter várias ocorrências;
         # o ref público é ``de:{entity_id}``.
         erow = conn.execute(
-            "SELECT entity_id FROM domain_entity_occurrences WHERE id = ?",
-            (nid,)).fetchone()
+            "SELECT entity_id FROM domain_entity_occurrences WHERE id = ?", (nid,)
+        ).fetchone()
         if erow is None:
             return True  # endpoint fora do snapshot — aresta já consta
         eid = int(erow["entity_id"])
@@ -1288,18 +1402,26 @@ def _lineage_absorb(
     visited.add(nref)
     if len(visited) > _LINEAGE_MAX_NODES:
         return False
-    nodes[nref] = {"ref": nref, "occurrence_id": int(nid),
-                   "entity_id": eid, "distance": dist + 1, "lane": lane}
+    nodes[nref] = {
+        "ref": nref,
+        "occurrence_id": int(nid),
+        "entity_id": eid,
+        "distance": dist + 1,
+        "lane": lane,
+    }
     if kind == "entity" and eid is not None:
-        queue.append((nref, store.domain_occurrences_for(sid, eid), [],
-                      dist + 1, lane))
+        queue.append((nref, store.domain_occurrences_for(sid, eid), [], dist + 1, lane))
     else:
         queue.append((nref, [], [int(nid)], dist + 1, lane))
     return True
 
 
 def _lineage_bfs(
-    conn: Any, sid: int, root: Any, direction: str, depth: int,
+    conn: Any,
+    sid: int,
+    root: Any,
+    direction: str,
+    depth: int,
     limit: int,
 ) -> tuple[list[Any], dict[str, dict[str, Any]], bool]:
     """BFS bounded — retorna ``(edge_rows, nodes, truncated)``."""
@@ -1310,8 +1432,7 @@ def _lineage_bfs(
     visited: set[str] = {root_ref}
     truncated = False
     queue: list[tuple[str, list[int], list[int], int, str]] = [
-        (root_ref, store.domain_occurrences_for(sid, int(root["id"])),
-         [], 0, "root"),
+        (root_ref, store.domain_occurrences_for(sid, int(root["id"])), [], 0, "root"),
     ]
     while queue and not truncated:
         _ref, ent_occs, sym_occs, dist, _lane = queue.pop(0)
@@ -1320,24 +1441,24 @@ def _lineage_bfs(
         for upstream, lane in ((True, "upstream"), (False, "downstream")):
             if direction != "both" and direction != lane:
                 continue
-            for row in _lineage_step(
-                    conn, sid, ent_occs, sym_occs, upstream):
+            for row in _lineage_step(conn, sid, ent_occs, sym_occs, upstream):
                 if len(edges_by_id) >= limit:
                     truncated = True
                     break
                 edges_by_id.setdefault(int(row["id"]), row)
-                if not _lineage_absorb(conn, store, sid, row, upstream,
-                                       dist, lane, nodes, visited, queue):
+                if not _lineage_absorb(
+                    conn, store, sid, row, upstream, dist, lane, nodes, visited, queue
+                ):
                     truncated = True
                     break
             if truncated:
                 break
-    return ([edges_by_id[k] for k in sorted(edges_by_id)],
-            nodes, truncated)
+    return ([edges_by_id[k] for k in sorted(edges_by_id)], nodes, truncated)
 
 
-def _domain_lineage(server: _AtlasHttpd, conn: Any, p: dict[str, str],
-                    _b: dict[str, Any] | None) -> dict[str, Any]:
+def _domain_lineage(
+    server: _AtlasHttpd, conn: Any, p: dict[str, str], _b: dict[str, Any] | None
+) -> dict[str, Any]:
     """Linhagem bounded: BFS upstream/downstream sobre arestas de dados."""
     rid = _repo(conn, p)
     sid = _snapshot(conn, rid, p)
@@ -1346,15 +1467,13 @@ def _domain_lineage(server: _AtlasHttpd, conn: Any, p: dict[str, str],
         raise ApiError("bad-param", "table obrigatório (≤300 chars)")
     direction = p.get("direction", "both")
     if direction not in ("upstream", "downstream", "both"):
-        raise ApiError("bad-param",
-                       "direction deve ser upstream|downstream|both")
+        raise ApiError("bad-param", "direction deve ser upstream|downstream|both")
     depth = _int(p, "depth", 4, cap=8)
     limit = _int(p, "limit", 200, cap=500) or 200
 
     root = _lineage_root(conn, rid, table)
     root_ref = f"de:{root['id']}"
-    edge_rows, nodes, truncated = _lineage_bfs(
-        conn, sid, root, direction, depth, limit)
+    edge_rows, nodes, truncated = _lineage_bfs(conn, sid, root, direction, depth, limit)
     edge_dtos = _domain_edges_dto(conn, sid, edge_rows)
 
     # enriquece nós entity/symbol com os descritores já resolvidos
@@ -1364,33 +1483,42 @@ def _domain_lineage(server: _AtlasHttpd, conn: Any, p: dict[str, str],
             ep = dto[side]
             if ep["endpoint"] == "entity" and ep.get("entity_id") is not None:
                 endpoint_by_ref.setdefault(f"de:{ep['entity_id']}", ep)
-            elif (ep["endpoint"] == "symbol"
-                  and ep.get("occurrence_id") is not None):
+            elif ep["endpoint"] == "symbol" and ep.get("occurrence_id") is not None:
                 endpoint_by_ref.setdefault(f"occ:{ep['occurrence_id']}", ep)
     out_nodes: list[dict[str, Any]] = []
     for nref, meta in nodes.items():
         merged = dict(endpoint_by_ref.get(nref, {}))
-        merged.update({k: v for k, v in meta.items() if k not in merged
-                       or merged.get(k) is None})
+        merged.update({k: v for k, v in meta.items() if k not in merged or merged.get(k) is None})
         merged["distance"] = meta["distance"]
         merged["lane"] = meta["lane"]
         out_nodes.append(merged)
     lane_rank = {"root": 0, "upstream": 1, "downstream": 2}
-    out_nodes.sort(key=lambda n: (
-        lane_rank.get(str(n.get("lane")), 9), int(n.get("distance", 0)),
-        str(n.get("qualified_name") or n.get("label") or n.get("ref"))))
+    out_nodes.sort(
+        key=lambda n: (
+            lane_rank.get(str(n.get("lane")), 9),
+            int(n.get("distance", 0)),
+            str(n.get("qualified_name") or n.get("label") or n.get("ref")),
+        )
+    )
 
     return {
-        "repository_id": rid, "snapshot_id": sid,
+        "repository_id": rid,
+        "snapshot_id": sid,
         "root": {
-            "ref": root_ref, "endpoint": "entity",
-            "entity_id": int(root["id"]), "domain": root["domain"],
+            "ref": root_ref,
+            "endpoint": "entity",
+            "entity_id": int(root["id"]),
+            "domain": root["domain"],
             "entity_kind": root["kind"],
             "qualified_name": root["qualified_name"],
-            "name": root["name"], "distance": 0, "lane": "root",
+            "name": root["name"],
+            "distance": 0,
+            "lane": "root",
         },
-        "direction": direction, "depth": depth,
-        "nodes": out_nodes, "edges": edge_dtos,
+        "direction": direction,
+        "depth": depth,
+        "nodes": out_nodes,
+        "edges": edge_dtos,
         "truncated": truncated,
     }
 
@@ -1398,8 +1526,9 @@ def _domain_lineage(server: _AtlasHttpd, conn: Any, p: dict[str, str],
 _NO_MATCH = object()  # sentinela: rota não é do grupo parametrizado
 
 
-def _route_get_detail(server: _AtlasHttpd, conn: Any, route: str,
-                      p: dict[str, str], body: Any) -> Any:
+def _route_get_detail(
+    server: _AtlasHttpd, conn: Any, route: str, p: dict[str, str], body: Any
+) -> Any:
     """Despacha rotas GET ``/<recurso>/<id>`` — ``_NO_MATCH`` fora do escopo."""
     m = re.fullmatch(r"/repositories/(\d+)/snapshots", route)
     if m:
@@ -1416,8 +1545,7 @@ def _route_get_detail(server: _AtlasHttpd, conn: Any, route: str,
     return _NO_MATCH
 
 
-def _route_domains(server: _AtlasHttpd, conn: Any, route: str,
-                   p: dict[str, str]) -> Any:
+def _route_domains(server: _AtlasHttpd, conn: Any, route: str, p: dict[str, str]) -> Any:
     """Despacha rotas GET de domínio — ``_NO_MATCH`` fora do escopo."""
     m = re.fullmatch(r"/domains/entities/(\d+)/neighbors", route)
     if m:
@@ -1425,20 +1553,16 @@ def _route_domains(server: _AtlasHttpd, conn: Any, route: str,
     return _NO_MATCH
 
 
-def _route_federation(server: _AtlasHttpd, conn: Any, route: str,
-                      p: dict[str, str]) -> Any:
+def _route_federation(server: _AtlasHttpd, conn: Any, route: str, p: dict[str, str]) -> Any:
     """Despacha rotas GET de federação — ``_NO_MATCH`` fora do escopo."""
     if route == "/federation/workspaces":
         return _fed_workspaces(server, conn, p, None)
     m = re.fullmatch(r"/federation/workspaces/(\d+)/view", route)
     if m:
         return _fed_view(server, conn, m.group(1), p)
-    m = re.fullmatch(
-        r"/federation/workspaces/(\d+)/entities/([^/]+)/occurrences",
-        route)
+    m = re.fullmatch(r"/federation/workspaces/(\d+)/entities/([^/]+)/occurrences", route)
     if m:
-        return _fed_entity_occurrences(
-            server, conn, m.group(1), m.group(2), p)
+        return _fed_entity_occurrences(server, conn, m.group(1), m.group(2), p)
     m = re.fullmatch(r"/federation/workspaces/(\d+)/graph", route)
     if m:
         return _fed_graph(server, conn, m.group(1), p)
@@ -1451,8 +1575,7 @@ def _route_federation(server: _AtlasHttpd, conn: Any, route: str,
     return _NO_MATCH
 
 
-def handle(server: _AtlasHttpd, method: str, route: str,
-           handler: BaseHTTPRequestHandler) -> Any:
+def handle(server: _AtlasHttpd, method: str, route: str, handler: BaseHTTPRequestHandler) -> Any:
     conn = server.connect()
     t0 = time.monotonic()
     try:
@@ -1471,12 +1594,14 @@ def handle(server: _AtlasHttpd, method: str, route: str,
             if dom_result is not _NO_MATCH:
                 return dom_result
             simple = {
-                "/health": _health, "/capabilities": _capabilities,
+                "/health": _health,
+                "/capabilities": _capabilities,
                 "/diagnostics": _diagnostics,
                 "/repositories": _repositories,
                 "/graph/overview": _graph_overview,
                 "/graph/neighbors": _graph_neighbors,
-                "/search": _search, "/index/status": _index_status,
+                "/search": _search,
+                "/index/status": _index_status,
                 "/domains": _domains,
                 "/domains/entities": _domain_entities,
                 "/domains/relations": _domain_relations,
@@ -1496,14 +1621,15 @@ def handle(server: _AtlasHttpd, method: str, route: str,
         # lf-0141: slow-query guard — o request inteiro é "a query" para
         # o operador; acima de CODE_ATLAS_SLOW_MS vira linha DEBUG com a
         # rota crua (query string passa pelo RedactionFilter do logger).
-        log_if_slow(_LOG, "request", t0,
-                    f"{method} {getattr(handler, 'path', route)}")
+        log_if_slow(_LOG, "request", t0, f"{method} {getattr(handler, 'path', route)}")
 
 
 def server_body(handler: BaseHTTPRequestHandler) -> dict[str, Any]:
     from code_atlas.api.server import _content_length
+
     length = _content_length(handler.headers.get("Content-Length"))
     import json
+
     raw = handler.rfile.read(length) if length else b"{}"
     try:
         data = json.loads(raw)

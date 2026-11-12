@@ -36,18 +36,14 @@ EVAL_IDS = tuple(spec.eval_id for spec in DOMAIN_SPECS)
 def all_reports(tmp_path_factory: pytest.TempPathFactory) -> dict:
     """Um run por domínio, compartilhado entre os testes do módulo."""
     work = tmp_path_factory.mktemp("domain-eval")
-    return {
-        spec.eval_id: run_domain_eval(REPO_ROOT, spec, work)
-        for spec in DOMAIN_SPECS
-    }
+    return {spec.eval_id: run_domain_eval(REPO_ROOT, spec, work) for spec in DOMAIN_SPECS}
 
 
 def _assert_no_diffs(domain: str, report: dict, golden: dict) -> None:
     diffs = diff_report(report, golden)
     assert diffs == [], (
         f"domain {domain} diverge do golden "
-        f"evaluation/golden/{domain}.json:\n  - "
-        + "\n  - ".join(diffs)
+        f"evaluation/golden/{domain}.json:\n  - " + "\n  - ".join(diffs)
     )
 
 
@@ -80,7 +76,12 @@ def test_every_spec_has_golden() -> None:
         )
         for aid in spec.adapter_ids:
             assert aid in {
-                "sql", "pyspark", "aws-data", "api", "terraform", "cicd",
+                "sql",
+                "pyspark",
+                "aws-data",
+                "api",
+                "terraform",
+                "cicd",
             }
 
 
@@ -95,7 +96,10 @@ def test_no_relation_is_resolved_without_evidence_path(
         for e in rep["edges"]:
             assert e["resolver"], (domain, e)
             assert e["status"] in {
-                "resolved", "ambiguous", "unresolved", "external",
+                "resolved",
+                "ambiguous",
+                "unresolved",
+                "external",
             }
 
 
@@ -122,12 +126,16 @@ def test_crossdomain_states(all_reports: dict) -> None:
         for e in rep["edges"]  # type: ignore[index]
     }
     assert (
-        "REFERENCES", "sql:staging.orders", "pyspark:staging.orders",
+        "REFERENCES",
+        "sql:staging.orders",
+        "pyspark:staging.orders",
         "resolved",
     ) in edges
     assert (
-        "CALLS_ENDPOINT", "sym:app.client.post_pet",
-        "api:openapi/spec.yaml#pet-service.POST /v1/pets", "resolved",
+        "CALLS_ENDPOINT",
+        "sym:app.client.post_pet",
+        "api:openapi/spec.yaml#pet-service.POST /v1/pets",
+        "resolved",
     ) in edges
     amb = [e for e in edges if e[3] == "ambiguous"]
     assert any("cat_a.shared.metrics" in e[2] for e in amb)
@@ -147,8 +155,6 @@ def test_persisted_domain_state_survives_in_db(tmp_path: Path) -> None:
     # o db do cenário já foi fechado pelo runner — reabrir prova que o
     # snapshot foi publicado (READY), não só escrito em transação.
     conn = connect(tmp_path / "sql.db")
-    n = conn.execute(
-        "SELECT COUNT(*) FROM domain_relations"
-    ).fetchone()[0]
+    n = conn.execute("SELECT COUNT(*) FROM domain_relations").fetchone()[0]
     conn.close()
     assert n == 32

@@ -38,8 +38,7 @@ def identity_key(git: GitInfo, root: Path) -> str:
         return f"path:{Path(root).resolve()}"
     if git.toplevel:
         try:
-            rel = Path(root).resolve().relative_to(
-                Path(git.toplevel).resolve())
+            rel = Path(root).resolve().relative_to(Path(git.toplevel).resolve())
         except ValueError:
             rel = None
         if rel is not None and str(rel) not in ("", "."):

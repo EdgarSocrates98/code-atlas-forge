@@ -50,12 +50,19 @@ def _ident(domain: str, **kw: object) -> DomainIdentity:
 
 
 def _entity(
-    ident: DomainIdentity, kind: DomainEntityKind, name: str,
-    path: str, attrs: dict[str, str] | None = None,
+    ident: DomainIdentity,
+    kind: DomainEntityKind,
+    name: str,
+    path: str,
+    attrs: dict[str, str] | None = None,
 ) -> ExtractedDomainEntity:
     return ExtractedDomainEntity(
-        identity=ident, kind=kind, name=name, path=path,
-        attributes=attrs or {}, evidence=(0,),
+        identity=ident,
+        kind=kind,
+        name=name,
+        path=path,
+        attributes=attrs or {},
+        evidence=(0,),
     )
 
 
@@ -73,8 +80,11 @@ def _result(
         relations=relations,
         evidence=tuple(
             evidence_record(
-                adapter_domain=domain_id, adapter_version="0.1.0",
-                path=p, content_hash=f"sha256:{p}", notes=notes,
+                adapter_domain=domain_id,
+                adapter_version="0.1.0",
+                path=p,
+                content_hash=f"sha256:{p}",
+                notes=notes,
             )
             for p, notes in evidence_paths
         ),
@@ -107,56 +117,66 @@ def workspace(tmp_path: Path):
     file_ids = {
         r["relative_path"]: int(r["id"])
         for r in conn.execute(
-            "SELECT id, relative_path FROM source_files"
-            " WHERE repository_id = ?",
+            "SELECT id, relative_path FROM source_files WHERE repository_id = ?",
             (repo_id,),
         )
     }
     table = _ident(
-        "sql", catalog="cat1", namespace="analytics",
+        "sql",
+        catalog="cat1",
+        namespace="analytics",
         qualified_name="orders",
     )
     job = _ident("pyspark", qualified_name="daily_load")
-    persist_domain_result(store, repo_id, sid, file_ids, _result(
-        "sql",
-        entities=(
-            _entity(table, DomainEntityKind.DATA_TABLE, "orders", "q.sql"),
+    persist_domain_result(
+        store,
+        repo_id,
+        sid,
+        file_ids,
+        _result(
+            "sql",
+            entities=(_entity(table, DomainEntityKind.DATA_TABLE, "orders", "q.sql"),),
+            evidence_paths=(("q.sql", ""),),
         ),
-        evidence_paths=(("q.sql", ""),),
-    ))
-    persist_domain_result(store, repo_id, sid, file_ids, _result(
-        "pyspark",
-        entities=(
-            _entity(job, DomainEntityKind.SPARK_JOB, "daily_load",
-                    "jobs/etl.py"),
+    )
+    persist_domain_result(
+        store,
+        repo_id,
+        sid,
+        file_ids,
+        _result(
+            "pyspark",
+            entities=(_entity(job, DomainEntityKind.SPARK_JOB, "daily_load", "jobs/etl.py"),),
+            relations=(
+                ExtractedDomainRelation(
+                    relation_type="READS_FROM",
+                    path="jobs/etl.py",
+                    from_identity=job,
+                    to_unresolved="cat1.analytics.orders",
+                    evidence=(0,),
+                ),
+                ExtractedDomainRelation(
+                    relation_type="WRITES_TO",
+                    path="jobs/etl.py",
+                    from_identity=job,
+                    to_unresolved="dynamic:env.OUTPUT_TABLE",
+                    evidence=(0,),
+                ),
+                ExtractedDomainRelation(
+                    relation_type="READS_FROM",
+                    path="jobs/etl.py",
+                    from_identity=job,
+                    to_unresolved="cat1.analytics.customers",
+                    evidence=(0,),
+                ),
+            ),
+            evidence_paths=(("jobs/etl.py", ""),),
         ),
-        relations=(
-            ExtractedDomainRelation(
-                relation_type="READS_FROM", path="jobs/etl.py",
-                from_identity=job, to_unresolved="cat1.analytics.orders",
-                evidence=(0,),
-            ),
-            ExtractedDomainRelation(
-                relation_type="WRITES_TO", path="jobs/etl.py",
-                from_identity=job,
-                to_unresolved="dynamic:env.OUTPUT_TABLE",
-                evidence=(0,),
-            ),
-            ExtractedDomainRelation(
-                relation_type="READS_FROM", path="jobs/etl.py",
-                from_identity=job,
-                to_unresolved="cat1.analytics.customers",
-                evidence=(0,),
-            ),
-        ),
-        evidence_paths=(("jobs/etl.py", ""),),
-    ))
+    )
     plan = CrossDomainResolver().plan(store, sid)
-    store.persist_cross_resolutions(
-        sid, plan.update_rows(), plan.insert_rows(sid))
+    store.persist_cross_resolutions(sid, plan.update_rows(), plan.insert_rows(sid))
     conn.commit()
-    yield conn, store, repo_id, sid, table.logical_key(), \
-        job.logical_key(), str(root)
+    yield conn, store, repo_id, sid, table.logical_key(), job.logical_key(), str(root)
     conn.close()
 
 
@@ -175,9 +195,11 @@ def bare_repo(tmp_path: Path):
 
 def _pack(ws, seed, *, budget=8000, max_neighbors=20):
     conn, _store, _repo, _sid, _tk, _jk, root = ws
-    return DomainContextEngine(conn).build_domain(DomainPackRequest(
-        seed=seed, repository_root=root, budget_tokens=budget,
-        max_neighbors=max_neighbors))
+    return DomainContextEngine(conn).build_domain(
+        DomainPackRequest(
+            seed=seed, repository_root=root, budget_tokens=budget, max_neighbors=max_neighbors
+        )
+    )
 
 
 # ---------------------------------------------------------------------
@@ -210,7 +232,7 @@ def test_pack_on_table_seed_card_and_job_neighbor(workspace) -> None:
     nb = d.neighbors[0]
     assert nb.ref == job_key
     assert nb.entity_kind == "spark_job"
-    assert nb.direction == "incoming"          # job READS_FROM table
+    assert nb.direction == "incoming"  # job READS_FROM table
     assert nb.relation_types == ("READS_FROM",)
     assert nb.resolution_status == "resolved"
     assert nb.confidence_class == "resolved"
@@ -252,8 +274,7 @@ def test_expansion_refs_resolve_via_resolver_fn(workspace) -> None:
     # budget mínimo: vizinho cai para expansion_refs
     p = _pack(workspace, table_key, budget=256)
     assert p.manifest.truncated or p.expansion_refs
-    dom_refs = [r for r in p.expansion_refs
-                if r.ref_id.startswith("dom:")]
+    dom_refs = [r for r in p.expansion_refs if r.ref_id.startswith("dom:")]
     assert dom_refs, "vizinho omitido deve virar expansion ref"
     for r in dom_refs:
         card = resolve_domain_ref(conn, repo_id, sid, r.ref_id)
@@ -297,8 +318,9 @@ def test_budget_accounting_honest(workspace) -> None:
 
 def test_absent_domain_data_is_honest_empty(bare_repo) -> None:
     conn, root = bare_repo
-    p = DomainContextEngine(conn).build_domain(DomainPackRequest(
-        seed="orders", repository_root=root))
+    p = DomainContextEngine(conn).build_domain(
+        DomainPackRequest(seed="orders", repository_root=root)
+    )
     d = p.domain
     assert d is not None
     assert d.status == "absent"
@@ -322,19 +344,24 @@ def test_seed_not_found_and_ambiguous(workspace) -> None:
     # segunda entidade com MESMO qualified_name em outro catálogo →
     # seed por nome qualificado vira ambíguo com candidatos.
     conn, store, repo_id, sid, _tk, _jk, _root = workspace
-    t2 = _ident("sql", catalog="catB", namespace="analytics",
-                qualified_name="orders")
+    t2 = _ident("sql", catalog="catB", namespace="analytics", qualified_name="orders")
     file_ids = {
         r["relative_path"]: int(r["id"])
         for r in conn.execute(
-            "SELECT id, relative_path FROM source_files"
-            " WHERE repository_id = ?", (repo_id,))}
-    persist_domain_result(store, repo_id, sid, file_ids, _result(
-        "sql",
-        entities=(_entity(t2, DomainEntityKind.DATA_TABLE, "orders",
-                          "q.sql"),),
-        evidence_paths=(("q.sql", ""),),
-    ))
+            "SELECT id, relative_path FROM source_files WHERE repository_id = ?", (repo_id,)
+        )
+    }
+    persist_domain_result(
+        store,
+        repo_id,
+        sid,
+        file_ids,
+        _result(
+            "sql",
+            entities=(_entity(t2, DomainEntityKind.DATA_TABLE, "orders", "q.sql"),),
+            evidence_paths=(("q.sql", ""),),
+        ),
+    )
     conn.commit()
     p2 = _pack(workspace, "orders")
     d2 = p2.domain
@@ -355,27 +382,39 @@ def test_symbol_neighbor_via_symbol_endpoint(workspace) -> None:
     file_ids = {
         r["relative_path"]: int(r["id"])
         for r in conn.execute(
-            "SELECT id, relative_path FROM source_files"
-            " WHERE repository_id = ?", (repo_id,))}
-    persist_domain_result(store, repo_id, sid, file_ids, _result(
-        "api",
-        entities=(
-            _entity(ep, DomainEntityKind.API_ENDPOINT, "GET /v1/pets",
+            "SELECT id, relative_path FROM source_files WHERE repository_id = ?", (repo_id,)
+        )
+    }
+    persist_domain_result(
+        store,
+        repo_id,
+        sid,
+        file_ids,
+        _result(
+            "api",
+            entities=(
+                _entity(
+                    ep,
+                    DomainEntityKind.API_ENDPOINT,
+                    "GET /v1/pets",
                     "q.sql",
-                    attrs={"method": "GET", "full_path": "/v1/pets"}),
-        ),
-        relations=(
-            ExtractedDomainRelation(
-                relation_type="CALLS_ENDPOINT", path="mod.py",
-                from_symbol="mod.target", to_unresolved="/v1/pets",
-                evidence=(1,),
+                    attrs={"method": "GET", "full_path": "/v1/pets"},
+                ),
             ),
+            relations=(
+                ExtractedDomainRelation(
+                    relation_type="CALLS_ENDPOINT",
+                    path="mod.py",
+                    from_symbol="mod.target",
+                    to_unresolved="/v1/pets",
+                    evidence=(1,),
+                ),
+            ),
+            evidence_paths=(("q.sql", ""), ("mod.py", "method=GET")),
         ),
-        evidence_paths=(("q.sql", ""), ("mod.py", "method=GET")),
-    ))
+    )
     plan = CrossDomainResolver().plan(store, sid)
-    store.persist_cross_resolutions(
-        sid, plan.update_rows(), plan.insert_rows(sid))
+    store.persist_cross_resolutions(sid, plan.update_rows(), plan.insert_rows(sid))
     conn.commit()
 
     p = _pack(workspace, ep.logical_key())
@@ -407,8 +446,7 @@ def test_resolve_domain_ref_forms(workspace) -> None:
     conn, _s, repo_id, sid, table_key, _jk, _root = workspace
     by_key = resolve_domain_ref(conn, repo_id, sid, table_key)
     assert by_key is not None and by_key.qualified_name == "orders"
-    by_id = resolve_domain_ref(
-        conn, repo_id, sid, f"entity:{by_key.entity_id}")
+    by_id = resolve_domain_ref(conn, repo_id, sid, f"entity:{by_key.entity_id}")
     assert by_id is not None and by_id.identity_key == table_key
     by_num = resolve_domain_ref(conn, repo_id, sid, str(by_key.entity_id))
     assert by_num is not None

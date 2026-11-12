@@ -27,12 +27,10 @@ def res(tmp_path):
     root = tmp_path / "repo"
     conn = build_eval_repo(root)
     (root / "pkg" / "orders.py").write_text(
-        "class OrderService:\n"
-        "    def cancel_order(self, order_id):\n"
-        "        return True\n")
+        "class OrderService:\n    def cancel_order(self, order_id):\n        return True\n"
+    )
     IndexCoordinator(conn).index(root)
-    r = ImpactEngine(conn).analyze(
-        ImpactRequest(repository_root=str(root)))
+    r = ImpactEngine(conn).analyze(ImpactRequest(repository_root=str(root)))
     yield conn, r, root
     conn.close()
 
@@ -51,23 +49,18 @@ def test_pack_critical_omission_declared(res) -> None:
     _, r, _root = res
     pack = build_pack(r, 10)
     if pack.omitted:
-        assert any("pack-truncated" in d or "critical-omitted" in d
-                   for d in pack.diagnostics)
+        assert any("pack-truncated" in d or "critical-omitted" in d for d in pack.diagnostics)
 
 
 def test_golden_scenarios_measured(res) -> None:
     """Ground truth do fixture: OrderService.create_order removido."""
     _, r, _root = res
-    changes = {s.qualified_name: s.change.value
-               for s in r.symbol_changes}
+    changes = {s.qualified_name: s.change.value for s in r.symbol_changes}
     # precisão/recall de detecção no caso controlado
-    expected_removed = {"pkg.orders.OrderService.create_order",
-                        "pkg.orders.OrderService"}
-    detected_removed = {q for q, c in changes.items()
-                        if c == "removed"}
+    expected_removed = {"pkg.orders.OrderService.create_order", "pkg.orders.OrderService"}
+    detected_removed = {q for q, c in changes.items() if c == "removed"}
     assert expected_removed & detected_removed  # recall > 0
-    assert not r.diagnostics or all(
-        d.code != "internal-error" for d in r.diagnostics)
+    assert not r.diagnostics or all(d.code != "internal-error" for d in r.diagnostics)
 
 
 def test_perf_analyze_under_budget(res) -> None:
@@ -82,9 +75,9 @@ def test_perf_analyze_under_budget(res) -> None:
 
 def test_limits_enforced(res) -> None:
     conn, _r2, root = res
-    r = ImpactEngine(conn).analyze(ImpactRequest(
-        repository_root=str(root),
-        limits=ImpactLimits(max_paths=1, max_changes=2)))
+    r = ImpactEngine(conn).analyze(
+        ImpactRequest(repository_root=str(root), limits=ImpactLimits(max_paths=1, max_changes=2))
+    )
     assert len(r.impacts) <= 1
     assert len(r.symbol_changes) <= 2
     assert r.truncated
@@ -94,9 +87,11 @@ def test_invalid_revision_diagnostic(tmp_path) -> None:
     conn = sqlite3.connect(":memory:")
     conn.row_factory = sqlite3.Row
     from code_atlas.storage.migrations import migrate
+
     migrate(conn)
     # sem git no tmp_path → invalid-revision ou git-error, nunca crash
-    r = ImpactEngine(conn).analyze(ImpactRequest(
-        repository_root=str(tmp_path), base_revision="zzz-bogus"))
+    r = ImpactEngine(conn).analyze(
+        ImpactRequest(repository_root=str(tmp_path), base_revision="zzz-bogus")
+    )
     assert r.diagnostics  # diagnóstico explícito
     conn.close()

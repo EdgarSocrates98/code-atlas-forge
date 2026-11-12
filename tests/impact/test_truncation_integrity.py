@@ -35,14 +35,14 @@ def _db() -> sqlite3.Connection:
     conn = sqlite3.connect(":memory:")
     conn.row_factory = sqlite3.Row
     migrate(conn)
+    conn.execute("INSERT INTO repositories (root_handle) VALUES ('/r')")
     conn.execute(
-        "INSERT INTO repositories (root_handle) VALUES ('/r')")
-    conn.execute(
-        "INSERT INTO snapshots (repository_id, worktree_digest,"
-        " status) VALUES (1, 'd', 'READY')")
+        "INSERT INTO snapshots (repository_id, worktree_digest, status) VALUES (1, 'd', 'READY')"
+    )
     conn.execute(
         "INSERT INTO source_files (repository_id, relative_path,"
-        " language) VALUES (1, 'a.py', 'python')")
+        " language) VALUES (1, 'a.py', 'python')"
+    )
     return conn
 
 
@@ -50,25 +50,27 @@ def _sym(conn: sqlite3.Connection, qname: str) -> int:
     """Símbolo + ocorrência no snapshot 1; retorna o occurrence id."""
     conn.execute(
         "INSERT INTO symbols (repository_id, language, qualified_name,"
-        " kind) VALUES (1, 'python', ?, 'function')", (qname,))
-    sid = int(conn.execute(
-        "SELECT max(id) AS i FROM symbols").fetchone()["i"])
+        " kind) VALUES (1, 'python', ?, 'function')",
+        (qname,),
+    )
+    sid = int(conn.execute("SELECT max(id) AS i FROM symbols").fetchone()["i"])
     conn.execute(
         "INSERT INTO symbol_occurrences"
         " (snapshot_id, logical_symbol_id, source_file_id)"
-        " VALUES (?, ?, 1)", (_SNAP, sid))
-    return int(conn.execute(
-        "SELECT max(id) AS i FROM symbol_occurrences").fetchone()["i"])
+        " VALUES (?, ?, 1)",
+        (_SNAP, sid),
+    )
+    return int(conn.execute("SELECT max(id) AS i FROM symbol_occurrences").fetchone()["i"])
 
 
-def _rel(conn: sqlite3.Connection, consumer: int, target: int,
-         status: str = "resolved") -> None:
+def _rel(conn: sqlite3.Connection, consumer: int, target: int, status: str = "resolved") -> None:
     conn.execute(
         "INSERT INTO relations"
         " (snapshot_id, from_id, to_id, type, resolution_status,"
         "  confidence_class, resolver)"
         " VALUES (?, ?, ?, 'CALLS', ?, 'resolved', 'test')",
-        (_SNAP, consumer, target, status))
+        (_SNAP, consumer, target, status),
+    )
 
 
 def _ent(conn: sqlite3.Connection, qname: str) -> int:
@@ -77,26 +79,29 @@ def _ent(conn: sqlite3.Connection, qname: str) -> int:
         "INSERT INTO domain_entities"
         " (repository_id, domain, kind, identity_key, qualified_name)"
         " VALUES (1, 'sql', 'data_table', ?, ?)",
-        (f"dom:sql/test//ns//{qname}", qname))
-    eid = int(conn.execute(
-        "SELECT max(id) AS i FROM domain_entities").fetchone()["i"])
+        (f"dom:sql/test//ns//{qname}", qname),
+    )
+    eid = int(conn.execute("SELECT max(id) AS i FROM domain_entities").fetchone()["i"])
     conn.execute(
-        "INSERT INTO domain_entity_occurrences (snapshot_id, entity_id)"
-        " VALUES (?, ?)", (_SNAP, eid))
-    return int(conn.execute(
-        "SELECT max(id) AS i FROM domain_entity_occurrences"
-    ).fetchone()["i"])
+        "INSERT INTO domain_entity_occurrences (snapshot_id, entity_id) VALUES (?, ?)", (_SNAP, eid)
+    )
+    return int(conn.execute("SELECT max(id) AS i FROM domain_entity_occurrences").fetchone()["i"])
 
 
-def _dom_rel(conn: sqlite3.Connection, frm: int, to: int,
-             rtype: str = "DERIVES_FROM",
-             status: str = "resolved") -> None:
+def _dom_rel(
+    conn: sqlite3.Connection,
+    frm: int,
+    to: int,
+    rtype: str = "DERIVES_FROM",
+    status: str = "resolved",
+) -> None:
     conn.execute(
         "INSERT INTO domain_relations"
         " (snapshot_id, from_entity_occ_id, to_entity_occ_id, type,"
         "  resolution_status, confidence_class, resolver)"
         " VALUES (?, ?, ?, ?, ?, 'syntactic', 'test')",
-        (_SNAP, frm, to, rtype, status))
+        (_SNAP, frm, to, rtype, status),
+    )
 
 
 def _chain(conn: sqlite3.Connection, length: int) -> int:
@@ -107,10 +112,13 @@ def _chain(conn: sqlite3.Connection, length: int) -> int:
         _rel(conn, nxt, prev)
         prev = nxt
     # retorna o occurrence da semente (primeiro da cadeia)
-    return int(conn.execute(
-        "SELECT o.id FROM symbol_occurrences o"
-        " JOIN symbols s ON s.id = o.logical_symbol_id"
-        " WHERE s.qualified_name = 'm.seed'").fetchone()["id"])
+    return int(
+        conn.execute(
+            "SELECT o.id FROM symbol_occurrences o"
+            " JOIN symbols s ON s.id = o.logical_symbol_id"
+            " WHERE s.qualified_name = 'm.seed'"
+        ).fetchone()["id"]
+    )
 
 
 def _dom_chain(conn: sqlite3.Connection, length: int) -> int:
@@ -137,8 +145,8 @@ def test_code_edge_scan_cap_is_declared() -> None:
     for i in range(8):
         _rel(conn, _sym(conn, f"m.c{i}"), seed)
     out, trunc = blast_radius.blast(
-        conn, _SNAP, {"py:function:m.seed": seed},
-        ImpactLimits(max_nodes=5))
+        conn, _SNAP, {"py:function:m.seed": seed}, ImpactLimits(max_nodes=5)
+    )
     assert len(out) == 5  # só o prefixo determinístico emitiu
     assert trunc is True
 
@@ -151,8 +159,8 @@ def test_code_edge_scan_exact_fit_not_truncated() -> None:
     for i in range(5):
         _rel(conn, _sym(conn, f"m.c{i}"), seed)
     out, trunc = blast_radius.blast(
-        conn, _SNAP, {"py:function:m.seed": seed},
-        ImpactLimits(max_nodes=5))
+        conn, _SNAP, {"py:function:m.seed": seed}, ImpactLimits(max_nodes=5)
+    )
     assert len(out) == 5
     assert trunc is False
 
@@ -163,11 +171,10 @@ def test_code_depth_frontier_is_declared() -> None:
     conn = _db()
     seed = _chain(conn, 4)  # seed ← c0 ← c1 ← c2 ← c3
     out, trunc = blast_radius.blast(
-        conn, _SNAP, {"k": seed},
-        ImpactLimits(max_depth=2, max_nodes=50, max_paths=50))
+        conn, _SNAP, {"k": seed}, ImpactLimits(max_depth=2, max_nodes=50, max_paths=50)
+    )
     assert trunc is True
-    hops = {c.qualified_name: (c.path.hops if c.path else -1)
-            for c in out}
+    hops = {c.qualified_name: (c.path.hops if c.path else -1) for c in out}
     assert hops["m.chain0"] == 1
     assert hops["m.chain1"] == 2
     assert "m.chain2" not in hops  # nunca alcançado — e declarado
@@ -179,8 +186,8 @@ def test_code_depth_boundary_clean_not_truncated() -> None:
     conn = _db()
     seed = _chain(conn, 2)  # seed ← c0 ← c1 — exatamente max_depth
     out, trunc = blast_radius.blast(
-        conn, _SNAP, {"k": seed},
-        ImpactLimits(max_depth=2, max_nodes=50, max_paths=50))
+        conn, _SNAP, {"k": seed}, ImpactLimits(max_depth=2, max_nodes=50, max_paths=50)
+    )
     assert len(out) == 2
     assert trunc is False
 
@@ -191,8 +198,7 @@ def test_code_path_cap_unchanged() -> None:
     seed = _sym(conn, "m.seed")
     for i in range(4):
         _rel(conn, _sym(conn, f"m.c{i}"), seed)
-    out, trunc = blast_radius.blast(
-        conn, _SNAP, {"k": seed}, ImpactLimits(max_paths=2))
+    out, trunc = blast_radius.blast(conn, _SNAP, {"k": seed}, ImpactLimits(max_paths=2))
     assert len(out) == 2
     assert trunc is True
 
@@ -209,9 +215,12 @@ def test_domain_edge_scan_cap_reason() -> None:
     for i in range(8):
         _dom_rel(conn, _ent(conn, f"c{i}"), seed_occ)
     out = domain_traversal.blast(
-        conn, _SNAP, sym_origins={},
+        conn,
+        _SNAP,
+        sym_origins={},
         ent_origins={"dom:sql/test//ns//seed": seed_occ},
-        limits=ImpactLimits(max_nodes=5))
+        limits=ImpactLimits(max_nodes=5),
+    )
     assert len(out.candidates) == 5
     assert out.truncated is True
     assert out.reasons == ("max-nodes-edge-scan",)
@@ -222,12 +231,15 @@ def test_domain_depth_frontier_reason() -> None:
     conn = _db()
     seed_occ = _dom_chain(conn, 4)  # seed ← d0 ← d1 ← d2 ← d3
     out = domain_traversal.blast(
-        conn, _SNAP, sym_origins={}, ent_origins={"k": seed_occ},
-        limits=ImpactLimits(max_depth=2, max_nodes=50, max_paths=50))
+        conn,
+        _SNAP,
+        sym_origins={},
+        ent_origins={"k": seed_occ},
+        limits=ImpactLimits(max_depth=2, max_nodes=50, max_paths=50),
+    )
     assert out.truncated is True
     assert "max-depth-frontier" in out.reasons
-    assert all(c.path is not None and c.path.hops <= 2
-               for c in out.candidates)
+    assert all(c.path is not None and c.path.hops <= 2 for c in out.candidates)
 
 
 def test_domain_frontier_uncounted_uncertainty() -> None:
@@ -242,10 +254,16 @@ def test_domain_frontier_uncounted_uncertainty() -> None:
         " (snapshot_id, from_entity_occ_id, type, resolution_status,"
         "  confidence_class, resolver, to_unresolved)"
         " VALUES (?, ?, 'DEPENDS_ON', 'unresolved', 'syntactic',"
-        "  'test', 'ext.thing')", (_SNAP, d0))
+        "  'test', 'ext.thing')",
+        (_SNAP, d0),
+    )
     out = domain_traversal.blast(
-        conn, _SNAP, sym_origins={}, ent_origins={"k": seed_occ},
-        limits=ImpactLimits(max_depth=1, max_nodes=50, max_paths=50))
+        conn,
+        _SNAP,
+        sym_origins={},
+        ent_origins={"k": seed_occ},
+        limits=ImpactLimits(max_depth=1, max_nodes=50, max_paths=50),
+    )
     assert out.truncated is True
     assert "max-depth-frontier" in out.reasons
     # d0 nunca foi expandido: a dep não entrou no agregado — e o
@@ -258,8 +276,12 @@ def test_domain_clean_frontier_not_truncated() -> None:
     conn = _db()
     seed_occ = _dom_chain(conn, 2)  # exatamente max_depth hops
     out = domain_traversal.blast(
-        conn, _SNAP, sym_origins={}, ent_origins={"k": seed_occ},
-        limits=ImpactLimits(max_depth=2, max_nodes=50, max_paths=50))
+        conn,
+        _SNAP,
+        sym_origins={},
+        ent_origins={"k": seed_occ},
+        limits=ImpactLimits(max_depth=2, max_nodes=50, max_paths=50),
+    )
     assert len(out.candidates) == 2
     assert out.truncated is False
     assert out.reasons == ()
@@ -271,8 +293,8 @@ def test_domain_path_cap_reason() -> None:
     for i in range(4):
         _dom_rel(conn, _ent(conn, f"c{i}"), seed_occ)
     out = domain_traversal.blast(
-        conn, _SNAP, sym_origins={}, ent_origins={"k": seed_occ},
-        limits=ImpactLimits(max_paths=2))
+        conn, _SNAP, sym_origins={}, ent_origins={"k": seed_occ}, limits=ImpactLimits(max_paths=2)
+    )
     assert len(out.candidates) == 2
     assert out.truncated is True
     assert out.reasons == ("max-paths",)
@@ -291,8 +313,12 @@ def test_mixed_scan_and_frontier_reasons() -> None:
             leaf = _ent(conn, "leaf")
             _dom_rel(conn, leaf, c)  # leaf DERIVES_FROM c0
     out = domain_traversal.blast(
-        conn, _SNAP, sym_origins={}, ent_origins={"k": seed_occ},
-        limits=ImpactLimits(max_depth=1, max_nodes=5, max_paths=50))
+        conn,
+        _SNAP,
+        sym_origins={},
+        ent_origins={"k": seed_occ},
+        limits=ImpactLimits(max_depth=1, max_nodes=5, max_paths=50),
+    )
     assert out.truncated is True
     assert "max-nodes-edge-scan" in out.reasons
     assert "max-depth-frontier" in out.reasons
@@ -308,14 +334,16 @@ def _engine_db(root: Path) -> sqlite3.Connection:
     conn.row_factory = sqlite3.Row
     migrate(conn)
     conn.execute(
-        "INSERT INTO repositories (root_handle, identity_key)"
-        " VALUES (?, 'path:' || ?)", (str(root), str(root)))
+        "INSERT INTO repositories (root_handle, identity_key) VALUES (?, 'path:' || ?)",
+        (str(root), str(root)),
+    )
     conn.execute(
-        "INSERT INTO snapshots (repository_id, worktree_digest,"
-        " status) VALUES (1, 'd', 'READY')")
+        "INSERT INTO snapshots (repository_id, worktree_digest, status) VALUES (1, 'd', 'READY')"
+    )
     conn.execute(
         "INSERT INTO source_files (repository_id, relative_path,"
-        " language) VALUES (1, 'a.py', 'python')")
+        " language) VALUES (1, 'a.py', 'python')"
+    )
     return conn
 
 
@@ -326,16 +354,19 @@ def test_engine_result_carries_truncation_reasons(tmp_path) -> None:
     root.mkdir()
     conn = _engine_db(root)
     _chain(conn, 3)  # seed ← c0 ← c1 ← c2
-    res = ImpactEngine(conn).analyze(ImpactRequest(
-        repository_root=str(root), symbol="m.seed",
-        limits=ImpactLimits(max_depth=1, max_nodes=50)))
+    res = ImpactEngine(conn).analyze(
+        ImpactRequest(
+            repository_root=str(root),
+            symbol="m.seed",
+            limits=ImpactLimits(max_depth=1, max_nodes=50),
+        )
+    )
     assert res.truncated is True
     assert "max-depth-frontier" in res.truncation_reasons
     # contrato: boolean é a união das razões — nunca diverge.
     assert res.truncated == bool(res.truncation_reasons)
     payload = json.loads(to_json(res))
-    assert payload["truncation_reasons"] == \
-        list(res.truncation_reasons)
+    assert payload["truncation_reasons"] == list(res.truncation_reasons)
     md = to_markdown(res)
     assert "max-depth-frontier" in md
     conn.close()
@@ -347,9 +378,11 @@ def test_engine_domain_frontier_reason(tmp_path) -> None:
     root.mkdir()
     conn = _engine_db(root)
     _dom_chain(conn, 2)  # seed ← d0 ← d1
-    res = ImpactEngine(conn).analyze(ImpactRequest(
-        repository_root=str(root), entity="seed",
-        limits=ImpactLimits(max_depth=1, max_nodes=50)))
+    res = ImpactEngine(conn).analyze(
+        ImpactRequest(
+            repository_root=str(root), entity="seed", limits=ImpactLimits(max_depth=1, max_nodes=50)
+        )
+    )
     assert res.truncated is True
     assert "max-depth-frontier" in res.truncation_reasons
     conn.close()
@@ -361,8 +394,7 @@ def test_engine_unbounded_run_stays_clean(tmp_path) -> None:
     root.mkdir()
     conn = _engine_db(root)
     _chain(conn, 2)
-    res = ImpactEngine(conn).analyze(ImpactRequest(
-        repository_root=str(root), symbol="m.seed"))
+    res = ImpactEngine(conn).analyze(ImpactRequest(repository_root=str(root), symbol="m.seed"))
     assert res.truncated is False
     assert res.truncation_reasons == ()
     assert len(res.impacts) == 2
@@ -382,12 +414,9 @@ def test_truncated_prefix_is_deterministic() -> None:
     for i in range(9):
         _rel(conn, _sym(conn, f"m.c{i}"), seed)
     limits = ImpactLimits(max_nodes=4)
-    keys_a = [c.symbol_key for c in blast_radius.blast(
-        conn, _SNAP, {"k": seed}, limits)[0]]
-    keys_b = [c.symbol_key for c in blast_radius.blast(
-        conn, _SNAP, {"k": seed}, limits)[0]]
+    keys_a = [c.symbol_key for c in blast_radius.blast(conn, _SNAP, {"k": seed}, limits)[0]]
+    keys_b = [c.symbol_key for c in blast_radius.blast(conn, _SNAP, {"k": seed}, limits)[0]]
     assert keys_a == keys_b
     # e o prefixo truncado é prefixo do run sem cap de scan
-    full, _ = blast_radius.blast(
-        conn, _SNAP, {"k": seed}, ImpactLimits())
-    assert keys_a == [c.symbol_key for c in full[:len(keys_a)]]
+    full, _ = blast_radius.blast(conn, _SNAP, {"k": seed}, ImpactLimits())
+    assert keys_a == [c.symbol_key for c in full[: len(keys_a)]]

@@ -46,10 +46,10 @@ _FLOAT = re.compile(r"^[-+]?(?:\d+\.\d*|\.\d+|\d+)(?:[eE][-+]?\d+)?$")
 class YamlIssue:
     """Problema de parse YAML — diagnóstico honesto, nunca exceção."""
 
-    code: str        # ex.: "yaml-anchor-unsupported"
-    severity: str    # "info" | "warning" | "error"
+    code: str  # ex.: "yaml-anchor-unsupported"
+    severity: str  # "info" | "warning" | "error"
     message: str
-    line: int = 0    # 1-based; 0 = não localizado
+    line: int = 0  # 1-based; 0 = não localizado
 
 
 @dataclass(frozen=True)
@@ -68,10 +68,10 @@ class YamlDocument:
 
 @dataclass
 class _Line:
-    no: int           # 1-based
+    no: int  # 1-based
     indent: int
-    content: str      # comentário removido, rstripped (sem indent)
-    ignored: bool     # blank/comment-only/consumida por block scalar
+    content: str  # comentário removido, rstripped (sem indent)
+    ignored: bool  # blank/comment-only/consumida por block scalar
 
 
 class _FlowError(Exception):
@@ -121,8 +121,10 @@ class _Parser:
             ws = raw[: len(raw) - len(raw.lstrip())]
             if "\t" in ws and not self._tab_reported:
                 self._issue(
-                    "tab-indent", "error",
-                    "TAB in leading whitespace — line ignored", no,
+                    "tab-indent",
+                    "error",
+                    "TAB in leading whitespace — line ignored",
+                    no,
                 )
                 self._tab_reported = True
             if "\t" in ws:
@@ -164,17 +166,21 @@ class _Parser:
         if j < self._n:
             if self._is_doc_marker(self.lines[j].content):
                 self._issue(
-                    "multi-document", "info",
+                    "multi-document",
+                    "info",
                     "extra YAML documents ignored — first document parsed",
                     self.lines[j].no,
                 )
             else:
                 self._issue(
-                    "trailing-content", "warning",
-                    "unparsed trailing content", self.lines[j].no,
+                    "trailing-content",
+                    "warning",
+                    "unparsed trailing content",
+                    self.lines[j].no,
                 )
         return YamlDocument(
-            value=value, issues=tuple(self.issues),
+            value=value,
+            issues=tuple(self.issues),
             key_lines=dict(self.key_lines),
         )
 
@@ -201,7 +207,8 @@ class _Parser:
         j = self._eff(i + 1)
         if j < self._n and self.lines[j].indent > li.indent:
             self._issue(
-                "multiline-plain-scalar", "warning",
+                "multiline-plain-scalar",
+                "warning",
                 "continuation of plain scalar ignored",
                 self.lines[j].no,
             )
@@ -215,9 +222,7 @@ class _Parser:
 
     @staticmethod
     def _is_key_sep(content: str, j: int) -> bool:
-        return content[j] == ":" and (
-            j + 1 == len(content) or content[j + 1] in " \t"
-        )
+        return content[j] == ":" and (j + 1 == len(content) or content[j + 1] in " \t")
 
     def _split_key(self, content: str) -> tuple[str, str] | None:
         """``key: rest`` no primeiro ``:`` seguido de espaço/EOL, depth 0."""
@@ -238,20 +243,24 @@ class _Parser:
             elif ch in "]}":
                 depth = max(0, depth - 1)
             elif self._is_key_sep(content, j):
-                return content[:j].strip(), content[j + 1:].strip()
+                return content[:j].strip(), content[j + 1 :].strip()
         return None
 
     def _norm_key(self, raw: str, line: int) -> str:
         if raw.startswith("? "):
             self._issue(
-                "complex-key-unsupported", "warning",
-                "explicit complex key unsupported", line,
+                "complex-key-unsupported",
+                "warning",
+                "explicit complex key unsupported",
+                line,
             )
             raw = raw[2:].strip()
         if raw[:1] in ("&", "!"):
             self._issue(
-                "yaml-tag-unsupported", "warning",
-                f"key tag/anchor ignored: {raw.split()[0]!r}", line,
+                "yaml-tag-unsupported",
+                "warning",
+                f"key tag/anchor ignored: {raw.split()[0]!r}",
+                line,
             )
             parts = raw.split(None, 1)
             raw = parts[1] if len(parts) > 1 else ""
@@ -275,8 +284,10 @@ class _Parser:
                 break
             if li.indent > indent:
                 self._issue(
-                    "unexpected-indent", "warning",
-                    "orphan indented line skipped", li.no,
+                    "unexpected-indent",
+                    "warning",
+                    "orphan indented line skipped",
+                    li.no,
                 )
                 i += 1
                 continue
@@ -285,8 +296,10 @@ class _Parser:
             kv = self._split_key(li.content)
             if kv is None:
                 self._issue(
-                    "not-a-mapping", "error",
-                    f"line is not a mapping entry: {li.content[:60]!r}", li.no,
+                    "not-a-mapping",
+                    "error",
+                    f"line is not a mapping entry: {li.content[:60]!r}",
+                    li.no,
                 )
                 i += 1
                 continue
@@ -294,13 +307,17 @@ class _Parser:
             self.key_lines.setdefault((*path, key), li.no)
             if key == "<<":
                 self._issue(
-                    "yaml-merge-key-unsupported", "warning",
-                    "merge key '<<' parsed as literal key", li.no,
+                    "yaml-merge-key-unsupported",
+                    "warning",
+                    "merge key '<<' parsed as literal key",
+                    li.no,
                 )
             if key in out:
                 self._issue(
-                    "duplicate-key", "warning",
-                    f"duplicate key {key!r} — first value kept", li.no,
+                    "duplicate-key",
+                    "warning",
+                    f"duplicate key {key!r} — first value kept",
+                    li.no,
                 )
             value, i = self._value(kv[1], i, li, (*path, key), depth)
             out.setdefault(key, value)
@@ -324,8 +341,10 @@ class _Parser:
                 break
             if li.indent > indent:
                 self._issue(
-                    "unexpected-indent", "warning",
-                    "orphan indented line skipped", li.no,
+                    "unexpected-indent",
+                    "warning",
+                    "orphan indented line skipped",
+                    li.no,
                 )
                 i += 1
                 continue
@@ -342,9 +361,7 @@ class _Parser:
                     and self.lines[j].indent > li.indent
                     and not self._is_doc_marker(self.lines[j].content)
                 ):
-                    v, i = self._parse_node(
-                        j, self.lines[j].indent, key_path, depth + 1
-                    )
+                    v, i = self._parse_node(j, self.lines[j].indent, key_path, depth + 1)
                 else:
                     v, i = None, i + 1
                 items.append(v)
@@ -374,9 +391,7 @@ class _Parser:
                 and self.lines[j].indent > li.indent
                 and not self._is_doc_marker(self.lines[j].content)
             ):
-                return self._parse_node(
-                    j, self.lines[j].indent, path, depth + 1
-                )
+                return self._parse_node(j, self.lines[j].indent, path, depth + 1)
             return None, i + 1
         if _BLOCK_HEADER.match(rest):
             return self._block_scalar(i, li, rest)
@@ -388,8 +403,7 @@ class _Parser:
         while s[:1] in ("&", "!"):
             tok, _, rem = s.partition(" ")
             self._issue(
-                "yaml-anchor-unsupported" if s[0] == "&"
-                else "yaml-tag-unsupported",
+                "yaml-anchor-unsupported" if s[0] == "&" else "yaml-tag-unsupported",
                 "warning",
                 f"{tok!r} ignored — value kept without anchor/tag semantics",
                 line,
@@ -399,8 +413,10 @@ class _Parser:
                 return None
         if s.startswith("*"):
             self._issue(
-                "yaml-alias-unsupported", "warning",
-                f"alias {s.split()[0]!r} unresolved — value null", line,
+                "yaml-alias-unsupported",
+                "warning",
+                f"alias {s.split()[0]!r} unresolved — value null",
+                line,
             )
             return None
         if s[:1] in "[{":
@@ -408,15 +424,18 @@ class _Parser:
         if s[:1] in ("|", ">"):
             # header de block scalar fora de posição (ex.: após `-` inline)
             self._issue(
-                "misplaced-block-scalar", "warning",
-                "block scalar header in unexpected position", line,
+                "misplaced-block-scalar",
+                "warning",
+                "block scalar header in unexpected position",
+                line,
             )
             return None
         if s[:1] in ("'", '"'):
             val, end = self._quoted(s, line)
             if s[end:].strip():
                 self._issue(
-                    "trailing-junk", "warning",
+                    "trailing-junk",
+                    "warning",
                     f"trailing content after quoted scalar: {s[end:][:40]!r}",
                     line,
                 )
@@ -442,8 +461,10 @@ class _Parser:
             out.append(s[j])
             j += 1
         self._issue(
-            "unterminated-string", "error",
-            "unterminated single-quoted scalar", line,
+            "unterminated-string",
+            "error",
+            "unterminated single-quoted scalar",
+            line,
         )
         return "".join(out), len(s)
 
@@ -454,7 +475,7 @@ class _Parser:
         for mark, size in (("x", 4), ("u", 6)):
             if nxt == mark and j + size - 1 < len(s):
                 try:
-                    return chr(int(s[j + 2:j + size], 16)), j + size
+                    return chr(int(s[j + 2 : j + size], 16)), j + size
                 except ValueError:
                     break
         return esc.get(nxt, nxt), j + 2
@@ -473,8 +494,10 @@ class _Parser:
             out.append(ch)
             j += 1
         self._issue(
-            "unterminated-string", "error",
-            "unterminated double-quoted scalar", line,
+            "unterminated-string",
+            "error",
+            "unterminated double-quoted scalar",
+            line,
         )
         return "".join(out), len(s)
 
@@ -501,9 +524,7 @@ class _Parser:
 
     # -- block scalar -----------------------------------------------------
 
-    def _block_scalar(
-        self, i: int, li: _Line, header: str
-    ) -> tuple[str, int]:
+    def _block_scalar(self, i: int, li: _Line, header: str) -> tuple[str, int]:
         chunk, j = self._collect_scalar_lines(i, li.indent)
         while chunk and chunk[-1] == "":
             chunk.pop()
@@ -512,9 +533,7 @@ class _Parser:
             value += "\n"
         return value, j
 
-    def _collect_scalar_lines(
-        self, i: int, parent_indent: int
-    ) -> tuple[list[str], int]:
+    def _collect_scalar_lines(self, i: int, parent_indent: int) -> tuple[list[str], int]:
         """Linhas do block scalar (indent > parent); marca-as ignoradas."""
         j = i + 1
         block_indent: int | None = None
@@ -542,8 +561,10 @@ class _Parser:
     def _flow(self, s: str, line: int) -> YamlValue:
         if len(s) > _MAX_FLOW_LEN:
             self._issue(
-                "flow-too-large", "error",
-                f"flow value exceeds {_MAX_FLOW_LEN} chars", line,
+                "flow-too-large",
+                "error",
+                f"flow value exceeds {_MAX_FLOW_LEN} chars",
+                line,
             )
             return None
         try:
@@ -553,14 +574,14 @@ class _Parser:
             return None
         if s[pos:].strip():
             self._issue(
-                "trailing-junk", "warning",
-                f"trailing content after flow value: {s[pos:][:40]!r}", line,
+                "trailing-junk",
+                "warning",
+                f"trailing content after flow value: {s[pos:][:40]!r}",
+                line,
             )
         return val
 
-    def _flow_at(
-        self, s: str, i: int, depth: int, line: int
-    ) -> tuple[YamlValue, int]:
+    def _flow_at(self, s: str, i: int, depth: int, line: int) -> tuple[YamlValue, int]:
         if depth > 8:
             raise _FlowError("flow nesting depth exceeded")
         i = self._flow_ws(s, i)
@@ -576,8 +597,10 @@ class _Parser:
             return val, i + used
         if ch == "*":
             self._issue(
-                "yaml-alias-unsupported", "warning",
-                "alias in flow position — value null", line,
+                "yaml-alias-unsupported",
+                "warning",
+                "alias in flow position — value null",
+                line,
             )
             i += 1
             while i < len(s) and s[i] not in ",]}":
@@ -595,9 +618,7 @@ class _Parser:
             i += 1
         return i
 
-    def _flow_seq(
-        self, s: str, i: int, depth: int, line: int
-    ) -> tuple[list[YamlValue], int]:
+    def _flow_seq(self, s: str, i: int, depth: int, line: int) -> tuple[list[YamlValue], int]:
         out: list[YamlValue] = []
         i = self._flow_ws(s, i)
         if i < len(s) and s[i] == "]":
@@ -616,9 +637,7 @@ class _Parser:
             if i < len(s) and s[i] == "]":
                 return out, i + 1
 
-    def _flow_map(
-        self, s: str, i: int, depth: int, line: int
-    ) -> tuple[dict[str, YamlValue], int]:
+    def _flow_map(self, s: str, i: int, depth: int, line: int) -> tuple[dict[str, YamlValue], int]:
         out: dict[str, YamlValue] = {}
         i = self._flow_ws(s, i)
         if i < len(s) and s[i] == "}":

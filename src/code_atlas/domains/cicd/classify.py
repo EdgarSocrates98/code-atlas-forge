@@ -69,7 +69,7 @@ PUBLISH_RUN = re.compile(
 
 # substring rules sobre ``uses:`` (owner/repo[/path]@ref, docker://…)
 DEPLOY_USES = (
-    "deploy",               # actions/deploy-pages, azure/k8s-deploy, …
+    "deploy",  # actions/deploy-pages, azure/k8s-deploy, …
     "amazon-ecs-deploy",
     "webapps-deploy",
     "actions-gh-pages",
@@ -83,7 +83,7 @@ PUBLISH_USES = (
     "upload-pages-artifact",
     "action-gh-release",
     "release-action",
-    "build-push-action",    # docker build+push de imagem
+    "build-push-action",  # docker build+push de imagem
     "publish",
     "codecov/codecov-action",  # publica cobertura para serviço externo
 )

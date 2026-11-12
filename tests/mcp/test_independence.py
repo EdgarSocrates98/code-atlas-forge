@@ -29,6 +29,5 @@ def test_mcp_doctor_json(capsys) -> None:
     rc = cli.main(["mcp", "doctor", "--json"])
     out = json.loads(capsys.readouterr().out)
     assert rc == 0
-    for k in ("executable", "python", "db_path", "db_exists",
-              "sqlite_vec"):
+    for k in ("executable", "python", "db_path", "db_exists", "sqlite_vec"):
         assert k in out

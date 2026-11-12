@@ -21,12 +21,10 @@ def test_insert_produces_reads_writes_derives(inline, rels) -> None:
 
 
 def test_ctas_table_lineage(inline, rels) -> None:
-    fx = inline(
-        "CREATE TABLE m.out AS SELECT x, y FROM a.b JOIN c.d "
-        "ON b.k = d.k;"
-    )
+    fx = inline("CREATE TABLE m.out AS SELECT x, y FROM a.b JOIN c.d ON b.k = d.k;")
     assert rels(fx, "DERIVES_FROM") == {
-        ("sql:m.out", "sql:a.b"), ("sql:m.out", "sql:c.d"),
+        ("sql:m.out", "sql:a.b"),
+        ("sql:m.out", "sql:c.d"),
     }
     assert rels(fx, "WRITES_TO") == {("sql:inline.sql#0", "sql:m.out")}
     ent = next(e for e in fx.entities if e.name == "out")
@@ -41,16 +39,15 @@ def test_nested_cte_collapses_to_base_tables(inline, rels) -> None:
     )
     # CTEs são transparentes: leitura liga às tabelas base
     assert rels(fx, "READS_FROM") == {
-        ("sql:inline.sql#0", "sql:t1"), ("sql:inline.sql#0", "sql:t2"),
+        ("sql:inline.sql#0", "sql:t1"),
+        ("sql:inline.sql#0", "sql:t2"),
     }
     names = {e.name for e in fx.entities}
     assert "a" not in names and "b" not in names  # CTE não vira entidade
 
 
 def test_subquery_collapses_to_base_table(inline, rels) -> None:
-    fx = inline(
-        "INSERT INTO m.t(c) SELECT z FROM (SELECT x AS z FROM s.u) q;"
-    )
+    fx = inline("INSERT INTO m.t(c) SELECT z FROM (SELECT x AS z FROM s.u) q;")
     assert rels(fx, "DERIVES_FROM") >= {
         ("sql:m.t", "sql:s.u"),
         ("sql:m.t.c", "sql:s.u.x"),
@@ -76,32 +73,29 @@ def test_select_star_declares_limitation_keeps_table_lineage(inline, rels, diag_
     # linhagem de tabela permanece — a de coluna é declarada limitada
     assert rels(fx, "DERIVES_FROM") == {("sql:m.t", "sql:s.x")}
     assert not any(
-        r.to_identity and "." in r.to_identity.qualified_name
-        and r.from_identity and "." in r.from_identity.qualified_name
-        for r in fx.relations if r.relation_type == "DERIVES_FROM"
+        r.to_identity
+        and "." in r.to_identity.qualified_name
+        and r.from_identity
+        and "." in r.from_identity.qualified_name
+        for r in fx.relations
+        if r.relation_type == "DERIVES_FROM"
     )
 
 
 def test_ambiguous_column_never_promoted(inline, rels, diag_codes) -> None:
-    fx = inline(
-        "INSERT INTO m.t(c) SELECT a FROM t1 JOIN t2 ON t1.k=t2.k;"
-    )
+    fx = inline("INSERT INTO m.t(c) SELECT a FROM t1 JOIN t2 ON t1.k=t2.k;")
     assert "ambiguous-column" in diag_codes(fx)
     # nenhuma aresta col→col foi fabricada para `a`
     assert not rels(fx, "DERIVES_FROM") & {
-        ("sql:m.t.c", "sql:t1.a"), ("sql:m.t.c", "sql:t2.a"),
+        ("sql:m.t.c", "sql:t1.a"),
+        ("sql:m.t.c", "sql:t2.a"),
     }
     # a coluna de saída existe como entidade, mas sem origem
-    assert any(
-        e.name == "c" and e.kind.value == "data_column"
-        for e in fx.entities
-    )
+    assert any(e.name == "c" and e.kind.value == "data_column" for e in fx.entities)
 
 
 def test_qualified_column_resolves(inline, rels, diag_codes) -> None:
-    fx = inline(
-        "INSERT INTO m.t(c) SELECT t1.a FROM t1 JOIN t2 ON t1.k=t2.k;"
-    )
+    fx = inline("INSERT INTO m.t(c) SELECT t1.a FROM t1 JOIN t2 ON t1.k=t2.k;")
     assert "ambiguous-column" not in diag_codes(fx)
     assert ("sql:m.t.c", "sql:t1.a") in rels(fx, "DERIVES_FROM")
 
@@ -115,17 +109,14 @@ def test_unresolved_qualifier_is_diagnosed(inline, diag_codes) -> None:
     fx = inline("CREATE VIEW v AS SELECT q.a FROM t1;")
     assert "unresolved-column" in diag_codes(fx)
     assert not any(
-        r.relation_type == "DERIVES_FROM" and "." in (
-            r.to_identity.qualified_name if r.to_identity else ""
-        )
+        r.relation_type == "DERIVES_FROM"
+        and "." in (r.to_identity.qualified_name if r.to_identity else "")
         for r in fx.relations
     )
 
 
 def test_cross_schema_identity_qualified(inline) -> None:
-    fx = inline(
-        "SELECT a FROM cat.s1.t1 JOIN s2.t2 ON t1.id = t2.id;"
-    )
+    fx = inline("SELECT a FROM cat.s1.t1 JOIN s2.t2 ON t1.id = t2.id;")
     by_disp = {e.identity.display(): e.identity for e in fx.entities}
     t1 = by_disp["sql:cat.s1.t1"]
     assert t1.catalog == "cat" and t1.namespace == "s1"
@@ -135,10 +126,7 @@ def test_cross_schema_identity_qualified(inline) -> None:
 
 def test_use_sets_default_schema(inline) -> None:
     fx = inline("USE analytics; SELECT a FROM t1; USE marts; SELECT b FROM t1;")
-    ns = sorted(
-        e.identity.namespace
-        for e in fx.entities if e.kind.value == "data_table"
-    )
+    ns = sorted(e.identity.namespace for e in fx.entities if e.kind.value == "data_table")
     assert ns == ["analytics", "marts"]
 
 
@@ -169,7 +157,8 @@ def test_update_sets_column_lineage(inline, rels) -> None:
     assert ("sql:m.t.x", "sql:u.a") in rels(fx, "DERIVES_FROM")
     # UPDATE lê o próprio alvo + fonte
     assert rels(fx, "READS_FROM") == {
-        ("sql:inline.sql#0", "sql:m.t"), ("sql:inline.sql#0", "sql:u"),
+        ("sql:inline.sql#0", "sql:m.t"),
+        ("sql:inline.sql#0", "sql:u"),
     }
 
 
@@ -204,15 +193,14 @@ def test_exec_produces_unsupported_not_relations(inline, rels, diag_codes) -> No
 
 
 def test_malformed_partial_extraction_plus_diagnostics(inline, rels, diag_codes) -> None:
-    fx = inline(
-        "SELECT FROM ; SELECT ok FROM t1; GARBAGE; SELECT ok2 FROM t2;"
-    )
+    fx = inline("SELECT FROM ; SELECT ok FROM t1; GARBAGE; SELECT ok2 FROM t2;")
     codes = diag_codes(fx)
     assert "parse-error" in codes
     # os dois selects válidos ainda extraíram — statements falhos
     # são descartados no resync e os índices reenumeram
     assert rels(fx, "READS_FROM") == {
-        ("sql:inline.sql#0", "sql:t1"), ("sql:inline.sql#1", "sql:t2"),
+        ("sql:inline.sql#0", "sql:t1"),
+        ("sql:inline.sql#1", "sql:t2"),
     }
 
 
@@ -237,9 +225,7 @@ def test_every_fact_carries_evidence(inline) -> None:
 
 
 def test_unnest_is_unsupported_source_info(inline, rels, diag_codes) -> None:
-    fx = inline(
-        "SELECT a, x FROM t CROSS JOIN UNNEST(t.arr) AS u(x);"
-    )
+    fx = inline("SELECT a, x FROM t CROSS JOIN UNNEST(t.arr) AS u(x);")
     assert "unsupported-source" in diag_codes(fx)
     assert ("sql:inline.sql#0", "sql:t") in rels(fx, "READS_FROM")
 
@@ -255,14 +241,14 @@ def test_recursive_cte_no_infinite_loop(inline) -> None:
 
 
 def test_union_branches_all_read(inline, rels) -> None:
-    fx = inline(
-        "INSERT INTO m.t SELECT a FROM s1 UNION ALL SELECT b FROM s2;"
-    )
+    fx = inline("INSERT INTO m.t SELECT a FROM s1 UNION ALL SELECT b FROM s2;")
     assert rels(fx, "READS_FROM") == {
-        ("sql:inline.sql#0", "sql:s1"), ("sql:inline.sql#0", "sql:s2"),
+        ("sql:inline.sql#0", "sql:s1"),
+        ("sql:inline.sql#0", "sql:s2"),
     }
     assert rels(fx, "DERIVES_FROM") == {
-        ("sql:m.t", "sql:s1"), ("sql:m.t", "sql:s2"),
+        ("sql:m.t", "sql:s1"),
+        ("sql:m.t", "sql:s2"),
     }
 
 
@@ -305,6 +291,4 @@ def test_extract_error_isolation_never_crashes(inline) -> None:
 def test_no_relation_without_source(inline) -> None:
     fx = inline("SELECT 1, 'x';")
     assert not fx.relations
-    assert not any(
-        e.kind.value == "data_transformation" for e in fx.entities
-    )
+    assert not any(e.kind.value == "data_transformation" for e in fx.entities)

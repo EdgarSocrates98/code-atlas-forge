@@ -27,22 +27,17 @@ def render_markdown(pack: ContextPack) -> str:
         "",
         f"- budget: {pack.budget.available_items}/"
         f"{pack.budget.limit} tokens estimados ({m.estimator})",
-        f"- selected: {m.selected} · omitted: {m.omitted} · "
-        f"truncated: {str(m.truncated).lower()}",
+        f"- selected: {m.selected} · omitted: {m.omitted} · truncated: {str(m.truncated).lower()}",
         f"- freshness: {m.freshness}",
     ]
     if pack.diagnostics.codes:
-        lines.append(
-            f"- diagnostics: {', '.join(pack.diagnostics.codes)}")
+        lines.append(f"- diagnostics: {', '.join(pack.diagnostics.codes)}")
     if pack.diagnostics.suggested_minimum_budget:
-        lines.append(
-            f"- suggested_minimum_budget: "
-            f"{pack.diagnostics.suggested_minimum_budget}")
+        lines.append(f"- suggested_minimum_budget: {pack.diagnostics.suggested_minimum_budget}")
     lines.append("")
     for item in pack.items:
         lines.append(f"## {item.title}")
-        lines.append(f"_{item.kind} · prio={item.priority} · "
-                     f"~{item.est_tokens} tok_")
+        lines.append(f"_{item.kind} · prio={item.priority} · ~{item.est_tokens} tok_")
         lines.append("")
         lines.append("```")
         lines.append(item.body)
@@ -55,16 +50,15 @@ def render_markdown(pack: ContextPack) -> str:
         lines.append("")
     if pack.domain is not None:
         d = pack.domain
-        lines.append(f"## Domain — {d.status} "
-                     f"(schema v{d.schema_version})")
+        lines.append(f"## Domain — {d.status} (schema v{d.schema_version})")
         if d.entity is not None:
             e = d.entity
-            lines.append(
-                f"- {e.kind} `{e.identity_key}` — {e.qualified_name}")
+            lines.append(f"- {e.kind} `{e.identity_key}` — {e.qualified_name}")
         lines.append(
             f"- neighbors: {len(d.neighbors)}/{d.neighbors_total} "
             f"(omitted {d.neighbors_omitted}) · "
-            f"counts: {dict(sorted(d.counts.items()))}")
+            f"counts: {dict(sorted(d.counts.items()))}"
+        )
         if d.summary:
             lines.append(f"- lineage: {d.summary}")
         lines.append("")

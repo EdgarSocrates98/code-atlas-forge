@@ -34,9 +34,7 @@ def synth_corpus(root: Path, n_files: int, seed: int = SEED) -> None:
         d.mkdir(parents=True, exist_ok=True)
         ext = rng.choice(EXTS)
         size = rng.choice([64, 256, 1024, 4096, 16384])
-        content = hashlib.sha256(f"{seed}:{i}".encode()).hexdigest().encode() * (
-            size // 64 + 1
-        )
+        content = hashlib.sha256(f"{seed}:{i}".encode()).hexdigest().encode() * (size // 64 + 1)
         (d / f"file{i}{ext}").write_bytes(content[:size])
 
 

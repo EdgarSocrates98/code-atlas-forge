@@ -432,31 +432,49 @@ def migrations(*, fts5: bool) -> list[Migration]:
     m.append(Migration(5, "logical repo identity + dirty flag (lf-0021)", _SCHEMA_V5_IDENTITY))
     m.append(Migration(6, "evidence resolver provenance (lf-0035)", _SCHEMA_V6_EVIDENCE))
     if fts5:
-        m.append(Migration(
-            7, "fts_occurrences snapshot-scoped lexical index (lf-0036)",
-            _SCHEMA_V7_FTS_OCC,
-        ))
-    m.append(Migration(
-        8, "vector embeddings + content cache (lf-0039)",
-        _SCHEMA_V8_VECTORS,
-    ))
-    m.append(Migration(
-        9, "domain entities + relations (lf-0110)",
-        _SCHEMA_V9_DOMAINS,
-    ))
-    m.append(Migration(
-        10, "federation workspaces + members (lf-0118)",
-        _SCHEMA_V10_FEDERATION,
-    ))
-    m.append(Migration(
-        11, "domain_relations endpoint indexes + stats (lf-0132)",
-        _SCHEMA_V11_DOMAIN_REL_INDEXES,
-    ))
+        m.append(
+            Migration(
+                7,
+                "fts_occurrences snapshot-scoped lexical index (lf-0036)",
+                _SCHEMA_V7_FTS_OCC,
+            )
+        )
+    m.append(
+        Migration(
+            8,
+            "vector embeddings + content cache (lf-0039)",
+            _SCHEMA_V8_VECTORS,
+        )
+    )
+    m.append(
+        Migration(
+            9,
+            "domain entities + relations (lf-0110)",
+            _SCHEMA_V9_DOMAINS,
+        )
+    )
+    m.append(
+        Migration(
+            10,
+            "federation workspaces + members (lf-0118)",
+            _SCHEMA_V10_FEDERATION,
+        )
+    )
+    m.append(
+        Migration(
+            11,
+            "domain_relations endpoint indexes + stats (lf-0132)",
+            _SCHEMA_V11_DOMAIN_REL_INDEXES,
+        )
+    )
     if fts5:
-        m.append(Migration(
-            12, "domain_fts dedicated FTS5 (lf-0133)",
-            _SCHEMA_V12_DOMAIN_FTS,
-        ))
+        m.append(
+            Migration(
+                12,
+                "domain_fts dedicated FTS5 (lf-0133)",
+                _SCHEMA_V12_DOMAIN_FTS,
+            )
+        )
     return m
 
 
@@ -514,7 +532,8 @@ def migrate(conn: sqlite3.Connection, *, fts5: bool | None = None) -> int:
     if unknown:
         raise MigrationError(
             f"schema_migrations has unknown versions {unknown} — "
-            "database was written by a newer build; upgrade code-atlas")
+            "database was written by a newer build; upgrade code-atlas"
+        )
     applicable = {m.version for m in migrations(fts5=fts5)}
     for mig in catalog:
         digest = _checksum(mig.sql)

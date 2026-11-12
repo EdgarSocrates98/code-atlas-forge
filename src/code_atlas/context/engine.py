@@ -49,9 +49,7 @@ _RESERVE_DIAG = 0.05
 class ContextEngine:
     """Constrói ``ContextPack`` determinístico sobre a conexão."""
 
-    def __init__(
-        self, conn: sqlite3.Connection, counter: TokenCounter | None = None
-    ) -> None:
+    def __init__(self, conn: sqlite3.Connection, counter: TokenCounter | None = None) -> None:
         self._conn = conn
         self._structural = StructuralSearch(conn)
         self._graph = GraphRetrieval(conn)
@@ -72,10 +70,8 @@ class ContextEngine:
         diags: list[str] = []
         repo_id = self._structural.repo_for_root(req.repository_root)
         if repo_id is None:
-            return self._empty(req, f"repositório não indexado: "
-                                  f"{req.repository_root}")
-        snap, err = self._structural.resolve_snapshot(
-            repo_id, req.snapshot_id)
+            return self._empty(req, f"repositório não indexado: {req.repository_root}")
+        snap, err = self._structural.resolve_snapshot(repo_id, req.snapshot_id)
         if snap is None or snap.id is None:
             return self._empty(req, err or "nenhum snapshot READY")
         sid = int(snap.id or 0)
@@ -89,13 +85,19 @@ class ContextEngine:
         items = self._dedup(self._estimate(candidates))
         items.sort(key=lambda i: (i.priority, i.item_id))
         selected, omitted = self._fit(items, budget.available_items)
-        essentials_cost = sum(
-            i.est_tokens for i in items if i.priority <= PRIORITY_DIRECT)
-        insufficient = len(selected) < len(
-            [i for i in items if i.priority <= PRIORITY_DIRECT])
+        essentials_cost = sum(i.est_tokens for i in items if i.priority <= PRIORITY_DIRECT)
+        insufficient = len(selected) < len([i for i in items if i.priority <= PRIORITY_DIRECT])
         pack = self._enforce_payload_budget(
-            req, sid, budget, selected, omitted, essentials_cost,
-            insufficient, diags, str(snap.status))
+            req,
+            sid,
+            budget,
+            selected,
+            omitted,
+            essentials_cost,
+            insufficient,
+            diags,
+            str(snap.status),
+        )
         # cache por snapshot+tarefa — pack é imutável; FIFO 32 entradas
         if len(self._pack_cache) >= 32:
             self._pack_cache.pop(next(iter(self._pack_cache)))
@@ -103,12 +105,18 @@ class ContextEngine:
         return pack
 
     def _enforce_payload_budget(
-        self, req: ContextRequest | DomainPackRequest, sid: int,
+        self,
+        req: ContextRequest | DomainPackRequest,
+        sid: int,
         budget: Budget,
-        selected: list[ContextItem], omitted: list[ContextItem],
-        essentials_cost: int, insufficient: bool,
-        diags: list[str], snap_status: str,
-        *, domain_factory: DomainSectionFactory | None = None,
+        selected: list[ContextItem],
+        omitted: list[ContextItem],
+        essentials_cost: int,
+        insufficient: bool,
+        diags: list[str],
+        snap_status: str,
+        *,
+        domain_factory: DomainSectionFactory | None = None,
     ) -> ContextPack:
         """lf-0053: o orçamento cobre o payload SERIALIZADO (envelope +
         itens + metadados + diagnósticos), não só os corpos. Se estoura,
@@ -118,41 +126,63 @@ class ContextEngine:
         iteração — a seção de domínio é recriada junto com o envelope,
         então o custo dela também é contado no payload."""
         from code_atlas.context.renderers import render_json
+
         sel, omit = list(selected), list(omitted)
         enforced = False
         while True:
-            pack = self._pack(req, sid, budget, sel, omit,
-                              essentials_cost, insufficient,
-                              diags, snap_status,
-                              domain_factory=domain_factory)
+            pack = self._pack(
+                req,
+                sid,
+                budget,
+                sel,
+                omit,
+                essentials_cost,
+                insufficient,
+                diags,
+                snap_status,
+                domain_factory=domain_factory,
+            )
             est = self._counter.count(render_json(pack))
             if est <= budget.limit or not sel:
                 if enforced:
                     diags = [*diags, "payload-budget-enforced"]
-                    pack = self._pack(req, sid, budget, sel, omit,
-                                      essentials_cost, insufficient,
-                                      diags, snap_status,
-                                      domain_factory=domain_factory)
+                    pack = self._pack(
+                        req,
+                        sid,
+                        budget,
+                        sel,
+                        omit,
+                        essentials_cost,
+                        insufficient,
+                        diags,
+                        snap_status,
+                        domain_factory=domain_factory,
+                    )
                     est = self._counter.count(render_json(pack))
                 if est > budget.limit:
-                    pack = self._pack(req, sid, budget, sel, omit,
-                                      essentials_cost, True,
-                                      [*diags, "payload-over-budget"],
-                                      snap_status,
-                                      domain_factory=domain_factory)
+                    pack = self._pack(
+                        req,
+                        sid,
+                        budget,
+                        sel,
+                        omit,
+                        essentials_cost,
+                        True,
+                        [*diags, "payload-over-budget"],
+                        snap_status,
+                        domain_factory=domain_factory,
+                    )
                     est = self._counter.count(render_json(pack))
                 # grava a estimativa final no manifest
                 return dataclasses.replace(
-                    pack, manifest=dataclasses.replace(
-                        pack.manifest, tokens_payload=est))
+                    pack, manifest=dataclasses.replace(pack.manifest, tokens_payload=est)
+                )
             # despeja o item de MENOR prioridade (maior número; desempate
             # pelo item_id mais alto) — ordenação estável reversa
-            sel.sort(key=lambda i: (i.priority, i.item_id),
-                     reverse=True)
+            sel.sort(key=lambda i: (i.priority, i.item_id), reverse=True)
             omit.append(sel.pop(0))
             sel.sort(key=lambda i: (i.priority, i.item_id))
-            if not insufficient and any(
-                    i.priority <= PRIORITY_DIRECT for i in omit):
+            if not insufficient and any(i.priority <= PRIORITY_DIRECT for i in omit):
                 insufficient = True
             enforced = True
 
@@ -163,24 +193,30 @@ class ContextEngine:
         evid = int(limit * _RESERVE_EVID)
         diag = int(limit * _RESERVE_DIAG)
         return Budget(
-            limit=limit, reserved_meta=meta, reserved_evidence=evid,
+            limit=limit,
+            reserved_meta=meta,
+            reserved_evidence=evid,
             reserved_diagnostics=diag,
             available_items=max(32, limit - meta - evid - diag),
-            estimator=self._counter.counter_id)
+            estimator=self._counter.counter_id,
+        )
 
-    def _candidates(
-        self, req: ContextRequest, sid: int, diags: list[str]
-    ) -> list[ContextItem]:
+    def _candidates(self, req: ContextRequest, sid: int, diags: list[str]) -> list[ContextItem]:
         """lf-0052: hybrid retrieval é a fonte primária de candidatos
         (structural+lexical+graph+vector fusionados via RRF). Fallback
         declarado: structural substring quando hybrid não retorna nada
         (ex.: FTS indisponível e sem match estrutural interno)."""
         items: list[ContextItem] = []
         intent = classify(req.task)
-        hits = self._engine.search(SearchRequest(
-            query=req.task, strategy="hybrid",
-            repository_root=req.repository_root, snapshot_id=sid,
-            limit=req.max_symbols)).items
+        hits = self._engine.search(
+            SearchRequest(
+                query=req.task,
+                strategy="hybrid",
+                repository_root=req.repository_root,
+                snapshot_id=sid,
+                limit=req.max_symbols,
+            )
+        ).items
         source = "hybrid"
         if not hits:
             # fallback tipado — structural substring (comportamento v1)
@@ -188,22 +224,29 @@ class ContextEngine:
             diags.append("candidate-source:structural-fallback")
             repo_id = self._structural.repo_for_root(req.repository_root)
             page = self._structural.search_symbols(
-                repo_id or 0, sid, req.task, SearchFilters(),
-                req.max_symbols, 0)
+                repo_id or 0, sid, req.task, SearchFilters(), req.max_symbols, 0
+            )
             from code_atlas.search.contracts import SearchHit
-            hits = tuple(SearchHit(
-                occurrence_id=int(s.get("occurrence_id", 0) or 0),
-                qualified_name=str(s["qualified_name"]),
-                kind=str(s["kind"]), language=str(s["language"]),
-                path=str(s.get("path", "")), span=None, score=0.0,
-                strategy="structural",
-                matched_fields=("qualified_name",))
-                for s in page.items)
+
+            hits = tuple(
+                SearchHit(
+                    occurrence_id=int(s.get("occurrence_id", 0) or 0),
+                    qualified_name=str(s["qualified_name"]),
+                    kind=str(s["kind"]),
+                    language=str(s["language"]),
+                    path=str(s.get("path", "")),
+                    span=None,
+                    score=0.0,
+                    strategy="structural",
+                    matched_fields=("qualified_name",),
+                )
+                for s in page.items
+            )
             if not hits:
                 diags.append("candidate-source:empty")
-        occ = self._occ_rows(sid, [
-            h.occurrence_id for h in hits if h.occurrence_id],
-            by="occurrence")
+        occ = self._occ_rows(
+            sid, [h.occurrence_id for h in hits if h.occurrence_id], by="occurrence"
+        )
         for h in hits:
             qn = h.qualified_name
             row = occ.get(h.occurrence_id, {})
@@ -211,31 +254,40 @@ class ContextEngine:
             doc = str(row.get("docstring") or "")
             body = "\n".join(p for p in (qn, sig, doc) if p)
             has_contract = bool(sig or doc)
-            items.append(ContextItem(
-                item_id=f"sym:{qn}", kind="symbol",
-                priority=(PRIORITY_CONTRACT if has_contract
-                          else PRIORITY_DIRECT),
-                title=qn, body=body, est_tokens=0,
-                symbol_key=qn, path=h.path or str(
-                    row.get("relative_path", "")),
-                evidence=(
-                    PackEvidence(kind="occurrence",
-                                 ref=str(h.occurrence_id)),
-                    PackEvidence(kind="ranking",
-                                 ref=f"{source}:{h.score:.6f}"),
-                    PackEvidence(kind="intent",
-                                 ref=intent.task_type)),
-                expandable=True))
+            items.append(
+                ContextItem(
+                    item_id=f"sym:{qn}",
+                    kind="symbol",
+                    priority=(PRIORITY_CONTRACT if has_contract else PRIORITY_DIRECT),
+                    title=qn,
+                    body=body,
+                    est_tokens=0,
+                    symbol_key=qn,
+                    path=h.path or str(row.get("relative_path", "")),
+                    evidence=(
+                        PackEvidence(kind="occurrence", ref=str(h.occurrence_id)),
+                        PackEvidence(kind="ranking", ref=f"{source}:{h.score:.6f}"),
+                        PackEvidence(kind="intent", ref=intent.task_type),
+                    ),
+                    expandable=True,
+                )
+            )
         depth = {"orientation": 0, "focus": 1, "deep": 3}[req.level]
         seed_ids = [h.occurrence_id for h in hits if h.occurrence_id]
         if depth:
-            items.extend(self._neighbor_items(
-                sid, seed_ids, depth, direction=intent.direction))
+            items.extend(self._neighbor_items(sid, seed_ids, depth, direction=intent.direction))
         for p in sorted({i.path for i in items if i.path}):
-            items.append(ContextItem(
-                item_id=f"file:{p}", kind="file",
-                priority=PRIORITY_COMPLEMENT, title=p, body=p,
-                est_tokens=0, path=p))
+            items.append(
+                ContextItem(
+                    item_id=f"file:{p}",
+                    kind="file",
+                    priority=PRIORITY_COMPLEMENT,
+                    title=p,
+                    body=p,
+                    est_tokens=0,
+                    path=p,
+                )
+            )
         items.extend(self._dependency_items(sid, seed_ids, intent))
         return items
 
@@ -247,7 +299,7 @@ class ContextEngine:
         ``logical_symbol_id``; ``by="occurrence"`` por ``o.id``."""
         if not ids:
             return {}
-        key_col = ("o.logical_symbol_id" if by == "symbol" else "o.id")
+        key_col = "o.logical_symbol_id" if by == "symbol" else "o.id"
         sql = (
             "SELECT o.id, o.logical_symbol_id, s.qualified_name,"
             " sf.relative_path, f.signature, f.docstring"
@@ -257,7 +309,8 @@ class ContextEngine:
             " LEFT JOIN fts_occurrences f ON f.rowid = o.id"
             f" WHERE o.snapshot_id = ? AND {key_col} IN"
             " (SELECT value FROM json_each(?))"
-            " ORDER BY o.id")
+            " ORDER BY o.id"
+        )
         rows = self._conn.execute(sql, (sid, json.dumps(ids))).fetchall()
         out: dict[int, dict[str, object]] = {}
         kf = "logical_symbol_id" if by == "symbol" else "id"
@@ -268,7 +321,10 @@ class ContextEngine:
         return out
 
     def _neighbor_items(
-        self, sid: int, seed_ids: list[int], depth: int,
+        self,
+        sid: int,
+        seed_ids: list[int],
+        depth: int,
         direction: str = "both",
     ) -> list[ContextItem]:
         out: list[ContextItem] = []
@@ -276,28 +332,41 @@ class ContextEngine:
         if not seed_ids:
             return out
         hits, _stats = self._graph.traverse(
-            sid, seed_ids, direction=direction,
-            limits=TraversalLimits(
-                depth=depth, max_nodes=40, max_results=40))
+            sid,
+            seed_ids,
+            direction=direction,
+            limits=TraversalLimits(depth=depth, max_nodes=40, max_results=40),
+        )
         for h in hits:
-            out.append(ContextItem(
-                item_id=f"nb:{h.qualified_name}",
-                kind="symbol", priority=PRIORITY_COMPLEMENT,
-                title=h.qualified_name, body=h.qualified_name,
-                est_tokens=0, symbol_key=h.qualified_name,
-                path=h.path, expandable=True))
+            out.append(
+                ContextItem(
+                    item_id=f"nb:{h.qualified_name}",
+                    kind="symbol",
+                    priority=PRIORITY_COMPLEMENT,
+                    title=h.qualified_name,
+                    body=h.qualified_name,
+                    est_tokens=0,
+                    symbol_key=h.qualified_name,
+                    path=h.path,
+                    expandable=True,
+                )
+            )
         return out
 
     def _dependency_items(
-        self, sid: int, seed_ids: list[int],
+        self,
+        sid: int,
+        seed_ids: list[int],
         intent: QueryIntent | None = None,
     ) -> list[ContextItem]:
         # lf-0052: intents de investigação sobem dependências comprovadas
         # para prioridade de contrato (call flow/deps são o foco).
         dep_priority = PRIORITY_DEP
         if intent is not None and intent.task_type in (
-                "find-consumers", "explain-dependencies",
-                "investigate-failure"):
+            "find-consumers",
+            "explain-dependencies",
+            "investigate-failure",
+        ):
             dep_priority = PRIORITY_CONTRACT
         if not seed_ids:
             return []
@@ -313,24 +382,38 @@ class ContextEngine:
             "(SELECT value FROM json_each(?))) LIMIT 100",
             (sid, json.dumps(seed_ids), json.dumps(seed_ids)),
         ).fetchall()
-        return [ContextItem(
-            item_id=f"dep:{r['src']}->{r['edge_kind']}->{r['dst']}",
-            kind="dependency", priority=dep_priority,
-            title=f"{r['src']} -[{r['edge_kind']}]-> {r['dst']}",
-            body=f"{r['src']} {r['edge_kind']} {r['dst']}",
-            est_tokens=0,
-            evidence=(PackEvidence(kind="relation",
-                                   ref=str(r["edge_kind"])),))
-            for r in rows if r["dst"]]
+        return [
+            ContextItem(
+                item_id=f"dep:{r['src']}->{r['edge_kind']}->{r['dst']}",
+                kind="dependency",
+                priority=dep_priority,
+                title=f"{r['src']} -[{r['edge_kind']}]-> {r['dst']}",
+                body=f"{r['src']} {r['edge_kind']} {r['dst']}",
+                est_tokens=0,
+                evidence=(PackEvidence(kind="relation", ref=str(r["edge_kind"])),),
+            )
+            for r in rows
+            if r["dst"]
+        ]
 
     def _estimate(self, items: list[ContextItem]) -> list[ContextItem]:
-        return [i if i.est_tokens else ContextItem(
-            item_id=i.item_id, kind=i.kind, priority=i.priority,
-            title=i.title, body=i.body,
-            est_tokens=self._counter.count(i.body),
-            symbol_key=i.symbol_key, path=i.path,
-            evidence=i.evidence, expandable=i.expandable)
-            for i in items]
+        return [
+            i
+            if i.est_tokens
+            else ContextItem(
+                item_id=i.item_id,
+                kind=i.kind,
+                priority=i.priority,
+                title=i.title,
+                body=i.body,
+                est_tokens=self._counter.count(i.body),
+                symbol_key=i.symbol_key,
+                path=i.path,
+                evidence=i.evidence,
+                expandable=i.expandable,
+            )
+            for i in items
+        ]
 
     def _dedup(self, items: list[ContextItem]) -> list[ContextItem]:
         seen: set[str] = set()
@@ -358,31 +441,38 @@ class ContextEngine:
         return sel, omit
 
     def _pack(
-        self, req: ContextRequest | DomainPackRequest, sid: int,
+        self,
+        req: ContextRequest | DomainPackRequest,
+        sid: int,
         budget: Budget,
-        selected: list[ContextItem], omitted: list[ContextItem],
-        essentials_cost: int, insufficient: bool,
-        diags: list[str], snap_status: str,
-        *, domain_factory: DomainSectionFactory | None = None,
+        selected: list[ContextItem],
+        omitted: list[ContextItem],
+        essentials_cost: int,
+        insufficient: bool,
+        diags: list[str],
+        snap_status: str,
+        *,
+        domain_factory: DomainSectionFactory | None = None,
     ) -> ContextPack:
         codes: list[str] = list(diags)
         if omitted:
             codes.append("pack-truncated")
         if insufficient:
-            codes.extend(("insufficient-budget",
-                          "mandatory-context-omitted"))
+            codes.extend(("insufficient-budget", "mandatory-context-omitted"))
         # lf-0121: a fábrica produz a seção de domínio + refs extras a
         # partir dos selecionados desta iteração — contada no payload.
         part = domain_factory(tuple(selected)) if domain_factory else None
         expansion: list[ExpansionRef] = [
-            ExpansionRef(ref_id=i.item_id, kind=i.kind,
-                         reason="omitido por budget ou nível")
-            for i in omitted if i.expandable]
+            ExpansionRef(ref_id=i.item_id, kind=i.kind, reason="omitido por budget ou nível")
+            for i in omitted
+            if i.expandable
+        ]
         unresolved: tuple[str, ...] = ()
         ranking = (
             "prioridade: evidências > diretos > contratos > deps > "
             "snippets > complementar > transitivos; dentro da "
-            "classe, item_id estável")
+            "classe, item_id estável"
+        )
         if part is not None:
             expansion.extend(part.extra_expansion_refs)
             unresolved = part.extra_unresolved
@@ -390,53 +480,70 @@ class ContextEngine:
                 ranking = part.ranking_explanation
         manifest = PackManifest(
             schema_version=PACK_SCHEMA_VERSION,
-            repository=req.repository_root, snapshot_id=sid,
-            level=req.level, estimator=budget.estimator,
+            repository=req.repository_root,
+            snapshot_id=sid,
+            level=req.level,
+            estimator=budget.estimator,
             tokens_estimated=True,
-            selected=len(selected), omitted=len(omitted),
+            selected=len(selected),
+            omitted=len(omitted),
             truncated=bool(omitted),
             freshness=f"snapshot:{sid} status:{snap_status}",
-            ranking_explanation=ranking)
+            ranking_explanation=ranking,
+        )
         diagnostics = PackDiagnostics(
-            codes=tuple(codes), messages=tuple(diags),
+            codes=tuple(codes),
+            messages=tuple(diags),
             insufficient_budget=insufficient,
             mandatory_context_omitted=insufficient,
             suggested_minimum_budget=(
-                essentials_cost + budget.limit - budget.available_items
-                if insufficient else 0))
+                essentials_cost + budget.limit - budget.available_items if insufficient else 0
+            ),
+        )
         return ContextPack(
-            manifest=manifest, budget=budget,
+            manifest=manifest,
+            budget=budget,
             items=tuple(selected),
             selected_symbols=tuple(
-                i.symbol_key for i in selected
-                if i.kind == "symbol" and i.symbol_key),
-            relevant_files=tuple(sorted(
-                {i.path for i in selected if i.path})),
-            dependencies=tuple(
-                ev for i in selected if i.kind == "dependency"
-                for ev in i.evidence),
+                i.symbol_key for i in selected if i.kind == "symbol" and i.symbol_key
+            ),
+            relevant_files=tuple(sorted({i.path for i in selected if i.path})),
+            dependencies=tuple(ev for i in selected if i.kind == "dependency" for ev in i.evidence),
             unresolved_refs=unresolved,
             expansion_refs=tuple(expansion),
             diagnostics=diagnostics,
-            domain=part.section if part is not None else None)
+            domain=part.section if part is not None else None,
+        )
 
-    def _empty(
-        self, req: ContextRequest | DomainPackRequest, msg: str
-    ) -> ContextPack:
+    def _empty(self, req: ContextRequest | DomainPackRequest, msg: str) -> ContextPack:
         budget = self._budget(req)
         manifest = PackManifest(
             schema_version=PACK_SCHEMA_VERSION,
-            repository=req.repository_root, snapshot_id=0,
-            level=req.level, estimator=budget.estimator,
-            tokens_estimated=True, selected=0, omitted=0,
-            truncated=False, freshness="none",
-            ranking_explanation="vazio — resolução falhou")
+            repository=req.repository_root,
+            snapshot_id=0,
+            level=req.level,
+            estimator=budget.estimator,
+            tokens_estimated=True,
+            selected=0,
+            omitted=0,
+            truncated=False,
+            freshness="none",
+            ranking_explanation="vazio — resolução falhou",
+        )
         return ContextPack(
-            manifest=manifest, budget=budget, items=(),
-            selected_symbols=(), relevant_files=(), dependencies=(),
-            unresolved_refs=(), expansion_refs=(),
+            manifest=manifest,
+            budget=budget,
+            items=(),
+            selected_symbols=(),
+            relevant_files=(),
+            dependencies=(),
+            unresolved_refs=(),
+            expansion_refs=(),
             diagnostics=PackDiagnostics(
-                codes=("resolve-failed",), messages=(msg,),
+                codes=("resolve-failed",),
+                messages=(msg,),
                 insufficient_budget=False,
                 mandatory_context_omitted=False,
-                suggested_minimum_budget=0))
+                suggested_minimum_budget=0,
+            ),
+        )

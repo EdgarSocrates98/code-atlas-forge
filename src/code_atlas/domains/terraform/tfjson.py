@@ -43,17 +43,24 @@ def _key_span(text: str, key: str) -> SourceSpan | None:
     line_start = text.rfind("\n", 0, idx) + 1
     col = len(text[line_start:idx].encode("utf-8"))
     return SourceSpan(
-        start_byte=start_b, end_byte=end_b,
-        start_line=line, start_col=col,
-        end_line=line, end_col=col + (end_b - start_b),
+        start_byte=start_b,
+        end_byte=end_b,
+        start_line=line,
+        start_col=col,
+        end_line=line,
+        end_col=col + (end_b - start_b),
     )
 
 
 def _body_span(start: int, end: int) -> SourceSpan:
     """Span em coordenadas do corpo serializado (linha 1 fictícia)."""
     return SourceSpan(
-        start_byte=start, end_byte=end,
-        start_line=1, start_col=start, end_line=1, end_col=end,
+        start_byte=start,
+        end_byte=end,
+        start_line=1,
+        start_col=start,
+        end_line=1,
+        end_col=end,
     )
 
 
@@ -91,9 +98,7 @@ def _attrs_of_body(body_text: str, obj: object) -> tuple[HclAttribute, ...]:
                 else len(body_text)
             )
             span = _body_span(vstart, vend)
-        out.append(
-            HclAttribute(name=key, value=raw, span=span, value_span=span)
-        )
+        out.append(HclAttribute(name=key, value=raw, span=span, value_span=span))
     return tuple(out)
 
 
@@ -107,16 +112,17 @@ def _block(
     body_text = json.dumps(body, ensure_ascii=False)
     span = _key_span(text, name_key)
     return HclBlock(
-        type=btype, labels=labels,
+        type=btype,
+        labels=labels,
         attributes=_attrs_of_body(body_text, body),
-        body=body_text, body_start=0,
-        span=span, header_span=span,
+        body=body_text,
+        body_start=0,
+        span=span,
+        header_span=span,
     )
 
 
-def _section_blocks(
-    text: str, section: str, content: dict[str, object]
-) -> list[HclBlock]:
+def _section_blocks(text: str, section: str, content: dict[str, object]) -> list[HclBlock]:
     """Uma seção top-level → blocos ``HclBlock`` equivalentes."""
     out: list[HclBlock] = []
     if section in ("resource", "data"):
@@ -127,8 +133,11 @@ def _section_blocks(
             for name, body in named.items():
                 out.append(
                     _block(
-                        text, section,
-                        (str(rtype), str(name)), str(name), body,
+                        text,
+                        section,
+                        (str(rtype), str(name)),
+                        str(name),
+                        body,
                     )
                 )
     elif section in ("module", "variable", "output", "provider"):
@@ -145,16 +154,10 @@ def parse_tfjson(text: str) -> TfJsonFile:
     try:
         data = json.loads(text)
     except (ValueError, json.JSONDecodeError) as exc:
-        return TfJsonFile(
-            diagnostics=(HclDiagnostic("json-parse-error", str(exc)),)
-        )
+        return TfJsonFile(diagnostics=(HclDiagnostic("json-parse-error", str(exc)),))
     if not isinstance(data, dict):
         return TfJsonFile(
-            diagnostics=(
-                HclDiagnostic(
-                    "json-parse-error", "tf.json root must be an object"
-                ),
-            )
+            diagnostics=(HclDiagnostic("json-parse-error", "tf.json root must be an object"),)
         )
     blocks: list[HclBlock] = []
     for section, content in data.items():

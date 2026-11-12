@@ -16,11 +16,18 @@ from code_atlas.domains import (
 from code_atlas.domains.model import DOMAIN_RELATION_TYPES, DomainEntityKind
 
 ALL_FIXTURES = [
-    "app/client.py", "app/main.py", "app/routers.py",
-    "openapi/anchored.yaml", "openapi/malformed.yaml",
-    "openapi/not_a_spec.yaml", "openapi/petstore.yaml",
-    "openapi/spec.json", "pkg/config.json",
-    "web/client.ts", "web/legacy.js", "web/routes.ts",
+    "app/client.py",
+    "app/main.py",
+    "app/routers.py",
+    "openapi/anchored.yaml",
+    "openapi/malformed.yaml",
+    "openapi/not_a_spec.yaml",
+    "openapi/petstore.yaml",
+    "openapi/spec.json",
+    "pkg/config.json",
+    "web/client.ts",
+    "web/legacy.js",
+    "web/routes.ts",
 ]
 
 
@@ -49,8 +56,7 @@ def test_confidence_model_no_inferred(adapter) -> None:
 
 def test_supported_artifacts(adapter) -> None:
     sup = adapter.supported_artifacts()
-    for p in ("a/openapi.yaml", "b/s.yml", "c.json", "d.py", "e.ts",
-              "f.tsx", "g.js"):
+    for p in ("a/openapi.yaml", "b/s.yml", "c.json", "d.py", "e.ts", "f.tsx", "g.js"):
         assert sup.matches(p), p
     assert not sup.matches("readme.md")
     assert not sup.matches("x.tf")
@@ -103,11 +109,7 @@ def test_hash_mismatch_is_honest_warning(adapter) -> None:
     res = adapter.extract(
         DomainExtractionRequest(
             repository="r",
-            artifacts=(
-                DiscoveredArtifact(
-                    path="openapi/petstore.yaml", sha256="0" * 64
-                ),
-            ),
+            artifacts=(DiscoveredArtifact(path="openapi/petstore.yaml", sha256="0" * 64),),
         )
     )
     assert any(d.code == "artifact-hash-mismatch" for d in res.diagnostics)
@@ -128,13 +130,9 @@ def test_no_external_network_or_urllib_in_sources() -> None:
         for node in ast.walk(tree):
             if isinstance(node, ast.Import):
                 offenders += [
-                    f"{py.name}:{node.lineno}"
-                    for a in node.names
-                    if a.name.split(".")[0] in banned
+                    f"{py.name}:{node.lineno}" for a in node.names if a.name.split(".")[0] in banned
                 ]
-            elif isinstance(node, ast.ImportFrom) and (
-                (node.module or "").split(".")[0] in banned
-            ):
+            elif isinstance(node, ast.ImportFrom) and ((node.module or "").split(".")[0] in banned):
                 offenders.append(f"{py.name}:{node.lineno}")
     assert offenders == []
 
@@ -149,9 +147,7 @@ def test_no_tree_sitter_imports_in_domain_api() -> None:
         tree = ast.parse(py.read_text(encoding="utf-8"))
         for node in ast.walk(tree):
             if isinstance(node, ast.Import):
-                assert not any(
-                    a.name.startswith("tree_sitter") for a in node.names
-                ), py
+                assert not any(a.name.startswith("tree_sitter") for a in node.names), py
             elif isinstance(node, ast.ImportFrom):
                 assert not (node.module or "").startswith("tree_sitter"), py
 

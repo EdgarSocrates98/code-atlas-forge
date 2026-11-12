@@ -23,18 +23,14 @@ def repo(tmp_path: Path) -> Path:
     r = tmp_path / "proj"
     (r / "pkg").mkdir(parents=True)
     (r / "pkg" / "__init__.py").write_text('"""pkg"""\n')
-    (r / "pkg" / "util.py").write_text(
-        "class Base: pass\n\ndef helper(): return 1\n"
-    )
+    (r / "pkg" / "util.py").write_text("class Base: pass\n\ndef helper(): return 1\n")
     (r / "pkg" / "core.py").write_text(
         "from pkg.util import helper, Base\n"
         "import os\n\n"
         "class Engine(Base):\n"
         "    def run(self): return helper()\n"
     )
-    (r / "main.py").write_text(
-        "import pkg.core\n\ndef main(): return pkg.core.Engine\n"
-    )
+    (r / "main.py").write_text("import pkg.core\n\ndef main(): return pkg.core.Engine\n")
     (r / "broken.py").write_text("def x(:\n")
     return r
 
@@ -43,9 +39,7 @@ def repo(tmp_path: Path) -> Path:
 def built(repo: Path):
     s = scan(repo)
     eng = ParseEngine()
-    results = eng.parse_batch(
-        [(f.path, (repo / f.path).read_bytes()) for f in s.files]
-    )
+    results = eng.parse_batch([(f.path, (repo / f.path).read_bytes()) for f in s.files])
     return GraphBuilder().build("proj", s, results), s
 
 
@@ -57,8 +51,7 @@ def test_node_kinds_and_contains(built) -> None:
     g, _ = built
     assert validate_graph(g) == []
     kinds = {n.kind for n in g.nodes}
-    assert {"repository", "package", "file", "module", "class", "function",
-            "method"} <= kinds
+    assert {"repository", "package", "file", "module", "class", "function", "method"} <= kinds
     contains = _edges(g, "CONTAINS")
     assert all(e.to_id is not None for e in contains)
     view = GraphView(g)
@@ -141,17 +134,11 @@ def test_broken_file_marked_not_silent(built, repo: Path) -> None:
 def test_determinism(built, repo: Path) -> None:
     g1, s = built
     eng2 = ParseEngine()
-    results2 = eng2.parse_batch(
-        [(f.path, (repo / f.path).read_bytes()) for f in s.files]
-    )
+    results2 = eng2.parse_batch([(f.path, (repo / f.path).read_bytes()) for f in s.files])
     g2 = GraphBuilder().build("proj", s, results2)
     assert [n.node_id for n in g1.nodes] == [n.node_id for n in g2.nodes]
-    assert [
-        (e.type, e.from_id, e.to_id, e.to_text, e.resolution_status)
-        for e in g1.edges
-    ] == [
-        (e.type, e.from_id, e.to_id, e.to_text, e.resolution_status)
-        for e in g2.edges
+    assert [(e.type, e.from_id, e.to_id, e.to_text, e.resolution_status) for e in g1.edges] == [
+        (e.type, e.from_id, e.to_id, e.to_text, e.resolution_status) for e in g2.edges
     ]
 
 
@@ -163,9 +150,7 @@ def test_no_dynamic_call_as_resolved(tmp_path: Path) -> None:
     (r / "b.py").write_text("class M:\n    def m(self): pass\n")
     s = scan(r)
     eng = ParseEngine()
-    res = eng.parse_batch(
-        [(f.path, (r / f.path).read_bytes()) for f in s.files]
-    )
+    res = eng.parse_batch([(f.path, (r / f.path).read_bytes()) for f in s.files])
     g = GraphBuilder().build("p2", s, res)
     calls = [e for e in g.edges if e.type == "CALLS" and e.to_text == "o.m"]
     assert calls and calls[0].resolution_status == "unresolved"

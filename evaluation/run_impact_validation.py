@@ -49,9 +49,7 @@ from code_atlas.eval.impact_truth import (  # noqa: E402
     validate_scenario,
 )
 
-SCENARIOS_PATH = (
-    Path(__file__).resolve().parent / "impact_truth" / "scenarios.json"
-)
+SCENARIOS_PATH = Path(__file__).resolve().parent / "impact_truth" / "scenarios.json"
 RESULTS_DIR = Path(__file__).resolve().parent / "results"
 LATEST = RESULTS_DIR / "impact-truth-latest.json"
 
@@ -95,12 +93,13 @@ def _print_detail(rep: dict[str, Any]) -> None:
         (f"{cls}.{key}", (block or {}).get(key))
         for cls in ("direct", "transitive", "verified")
         for key in ("missing", "unexpected", "class_mismatches")
-        for block in (rep.get(cls) if isinstance(rep.get(cls), dict)
-                      else {},)]
-    lists += [("absent_violation", rep.get("absent_violations")),
-              ("false_confidence", fc.get("leaks")
-               if isinstance(fc, dict) else ()),
-              ("evidence", rep.get("evidence_errors"))]
+        for block in (rep.get(cls) if isinstance(rep.get(cls), dict) else {},)
+    ]
+    lists += [
+        ("absent_violation", rep.get("absent_violations")),
+        ("false_confidence", fc.get("leaks") if isinstance(fc, dict) else ()),
+        ("evidence", rep.get("evidence_errors")),
+    ]
     for name, lines in lists:
         for line in lines or ():
             print(f"    ! {name}: {line}")
@@ -129,19 +128,15 @@ def _write_results(results: dict[str, Any], out: str) -> None:
 
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__)
-    ap.add_argument("--scenario", default="",
-                    help="roda um único cenário (id em --list)")
-    ap.add_argument("--list", action="store_true",
-                    help="lista cenários do corpus e sai")
-    ap.add_argument("--out", default=str(LATEST),
-                    help="destino do JSON de resultados")
+    ap.add_argument("--scenario", default="", help="roda um único cenário (id em --list)")
+    ap.add_argument("--list", action="store_true", help="lista cenários do corpus e sai")
+    ap.add_argument("--out", default=str(LATEST), help="destino do JSON de resultados")
     args = ap.parse_args()
 
     scenarios = load_scenarios(SCENARIOS_PATH)
     if args.list:
         for sc in scenarios:
-            print(f"{sc.scenario_id:28s} {sc.prompt_class:38s} "
-                  f"{sc.fixture} seed={sc.seed}")
+            print(f"{sc.scenario_id:28s} {sc.prompt_class:38s} {sc.fixture} seed={sc.seed}")
         return 0
 
     label_errors: dict[str, list[str]] = {}
@@ -151,33 +146,32 @@ def main() -> int:
             label_errors[sc.scenario_id] = errs
     if label_errors:
         for sid, errs in label_errors.items():
-            print(f"{sid}: corpus inválido — {'; '.join(errs)}",
-                  file=sys.stderr)
+            print(f"{sid}: corpus inválido — {'; '.join(errs)}", file=sys.stderr)
         return 2
 
     selected = scenarios
     if args.scenario:
-        selected = [s for s in scenarios
-                    if s.scenario_id == args.scenario]
+        selected = [s for s in scenarios if s.scenario_id == args.scenario]
         if not selected:
-            print(f"cenário desconhecido: {args.scenario}",
-                  file=sys.stderr)
+            print(f"cenário desconhecido: {args.scenario}", file=sys.stderr)
             return 2
 
     with tempfile.TemporaryDirectory(prefix="impact-truth-") as wd:
         results = evaluate_all(_REPO_ROOT, selected, Path(wd))
 
-    results.update({
-        "generated_at": datetime.now(UTC).isoformat(timespec="seconds"),
-        "corpus": str(SCENARIOS_PATH.relative_to(_REPO_ROOT)),
-        "method": "labeled blast-radius truth vs real `code-atlas "
-                  "index` + `impact symbol --format json` (domain mode, "
-                  "entity seeds); precision/recall por classe "
-                  "(direct/transitive) e micro; false-confidence "
-                  "possible->verified leaks = orçamento zero; evidência "
-                  "validada contra rows reais do snapshot alvo; "
-                  "truncamento verificado via re-run --max-paths 1",
-    })
+    results.update(
+        {
+            "generated_at": datetime.now(UTC).isoformat(timespec="seconds"),
+            "corpus": str(SCENARIOS_PATH.relative_to(_REPO_ROOT)),
+            "method": "labeled blast-radius truth vs real `code-atlas "
+            "index` + `impact symbol --format json` (domain mode, "
+            "entity seeds); precision/recall por classe "
+            "(direct/transitive) e micro; false-confidence "
+            "possible->verified leaks = orçamento zero; evidência "
+            "validada contra rows reais do snapshot alvo; "
+            "truncamento verificado via re-run --max-paths 1",
+        }
+    )
 
     print(f"impact-truth ({len(selected)} cenários)")
     for sc in selected:

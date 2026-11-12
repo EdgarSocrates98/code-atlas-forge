@@ -50,8 +50,7 @@ RESULTS_SCHEMA = 1
 
 # Classe de impacto em ordem decrescente de "alcançável verificado".
 _IMPACT_RANK = {"direct": 0, "transitive": 1, "possible": 2, "unknown": 3}
-_STRENGTH_RANK = {"verified": 0, "supported": 1, "possible": 2,
-                  "unknown": 3}
+_STRENGTH_RANK = {"verified": 0, "supported": 1, "possible": 2, "unknown": 3}
 
 #: Folga acima do total de linhas no probe "over-cap" — o traversal
 #: termina naturalmente, ``truncated`` deve ser False.
@@ -97,20 +96,21 @@ def load_scenarios(path: Path) -> list[ImpactScenario]:
     out: list[ImpactScenario] = []
     for s in raw["scenarios"]:
         exp = s["expected"]
-        out.append(ImpactScenario(
-            scenario_id=str(s["id"]),
-            prompt_class=str(s.get("prompt_class", "")),
-            fixture=str(s["fixture"]),
-            domains=tuple(str(d) for d in s["domains"]),
-            cross_domain=bool(s.get("cross_domain", False)),
-            seed=str(s["seed"]),
-            task=str(s.get("task", "")),
-            expected_direct=tuple(str(x) for x in exp.get("direct", ())),
-            expected_transitive=tuple(
-                str(x) for x in exp.get("transitive", ())),
-            expected_absent=tuple(str(x) for x in exp.get("absent", ())),
-            notes=str(s.get("notes", "")),
-        ))
+        out.append(
+            ImpactScenario(
+                scenario_id=str(s["id"]),
+                prompt_class=str(s.get("prompt_class", "")),
+                fixture=str(s["fixture"]),
+                domains=tuple(str(d) for d in s["domains"]),
+                cross_domain=bool(s.get("cross_domain", False)),
+                seed=str(s["seed"]),
+                task=str(s.get("task", "")),
+                expected_direct=tuple(str(x) for x in exp.get("direct", ())),
+                expected_transitive=tuple(str(x) for x in exp.get("transitive", ())),
+                expected_absent=tuple(str(x) for x in exp.get("absent", ())),
+                notes=str(s.get("notes", "")),
+            )
+        )
     return out
 
 
@@ -133,8 +133,7 @@ def validate_scenario(repo_root: Path, sc: ImpactScenario) -> list[str]:
     ):
         for name in items:
             if name in seen:
-                errs.append(
-                    f"'{name}' rotulado em {seen[name]} e {label}")
+                errs.append(f"'{name}' rotulado em {seen[name]} e {label}")
             seen[name] = label
     return errs
 
@@ -144,9 +143,7 @@ def validate_scenario(repo_root: Path, sc: ImpactScenario) -> list[str]:
 # ---------------------------------------------------------------------
 
 
-def run_cli(
-    argv: Sequence[str], *, data_dir: Path, config_dir: Path
-) -> CliRun:
+def run_cli(argv: Sequence[str], *, data_dir: Path, config_dir: Path) -> CliRun:
     """Executa ``code-atlas <argv>`` in-process (argparse → run_* →
     stdout), com ``CODE_ATLAS_DATA_DIR``/``CODE_ATLAS_CONFIG_DIR``
     apontados para o workspace temporário. É a mesma superfície do
@@ -155,18 +152,27 @@ def run_cli(
     from code_atlas.env_override import patched_env
 
     out_buf, err_buf = io.StringIO(), io.StringIO()
-    with patched_env({
-        "CODE_ATLAS_DATA_DIR": str(data_dir),
-        "CODE_ATLAS_CONFIG_DIR": str(config_dir),
-    }), redirect_stdout(out_buf), redirect_stderr(err_buf):
+    with (
+        patched_env(
+            {
+                "CODE_ATLAS_DATA_DIR": str(data_dir),
+                "CODE_ATLAS_CONFIG_DIR": str(config_dir),
+            }
+        ),
+        redirect_stdout(out_buf),
+        redirect_stderr(err_buf),
+    ):
         code = int(cli_main(list(argv)))
-    return CliRun(tuple(argv), code, out_buf.getvalue(),
-                  err_buf.getvalue())
+    return CliRun(tuple(argv), code, out_buf.getvalue(), err_buf.getvalue())
 
 
 def index_fixture(
-    fixture: Path, domains: Sequence[str], cross_domain: bool,
-    *, data_dir: Path, config_dir: Path,
+    fixture: Path,
+    domains: Sequence[str],
+    cross_domain: bool,
+    *,
+    data_dir: Path,
+    config_dir: Path,
 ) -> CliRun:
     """``index <fixture> --domains ...`` — pipeline real de indexação."""
     argv = ["index", str(fixture)]
@@ -179,12 +185,15 @@ def index_fixture(
 
 
 def run_impact(
-    fixture: Path, seed: str, *, data_dir: Path, config_dir: Path,
+    fixture: Path,
+    seed: str,
+    *,
+    data_dir: Path,
+    config_dir: Path,
     extra_args: Sequence[str] = (),
 ) -> tuple[CliRun, dict[str, Any] | None]:
     """``impact symbol <seed> --root <fixture> --format json`` → payload."""
-    argv = ["impact", "symbol", seed, "--root", str(fixture),
-            "--format", "json", *extra_args]
+    argv = ["impact", "symbol", seed, "--root", str(fixture), "--format", "json", *extra_args]
     run = run_cli(argv, data_dir=data_dir, config_dir=config_dir)
     payload: dict[str, Any] | None = None
     text = run.stdout.strip()
@@ -224,17 +233,13 @@ class _Node:
         path = cand.get("path") or {}
         hops = int(path.get("hops") or 0)
         verified = bool(path.get("fully_verified"))
-        if _IMPACT_RANK.get(impact, 9) < _IMPACT_RANK.get(
-                self.best_impact, 9):
+        if _IMPACT_RANK.get(impact, 9) < _IMPACT_RANK.get(self.best_impact, 9):
             self.best_impact = impact
-        if _STRENGTH_RANK.get(strength, 9) < _STRENGTH_RANK.get(
-                self.best_strength, 9):
+        if _STRENGTH_RANK.get(strength, 9) < _STRENGTH_RANK.get(self.best_strength, 9):
             self.best_strength = strength
         if self.rows == 0 or hops < self.min_hops:
             self.min_hops = hops
-        if verified and (
-                self.min_verified_hops is None
-                or hops < self.min_verified_hops):
+        if verified and (self.min_verified_hops is None or hops < self.min_verified_hops):
             self.min_verified_hops = hops
         self.fully_verified_any = self.fully_verified_any or verified
         self.rows += 1
@@ -248,12 +253,10 @@ def dedup_candidates(
     for cand in payload.get("impacts") or ():
         if not isinstance(cand, Mapping):
             continue
-        key = (str(cand.get("node_type", "symbol")),
-               str(cand.get("qualified_name", "")))
+        key = (str(cand.get("node_type", "symbol")), str(cand.get("qualified_name", "")))
         node = out.get(key)
         if node is None:
-            node = _Node(name=key[1], node_type=key[0],
-                         kind=str(cand.get("kind", "")))
+            node = _Node(name=key[1], node_type=key[0], kind=str(cand.get("kind", "")))
             out[key] = node
         node.absorb(cand)
     return out
@@ -264,15 +267,18 @@ def _pr(tp: int, fp: int, fn: int) -> dict[str, Any]:
     fabricado por denominador vazio)."""
     precision = tp / (tp + fp) if (tp + fp) else None
     recall = tp / (tp + fn) if (tp + fn) else None
-    f1 = (2 * precision * recall / (precision + recall)
-          if precision and recall else
-          (0.0 if precision == 0.0 or recall == 0.0 else None))
-    return {"tp": tp, "fp": fp, "fn": fn,
-            "precision": precision, "recall": recall, "f1": f1}
+    f1 = (
+        2 * precision * recall / (precision + recall)
+        if precision and recall
+        else (0.0 if precision == 0.0 or recall == 0.0 else None)
+    )
+    return {"tp": tp, "fp": fp, "fn": fn, "precision": precision, "recall": recall, "f1": f1}
 
 
 def _class_diff(
-    actual: set[str], expected: Sequence[str], other_expected: set[str],
+    actual: set[str],
+    expected: Sequence[str],
+    other_expected: set[str],
 ) -> dict[str, Any]:
     """Diff de uma classe: ``other_expected`` evita que um item
     esperado na OUTRA classe vire FP aqui — vira class_mismatch."""
@@ -307,47 +313,56 @@ def false_confidence_leaks(payload: Mapping[str, Any]) -> list[str]:
         strength = str(cand.get("strength", "unknown"))
         impact = str(cand.get("impact", "unknown"))
         path = cand.get("path") or {}
-        statuses = [str(s) for s in (path.get("resolution_statuses")
-                                     or ())]
-        verified_path = bool(path.get("fully_verified")) and all(
-            s == "resolved" for s in statuses)
+        statuses = [str(s) for s in (path.get("resolution_statuses") or ())]
+        verified_path = bool(path.get("fully_verified")) and all(s == "resolved" for s in statuses)
         if strength == "verified" and not verified_path:
             leaks.append(
                 f"{name}: strength=verified mas path não provado "
                 f"(statuses={statuses}, "
-                f"fully_verified={path.get('fully_verified')})")
+                f"fully_verified={path.get('fully_verified')})"
+            )
         if impact in ("direct", "transitive") and strength != "verified":
-            leaks.append(
-                f"{name}: impact={impact} com strength={strength}")
+            leaks.append(f"{name}: impact={impact} com strength={strength}")
         if impact in ("possible", "unknown") and strength == "verified":
-            leaks.append(
-                f"{name}: impact={impact} promovido a verified")
+            leaks.append(f"{name}: impact={impact} promovido a verified")
     return leaks
 
 
 def _snapshot_id_sets(
-    conn: sqlite3.Connection, snapshot_id: int,
+    conn: sqlite3.Connection,
+    snapshot_id: int,
 ) -> dict[str, set[int]]:
     """Ids reais de cada tabela de evidência do snapshot alvo."""
     return {
-        "rel": {int(r[0]) for r in conn.execute(
-            "SELECT id FROM relations WHERE snapshot_id = ?",
-            (snapshot_id,))},
-        "dom": {int(r[0]) for r in conn.execute(
-            "SELECT id FROM domain_relations WHERE snapshot_id = ?",
-            (snapshot_id,))},
-        "sym_occ": {int(r[0]) for r in conn.execute(
-            "SELECT id FROM symbol_occurrences WHERE snapshot_id = ?",
-            (snapshot_id,))},
-        "dom_occ": {int(r[0]) for r in conn.execute(
-            "SELECT id FROM domain_entity_occurrences"
-            " WHERE snapshot_id = ?",
-            (snapshot_id,))},
+        "rel": {
+            int(r[0])
+            for r in conn.execute("SELECT id FROM relations WHERE snapshot_id = ?", (snapshot_id,))
+        },
+        "dom": {
+            int(r[0])
+            for r in conn.execute(
+                "SELECT id FROM domain_relations WHERE snapshot_id = ?", (snapshot_id,)
+            )
+        },
+        "sym_occ": {
+            int(r[0])
+            for r in conn.execute(
+                "SELECT id FROM symbol_occurrences WHERE snapshot_id = ?", (snapshot_id,)
+            )
+        },
+        "dom_occ": {
+            int(r[0])
+            for r in conn.execute(
+                "SELECT id FROM domain_entity_occurrences WHERE snapshot_id = ?", (snapshot_id,)
+            )
+        },
     }
 
 
 def _check_path(
-    name: str, key: str, cand: Mapping[str, Any],
+    name: str,
+    key: str,
+    cand: Mapping[str, Any],
 ) -> tuple[list[str], list[str], list[str]]:
     """Consistência interna do ``ImpactPath`` — retorna
     ``(erros, edge_refs, statuses)``."""
@@ -359,27 +374,25 @@ def _check_path(
     statuses = [str(s) for s in (path.get("resolution_statuses") or ())]
     hops = int(path.get("hops") or 0)
     if hops != len(edge_refs):
-        errors.append(
-            f"{name}: hops={hops} != {len(edge_refs)} edge_refs")
+        errors.append(f"{name}: hops={hops} != {len(edge_refs)} edge_refs")
     if hops != len(statuses):
-        errors.append(
-            f"{name}: hops={hops} != {len(statuses)} statuses")
+        errors.append(f"{name}: hops={hops} != {len(statuses)} statuses")
     if str(path.get("affected_symbol_key", "")) != key:
         errors.append(
-            f"{name}: affected_symbol_key "
-            f"{path.get('affected_symbol_key')!r} != symbol_key {key!r}")
+            f"{name}: affected_symbol_key {path.get('affected_symbol_key')!r} != symbol_key {key!r}"
+        )
     mids = [str(m) for m in (path.get("intermediate_keys") or ())]
     if mids and mids[-1] != key:
-        errors.append(
-            f"{name}: intermediate_keys[-1]={mids[-1]!r} != "
-            f"symbol_key {key!r}")
+        errors.append(f"{name}: intermediate_keys[-1]={mids[-1]!r} != symbol_key {key!r}")
     if not str(path.get("origin_symbol_key", "")):
         errors.append(f"{name}: origin_symbol_key vazio")
     return errors, edge_refs, statuses
 
 
 def _check_edge_refs(
-    name: str, edge_refs: list[str], ids: Mapping[str, set[int]],
+    name: str,
+    edge_refs: list[str],
+    ids: Mapping[str, set[int]],
     snapshot_id: int,
 ) -> list[str]:
     """Cada ``dom:N``/``rel:N`` aponta para row real do snapshot."""
@@ -391,28 +404,28 @@ def _check_edge_refs(
             continue
         table = ids.get(prefix)
         if table is None:
-            errors.append(
-                f"{name}: edge_ref de tipo desconhecido {ref!r}")
+            errors.append(f"{name}: edge_ref de tipo desconhecido {ref!r}")
         elif int(num) not in table:
-            errors.append(
-                f"{name}: edge_ref {ref} não existe no snapshot "
-                f"{snapshot_id}")
+            errors.append(f"{name}: edge_ref {ref} não existe no snapshot {snapshot_id}")
     return errors
 
 
 def _check_occurrence(
-    name: str, cand: Mapping[str, Any], ids: Mapping[str, set[int]],
+    name: str,
+    cand: Mapping[str, Any],
+    ids: Mapping[str, set[int]],
 ) -> list[str]:
     """A ocorrência do candidato existe no snapshot alvo (espaço de
     ids certo para ``node_type``)."""
     if str(cand.get("node_type", "symbol")) == "domain":
         occ = cand.get("domain_occurrence_id")
-        errors = [] if occ is not None and int(occ) in ids["dom_occ"] \
-            else [f"{name}: domain_occurrence_id {occ} fora do "
-                  "snapshot"]
+        errors = (
+            []
+            if occ is not None and int(occ) in ids["dom_occ"]
+            else [f"{name}: domain_occurrence_id {occ} fora do snapshot"]
+        )
         if cand.get("occurrence_id") is not None:
-            errors.append(
-                f"{name}: nó de domínio com occurrence_id de símbolo")
+            errors.append(f"{name}: nó de domínio com occurrence_id de símbolo")
         return errors
     occ = cand.get("occurrence_id")
     if occ is None or int(occ) not in ids["sym_occ"]:
@@ -421,7 +434,8 @@ def _check_occurrence(
 
 
 def validate_evidence(
-    payload: Mapping[str, Any], conn: sqlite3.Connection,
+    payload: Mapping[str, Any],
+    conn: sqlite3.Connection,
     snapshot_id: int,
 ) -> list[str]:
     """Cada candidato carrega prova real: path consistente, edge_refs
@@ -433,14 +447,15 @@ def validate_evidence(
         key = str(cand.get("symbol_key", ""))
         errs, edge_refs, _st = _check_path(name, key, cand)
         errors.extend(errs)
-        errors.extend(
-            _check_edge_refs(name, edge_refs, ids, snapshot_id))
+        errors.extend(_check_edge_refs(name, edge_refs, ids, snapshot_id))
         errors.extend(_check_occurrence(name, cand, ids))
     return errors
 
 
 def _probe_trunc(
-    full_rows: int, capped: Mapping[str, Any], limit: int,
+    full_rows: int,
+    capped: Mapping[str, Any],
+    limit: int,
 ) -> dict[str, Any]:
     """Uma sonda de truncamento num ``--max-paths`` dado.
 
@@ -454,8 +469,7 @@ def _probe_trunc(
     """
     capped_rows = len(capped.get("impacts") or ())
     declared = bool(capped.get("truncated"))
-    reasons = {str(r)
-               for r in (capped.get("truncation_reasons") or ())}
+    reasons = {str(r) for r in (capped.get("truncation_reasons") or ())}
     emission_cut = capped_rows == limit
     non_emission = bool(reasons - _EMISSION_REASONS)
     expected = emission_cut or non_emission
@@ -471,8 +485,7 @@ def _probe_trunc(
         "within_limit": capped_rows <= limit,
         "envelope_consistent": consistent,
         "emission_reason_ok": emission_ok,
-        "honest": (declared == expected and consistent
-                   and emission_ok and capped_rows <= limit),
+        "honest": (declared == expected and consistent and emission_ok and capped_rows <= limit),
     }
 
 
@@ -515,8 +528,7 @@ def truncation_check(
         oc = probes["over_cap"]
         # over-cap também exige conjunto completo (cap solto ≠ corte).
         oc["emitted_all"] = oc["capped_rows"] == full_rows
-        honest = (honest and bool(oc["honest"])
-                  and bool(oc["emitted_all"]))
+        honest = honest and bool(oc["honest"]) and bool(oc["emitted_all"])
     return {"probes": probes, "honest": honest}
 
 
@@ -526,7 +538,9 @@ def truncation_check(
 
 
 def _seed_entity_count(
-    conn: sqlite3.Connection, repository_id: int, seed: str,
+    conn: sqlite3.Connection,
+    repository_id: int,
+    seed: str,
 ) -> int:
     """Quantas entidades a ref de seed casa — detecta cenário cujo
     blast vazio vem de seed não resolvida (falso negativo de medição)."""
@@ -537,8 +551,12 @@ def _seed_entity_count(
 
 
 def evaluate_scenario(
-    repo_root: Path, sc: ImpactScenario, conn: sqlite3.Connection,
-    *, data_dir: Path, config_dir: Path,
+    repo_root: Path,
+    sc: ImpactScenario,
+    conn: sqlite3.Connection,
+    *,
+    data_dir: Path,
+    config_dir: Path,
 ) -> dict[str, Any]:
     """Mede um cenário num repositório JÁ indexado (``conn`` aberto no
     ``atlas.db`` do workspace temporário)."""
@@ -557,34 +575,28 @@ def evaluate_scenario(
     }
     fixture = repo_root / sc.fixture
 
-    run, payload = run_impact(
-        fixture, sc.seed, data_dir=data_dir, config_dir=config_dir)
+    run, payload = run_impact(fixture, sc.seed, data_dir=data_dir, config_dir=config_dir)
     out["impact_exit"] = run.exit_code
     if payload is None:
         out["error"] = (
-            f"impact não retornou JSON (exit {run.exit_code}): "
-            f"{run.stderr.strip()[:200]}")
+            f"impact não retornou JSON (exit {run.exit_code}): {run.stderr.strip()[:200]}"
+        )
         return out
     sid = payload.get("target_snapshot_id")
     if not isinstance(sid, int):
         out["error"] = "impact sem target_snapshot_id"
         out["diagnostics"] = [
-            d.get("code") for d in payload.get("diagnostics", ())
-            if isinstance(d, Mapping)]
+            d.get("code") for d in payload.get("diagnostics", ()) if isinstance(d, Mapping)
+        ]
         return out
 
-    repo_row = conn.execute(
-        "SELECT repository_id FROM snapshots WHERE id = ?",
-        (sid,)).fetchone()
+    repo_row = conn.execute("SELECT repository_id FROM snapshots WHERE id = ?", (sid,)).fetchone()
     repo_id = int(repo_row[0]) if repo_row else -1
 
     nodes = dedup_candidates(payload)
-    actual_direct = {k[1] for k, n in nodes.items()
-                     if n.best_impact == "direct"}
-    actual_transitive = {k[1] for k, n in nodes.items()
-                         if n.best_impact == "transitive"}
-    actual_possible = {k[1] for k, n in nodes.items()
-                       if n.best_impact in ("possible", "unknown")}
+    actual_direct = {k[1] for k, n in nodes.items() if n.best_impact == "direct"}
+    actual_transitive = {k[1] for k, n in nodes.items() if n.best_impact == "transitive"}
+    actual_possible = {k[1] for k, n in nodes.items() if n.best_impact in ("possible", "unknown")}
     actual_all = {k[1] for k in nodes}
 
     exp_direct = set(sc.expected_direct)
@@ -592,10 +604,8 @@ def evaluate_scenario(
     exp_reachable = exp_direct | exp_transitive
     exp_absent = set(sc.expected_absent)
 
-    direct = _class_diff(actual_direct, sc.expected_direct,
-                         exp_transitive)
-    transitive = _class_diff(actual_transitive, sc.expected_transitive,
-                             exp_direct)
+    direct = _class_diff(actual_direct, sc.expected_direct, exp_transitive)
+    transitive = _class_diff(actual_transitive, sc.expected_transitive, exp_direct)
     verified_actual = actual_direct | actual_transitive
     tp_v = len(verified_actual & exp_reachable)
     fp_v = len(verified_actual - exp_reachable)
@@ -611,50 +621,58 @@ def evaluate_scenario(
     # probes de truncamento — re-run no cap exato e com folga.
     full_rows_n = len(payload.get("impacts") or ())
     _run_cap, at_cap = run_impact(
-        fixture, sc.seed, data_dir=data_dir, config_dir=config_dir,
-        extra_args=("--max-paths", str(max(1, full_rows_n))))
+        fixture,
+        sc.seed,
+        data_dir=data_dir,
+        config_dir=config_dir,
+        extra_args=("--max-paths", str(max(1, full_rows_n))),
+    )
     _run_free, over_cap = run_impact(
-        fixture, sc.seed, data_dir=data_dir, config_dir=config_dir,
-        extra_args=("--max-paths",
-                    str(full_rows_n + TRUNCATION_OVERCAP_SLACK)))
+        fixture,
+        sc.seed,
+        data_dir=data_dir,
+        config_dir=config_dir,
+        extra_args=("--max-paths", str(full_rows_n + TRUNCATION_OVERCAP_SLACK)),
+    )
     trunc = truncation_check(payload, at_cap, over_cap)
 
-    out.update({
-        "index_independent_check": {
-            "seed_entity_rows": _seed_entity_count(conn, repo_id,
-                                                   sc.seed),
-            "target_snapshot_id": sid,
-        },
-        "candidates": {
-            "rows": len(payload.get("impacts") or ()),
-            "unique": len(nodes),
-            "by_best_impact": {
-                "direct": len(actual_direct),
-                "transitive": len(actual_transitive),
-                "possible_or_unknown": len(actual_possible),
+    out.update(
+        {
+            "index_independent_check": {
+                "seed_entity_rows": _seed_entity_count(conn, repo_id, sc.seed),
+                "target_snapshot_id": sid,
             },
-        },
-        "direct": direct,
-        "transitive": transitive,
-        "verified": verified,
-        "possible_actual": sorted(actual_possible),
-        "absent_violations": absent_violations,
-        "false_confidence": {
-            "leaks": leaks,
-            "count": len(leaks),
-            "rate": (len(leaks) / len(nodes)) if nodes else 0.0,
-        },
-        "evidence_errors": ev_errors,
-        "unknown_coverage": list(payload.get("unknown_coverage") or ()),
-        "truncated": bool(payload.get("truncated")),
-        "truncation": trunc,
-        "risk": dict(payload.get("risk") or {}),
-        "diagnostics": [
-            {"code": str(d.get("code")), "message": str(d.get("message"))}
-            for d in payload.get("diagnostics", ())
-            if isinstance(d, Mapping)
-        ],
-    })
+            "candidates": {
+                "rows": len(payload.get("impacts") or ()),
+                "unique": len(nodes),
+                "by_best_impact": {
+                    "direct": len(actual_direct),
+                    "transitive": len(actual_transitive),
+                    "possible_or_unknown": len(actual_possible),
+                },
+            },
+            "direct": direct,
+            "transitive": transitive,
+            "verified": verified,
+            "possible_actual": sorted(actual_possible),
+            "absent_violations": absent_violations,
+            "false_confidence": {
+                "leaks": leaks,
+                "count": len(leaks),
+                "rate": (len(leaks) / len(nodes)) if nodes else 0.0,
+            },
+            "evidence_errors": ev_errors,
+            "unknown_coverage": list(payload.get("unknown_coverage") or ()),
+            "truncated": bool(payload.get("truncated")),
+            "truncation": trunc,
+            "risk": dict(payload.get("risk") or {}),
+            "diagnostics": [
+                {"code": str(d.get("code")), "message": str(d.get("message"))}
+                for d in payload.get("diagnostics", ())
+                if isinstance(d, Mapping)
+            ],
+        }
+    )
     return out
 
 
@@ -679,15 +697,14 @@ class _IndexedFixture:
 
 
 def evaluate_all(
-    repo_root: Path, scenarios: Sequence[ImpactScenario],
+    repo_root: Path,
+    scenarios: Sequence[ImpactScenario],
     work_dir: Path,
 ) -> dict[str, Any]:
     """Roda todos os cenários: uma indexação real por (fixture,
     adapters, cross) seguida dos impacts de cada cenário nela."""
-    results: dict[str, Any] = {"schema": RESULTS_SCHEMA,
-                               "scenarios": {}}
-    indexed: dict[tuple[str, tuple[str, ...], bool],
-                  _IndexedFixture] = {}
+    results: dict[str, Any] = {"schema": RESULTS_SCHEMA, "scenarios": {}}
+    indexed: dict[tuple[str, tuple[str, ...], bool], _IndexedFixture] = {}
     for sc in scenarios:
         key = (sc.fixture, sc.domains, sc.cross_domain)
         fx = indexed.get(key)
@@ -697,30 +714,34 @@ def evaluate_all(
             data_dir.mkdir(parents=True)
             config_dir.mkdir(parents=True)
             run = index_fixture(
-                repo_root / sc.fixture, sc.domains,
+                repo_root / sc.fixture,
+                sc.domains,
                 sc.cross_domain,
-                data_dir=data_dir, config_dir=config_dir)
+                data_dir=data_dir,
+                config_dir=config_dir,
+            )
             fx = _IndexedFixture(key, data_dir, config_dir, run)
             indexed[key] = fx
         if fx.index_run.exit_code != 0:
             results["scenarios"][sc.scenario_id] = {
                 "id": sc.scenario_id,
                 "error": f"index exit {fx.index_run.exit_code}: "
-                         f"{fx.index_run.stderr.strip()[:200]}",
+                f"{fx.index_run.stderr.strip()[:200]}",
             }
             continue
         conn = fx.open()
         from code_atlas.env_override import patched_env
-        with patched_env({
-            "CODE_ATLAS_DATA_DIR": str(fx.data_dir),
-            "CODE_ATLAS_CONFIG_DIR": str(fx.config_dir),
-        }):
+
+        with patched_env(
+            {
+                "CODE_ATLAS_DATA_DIR": str(fx.data_dir),
+                "CODE_ATLAS_CONFIG_DIR": str(fx.config_dir),
+            }
+        ):
             try:
-                results["scenarios"][sc.scenario_id] = \
-                    evaluate_scenario(
-                        repo_root, sc, conn,
-                        data_dir=fx.data_dir,
-                        config_dir=fx.config_dir)
+                results["scenarios"][sc.scenario_id] = evaluate_scenario(
+                    repo_root, sc, conn, data_dir=fx.data_dir, config_dir=fx.config_dir
+                )
             finally:
                 fx.close()
 
@@ -742,8 +763,10 @@ def evaluate_all(
         absent_total += len(rep["absent_violations"])
         if rep["truncation"].get("honest") is False:
             truncation_bad.append(sid_name)
-        if rep["candidates"]["unique"] == 0 and rep[
-                "index_independent_check"]["seed_entity_rows"] > 0:
+        if (
+            rep["candidates"]["unique"] == 0
+            and rep["index_independent_check"]["seed_entity_rows"] > 0
+        ):
             empty_but_seed_ok.append(sid_name)
     verified_micro = _pr(total_tp, total_fp, total_fn)
     results["summary"] = {

@@ -70,13 +70,11 @@ def _harvest(res: DomainExtractionResult) -> str:
     """Todo texto armazenável do resultado de extração — varredura total."""
     out: list[str] = []
     for e in res.entities:
-        out.extend((e.name, e.path, e.identity.qualified_name,
-                    e.identity.canonical_key()))
+        out.extend((e.name, e.path, e.identity.qualified_name, e.identity.canonical_key()))
         out.extend(e.attributes.keys())
         out.extend(str(v) for v in e.attributes.values())
     for r in res.relations:
-        out.extend((r.relation_type, r.path, r.to_unresolved,
-                    r.from_symbol, r.to_symbol))
+        out.extend((r.relation_type, r.path, r.to_unresolved, r.from_symbol, r.to_symbol))
         if r.resolution is not None:
             out.append(r.resolution.unresolved_text)
     for ev in res.evidence:
@@ -94,8 +92,7 @@ def _write(root: Path, files: dict[str, str]) -> Path:
     return root
 
 
-def _index(conn: sqlite3.Connection, root: Path,
-           registry: DomainRegistry | None = None) -> int:
+def _index(conn: sqlite3.Connection, root: Path, registry: DomainRegistry | None = None) -> int:
     out = IndexCoordinator(conn, domain_registry=registry).index(root)
     assert out.status == "success" and out.snapshot_id is not None, out.error
     return out.snapshot_id
@@ -111,8 +108,16 @@ class TestEnvNameCoverage:
 
     @pytest.mark.parametrize(
         "name",
-        [".env", ".env.local", ".env.production", "prod.env",
-         "secrets.env", ".envrc", ".envrc.local", "app.env"],
+        [
+            ".env",
+            ".env.local",
+            ".env.production",
+            "prod.env",
+            "secrets.env",
+            ".envrc",
+            ".envrc.local",
+            "app.env",
+        ],
     )
     def test_env_shaped_names_are_secret(self, name: str) -> None:
         assert is_secret(name), name
@@ -122,11 +127,14 @@ class TestEnvNameCoverage:
         assert not is_secret(name), name
 
     def test_env_files_never_hashed_or_inventoried(self, tmp_path: Path) -> None:
-        _write(tmp_path, {
-            ".env": "DB_PASSWORD=hunter2\n",
-            "prod.env": "API_TOKEN=leak\n",
-            "app/main.py": "x = 1\n",
-        })
+        _write(
+            tmp_path,
+            {
+                ".env": "DB_PASSWORD=hunter2\n",
+                "prod.env": "API_TOKEN=leak\n",
+                "app/main.py": "x = 1\n",
+            },
+        )
         res = scan(tmp_path)
         paths = [f.path for f in res.files]
         assert ".env" not in paths and "prod.env" not in paths
@@ -156,18 +164,12 @@ class TestSymlinkSecretAlias:
         assert ".github/workflows/ci.yml" not in [f.path for f in res.files]
         assert res.secret_count == 2
 
-    def test_env_content_never_reaches_terraform_adapter(
-        self, tmp_path: Path
-    ) -> None:
+    def test_env_content_never_reaches_terraform_adapter(self, tmp_path: Path) -> None:
         """O vazamento provado do ciclo: ``prod.tfvars -> .env`` punha
         ``STAGE=hunter2`` em ``tfvars_env_hints``. Após F2 o alias é
         segredo — nunca entra no inventário que alimenta o adapter."""
-        (tmp_path / ".env").write_text(
-            "STAGE=hunter2-secret\nDB_PASSWORD=leak\n", encoding="utf-8"
-        )
-        (tmp_path / "main.tf").write_text(
-            'resource "aws_s3_bucket" "b" {\n  bucket = "x"\n}\n'
-        )
+        (tmp_path / ".env").write_text("STAGE=hunter2-secret\nDB_PASSWORD=leak\n", encoding="utf-8")
+        (tmp_path / "main.tf").write_text('resource "aws_s3_bucket" "b" {\n  bucket = "x"\n}\n')
         os.symlink(".env", tmp_path / "prod.tfvars")
         res = scan(tmp_path)
         # o alias nem chega ao request — o scanner o descartou
@@ -192,26 +194,24 @@ class TestSymlinkSecretAlias:
 
 class TestCicdExpressionNeverConcrete:
     def _extract(self, files: dict[str, str]) -> DomainExtractionResult:
-        adapter = GitHubActionsAdapter(
-            lambda rel: files[rel].encode() if rel in files else None
-        )
+        adapter = GitHubActionsAdapter(lambda rel: files[rel].encode() if rel in files else None)
         return adapter.extract(
             DomainExtractionRequest(
                 repository="r",
-                artifacts=tuple(
-                    DiscoveredArtifact(path=p) for p in files
-                ),
+                artifacts=tuple(DiscoveredArtifact(path=p) for p in files),
             )
         )
 
     def test_secret_expr_in_trigger_key(self) -> None:
-        res = self._extract({
-            ".github/workflows/w.yml": (
-                'name: W\non:\n  "${{ secrets.PWNED }}":\n'
-                "jobs:\n  j:\n    runs-on: ubuntu-latest\n"
-                "    steps:\n      - run: echo hi\n"
-            )
-        })
+        res = self._extract(
+            {
+                ".github/workflows/w.yml": (
+                    'name: W\non:\n  "${{ secrets.PWNED }}":\n'
+                    "jobs:\n  j:\n    runs-on: ubuntu-latest\n"
+                    "    steps:\n      - run: echo hi\n"
+                )
+            }
+        )
         blob = _harvest(res)
         assert "${{" not in blob and "secrets.PWNED" not in blob
         kinds = {t.descriptor for e in res.entities for t in ()} | {
@@ -220,18 +220,20 @@ class TestCicdExpressionNeverConcrete:
         assert any("<secret>" in k or "<expr>" in k for k in kinds) or True
 
     def test_secret_expr_in_job_id_and_needs(self) -> None:
-        res = self._extract({
-            ".github/workflows/w.yml": (
-                "name: W\non: push\njobs:\n"
-                '  "${{ secrets.JOB_TOKEN }}":\n'
-                "    runs-on: ubuntu-latest\n"
-                "    steps:\n      - run: echo hi\n"
-                "  other:\n"
-                '    needs: "${{ secrets.JOB_TOKEN }}"\n'
-                "    runs-on: ubuntu-latest\n"
-                "    steps:\n      - run: echo hi\n"
-            )
-        })
+        res = self._extract(
+            {
+                ".github/workflows/w.yml": (
+                    "name: W\non: push\njobs:\n"
+                    '  "${{ secrets.JOB_TOKEN }}":\n'
+                    "    runs-on: ubuntu-latest\n"
+                    "    steps:\n      - run: echo hi\n"
+                    "  other:\n"
+                    '    needs: "${{ secrets.JOB_TOKEN }}"\n'
+                    "    runs-on: ubuntu-latest\n"
+                    "    steps:\n      - run: echo hi\n"
+                )
+            }
+        )
         blob = _harvest(res)
         assert "${{" not in blob
         assert "secrets.JOB_TOKEN" not in blob
@@ -239,29 +241,33 @@ class TestCicdExpressionNeverConcrete:
         assert "<secret>" in blob
 
     def test_secret_expr_in_env_key_and_matrix_axis(self) -> None:
-        res = self._extract({
-            ".github/workflows/w.yml": (
-                "name: W\non: push\njobs:\n"
-                "  j:\n"
-                "    runs-on: ubuntu-latest\n"
-                '    env:\n      "${{ secrets.K }}": v\n'
-                "    strategy:\n"
-                '      matrix:\n        "${{ secrets.AX }}": [a, b]\n'
-                "    steps:\n      - run: echo hi\n"
-            )
-        })
+        res = self._extract(
+            {
+                ".github/workflows/w.yml": (
+                    "name: W\non: push\njobs:\n"
+                    "  j:\n"
+                    "    runs-on: ubuntu-latest\n"
+                    '    env:\n      "${{ secrets.K }}": v\n'
+                    "    strategy:\n"
+                    '      matrix:\n        "${{ secrets.AX }}": [a, b]\n'
+                    "    steps:\n      - run: echo hi\n"
+                )
+            }
+        )
         blob = _harvest(res)
         assert "${{" not in blob
         assert "secrets.K" not in blob and "secrets.AX" not in blob
 
     def test_on_scalar_expr_becomes_marker(self) -> None:
-        res = self._extract({
-            ".github/workflows/w.yml": (
-                'name: W\non: "${{ github.event_name }}"\n'
-                "jobs:\n  j:\n    runs-on: ubuntu-latest\n"
-                "    steps:\n      - run: echo hi\n"
-            )
-        })
+        res = self._extract(
+            {
+                ".github/workflows/w.yml": (
+                    'name: W\non: "${{ github.event_name }}"\n'
+                    "jobs:\n  j:\n    runs-on: ubuntu-latest\n"
+                    "    steps:\n      - run: echo hi\n"
+                )
+            }
+        )
         blob = _harvest(res)
         assert "${{" not in blob
         assert "github.event_name" not in blob
@@ -278,69 +284,65 @@ _FAKE_GH_PAT = "ghp_" + "a" * 36
 
 
 class TestSecretShapedValues:
-    def _tf_result(self, files: dict[str, str], root: Path) -> (
-        DomainExtractionResult
-    ):
+    def _tf_result(self, files: dict[str, str], root: Path) -> DomainExtractionResult:
         _write(root, files)
         adapter = TerraformAdapter(base_path=root)
         arts = tuple(
             DiscoveredArtifact(
-                path=p, sha256=hashlib.sha256(
-                    (root / p).read_bytes()).hexdigest(),
+                path=p,
+                sha256=hashlib.sha256((root / p).read_bytes()).hexdigest(),
             )
             for p in files
         )
-        return adapter.extract(
-            DomainExtractionRequest(repository="r", artifacts=arts)
-        )
+        return adapter.extract(DomainExtractionRequest(repository="r", artifacts=arts))
 
-    def test_aws_key_under_sensitive_name_redacted(
-        self, tmp_path: Path
-    ) -> None:
-        res = self._tf_result({
-            "prod.tfvars": (
-                f'aws_access_key_id = "{_FAKE_AWS_KEY}"\n'
-                'aws_secret_access_key = "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY"\n'
-                'stage = "prod"\n'
-            ),
-            "main.tf": 'resource "aws_s3_bucket" "b" {}\n',
-        }, tmp_path)
+    def test_aws_key_under_sensitive_name_redacted(self, tmp_path: Path) -> None:
+        res = self._tf_result(
+            {
+                "prod.tfvars": (
+                    f'aws_access_key_id = "{_FAKE_AWS_KEY}"\n'
+                    'aws_secret_access_key = "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY"\n'
+                    'stage = "prod"\n'
+                ),
+                "main.tf": 'resource "aws_s3_bucket" "b" {}\n',
+            },
+            tmp_path,
+        )
         blob = _harvest(res)
         assert _FAKE_AWS_KEY not in blob
         assert "wJalrXUtnFEMI" not in blob
         assert res.stats.get("secrets_redacted", 0) >= 2
 
-    def test_credential_shaped_value_under_benign_key(
-        self, tmp_path: Path
-    ) -> None:
+    def test_credential_shaped_value_under_benign_key(self, tmp_path: Path) -> None:
         """``description``/``note`` não são nomes sensíveis — mas um
         valor AKIA…/ghp_… nunca pode sair (defesa em profundidade F5)."""
-        res = self._tf_result({
-            "prod.tfvars": (
-                f'description = "key {_FAKE_AWS_KEY} end"\n'
-                f'note = "{_FAKE_GH_PAT}"\n'
-                'region = "us-east-1"\n'
-            ),
-            "main.tf": 'resource "aws_s3_bucket" "b" {}\n',
-        }, tmp_path)
+        res = self._tf_result(
+            {
+                "prod.tfvars": (
+                    f'description = "key {_FAKE_AWS_KEY} end"\n'
+                    f'note = "{_FAKE_GH_PAT}"\n'
+                    'region = "us-east-1"\n'
+                ),
+                "main.tf": 'resource "aws_s3_bucket" "b" {}\n',
+            },
+            tmp_path,
+        )
         blob = _harvest(res)
         assert _FAKE_AWS_KEY not in blob
         assert _FAKE_GH_PAT not in blob
         # marcador de redação ou contagem honesta presentes
         assert res.stats.get("secrets_redacted", 0) >= 2 or "[REDACTED]" in blob
 
-    def test_env_hint_never_admits_credential_value(
-        self, tmp_path: Path
-    ) -> None:
+    def test_env_hint_never_admits_credential_value(self, tmp_path: Path) -> None:
         """``stage = "AKIA…"`` não pode virar ``tfvars_env_hints`` —
         era o canal do vazamento via alias de symlink (F2+F5)."""
-        res = self._tf_result({
-            "prod.tfvars": (
-                f'stage = "{_FAKE_AWS_KEY}"\n'
-                'environment = "prod"\n'
-            ),
-            "main.tf": 'resource "aws_s3_bucket" "b" {}\n',
-        }, tmp_path)
+        res = self._tf_result(
+            {
+                "prod.tfvars": (f'stage = "{_FAKE_AWS_KEY}"\nenvironment = "prod"\n'),
+                "main.tf": 'resource "aws_s3_bucket" "b" {}\n',
+            },
+            tmp_path,
+        )
         for e in res.entities:
             hints = e.attributes.get("tfvars_env_hints", "")
             assert _FAKE_AWS_KEY not in hints
@@ -348,40 +350,46 @@ class TestSecretShapedValues:
         assert _FAKE_AWS_KEY not in blob
         assert "prod" in blob  # hint legítimo preservado
 
-    def test_variable_default_shaped_like_secret_is_not_env(
-        self, tmp_path: Path
-    ) -> None:
-        res = self._tf_result({
-            "main.tf": (
-                f'variable "environment" {{ default = "{_FAKE_AWS_KEY}" }}\n'
-                'variable "stage" { default = "qa" }\n'
-                'resource "aws_s3_bucket" "b" {}\n'
-            ),
-        }, tmp_path)
+    def test_variable_default_shaped_like_secret_is_not_env(self, tmp_path: Path) -> None:
+        res = self._tf_result(
+            {
+                "main.tf": (
+                    f'variable "environment" {{ default = "{_FAKE_AWS_KEY}" }}\n'
+                    'variable "stage" { default = "qa" }\n'
+                    'resource "aws_s3_bucket" "b" {}\n'
+                ),
+            },
+            tmp_path,
+        )
         blob = _harvest(res)
         assert _FAKE_AWS_KEY not in blob
         assert "qa" in blob  # default legítimo preservado
 
     def test_tfvars_json_secret_values_redacted(self, tmp_path: Path) -> None:
-        res = self._tf_result({
-            "prod.tfvars.json": json.dumps({
-                "api_token": _FAKE_GH_PAT,
-                "region": "us-east-1",
-            }),
-            "main.tf": 'resource "aws_s3_bucket" "b" {}\n',
-        }, tmp_path)
+        res = self._tf_result(
+            {
+                "prod.tfvars.json": json.dumps(
+                    {
+                        "api_token": _FAKE_GH_PAT,
+                        "region": "us-east-1",
+                    }
+                ),
+                "main.tf": 'resource "aws_s3_bucket" "b" {}\n',
+            },
+            tmp_path,
+        )
         blob = _harvest(res)
         assert _FAKE_GH_PAT not in blob
 
-    def test_interpolation_still_dynamic_not_value(
-        self, tmp_path: Path
-    ) -> None:
-        res = self._tf_result({
-            "main.tf": (
-                'resource "aws_s3_bucket" "b" {\n'
-                '  bucket = "${var.name}-${var.env}"\n}\n'
-            ),
-        }, tmp_path)
+    def test_interpolation_still_dynamic_not_value(self, tmp_path: Path) -> None:
+        res = self._tf_result(
+            {
+                "main.tf": (
+                    'resource "aws_s3_bucket" "b" {\n  bucket = "${var.name}-${var.env}"\n}\n'
+                ),
+            },
+            tmp_path,
+        )
         blob = _harvest(res)
         assert "var.name" not in blob or "${dynamic}" in blob
 
@@ -431,10 +439,10 @@ def _index_db(tmp: Path) -> Path:
     return db
 
 
-def _req(url: str, path: str, method: str = "GET",
-         headers: dict | None = None) -> tuple[int, dict, dict]:
-    r = urllib.request.Request(
-        url + path, method=method, headers=headers or {})
+def _req(
+    url: str, path: str, method: str = "GET", headers: dict | None = None
+) -> tuple[int, dict, dict]:
+    r = urllib.request.Request(url + path, method=method, headers=headers or {})
     try:
         with urllib.request.urlopen(r, timeout=10) as resp:
             return resp.status, json.loads(resp.read()), dict(resp.headers)
@@ -460,11 +468,8 @@ class _StaticServerCase:
         (evil / "x.json").write_text('{"pwn": true}')
         # arquivo fora da árvore de assets
         (tmp / "secret.json").write_text('{"leak": true}')
-        cls.server = serve(
-            str(db), port=0, static_root=static,
-            rate_limit=server_mod.RATE_LIMIT)
-        cls.thread = threading.Thread(
-            target=cls.server.serve_forever, daemon=True)
+        cls.server = serve(str(db), port=0, static_root=static, rate_limit=server_mod.RATE_LIMIT)
+        cls.thread = threading.Thread(target=cls.server.serve_forever, daemon=True)
         cls.thread.start()
         cls.base = cls.server.url.removesuffix("/api/v1")
 
@@ -509,8 +514,7 @@ class TestHostileContentLengthEndToEnd(_StaticServerCase):
     cliente sanitiza o header, então escrevemos o request à mão."""
 
     def _raw_post(self, content_length: str) -> bytes:
-        s = socket.create_connection(
-            ("127.0.0.1", self.server.port), timeout=10)
+        s = socket.create_connection(("127.0.0.1", self.server.port), timeout=10)
         try:
             s.sendall(
                 b"POST /api/v1/context HTTP/1.1\r\n"
@@ -545,8 +549,7 @@ class TestReadOnlyApiSurface(_StaticServerCase):
 
     def test_put_delete_patch_rejected(self) -> None:
         for method in ("PUT", "DELETE", "PATCH"):
-            req = urllib.request.Request(
-                self.server.url + "/repositories", method=method)
+            req = urllib.request.Request(self.server.url + "/repositories", method=method)
             try:
                 with urllib.request.urlopen(req, timeout=10) as r:
                     assert r.status in (404, 405, 501)
@@ -554,14 +557,11 @@ class TestReadOnlyApiSurface(_StaticServerCase):
                 assert e.code in (404, 405, 501), e.code
 
     def test_post_to_get_only_route_is_404(self) -> None:
-        code, _body, _h = _req(
-            self.server.url, "/repositories", method="POST")
+        code, _body, _h = _req(self.server.url, "/repositories", method="POST")
         assert code == 404
 
     def test_host_header_spoof_rejected(self) -> None:
-        code, body, _ = _req(
-            self.server.url, "/health",
-            headers={"Host": "evil.example.com"})
+        code, body, _ = _req(self.server.url, "/health", headers={"Host": "evil.example.com"})
         assert code == 403
         assert body["error"]["code"] == "bad-host"
 
@@ -604,22 +604,20 @@ class TestAdapterPathContainment:
         finally:
             outside.unlink(missing_ok=True)
 
-    def test_terraform_adapter_refuses_traversal(
-        self, tmp_path: Path
-    ) -> None:
-        (tmp_path / "real.tf").write_text(
-            'resource "aws_s3_bucket" "b" {}\n')
+    def test_terraform_adapter_refuses_traversal(self, tmp_path: Path) -> None:
+        (tmp_path / "real.tf").write_text('resource "aws_s3_bucket" "b" {}\n')
         adapter = TerraformAdapter(base_path=tmp_path)
-        res = adapter.extract(DomainExtractionRequest(
-            repository="r",
-            artifacts=(
-                DiscoveredArtifact(path="../secret.tf", sha256="x"),
-                DiscoveredArtifact(path="/etc/passwd.tf", sha256="x"),
-                DiscoveredArtifact(path="real.tf"),
-            ),
-        ))
-        refused = {d.path for d in res.diagnostics
-                   if d.code == "artifact-outside-root"}
+        res = adapter.extract(
+            DomainExtractionRequest(
+                repository="r",
+                artifacts=(
+                    DiscoveredArtifact(path="../secret.tf", sha256="x"),
+                    DiscoveredArtifact(path="/etc/passwd.tf", sha256="x"),
+                    DiscoveredArtifact(path="real.tf"),
+                ),
+            )
+        )
+        refused = {d.path for d in res.diagnostics if d.code == "artifact-outside-root"}
         assert "../secret.tf" in refused
         assert "/etc/passwd.tf" in refused
         assert _harvest(res)  # o artefato legítimo seguiu o fluxo
@@ -629,15 +627,16 @@ class TestAdapterPathContainment:
 
         (tmp_path / "q.sql").write_text("SELECT 1 FROM t;\n")
         adapter = SqlDomainAdapter(base_path=tmp_path)
-        res = adapter.extract(DomainExtractionRequest(
-            repository="r",
-            artifacts=(
-                DiscoveredArtifact(path="../../etc/passwd", sha256="x"),
-                DiscoveredArtifact(path="q.sql"),
-            ),
-        ))
-        refused = {d.path for d in res.diagnostics
-                   if d.code == "artifact-outside-root"}
+        res = adapter.extract(
+            DomainExtractionRequest(
+                repository="r",
+                artifacts=(
+                    DiscoveredArtifact(path="../../etc/passwd", sha256="x"),
+                    DiscoveredArtifact(path="q.sql"),
+                ),
+            )
+        )
+        refused = {d.path for d in res.diagnostics if d.code == "artifact-outside-root"}
         assert "../../etc/passwd" in refused
 
     def test_aws_adapter_refuses_traversal(self, tmp_path: Path) -> None:
@@ -645,15 +644,16 @@ class TestAdapterPathContainment:
 
         (tmp_path / "job.py").write_text("# aws job\n")
         adapter = AwsDataAdapter(base_path=tmp_path)
-        res = adapter.extract(DomainExtractionRequest(
-            repository="r",
-            artifacts=(
-                DiscoveredArtifact(path="../out.py", sha256="x"),
-                DiscoveredArtifact(path="job.py"),
-            ),
-        ))
-        refused = {d.path for d in res.diagnostics
-                   if d.code == "artifact-outside-root"}
+        res = adapter.extract(
+            DomainExtractionRequest(
+                repository="r",
+                artifacts=(
+                    DiscoveredArtifact(path="../out.py", sha256="x"),
+                    DiscoveredArtifact(path="job.py"),
+                ),
+            )
+        )
+        refused = {d.path for d in res.diagnostics if d.code == "artifact-outside-root"}
         assert "../out.py" in refused
 
     def test_api_adapter_refuses_traversal(self, tmp_path: Path) -> None:
@@ -663,15 +663,16 @@ class TestAdapterPathContainment:
         spec.parent.mkdir(parents=True)
         spec.write_text("openapi: 3.0.0\ninfo:\n  title: t\n  version: '1'\n")
         adapter = ApiContractAdapter(workspace_root=tmp_path)
-        res = adapter.extract(DomainExtractionRequest(
-            repository="r",
-            artifacts=(
-                DiscoveredArtifact(path="../out.yaml", sha256="x"),
-                DiscoveredArtifact(path="spec/openapi.yaml"),
-            ),
-        ))
-        refused = {d.path for d in res.diagnostics
-                   if d.code == "artifact-outside-root"}
+        res = adapter.extract(
+            DomainExtractionRequest(
+                repository="r",
+                artifacts=(
+                    DiscoveredArtifact(path="../out.yaml", sha256="x"),
+                    DiscoveredArtifact(path="spec/openapi.yaml"),
+                ),
+            )
+        )
+        refused = {d.path for d in res.diagnostics if d.code == "artifact-outside-root"}
         assert "../out.yaml" in refused
 
 
@@ -683,11 +684,11 @@ class TestAdapterPathContainment:
 _FTS_REPO = {
     "pkg/__init__.py": "",
     "pkg/orders.py": (
-        'def processCustomerOrders(items):\n'
+        "def processCustomerOrders(items):\n"
         '    """Process customer orders batch."""\n'
-        '    return len(items)\n\n'
-        'def refund_order(order_id):\n'
-        '    return order_id\n'
+        "    return len(items)\n\n"
+        "def refund_order(order_id):\n"
+        "    return order_id\n"
     ),
     "web/app.ts": "export function renderDashboard() { return 1; }\n",
 }
@@ -705,8 +706,7 @@ def fts_env(tmp_path: Path):
 
 
 def _q(env, q: str, **kw):
-    return SearchEngine(env[0]).search(
-        SearchRequest(query=q, repository_root=env[1], **kw))
+    return SearchEngine(env[0]).search(SearchRequest(query=q, repository_root=env[1], **kw))
 
 
 class TestFtsInjection:
@@ -720,7 +720,7 @@ class TestFtsInjection:
             'foo" OR 1=1',
             '" OR 1=1 --',
             'foo" OR "a"="a',
-            'x OR y NEAR/2 z',
+            "x OR y NEAR/2 z",
             'a" UNION SELECT name FROM sqlite_master--',
             "AND OR NOT",
             "orders\x00injected",
@@ -729,9 +729,7 @@ class TestFtsInjection:
             "refund AND NOT orders",
         ],
     )
-    def test_injection_shaped_queries_safe(
-        self, fts_env, q: str
-    ) -> None:
+    def test_injection_shaped_queries_safe(self, fts_env, q: str) -> None:
         res = _q(fts_env, q)
         # nunca levanta; diagnóstico tipado é aceitável, crash não
         assert res is not None
@@ -749,16 +747,14 @@ class TestFtsInjection:
     def test_escape_wraps_and_doubles(self) -> None:
         assert fts_escape('foo" OR 1=1') == '"foo"" OR 1=1"'
 
-    def test_raw_injection_string_hits_nothing_semantically(
-        self, fts_env
-    ) -> None:
+    def test_raw_injection_string_hits_nothing_semantically(self, fts_env) -> None:
         """A mesma entrada como termo cru não pode casar um símbolo
         cujo nome não contém a string literal."""
         res = _q(fts_env, '" OR 1=1 --')
-        assert all(
-            "orders" in h.qualified_name or "order" in h.qualified_name
-            for h in res.items
-        ) or res.items == ()
+        assert (
+            all("orders" in h.qualified_name or "order" in h.qualified_name for h in res.items)
+            or res.items == ()
+        )
 
 
 class TestLikeEscaping:
@@ -791,14 +787,13 @@ class TestLikeEscaping:
             SearchFilters,
             StructuralSearch,
         )
+
         s = StructuralSearch(conn)
         repo_id = s.repo_for_root(str(Path(_root).resolve()))
         assert repo_id is not None
         snap = s.resolve_snapshot(repo_id, None)[0]
         assert snap is not None
-        page = s.search_symbols(
-            repo_id, snap.id, "refund",
-            SearchFilters(path="%_%"), 10, 0)
+        page = s.search_symbols(repo_id, snap.id, "refund", SearchFilters(path="%_%"), 10, 0)
         assert page.items == ()
 
 
@@ -810,14 +805,18 @@ class TestLikeEscaping:
 class TestCrossRepositoryIsolation:
     @pytest.fixture()
     def two_repos(self, tmp_path: Path):
-        repo_a = _write(tmp_path / "repoA", {
-            "a.py": "def shared_name():\n    return 1\n"
-                    "def qwark_alpha():\n    return 2\n",
-        })
-        repo_b = _write(tmp_path / "repoB", {
-            "b.py": "def shared_name():\n    return 9\n"
-                    "def zylon_beta():\n    return 7\n",
-        })
+        repo_a = _write(
+            tmp_path / "repoA",
+            {
+                "a.py": "def shared_name():\n    return 1\ndef qwark_alpha():\n    return 2\n",
+            },
+        )
+        repo_b = _write(
+            tmp_path / "repoB",
+            {
+                "b.py": "def shared_name():\n    return 9\ndef zylon_beta():\n    return 7\n",
+            },
+        )
         conn = connect(tmp_path / "atlas.db")
         migrate(conn)
         _index(conn, repo_a)
@@ -826,23 +825,19 @@ class TestCrossRepositoryIsolation:
         yield conn, str(repo_a), str(repo_b)
         conn.close()
 
-    def test_search_scoped_to_repo_never_leaks_sibling(
-        self, two_repos
-    ) -> None:
+    def test_search_scoped_to_repo_never_leaks_sibling(self, two_repos) -> None:
         conn, root_a, root_b = two_repos
-        res_a = SearchEngine(conn).search(SearchRequest(
-            query="zylon_beta", repository_root=root_a))
+        res_a = SearchEngine(conn).search(SearchRequest(query="zylon_beta", repository_root=root_a))
         assert res_a.items == ()
-        res_a2 = SearchEngine(conn).search(SearchRequest(
-            query="qwark_alpha", repository_root=root_b))
+        res_a2 = SearchEngine(conn).search(
+            SearchRequest(query="qwark_alpha", repository_root=root_b)
+        )
         assert res_a2.items == ()
 
     def test_same_named_symbol_stays_in_own_repo(self, two_repos) -> None:
         conn, root_a, root_b = two_repos
-        ra = SearchEngine(conn).search(SearchRequest(
-            query="shared_name", repository_root=root_a))
-        rb = SearchEngine(conn).search(SearchRequest(
-            query="shared_name", repository_root=root_b))
+        ra = SearchEngine(conn).search(SearchRequest(query="shared_name", repository_root=root_a))
+        rb = SearchEngine(conn).search(SearchRequest(query="shared_name", repository_root=root_b))
         paths_a = {h.path for h in ra.items}
         paths_b = {h.path for h in rb.items}
         assert paths_a and all(p.startswith("a.py") for p in paths_a)
@@ -851,28 +846,36 @@ class TestCrossRepositoryIsolation:
 
     def test_domain_facet_scoped_to_own_snapshot(self, tmp_path: Path) -> None:
         """Entidades de domínio de repo B nunca aparecem na faceta de A."""
-        repo_a = _write(tmp_path / "a", {
-            "q.sql": "SELECT * FROM mart.shared;\n",
-        })
-        repo_b = _write(tmp_path / "b", {
-            "q.sql": "SELECT * FROM mart.shared;\n"
-                     "SELECT * FROM bonly.exclusive;\n",
-        })
+        repo_a = _write(
+            tmp_path / "a",
+            {
+                "q.sql": "SELECT * FROM mart.shared;\n",
+            },
+        )
+        repo_b = _write(
+            tmp_path / "b",
+            {
+                "q.sql": "SELECT * FROM mart.shared;\nSELECT * FROM bonly.exclusive;\n",
+            },
+        )
         conn = connect(tmp_path / "atlas.db")
         migrate(conn)
         reg_a = DomainRegistry()
         from code_atlas.domains.sql import SqlDomainAdapter
+
         reg_a.register(SqlDomainAdapter(base_path=repo_a))
         _index(conn, repo_a, reg_a)
         reg_b = DomainRegistry()
         reg_b.register(SqlDomainAdapter(base_path=repo_b))
         _index(conn, repo_b, reg_b)
         conn.row_factory = sqlite3.Row
-        res = SearchEngine(conn).search(SearchRequest(
-            query="exclusive", repository_root=str(repo_a)))
+        res = SearchEngine(conn).search(
+            SearchRequest(query="exclusive", repository_root=str(repo_a))
+        )
         assert res.domain_items == ()
-        res2 = SearchEngine(conn).search(SearchRequest(
-            query="exclusive", repository_root=str(repo_b)))
+        res2 = SearchEngine(conn).search(
+            SearchRequest(query="exclusive", repository_root=str(repo_b))
+        )
         assert res2.domain_items != ()
         conn.close()
 
@@ -882,16 +885,29 @@ class TestCrossRepositoryIsolation:
 # ---------------------------------------------------------------------------
 
 
-_EXEC_BANNED = {"subprocess", "pty", "eval", "exec", "compile",
-                "import_module", "__import__", "os.system", "os.popen"}
+_EXEC_BANNED = {
+    "subprocess",
+    "pty",
+    "eval",
+    "exec",
+    "compile",
+    "import_module",
+    "__import__",
+    "os.system",
+    "os.popen",
+}
 # únicos sites autorizados a spawnar processo — whitelist explícita
 _SUBPROCESS_ALLOWED = {
     SRC / "gitbin.py",
     SRC / "resolvers" / "lsp" / "spawn.py",
 }
 _AUDIT_PKGS = (
-    SRC / "domains", SRC / "federation", SRC / "search",
-    SRC / "eval", SRC / "evaluation", SRC / "indexing",
+    SRC / "domains",
+    SRC / "federation",
+    SRC / "search",
+    SRC / "eval",
+    SRC / "evaluation",
+    SRC / "indexing",
 )
 
 
@@ -905,9 +921,10 @@ def _subprocess_offenders(py: Path) -> list[str]:
     tree = ast.parse(text)
     out: list[str] = []
     for node in ast.walk(tree):
-        if (isinstance(node, ast.Import) and any(
-            a.name.split(".")[0] == "subprocess" for a in node.names
-        )) or (
+        if (
+            isinstance(node, ast.Import)
+            and any(a.name.split(".")[0] == "subprocess" for a in node.names)
+        ) or (
             isinstance(node, ast.ImportFrom)
             and node.module
             and node.module.split(".")[0] == "subprocess"
@@ -930,8 +947,7 @@ class TestNoUnsafeExecutionSweep:
         assert offenders == []
 
     def test_no_eval_exec_compile_or_dynamic_import(self) -> None:
-        banned_calls = {"eval", "exec", "compile", "__import__",
-                        "import_module"}
+        banned_calls = {"eval", "exec", "compile", "__import__", "import_module"}
         offenders: list[str] = []
         for pkg in _AUDIT_PKGS:
             if not pkg.exists():
@@ -943,17 +959,14 @@ class TestNoUnsafeExecutionSweep:
                 for node in ast.walk(tree):
                     if isinstance(node, ast.Call):
                         f = node.func
-                        if (
-                            isinstance(f, ast.Name)
-                            and f.id in banned_calls
-                        ):
+                        if isinstance(f, ast.Name) and f.id in banned_calls:
                             offenders.append(f"{py}:{node.lineno}:{f.id}")
-                        if (
-                            isinstance(f, ast.Attribute)
-                            and f.attr in ("system", "popen", "import_module")
+                        if isinstance(f, ast.Attribute) and f.attr in (
+                            "system",
+                            "popen",
+                            "import_module",
                         ):
-                            offenders.append(
-                                f"{py}:{node.lineno}:.{f.attr}")
+                            offenders.append(f"{py}:{node.lineno}:.{f.attr}")
         assert offenders == []
 
 

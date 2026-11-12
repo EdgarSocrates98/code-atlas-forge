@@ -50,10 +50,12 @@ def _bench(fn) -> dict[str, Any]:
         t0 = time.monotonic()
         fn()
         lat.append((time.monotonic() - t0) * 1000.0)
-    return {"p50_ms": round(statistics.median(lat), 3),
-            "p95_ms": round(_pct(lat, 0.95), 3),
-            "p99_ms": round(_pct(lat, 0.99), 3),
-            "runs": RUNS}
+    return {
+        "p50_ms": round(statistics.median(lat), 3),
+        "p95_ms": round(_pct(lat, 0.95), 3),
+        "p99_ms": round(_pct(lat, 0.99), 3),
+        "runs": RUNS,
+    }
 
 
 def main() -> None:
@@ -67,46 +69,58 @@ def main() -> None:
     ctx_eng = ContextEngine(conn)
     grounder = EvidenceGrounder(conn)
     tok = HeuristicTokenizer()
-    occ_id = int(conn.execute(
-        "SELECT MIN(id) FROM symbol_occurrences").fetchone()[0])
+    occ_id = int(conn.execute("SELECT MIN(id) FROM symbol_occurrences").fetchone()[0])
 
     out: dict[str, Any] = {
         "tool": "code-atlas perf-cycle4.1",
         "runs_per_cell": RUNS,
         "fixture": "EVAL_REPO (~7 arquivos, py+ts)",
-        "stages": {}}
+        "stages": {},
+    }
     st = out["stages"]
 
-    st["hybrid-candidates-rrf"] = _bench(lambda: eng_v1.search(
-        SearchRequest(query=Q, strategy="hybrid",
-                      repository_root=roots, limit=10)))
-    st["hybrid-candidates-rrf+rerank"] = _bench(lambda: eng_v2.search(
-        SearchRequest(query=Q, strategy="hybrid",
-                      repository_root=roots, limit=10)))
-    st["evidence-occurrence-ref"] = _bench(
-        lambda: grounder.occurrence_ref(1, 1, occ_id))
-    pack = ctx_eng.build(ContextRequest(
-        task=Q, repository_root=roots, budget_tokens=2000))
+    st["hybrid-candidates-rrf"] = _bench(
+        lambda: eng_v1.search(
+            SearchRequest(query=Q, strategy="hybrid", repository_root=roots, limit=10)
+        )
+    )
+    st["hybrid-candidates-rrf+rerank"] = _bench(
+        lambda: eng_v2.search(
+            SearchRequest(query=Q, strategy="hybrid", repository_root=roots, limit=10)
+        )
+    )
+    st["evidence-occurrence-ref"] = _bench(lambda: grounder.occurrence_ref(1, 1, occ_id))
+    pack = ctx_eng.build(ContextRequest(task=Q, repository_root=roots, budget_tokens=2000))
     ctx2 = ContextEngine(conn)  # sem cache — mede o build real
     ctx2._pack_cache = {}
     st["context-build-serialized-enforce"] = _bench(
-        lambda: ctx2.build(ContextRequest(
-            task=Q, repository_root=roots, budget_tokens=2000)))
+        lambda: ctx2.build(ContextRequest(task=Q, repository_root=roots, budget_tokens=2000))
+    )
     st["render-json"] = _bench(lambda: render_json(pack))
-    st["token-estimate-pack"] = _bench(
-        lambda: tok.count(render_json(pack)))
+    st["token-estimate-pack"] = _bench(lambda: tok.count(render_json(pack)))
 
     srv = AtlasMcpServer()
     real_ctx = srv._ctx
     srv._ctx = lambda pr: real_ctx({**dict(pr), "root": roots})
 
     def mcp_evidence() -> None:
-        srv.serve(io.StringIO(json.dumps(
-            {"jsonrpc": "2.0", "id": 1, "method": "tools/call",
-             "params": {"name": "atlas_evidence",
-                        "arguments": {
-                            "name": "pkg.orders.OrderService.create_order"}}})
-            + "\n"), io.StringIO())
+        srv.serve(
+            io.StringIO(
+                json.dumps(
+                    {
+                        "jsonrpc": "2.0",
+                        "id": 1,
+                        "method": "tools/call",
+                        "params": {
+                            "name": "atlas_evidence",
+                            "arguments": {"name": "pkg.orders.OrderService.create_order"},
+                        },
+                    }
+                )
+                + "\n"
+            ),
+            io.StringIO(),
+        )
 
     st["mcp-atlas-evidence"] = _bench(mcp_evidence)
 

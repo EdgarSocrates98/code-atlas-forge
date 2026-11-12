@@ -90,9 +90,13 @@ def snapshot_sets(db_path: Path, repo: Path) -> tuple[set, set, dict[str, str], 
             )
         }
         rels = {
-            (r["t"], r["fq"],
-             r["tq"] if r["tq"] is not None else f"unresolved:{r['tu']}",
-             r["rs"], r["cc"])
+            (
+                r["t"],
+                r["fq"],
+                r["tq"] if r["tq"] is not None else f"unresolved:{r['tu']}",
+                r["rs"],
+                r["cc"],
+            )
             for r in conn.execute(
                 "SELECT r.type t, sf.qualified_name fq, st.qualified_name tq, "
                 "r.to_unresolved tu, r.resolution_status rs, "
@@ -106,7 +110,8 @@ def snapshot_sets(db_path: Path, repo: Path) -> tuple[set, set, dict[str, str], 
             )
         }
         fstatus = {
-            r["p"]: r["s"] for r in conn.execute(
+            r["p"]: r["s"]
+            for r in conn.execute(
                 "SELECT DISTINCT f.relative_path p, o.parse_status s "
                 "FROM symbol_occurrences o "
                 "JOIN source_files f ON f.id=o.source_file_id "
@@ -120,8 +125,7 @@ def snapshot_sets(db_path: Path, repo: Path) -> tuple[set, set, dict[str, str], 
 
 
 def _prf(expected: set, actual: set) -> PRF:
-    return PRF(len(expected & actual), len(actual - expected),
-               len(expected - actual))
+    return PRF(len(expected & actual), len(actual - expected), len(expected - actual))
 
 
 def evaluate(corpus: Path, db_path: Path) -> CorpusReport:
@@ -154,8 +158,7 @@ def evaluate(corpus: Path, db_path: Path) -> CorpusReport:
         ]
 
     exp_rels = {_rel_key(r) for r in expected["relations"]}
-    rep.relations = _relations_metrics(exp_rels, rels,
-                                     expected.get("relations_mode"))
+    rep.relations = _relations_metrics(exp_rels, rels, expected.get("relations_mode"))
     if expected.get("relations_mode") == "all":
         rep.missing_relations = [_rel_row(k) for k in sorted(exp_rels - rels)]
         rep.unexpected_relations = [_rel_row(k) for k in sorted(rels - exp_rels)]
@@ -180,10 +183,9 @@ def evaluate(corpus: Path, db_path: Path) -> CorpusReport:
 
 def _rel_row(key: tuple) -> dict[str, Any]:
     t, fq, to, rs, cc = key
-    d: dict[str, Any] = {"type": t, "from": fq, "status": rs,
-                         "confidence": cc}
+    d: dict[str, Any] = {"type": t, "from": fq, "status": rs, "confidence": cc}
     if to.startswith("unresolved:"):
-        d["to_text"] = to[len("unresolved:"):]
+        d["to_text"] = to[len("unresolved:") :]
     else:
         d["to"] = to
     return d
@@ -193,48 +195,41 @@ def _relations_metrics(exp: set, act: set, mode: str | None) -> dict[str, Any]:
     """P/R geral + buckets por confidence — nunca agregados."""
     out: dict[str, Any] = {"mode": mode or "all"}
     overall = _prf(exp, act)
-    out["all"] = {**vars(overall), "precision": overall.precision,
-                  "recall": overall.recall}
+    out["all"] = {**vars(overall), "precision": overall.precision, "recall": overall.recall}
     for bucket in ("resolved", "syntactic", "heuristic", "inferred"):
         e = {r for r in exp if r[4] == bucket}
         a = {r for r in act if r[4] == bucket}
         if not e and not a:
             continue
         m = _prf(e, a)
-        out[bucket] = {**vars(m), "precision": m.precision,
-                       "recall": m.recall}
+        out[bucket] = {**vars(m), "precision": m.precision, "recall": m.recall}
     return out
 
 
-def _count_mismatches(expected: dict[str, Any], syms: set,
-                      rels: set) -> dict[str, Any]:
+def _count_mismatches(expected: dict[str, Any], syms: set, rels: set) -> dict[str, Any]:
     """Verifica contadores exatos declarados no manifesto (modo subset)."""
     mismatches: dict[str, Any] = {}
     exp_sk = expected.get("symbols_by_kind")
     if exp_sk is not None:
         actual: dict[str, int] = {}
-        for (_q, k, _l, _p) in syms:
+        for _q, k, _l, _p in syms:
             actual[k] = actual.get(k, 0) + 1
         if actual != exp_sk:
-            mismatches["symbols_by_kind"] = {
-                "expected": exp_sk, "actual": actual}
+            mismatches["symbols_by_kind"] = {"expected": exp_sk, "actual": actual}
     exp_rt = expected.get("relations_by_type")
     if exp_rt is not None:
         actual = {}
-        for (t, _f, _to, _rs, _cc) in rels:
+        for t, _f, _to, _rs, _cc in rels:
             actual[t] = actual.get(t, 0) + 1
         if actual != exp_rt:
-            mismatches["relations_by_type"] = {
-                "expected": exp_rt, "actual": actual}
+            mismatches["relations_by_type"] = {"expected": exp_rt, "actual": actual}
     return mismatches
 
 
 # --- lf-0024: métricas por resolver / status / falsos-positivos -------
 
 
-def _resolver_metrics(
-    db_path: Path, snapshot_id: int, exp_rels: set
-) -> dict[str, Any]:
+def _resolver_metrics(db_path: Path, snapshot_id: int, exp_rels: set) -> dict[str, Any]:
     """P/R por ``relations.resolver`` — classe de evidência nunca
     agregada com outras (grill gate lf-0024)."""
     conn = connect(db_path, read_only=True)
@@ -256,9 +251,7 @@ def _resolver_metrics(
     by_resolver: dict[str, set] = {}
     for r in rows:
         to = r["tq"] if r["tq"] is not None else f"unresolved:{r['tu']}"
-        by_resolver.setdefault(r["rv"], set()).add(
-            (r["t"], r["fq"], to, r["rs"], r["cc"])
-        )
+        by_resolver.setdefault(r["rv"], set()).add((r["t"], r["fq"], to, r["rs"], r["cc"]))
     return {
         rv: {
             **vars(m := _prf(exp_rels, rels)),
@@ -298,9 +291,7 @@ def _false_positive(exp_rels: set, rels: set) -> dict[str, Any]:
 # --- lf-0024: invalidation + reuse correctness ------------------------
 
 
-def evaluate_incremental(
-    corpus: Path, db_path: Path, mutate: Any, restore: Any
-) -> dict[str, Any]:
+def evaluate_incremental(corpus: Path, db_path: Path, mutate: Any, restore: Any) -> dict[str, Any]:
     """Par incremental x full sobre uma mutação do corpus.
 
     ``mutate()``/``restore()`` são callables que alteram/revertem
@@ -334,9 +325,7 @@ def evaluate_incremental(
         # ``reuse`` mantêm o mesmo logical_symbol_id do snapshot base
         reused = {p for p, a in plan_actions.items() if a == "reuse"}
         inc_syms = _symbol_ids(conn, inc.snapshot_id)  # type: ignore[arg-type]
-        reused_id_stable = all(
-            base_syms.get(p) == inc_syms.get(p) for p in reused
-        )
+        reused_id_stable = all(base_syms.get(p) == inc_syms.get(p) for p in reused)
         return {
             "plan_actions": plan_actions,
             "incremental_matches_full": canon_equal,
@@ -372,9 +361,7 @@ def _canonical(conn, snapshot_id: int) -> dict[str, set]:
         "WHERE o.snapshot_id=?",
         (snapshot_id,),
     ).fetchall()
-    nodes = {
-        (r[0], r[1], r[2], r[3], r[4], r[5]) for r in occs
-    }
+    nodes = {(r[0], r[1], r[2], r[3], r[4], r[5]) for r in occs}
     rels = conn.execute(
         "SELECT r.type, r.resolution_status, r.confidence_class, "
         "sff.relative_path fp, sf.qualified_name fq, "
@@ -389,8 +376,5 @@ def _canonical(conn, snapshot_id: int) -> dict[str, set]:
         "WHERE r.snapshot_id=?",
         (snapshot_id,),
     ).fetchall()
-    edges = {
-        (r[0], r[3], r[4], r[5], r[6], r[7] or "", r[1], r[2])
-        for r in rels
-    }
+    edges = {(r[0], r[3], r[4], r[5], r[6], r[7] or "", r[1], r[2]) for r in rels}
     return {"nodes": nodes, "edges": edges}

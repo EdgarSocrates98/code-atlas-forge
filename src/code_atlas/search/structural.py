@@ -58,8 +58,7 @@ class StructuralSearch:
     def repository_info(self, repo_id: int) -> dict[str, Any] | None:
         """{id, root_handle, identity_key} para o envelope (lf-0022)."""
         row = self._conn.execute(
-            "SELECT id, root_handle, identity_key FROM repositories"
-            " WHERE id = ?",
+            "SELECT id, root_handle, identity_key FROM repositories WHERE id = ?",
             (repo_id,),
         ).fetchone()
         if row is None:
@@ -100,8 +99,7 @@ class StructuralSearch:
         params: list[object] = [snapshot_id, repo_id]
         if query:
             conds.append(
-                "(s.qualified_name LIKE ? ESCAPE '\\' "
-                "OR s.qualified_name LIKE ? ESCAPE '\\')"
+                "(s.qualified_name LIKE ? ESCAPE '\\' OR s.qualified_name LIKE ? ESCAPE '\\')"
             )
             like = f"%{_escape_like(query)}%"
             params += [like, like]
@@ -151,9 +149,7 @@ class StructuralSearch:
                 "qualified_name": r["qualified_name"],
                 "language": r["language"],
                 "kind": r["kind"],
-                "occurrence_id": (
-                    int(r["occurrence_id"])
-                    if r["occurrence_id"] is not None else 0),
+                "occurrence_id": (int(r["occurrence_id"]) if r["occurrence_id"] is not None else 0),
                 "path": r["path"] or "",
             }
             for r in rows
@@ -161,9 +157,7 @@ class StructuralSearch:
         total = int(total_row["c"])
         return Page(total, offset + len(items) < total, items)
 
-    def symbol_detail(
-        self, repo_id: int, snapshot_id: int, ident: str
-    ) -> dict[str, Any] | None:
+    def symbol_detail(self, repo_id: int, snapshot_id: int, ident: str) -> dict[str, Any] | None:
         """Detalhe de símbolo por id numérico ou qualified_name exato."""
         if ident.isdigit():
             sym = self._conn.execute(
@@ -253,9 +247,7 @@ class StructuralSearch:
             "r.resolver, r.to_unresolved, r.evidence_ids, "
             "sf.qualified_name AS from_qname, st.qualified_name AS to_qname, "
             "ff.relative_path AS from_path, ft.relative_path AS to_path, "
-            "o1.line AS from_line, o2.line AS to_line "
-            + base
-            + " ORDER BY r.id LIMIT ? OFFSET ?"
+            "o1.line AS from_line, o2.line AS to_line " + base + " ORDER BY r.id LIMIT ? OFFSET ?"
         )
         rows = self._conn.execute(list_sql, [*params, limit, offset]).fetchall()
         items = tuple(
@@ -287,9 +279,7 @@ class StructuralSearch:
         total = int(total_row["c"])
         return Page(total, offset + len(items) < total, items), ""
 
-    def graph_dump(
-        self, snapshot_id: int, filters: SearchFilters, limit: int
-    ) -> dict[str, Any]:
+    def graph_dump(self, snapshot_id: int, filters: SearchFilters, limit: int) -> dict[str, Any]:
         """Nós + arestas do snapshot — JSON exportável, sem dependência de UI."""
         nconds = ["o.snapshot_id = ?"]
         nparams: list[object] = [snapshot_id]
@@ -321,8 +311,7 @@ class StructuralSearch:
         edges_sql = (
             "SELECT r.id, r.from_id, r.to_id, r.to_unresolved, r.type, "
             "r.resolution_status, r.confidence_class, r.resolver "
-            "FROM relations r WHERE " + " AND ".join(econds)
-            + " ORDER BY r.id LIMIT ?"
+            "FROM relations r WHERE " + " AND ".join(econds) + " ORDER BY r.id LIMIT ?"
         )
         edges = self._conn.execute(edges_sql, [*eparams, limit]).fetchall()
 
@@ -356,9 +345,7 @@ class StructuralSearch:
             "counts": {"nodes": len(nodes), "edges": len(edges)},
         }
 
-    def definitions(
-        self, repo_id: int, snapshot_id: int, ident: str
-    ) -> dict[str, Any] | None:
+    def definitions(self, repo_id: int, snapshot_id: int, ident: str) -> dict[str, Any] | None:
         """Sites de definição do símbolo (path + span) — lf-0022.
 
         Ocorrências do símbolo lógico são seus pontos de definição;
@@ -435,9 +422,7 @@ class StructuralSearch:
                 break
             next_frontier: set[int] = set()
             for sym_id in sorted(frontier):
-                rows = self._conn.execute(
-                    edge_sql, (snapshot_id, sym_id)
-                ).fetchall()
+                rows = self._conn.execute(edge_sql, (snapshot_id, sym_id)).fetchall()
                 for r in rows:
                     if len(edges) >= node_budget:
                         truncated = True

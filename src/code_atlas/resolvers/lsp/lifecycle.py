@@ -55,12 +55,22 @@ class ServerCapabilities:
 
     def supports(self, method: str) -> bool:
         cap = _METHOD_TO_CAP.get(method)
-        return bool(getattr(self, {
-            "definitionProvider": "definition",
-            "referencesProvider": "references",
-            "documentSymbolProvider": "document_symbol",
-            "workspaceSymbolProvider": "workspace_symbol",
-        }.get(cap or "", ""), False)) if cap else False
+        return (
+            bool(
+                getattr(
+                    self,
+                    {
+                        "definitionProvider": "definition",
+                        "referencesProvider": "references",
+                        "documentSymbolProvider": "document_symbol",
+                        "workspaceSymbolProvider": "workspace_symbol",
+                    }.get(cap or "", ""),
+                    False,
+                )
+            )
+            if cap
+            else False
+        )
 
 
 @dataclass
@@ -70,16 +80,12 @@ class LspClient:
     spec: LspServerSpec
     _proc: LspProcess | None = field(default=None, init=False)
     _transport: JsonRpcTransport | None = field(default=None, init=False)
-    _ids: itertools.count[int] = field(
-        default_factory=lambda: itertools.count(1), init=False)
-    _caps: ServerCapabilities = field(
-        default_factory=ServerCapabilities, init=False)
+    _ids: itertools.count[int] = field(default_factory=lambda: itertools.count(1), init=False)
+    _caps: ServerCapabilities = field(default_factory=ServerCapabilities, init=False)
     _available: bool = field(default=False, init=False)
-    _lock: threading.Lock = field(default_factory=threading.Lock,
-                                  init=False)
+    _lock: threading.Lock = field(default_factory=threading.Lock, init=False)
     # textDocument/publishDiagnostics por uri (lf-0029)
-    _diagnostics: dict[str, list[dict[str, Any]]] = field(
-        default_factory=dict, init=False)
+    _diagnostics: dict[str, list[dict[str, Any]]] = field(default_factory=dict, init=False)
 
     # -- ciclo de vida ----------------------------------------------------
 
@@ -146,7 +152,9 @@ class LspClient:
     # -- requests ---------------------------------------------------------
 
     def request(
-        self, method: str, params: dict[str, Any] | None = None,
+        self,
+        method: str,
+        params: dict[str, Any] | None = None,
         timeout: float | None = None,
     ) -> Any:
         """Request com timeout obrigatório + cancelamento LSP."""
@@ -166,8 +174,8 @@ class LspClient:
                     continue  # notificações/server-requests não correlacionados
                 if msg.error:
                     raise LspError(
-                        f"{method}: rpc error {msg.error.get('code')}: "
-                        f"{msg.error.get('message')}")
+                        f"{method}: rpc error {msg.error.get('code')}: {msg.error.get('message')}"
+                    )
                 return msg.result
         except TimeoutError:
             self._cancel(rid)
@@ -199,8 +207,7 @@ class LspClient:
             params = getattr(msg, "params", None) or {}
             uri = params.get("uri")
             if isinstance(uri, str):
-                self._diagnostics[uri] = list(
-                    params.get("diagnostics") or [])
+                self._diagnostics[uri] = list(params.get("diagnostics") or [])
 
     def diagnostics_for(self, uri: str) -> list[dict[str, Any]]:
         """Diagnostics publicados para o documento (se o server envia)."""
@@ -210,9 +217,7 @@ class LspClient:
         """``textDocument/documentSymbol`` — só se capability anunciada."""
         if not self._caps.document_symbol:
             raise LspError("documentSymbolProvider not advertised")
-        return self.request(
-            "textDocument/documentSymbol",
-            {"textDocument": {"uri": uri}})
+        return self.request("textDocument/documentSymbol", {"textDocument": {"uri": uri}})
 
     def restart(self) -> None:
         """lf-0029: recovery pós-crash — fecha tudo e refaz

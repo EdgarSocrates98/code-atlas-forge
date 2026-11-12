@@ -71,8 +71,8 @@ from code_atlas.domains.sql.parser import ParsedFile
 from code_atlas.parsers.contracts import EvidenceRecord, SourceSpan
 
 SQL_DOMAIN = "sql"
-_DIAG_CAP = 60        # diagnósticos por artefato — depois vira resumo
-_SCOPE_DEPTH = 16     # recursão máxima CTE/subquery — patológico além disso
+_DIAG_CAP = 60  # diagnósticos por artefato — depois vira resumo
+_SCOPE_DEPTH = 16  # recursão máxima CTE/subquery — patológico além disso
 
 
 @dataclass
@@ -120,7 +120,7 @@ class _SubSrc:
     alias: str | None
     outputs: list[_Out]
     inner: _Scope
-    star: bool          # saída parcialmente desconhecida (SELECT *)
+    star: bool  # saída parcialmente desconhecida (SELECT *)
     literal: bool = False  # VALUES — nomes conhecidos, sem upstream
 
 
@@ -150,8 +150,15 @@ class _FileCtx:
     """Acumulador por artefato: entidades/relações/evidência/diagnósticos."""
 
     def __init__(
-        self, *, repository: str, root: str, environment: str,
-        path: str, sha: str, dialect: str, adapter_version: str,
+        self,
+        *,
+        repository: str,
+        root: str,
+        environment: str,
+        path: str,
+        sha: str,
+        dialect: str,
+        adapter_version: str,
     ) -> None:
         self.repo = repository
         self.root = root
@@ -196,8 +203,10 @@ class _FileCtx:
             return
         self.diagnostics.append(
             DomainDiagnostic(
-                code=code, severity=severity,
-                message=message, path=self.path,
+                code=code,
+                severity=severity,
+                message=message,
+                path=self.path,
                 adapter_id=SQL_DOMAIN,
             )
         )
@@ -206,12 +215,13 @@ class _FileCtx:
         if self._truncated_diags:
             self.diagnostics.append(
                 DomainDiagnostic(
-                    code="diagnostics-truncated", severity="info",
+                    code="diagnostics-truncated",
+                    severity="info",
                     message=(
-                        f"{self._truncated_diags} further diagnostics "
-                        f"suppressed (cap {_DIAG_CAP})"
+                        f"{self._truncated_diags} further diagnostics suppressed (cap {_DIAG_CAP})"
                     ),
-                    path=self.path, adapter_id=SQL_DOMAIN,
+                    path=self.path,
+                    adapter_id=SQL_DOMAIN,
                 )
             )
 
@@ -220,25 +230,28 @@ class _FileCtx:
     def table_ident(self, parts: tuple[str, ...]) -> DomainIdentity:
         """catalog/namespace/qualified_name a partir das partes do nome."""
         if len(parts) >= 3:
-            catalog, namespace, name = (
-                parts[0], ".".join(parts[1:-1]), parts[-1]
-            )
+            catalog, namespace, name = (parts[0], ".".join(parts[1:-1]), parts[-1])
         elif len(parts) == 2:
             catalog, namespace, name = self.use_catalog, parts[0], parts[1]
         else:
-            catalog, namespace, name = (
-                self.use_catalog, self.use_schema, parts[0]
-            )
+            catalog, namespace, name = (self.use_catalog, self.use_schema, parts[0])
         return DomainIdentity(
-            domain=SQL_DOMAIN, repository=self.repo, root=self.root,
-            catalog=catalog, namespace=namespace, environment=self.environment,
+            domain=SQL_DOMAIN,
+            repository=self.repo,
+            root=self.root,
+            catalog=catalog,
+            namespace=namespace,
+            environment=self.environment,
             qualified_name=name,
         )
 
     def col_ident(self, table: DomainIdentity, col: str) -> DomainIdentity:
         return DomainIdentity(
-            domain=SQL_DOMAIN, repository=self.repo, root=self.root,
-            catalog=table.catalog, namespace=table.namespace,
+            domain=SQL_DOMAIN,
+            repository=self.repo,
+            root=self.root,
+            catalog=table.catalog,
+            namespace=table.namespace,
             environment=table.environment,
             qualified_name=f"{table.qualified_name}.{col}",
         )
@@ -259,8 +272,13 @@ class _FileCtx:
         acc = self.entities.get(key)
         if acc is None:
             self.entities[key] = _EntAcc(
-                identity=ident, kind=kind, name=name, span=span,
-                attrs=dict(attrs), prio=prio, ev={evi},
+                identity=ident,
+                kind=kind,
+                name=name,
+                span=span,
+                attrs=dict(attrs),
+                prio=prio,
+                ev={evi},
             )
             return
         acc.ev.add(evi)
@@ -272,9 +290,9 @@ class _FileCtx:
             acc.prio = prio
         elif prio == acc.prio and acc.kind is not kind:
             self.diag(
-                "conflicting-declarations", "warning",
-                f"{ident.display()} declared as both "
-                f"{acc.kind.value} and {kind.value}",
+                "conflicting-declarations",
+                "warning",
+                f"{ident.display()} declared as both {acc.kind.value} and {kind.value}",
             )
 
     def add_rel(
@@ -292,8 +310,12 @@ class _FileCtx:
         acc = self.relations.get(key)
         if acc is None:
             self.relations[key] = _RelAcc(
-                rtype=rtype, from_i=from_i, to_i=to_i,
-                to_text=to_text, span=span, ev={evi},
+                rtype=rtype,
+                from_i=from_i,
+                to_i=to_i,
+                to_text=to_text,
+                span=span,
+                ev={evi},
             )
             return
         acc.ev.add(evi)
@@ -308,8 +330,13 @@ class _FileCtx:
             "declared": "create" if declared else "reference",
         }
         self.add_entity(
-            ident, kind, name.parts[-1], name.span, attrs,
-            prio=3 if declared else 1, evi=evi,
+            ident,
+            kind,
+            name.parts[-1],
+            name.span,
+            attrs,
+            prio=3 if declared else 1,
+            evi=evi,
         )
         return ident
 
@@ -318,33 +345,41 @@ class _FileCtx:
     ) -> DomainIdentity:
         ident = self.col_ident(table, col)
         self.add_entity(
-            ident, DomainEntityKind.DATA_COLUMN, col, None,
+            ident,
+            DomainEntityKind.DATA_COLUMN,
+            col,
+            None,
             {
                 "table": table.display(),
                 "dialect": self.dialect,
                 "declared": "create" if declared else "reference",
             },
-            prio=3 if declared else 1, evi=evi,
+            prio=3 if declared else 1,
+            evi=evi,
         )
         return ident
 
-    def transform_entity(
-        self, stmt_i: int, st: Statement, evi: int
-    ) -> DomainIdentity:
+    def transform_entity(self, stmt_i: int, st: Statement, evi: int) -> DomainIdentity:
         qname = f"{self.path}#{stmt_i}"
         ident = DomainIdentity(
-            domain=SQL_DOMAIN, repository=self.repo, root=self.root,
-            environment=self.environment, qualified_name=qname,
+            domain=SQL_DOMAIN,
+            repository=self.repo,
+            root=self.root,
+            environment=self.environment,
+            qualified_name=qname,
         )
         self.add_entity(
-            ident, DomainEntityKind.DATA_TRANSFORMATION,
-            f"{st.kind}#{stmt_i}", st.span,
+            ident,
+            DomainEntityKind.DATA_TRANSFORMATION,
+            f"{st.kind}#{stmt_i}",
+            st.span,
             {
                 "artifact": self.path,
                 "statement": st.kind,
                 "dialect": self.dialect,
             },
-            prio=1, evi=evi,
+            prio=1,
+            evi=evi,
         )
         return ident
 
@@ -378,15 +413,14 @@ def _srcs_tables(
         elif isinstance(s, SrcSub):
             if depth < _SCOPE_DEPTH:
                 env2 = _cte_env(s.query.ctes, env)
-                _query_tables(
-                    s.query, env2, out, dyn, ctx, depth + 1, shadow
-                )
+                _query_tables(s.query, env2, out, dyn, ctx, depth + 1, shadow)
         elif isinstance(s, SrcUnsupported):
             if s.what == "dynamic":
                 dyn.append(s)
             else:
                 ctx.diag(
-                    "unsupported-source", "info",
+                    "unsupported-source",
+                    "info",
                     f"table source not expanded: {s.written} ({s.what})",
                 )
         # SrcValues: dados literais — sem upstream
@@ -409,16 +443,21 @@ def _table_read(
             env2 = _cte_env(cte.query.ctes, env)
             env2.pop(cte.name, None)  # corta auto-recursão
             _query_tables(
-                cte.query, env2, out, dyn, ctx, depth + 1,
+                cte.query,
+                env2,
+                out,
+                dyn,
+                ctx,
+                depth + 1,
                 shadow | {cte.name},
             )
         return
     if bare and s.name.parts[0] in shadow:
         # auto-referência de CTE recursiva — nunca vira tabela base
         ctx.diag(
-            "recursive-cte", "info",
-            f"recursive CTE self-reference not expanded: "
-            f"{s.name.written}",
+            "recursive-cte",
+            "info",
+            f"recursive CTE self-reference not expanded: {s.name.written}",
         )
         return
     out.append(s)
@@ -499,13 +538,13 @@ def _src_info(
         return out
     if isinstance(s, SrcGroup):
         inner = _src_info(s.inner, env, ctx, scope, depth, seen)
-        inner_list = (
-            inner if isinstance(inner, list)
-            else [inner] if inner is not None else []
-        )
+        inner_list = inner if isinstance(inner, list) else [inner] if inner is not None else []
         group_scope = _Scope(sources=inner_list, parent=scope)
         return _SubSrc(
-            alias=s.alias, outputs=[], inner=group_scope, star=True,
+            alias=s.alias,
+            outputs=[],
+            inner=group_scope,
+            star=True,
         )
     if isinstance(s, SrcTable):
         return _src_table_info(s, env, ctx, scope, depth, seen)
@@ -515,8 +554,11 @@ def _src_info(
         outs = [_Out(name=c, refs=ExprRefs()) for c in s.col_aliases]
         val_scope = _Scope(sources=[], parent=scope)
         return _SubSrc(
-            alias=s.alias, outputs=outs, inner=val_scope,
-            star=not s.col_aliases, literal=True,
+            alias=s.alias,
+            outputs=outs,
+            inner=val_scope,
+            star=not s.col_aliases,
+            literal=True,
         )
     if isinstance(s, SrcUnsupported):
         return _DeadSrc()
@@ -541,14 +583,20 @@ def _src_table_info(
         # o próprio nome fica em env2: auto-referência recai no
         # ``seen`` acima → _DeadSrc, nunca _TblSrc fabricado
         inner = _build_scope(
-            cte.query.sources, env2, ctx, scope, depth + 1,
+            cte.query.sources,
+            env2,
+            ctx,
+            scope,
+            depth + 1,
             seen | {id(cte.query)},
         )
         outs, star = _outputs_of(cte.query)
         outputs = _apply_col_aliases(outs, cte.columns)
         return _SubSrc(
-            alias=s.alias or cte.name, outputs=outputs,
-            inner=inner, star=star,
+            alias=s.alias or cte.name,
+            outputs=outputs,
+            inner=inner,
+            star=star,
         )
     return _TblSrc(
         ident=ctx.table_ident(s.name.parts),
@@ -571,13 +619,20 @@ def _src_sub_info(
         return _DeadSrc(alias=s.alias)
     env2 = _cte_env(s.query.ctes, env)
     inner = _build_scope(
-        s.query.sources, env2, ctx, scope, depth + 1,
+        s.query.sources,
+        env2,
+        ctx,
+        scope,
+        depth + 1,
         seen | {id(s.query)},
     )
     outs, star = _outputs_of(s.query)
     outputs = _apply_col_aliases(outs, s.col_aliases)
     return _SubSrc(
-        alias=s.alias, outputs=outputs, inner=inner, star=star,
+        alias=s.alias,
+        outputs=outputs,
+        inner=inner,
+        star=star,
     )
 
 
@@ -607,7 +662,7 @@ def _match_qual(s: _SrcInfo, qual: tuple[str, ...]) -> bool:
     if isinstance(s, _TblSrc):
         if s.alias is not None:
             return len(qual) == 1 and s.alias == qual[0]
-        return len(qual) <= len(s.parts) and s.parts[-len(qual):] == qual
+        return len(qual) <= len(s.parts) and s.parts[-len(qual) :] == qual
     if isinstance(s, _SubSrc):
         return s.alias is not None and len(qual) == 1 and s.alias == qual[0]
     return False
@@ -632,23 +687,20 @@ def _into(
         if not matched:
             if s.star:
                 res.problems.append(
-                    ("unresolved-column", f"{colname} in star-expanding "
-                     f"source {s.alias!r} — terminal unknown")
+                    (
+                        "unresolved-column",
+                        f"{colname} in star-expanding source {s.alias!r} — terminal unknown",
+                    )
                 )
             else:
                 res.problems.append(
-                    ("unresolved-column", f"{colname} not in outputs of "
-                     f"{s.alias!r}")
+                    ("unresolved-column", f"{colname} not in outputs of {s.alias!r}")
                 )
             return res
         for o in matched:
-            res = _merge_rcol(
-                res, _resolve_refs(o.refs, s.inner, ctx, depth + 1, seen)
-            )
+            res = _merge_rcol(res, _resolve_refs(o.refs, s.inner, ctx, depth + 1, seen))
         return res
-    res.problems.append(
-        ("unresolved-column", f"{colname} on opaque source")
-    )
+    res.problems.append(("unresolved-column", f"{colname} on opaque source"))
     return res
 
 
@@ -680,9 +732,7 @@ def _resolve_refs(
         if id(sq) in seen:
             continue
         sub_env = _cte_env(sq.ctes, {})
-        inner = _build_scope(
-            sq.sources, sub_env, ctx, scope, depth + 1, seen | {id(sq)}
-        )
+        inner = _build_scope(sq.sources, sub_env, ctx, scope, depth + 1, seen | {id(sq)})
         for item in sq.items:
             res = _merge_rcol(
                 res,
@@ -692,9 +742,7 @@ def _resolve_refs(
             for item in br.items:
                 res = _merge_rcol(
                     res,
-                    _resolve_refs(
-                        item.refs, inner, ctx, depth + 1, seen | {id(sq)}
-                    ),
+                    _resolve_refs(item.refs, inner, ctx, depth + 1, seen | {id(sq)}),
                 )
     return res
 
@@ -715,15 +763,12 @@ def _resolve_col(
             return _into(cands[0], name, ctx, depth, seen)
         if len(cands) > 1:
             res.problems.append(
-                ("ambiguous-column",
-                 f"unqualified {name!r} matches {len(cands)} sources")
+                ("ambiguous-column", f"unqualified {name!r} matches {len(cands)} sources")
             )
             return res
         if scope.parent is not None:
             return _resolve_col(col, scope.parent, ctx, depth + 1, seen)
-        res.problems.append(
-            ("unresolved-column", f"unqualified {name!r} matches no source")
-        )
+        res.problems.append(("unresolved-column", f"unqualified {name!r} matches no source"))
         return res
     # qualificado: maior prefixo primeiro
     for k in range(len(parts) - 1, 0, -1):
@@ -732,19 +777,18 @@ def _resolve_col(
         matches = [s for s in scope.sources if _match_qual(s, qual)]
         if len(matches) > 1:
             res.problems.append(
-                ("ambiguous-column",
-                 f"{'.'.join(parts)!r}: qualifier "
-                 f"{'.'.join(qual)!r} matches {len(matches)} sources")
+                (
+                    "ambiguous-column",
+                    f"{'.'.join(parts)!r}: qualifier "
+                    f"{'.'.join(qual)!r} matches {len(matches)} sources",
+                )
             )
             return res
         if len(matches) == 1:
             return _into(matches[0], colname, ctx, depth, seen)
     if scope.parent is not None:
         return _resolve_col(col, scope.parent, ctx, depth + 1, seen)
-    res.problems.append(
-        ("unresolved-column",
-         f"{'.'.join(parts)!r}: qualifier matches no source")
-    )
+    res.problems.append(("unresolved-column", f"{'.'.join(parts)!r}: qualifier matches no source"))
     return res
 
 
@@ -759,7 +803,8 @@ def _star_diag(ctx: _FileCtx, st: Statement, q: SelectStmt | None) -> None:
             qual = item.star.qualifier
             what = f"{'.'.join(qual)}.*" if qual else "*"
             ctx.diag(
-                "select-star", "warning",
+                "select-star",
+                "warning",
                 f"{st.kind} expands {what} — column lineage is "
                 "limited to non-star items; table lineage kept",
             )
@@ -782,8 +827,10 @@ def _col_lineage(
         for tbl_i, cname in res.terminals:
             src_i = ctx.col_entity(tbl_i, cname, evi, declared=False)
             ctx.add_rel(
-                DomainRelationKind.DERIVES_FROM.value, out_i,
-                to_i=src_i, evi=evi,
+                DomainRelationKind.DERIVES_FROM.value,
+                out_i,
+                to_i=src_i,
+                evi=evi,
             )
 
 
@@ -793,7 +840,8 @@ def _extract_file(ctx: _FileCtx, parsed: ParsedFile) -> None:
             _stmt(ctx, i, st)
         except Exception as exc:  # nunca crash — parcial honesto
             ctx.diag(
-                "extract-error", "error",
+                "extract-error",
+                "error",
                 f"{st.kind}#{i}: {type(exc).__name__}: {exc}",
             )
     # problemas do parser viram diagnósticos de domínio
@@ -801,7 +849,8 @@ def _extract_file(ctx: _FileCtx, parsed: ParsedFile) -> None:
         sev = "error" if d.severity == "error" else "warning"
         ctx.diag(
             d.code if d.code != "error-node" else "parse-error",
-            sev, d.message,
+            sev,
+            d.message,
         )
     ctx.stats["statements"] = len(parsed.statements)
     ctx.stats["parse_diagnostics"] = len(parsed.diagnostics)
@@ -811,15 +860,12 @@ def _stmt(ctx: _FileCtx, i: int, st: Statement) -> None:
     evi = ctx.evi(i, st.span)
     if st.dynamic:
         ctx.diag(
-            "dynamic-sql", "warning",
-            f"{st.kind}#{i} contains dynamic/template content — "
-            "only static parts were extracted",
+            "dynamic-sql",
+            "warning",
+            f"{st.kind}#{i} contains dynamic/template content — only static parts were extracted",
         )
     if isinstance(st, SUnsupported):
-        code = (
-            "dynamic-sql" if st.why == "dynamic-exec"
-            else "unsupported-statement"
-        )
+        code = "dynamic-sql" if st.why == "dynamic-exec" else "unsupported-statement"
         sev = "warning" if st.why == "dynamic-exec" else "info"
         ctx.diag(code, sev, f"statement skipped: {st.head or st.why}")
         return
@@ -847,16 +893,21 @@ def _read_edges(
     evi: int,
 ) -> None:
     for s in sources:
-        ti = ctx.table_entity(s.name, evi, declared=False,
-                              kind=DomainEntityKind.DATA_TABLE)
+        ti = ctx.table_entity(s.name, evi, declared=False, kind=DomainEntityKind.DATA_TABLE)
         ctx.add_rel(
-            DomainRelationKind.READS_FROM.value, tid,
-            to_i=ti, span=s.name.span, evi=evi,
+            DomainRelationKind.READS_FROM.value,
+            tid,
+            to_i=ti,
+            span=s.name.span,
+            evi=evi,
         )
     for d in dyn:
         ctx.add_rel(
-            DomainRelationKind.READS_FROM.value, tid,
-            to_text=d.written, span=d.span, evi=evi,
+            DomainRelationKind.READS_FROM.value,
+            tid,
+            to_text=d.written,
+            span=d.span,
+            evi=evi,
         )
 
 
@@ -879,13 +930,15 @@ def _derive_edges(
 ) -> None:
     tkey = target_i.logical_key()
     for s in sources:
-        ti = ctx.table_entity(s.name, evi, declared=False,
-                              kind=DomainEntityKind.DATA_TABLE)
+        ti = ctx.table_entity(s.name, evi, declared=False, kind=DomainEntityKind.DATA_TABLE)
         if ti.logical_key() == tkey:
             continue  # auto-derivação não é aresta
         ctx.add_rel(
-            DomainRelationKind.DERIVES_FROM.value, target_i,
-            to_i=ti, span=s.name.span, evi=evi,
+            DomainRelationKind.DERIVES_FROM.value,
+            target_i,
+            to_i=ti,
+            span=s.name.span,
+            evi=evi,
         )
 
 
@@ -905,36 +958,37 @@ def _select(ctx: _FileCtx, i: int, st: SSelect, evi: int) -> None:
 def _insert(ctx: _FileCtx, i: int, st: SInsert, evi: int) -> None:
     assert st.target is not None
     tid = ctx.transform_entity(i, st, evi)
-    tgt = ctx.table_entity(st.target, evi, declared=False,
-                           kind=DomainEntityKind.DATA_TABLE)
+    tgt = ctx.table_entity(st.target, evi, declared=False, kind=DomainEntityKind.DATA_TABLE)
     env = _cte_env(st.query.ctes if st.query else [])
     tables, dyn = _collect(ctx, env, [st.query] if st.query else [])
     _read_edges(ctx, tid, tables, dyn, evi)
     ctx.add_rel(
-        DomainRelationKind.WRITES_TO.value, tid,
-        to_i=tgt, span=st.target.span, evi=evi,
+        DomainRelationKind.WRITES_TO.value,
+        tid,
+        to_i=tgt,
+        span=st.target.span,
+        evi=evi,
     )
     _derive_edges(ctx, tgt, tables, evi)
     if st.query is not None:
         _star_diag(ctx, st, st.query)
         if st.columns is None:
             ctx.diag(
-                "implicit-column-list", "info",
-                "INSERT without column list — target column names "
-                "unknown; column lineage skipped",
+                "implicit-column-list",
+                "info",
+                "INSERT without column list — target column names unknown; column lineage skipped",
             )
         else:
             pairs = _positional_pairs(st.columns, st.query)
             if pairs is None:
                 ctx.diag(
-                    "column-count-mismatch", "warning",
+                    "column-count-mismatch",
+                    "warning",
                     f"INSERT column list ({len(st.columns)}) does not "
                     f"match select items — mapped common prefix",
                 )
                 pairs = _positional_pairs(st.columns, st.query, strict=False)
-            scope = _build_scope(
-                st.query.sources, env, ctx, None, 0, frozenset()
-            )
+            scope = _build_scope(st.query.sources, env, ctx, None, 0, frozenset())
             _col_lineage(ctx, scope, pairs or [], tgt, evi)
     elif st.value_rows:
         # VALUES literal — sem upstream; subqueries nas linhas são lidas
@@ -947,9 +1001,9 @@ def _insert(ctx: _FileCtx, i: int, st: SInsert, evi: int) -> None:
         _read_edges(ctx, tid, sub_tables, sub_dyn, evi)
         if st.columns is None:
             ctx.diag(
-                "implicit-column-list", "info",
-                "INSERT … VALUES without column list — "
-                "column lineage skipped",
+                "implicit-column-list",
+                "info",
+                "INSERT … VALUES without column list — column lineage skipped",
             )
 
 
@@ -959,18 +1013,13 @@ def _positional_pairs(
     items = q.items
     if strict and len(cols) != len(items):
         return None
-    return [
-        (c, items[k].refs)
-        for k, c in enumerate(cols)
-        if k < len(items)
-    ]
+    return [(c, items[k].refs) for k, c in enumerate(cols) if k < len(items)]
 
 
 def _update(ctx: _FileCtx, i: int, st: SUpdate, evi: int) -> None:
     assert st.target is not None
     tid = ctx.transform_entity(i, st, evi)
-    tgt = ctx.table_entity(st.target, evi, declared=False,
-                           kind=DomainEntityKind.DATA_TABLE)
+    tgt = ctx.table_entity(st.target, evi, declared=False, kind=DomainEntityKind.DATA_TABLE)
     env = _cte_env(st.ctes)
     tables: list[SrcTable] = []
     dyn: list[SrcUnsupported] = []
@@ -981,18 +1030,25 @@ def _update(ctx: _FileCtx, i: int, st: SUpdate, evi: int) -> None:
         for sq in refs.subqueries:
             _query_tables(sq, dict(env), tables, dyn, ctx, 0)
     ctx.add_rel(
-        DomainRelationKind.READS_FROM.value, tid,
-        to_i=tgt, span=st.target.span, evi=evi,
+        DomainRelationKind.READS_FROM.value,
+        tid,
+        to_i=tgt,
+        span=st.target.span,
+        evi=evi,
     )
     _read_edges(ctx, tid, tables, dyn, evi)
     ctx.add_rel(
-        DomainRelationKind.TRANSFORMS.value, tid,
-        to_i=tgt, span=st.target.span, evi=evi,
+        DomainRelationKind.TRANSFORMS.value,
+        tid,
+        to_i=tgt,
+        span=st.target.span,
+        evi=evi,
     )
     _derive_edges(ctx, tgt, tables, evi)
     # escopo: o próprio alvo + fontes da cláusula FROM
     tsrc = _TblSrc(
-        ident=tgt, parts=st.target.parts,
+        ident=tgt,
+        parts=st.target.parts,
         alias=st.target_alias or st.target.parts[-1],
         span=st.target.span,
     )
@@ -1009,8 +1065,7 @@ def _update(ctx: _FileCtx, i: int, st: SUpdate, evi: int) -> None:
 def _delete(ctx: _FileCtx, i: int, st: SDelete, evi: int) -> None:
     assert st.target is not None
     tid = ctx.transform_entity(i, st, evi)
-    tgt = ctx.table_entity(st.target, evi, declared=False,
-                           kind=DomainEntityKind.DATA_TABLE)
+    tgt = ctx.table_entity(st.target, evi, declared=False, kind=DomainEntityKind.DATA_TABLE)
     env = _cte_env(st.ctes)
     tables: list[SrcTable] = []
     dyn: list[SrcUnsupported] = []
@@ -1018,13 +1073,19 @@ def _delete(ctx: _FileCtx, i: int, st: SDelete, evi: int) -> None:
     for q in st.tail_subqueries:
         _query_tables(q, dict(env), tables, dyn, ctx, 0)
     ctx.add_rel(
-        DomainRelationKind.READS_FROM.value, tid,
-        to_i=tgt, span=st.target.span, evi=evi,
+        DomainRelationKind.READS_FROM.value,
+        tid,
+        to_i=tgt,
+        span=st.target.span,
+        evi=evi,
     )
     _read_edges(ctx, tid, tables, dyn, evi)
     ctx.add_rel(
-        DomainRelationKind.TRANSFORMS.value, tid,
-        to_i=tgt, span=st.target.span, evi=evi,
+        DomainRelationKind.TRANSFORMS.value,
+        tid,
+        to_i=tgt,
+        span=st.target.span,
+        evi=evi,
     )
     _derive_edges(ctx, tgt, tables, evi)
 
@@ -1032,8 +1093,7 @@ def _delete(ctx: _FileCtx, i: int, st: SDelete, evi: int) -> None:
 def _merge(ctx: _FileCtx, i: int, st: SMerge, evi: int) -> None:
     assert st.target is not None and st.source is not None
     tid = ctx.transform_entity(i, st, evi)
-    tgt = ctx.table_entity(st.target, evi, declared=False,
-                           kind=DomainEntityKind.DATA_TABLE)
+    tgt = ctx.table_entity(st.target, evi, declared=False, kind=DomainEntityKind.DATA_TABLE)
     env = _cte_env(st.ctes)
     tables: list[SrcTable] = []
     dyn: list[SrcUnsupported] = []
@@ -1047,20 +1107,27 @@ def _merge(ctx: _FileCtx, i: int, st: SMerge, evi: int) -> None:
         for sq in refs.subqueries:
             _query_tables(sq, dict(env), tables, dyn, ctx, 0)
     ctx.add_rel(
-        DomainRelationKind.READS_FROM.value, tid,
-        to_i=tgt, span=st.target.span, evi=evi,
+        DomainRelationKind.READS_FROM.value,
+        tid,
+        to_i=tgt,
+        span=st.target.span,
+        evi=evi,
     )
     _read_edges(ctx, tid, tables, dyn, evi)
     ctx.add_rel(
-        DomainRelationKind.TRANSFORMS.value, tid,
-        to_i=tgt, span=st.target.span, evi=evi,
+        DomainRelationKind.TRANSFORMS.value,
+        tid,
+        to_i=tgt,
+        span=st.target.span,
+        evi=evi,
     )
     _derive_edges(ctx, tgt, tables, evi)
     # escopo: alvo + fonte do USING
     scope = _Scope(sources=[])
     scope.sources.append(
         _TblSrc(
-            ident=tgt, parts=st.target.parts,
+            ident=tgt,
+            parts=st.target.parts,
             alias=st.target_alias or st.target.parts[-1],
             span=st.target.span,
         )
@@ -1079,7 +1146,8 @@ def _merge(ctx: _FileCtx, i: int, st: SMerge, evi: int) -> None:
         ]
         if len(st.insert_cols) != len(st.insert_exprs):
             ctx.diag(
-                "column-count-mismatch", "warning",
+                "column-count-mismatch",
+                "warning",
                 "MERGE INSERT column list does not match VALUES arity",
             )
         _col_lineage(ctx, scope, pairs, tgt, evi)
@@ -1087,35 +1155,46 @@ def _merge(ctx: _FileCtx, i: int, st: SMerge, evi: int) -> None:
 
 def _create_table(ctx: _FileCtx, i: int, st: SCreateTable, evi: int) -> None:
     assert st.name is not None
-    tgt = ctx.table_entity(st.name, evi, declared=True,
-                           kind=DomainEntityKind.DATA_TABLE)
+    tgt = ctx.table_entity(st.name, evi, declared=True, kind=DomainEntityKind.DATA_TABLE)
     for cname, ctype in st.columns:
         ident = ctx.col_ident(tgt, cname)
         ctx.add_entity(
-            ident, DomainEntityKind.DATA_COLUMN, cname, None,
+            ident,
+            DomainEntityKind.DATA_COLUMN,
+            cname,
+            None,
             {
                 "table": tgt.display(),
                 "declared_type": ctype,
                 "dialect": ctx.dialect,
                 "declared": "create",
             },
-            prio=3, evi=evi,
+            prio=3,
+            evi=evi,
         )
     if st.like is not None:
         tid = ctx.transform_entity(i, st, evi)
-        li = ctx.table_entity(st.like, evi, declared=False,
-                              kind=DomainEntityKind.DATA_TABLE)
+        li = ctx.table_entity(st.like, evi, declared=False, kind=DomainEntityKind.DATA_TABLE)
         ctx.add_rel(
-            DomainRelationKind.READS_FROM.value, tid,
-            to_i=li, span=st.like.span, evi=evi,
+            DomainRelationKind.READS_FROM.value,
+            tid,
+            to_i=li,
+            span=st.like.span,
+            evi=evi,
         )
         ctx.add_rel(
-            DomainRelationKind.WRITES_TO.value, tid,
-            to_i=tgt, span=st.name.span, evi=evi,
+            DomainRelationKind.WRITES_TO.value,
+            tid,
+            to_i=tgt,
+            span=st.name.span,
+            evi=evi,
         )
         ctx.add_rel(
-            DomainRelationKind.DERIVES_FROM.value, tgt,
-            to_i=li, span=st.like.span, evi=evi,
+            DomainRelationKind.DERIVES_FROM.value,
+            tgt,
+            to_i=li,
+            span=st.like.span,
+            evi=evi,
         )
     if st.query is not None:
         tid = ctx.transform_entity(i, st, evi)
@@ -1123,36 +1202,37 @@ def _create_table(ctx: _FileCtx, i: int, st: SCreateTable, evi: int) -> None:
         tables, dyn = _collect(ctx, env, [st.query])
         _read_edges(ctx, tid, tables, dyn, evi)
         ctx.add_rel(
-            DomainRelationKind.WRITES_TO.value, tid,
-            to_i=tgt, span=st.name.span, evi=evi,
+            DomainRelationKind.WRITES_TO.value,
+            tid,
+            to_i=tgt,
+            span=st.name.span,
+            evi=evi,
         )
         _derive_edges(ctx, tgt, tables, evi)
         _star_diag(ctx, st, st.query)
         pairs = _named_pairs(ctx, st.query)
-        scope = _build_scope(
-            st.query.sources, env, ctx, None, 0, frozenset()
-        )
+        scope = _build_scope(st.query.sources, env, ctx, None, 0, frozenset())
         _col_lineage(ctx, scope, pairs, tgt, evi)
 
 
 def _create_view(ctx: _FileCtx, i: int, st: SCreateView, evi: int) -> None:
     assert st.name is not None and st.query is not None
-    tgt = ctx.table_entity(st.name, evi, declared=True,
-                           kind=DomainEntityKind.DATA_VIEW)
+    tgt = ctx.table_entity(st.name, evi, declared=True, kind=DomainEntityKind.DATA_VIEW)
     tid = ctx.transform_entity(i, st, evi)
     env = _cte_env(st.query.ctes)
     tables, dyn = _collect(ctx, env, [st.query])
     _read_edges(ctx, tid, tables, dyn, evi)
     ctx.add_rel(
-        DomainRelationKind.WRITES_TO.value, tid,
-        to_i=tgt, span=st.name.span, evi=evi,
+        DomainRelationKind.WRITES_TO.value,
+        tid,
+        to_i=tgt,
+        span=st.name.span,
+        evi=evi,
     )
     _derive_edges(ctx, tgt, tables, evi)
     _star_diag(ctx, st, st.query)
     pairs = _named_pairs(ctx, st.query, col_aliases=st.col_aliases)
-    scope = _build_scope(
-        st.query.sources, env, ctx, None, 0, frozenset()
-    )
+    scope = _build_scope(st.query.sources, env, ctx, None, 0, frozenset())
     _col_lineage(ctx, scope, pairs, tgt, evi)
 
 
@@ -1178,9 +1258,9 @@ def _named_pairs(
         if name is None:
             if item.star is None:
                 ctx.diag(
-                    "unnamed-output", "info",
-                    "output column has no resolvable name — "
-                    "column lineage skipped for it",
+                    "unnamed-output",
+                    "info",
+                    "output column has no resolvable name — column lineage skipped for it",
                 )
             continue
         pairs.append((name, item.refs))
@@ -1190,19 +1270,19 @@ def _named_pairs(
 def _truncate(ctx: _FileCtx, i: int, st: STruncate, evi: int) -> None:
     assert st.name is not None
     tid = ctx.transform_entity(i, st, evi)
-    tgt = ctx.table_entity(st.name, evi, declared=False,
-                           kind=DomainEntityKind.DATA_TABLE)
+    tgt = ctx.table_entity(st.name, evi, declared=False, kind=DomainEntityKind.DATA_TABLE)
     ctx.add_rel(
-        DomainRelationKind.TRANSFORMS.value, tid,
-        to_i=tgt, span=st.name.span, evi=evi,
+        DomainRelationKind.TRANSFORMS.value,
+        tid,
+        to_i=tgt,
+        span=st.name.span,
+        evi=evi,
     )
 
 
 # Dispatch por tipo de statement — ``_use``/``SUnsupported`` ficam fora
 # porque têm assinatura e semântica próprias (sem evidência de statement).
-_STMT_HANDLERS: dict[
-    type[Statement], Callable[[_FileCtx, int, Any, int], None]
-] = {
+_STMT_HANDLERS: dict[type[Statement], Callable[[_FileCtx, int, Any, int], None]] = {
     SSelect: _select,
     SInsert: _insert,
     SUpdate: _update,
@@ -1238,25 +1318,37 @@ def extract_parsed(
 ) -> FileExtraction:
     """Converte ``ParsedFile`` em fatos de domínio de um artefato."""
     ctx = _FileCtx(
-        repository=repository, root=root, environment=environment,
-        path=path, sha=sha, dialect=parsed.dialect,
+        repository=repository,
+        root=root,
+        environment=environment,
+        path=path,
+        sha=sha,
+        dialect=parsed.dialect,
         adapter_version=adapter_version,
     )
     _extract_file(ctx, parsed)
     ctx.finish_diags()
     entities = [
         ExtractedDomainEntity(
-            identity=acc.identity, kind=acc.kind, name=acc.name,
-            path=path, span=acc.span, content_hash=sha,
-            attributes=acc.attrs, evidence=tuple(sorted(acc.ev)),
+            identity=acc.identity,
+            kind=acc.kind,
+            name=acc.name,
+            path=path,
+            span=acc.span,
+            content_hash=sha,
+            attributes=acc.attrs,
+            evidence=tuple(sorted(acc.ev)),
         )
         for acc in ctx.entities.values()
     ]
     relations = [
         ExtractedDomainRelation(
-            relation_type=acc.rtype, path=path,
-            from_identity=acc.from_i, to_identity=acc.to_i,
-            to_unresolved=acc.to_text, span=acc.span,
+            relation_type=acc.rtype,
+            path=path,
+            from_identity=acc.from_i,
+            to_identity=acc.to_i,
+            to_unresolved=acc.to_text,
+            span=acc.span,
             evidence=tuple(sorted(acc.ev)),
         )
         for acc in ctx.relations.values()
@@ -1266,6 +1358,9 @@ def extract_parsed(
     stats["relations"] = len(relations)
     stats["diagnostics"] = len(ctx.diagnostics)
     return FileExtraction(
-        entities=entities, relations=relations,
-        evidence=ctx.evidence, diagnostics=ctx.diagnostics, stats=stats,
+        entities=entities,
+        relations=relations,
+        evidence=ctx.evidence,
+        diagnostics=ctx.diagnostics,
+        stats=stats,
     )

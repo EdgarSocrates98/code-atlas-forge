@@ -64,9 +64,7 @@ def extract(adapter: SqlDomainAdapter):
         arts = tuple(
             DiscoveredArtifact(
                 path=p,
-                sha256=hashlib.sha256(
-                    (FIXTURE / p).read_bytes()
-                ).hexdigest(),
+                sha256=hashlib.sha256((FIXTURE / p).read_bytes()).hexdigest(),
             )
             for p in paths
         )
@@ -85,9 +83,7 @@ def extract(adapter: SqlDomainAdapter):
 def inline():
     """``inline(sql)`` → FileExtraction de SQL inline (cenário pontual)."""
 
-    def _run(
-        text: str, *, path: str = "inline.sql", repository: str = "repo"
-    ):
+    def _run(text: str, *, path: str = "inline.sql", repository: str = "repo"):
         return extract_parsed(
             parse_file(text),
             repository=repository,
@@ -110,15 +106,8 @@ def rels():
         for r in fx.relations:
             if r.relation_type != rtype:
                 continue
-            frm = (
-                r.from_identity.display()
-                if r.from_identity else r.from_symbol or "?"
-            )
-            to = (
-                r.to_identity.display()
-                if r.to_identity
-                else r.to_unresolved or r.to_symbol
-            )
+            frm = r.from_identity.display() if r.from_identity else r.from_symbol or "?"
+            to = r.to_identity.display() if r.to_identity else r.to_unresolved or r.to_symbol
             out.add((frm, to))
         return out
 

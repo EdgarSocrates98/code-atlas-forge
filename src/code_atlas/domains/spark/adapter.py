@@ -50,9 +50,7 @@ class PySparkAdapter:
     """Adapter ``pyspark`` — linhagem estática de DataFrames."""
 
     def __init__(self, base_path: str | Path | None = None) -> None:
-        self._base = (
-            Path(base_path) if base_path is not None else Path.cwd()
-        )
+        self._base = Path(base_path) if base_path is not None else Path.cwd()
 
     # -- contrato ------------------------------------------------------
 
@@ -118,13 +116,9 @@ class PySparkAdapter:
 
     # -- extract ---------------------------------------------------------
 
-    def extract(
-        self, request: DomainExtractionRequest
-    ) -> DomainExtractionResult:
+    def extract(self, request: DomainExtractionRequest) -> DomainExtractionResult:
         try:
-            return _extract(
-                request, self.adapter_version, self._base
-            )
+            return _extract(request, self.adapter_version, self._base)
         except Exception as exc:  # última linha de defesa — nunca levanta
             return DomainExtractionResult(
                 domain_id=self.domain_id,

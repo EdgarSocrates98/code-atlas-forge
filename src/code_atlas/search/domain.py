@@ -52,7 +52,7 @@ from code_atlas.search.contracts import (
 from code_atlas.search.tokenizer import fts_escape, split_identifier
 
 # Tetos honestos da faceta — declarados em diagnóstico quando batidos.
-_CANDIDATE_CAP = 200   # entidades candidatas escaneadas (match direto)
+_CANDIDATE_CAP = 200  # entidades candidatas escaneadas (match direto)
 _RELATED_EDGE_CAP = 500  # arestas entity↔entity lidas na expansão
 _MAX_LIMIT = 200
 _RELATED_SCORE = 0.5
@@ -153,10 +153,12 @@ class DomainEntitySearch:
     def available(self) -> bool:
         """Schema >=v9 presente — cacheada por instância."""
         if self._available is None:
-            self._available = self._conn.execute(
-                "SELECT 1 FROM sqlite_master"
-                " WHERE name='domain_entity_occurrences'"
-            ).fetchone() is not None
+            self._available = (
+                self._conn.execute(
+                    "SELECT 1 FROM sqlite_master WHERE name='domain_entity_occurrences'"
+                ).fetchone()
+                is not None
+            )
         return self._available
 
     def _fts_usable_for(self, snapshot_id: int) -> bool:
@@ -167,16 +169,20 @@ class DomainEntitySearch:
         instância (uma SearchEngine por request nas superfícies).
         """
         if self._fts_present is None:
-            self._fts_present = self._conn.execute(
-                "SELECT 1 FROM sqlite_master WHERE name='domain_fts'"
-            ).fetchone() is not None
+            self._fts_present = (
+                self._conn.execute("SELECT 1 FROM sqlite_master WHERE name='domain_fts'").fetchone()
+                is not None
+            )
         if not self._fts_present:
             return False
         if snapshot_id not in self._fts_covered:
-            self._fts_covered[snapshot_id] = self._conn.execute(
-                "SELECT 1 FROM domain_fts WHERE snapshot_id = ? LIMIT 1",
-                (snapshot_id,),
-            ).fetchone() is not None
+            self._fts_covered[snapshot_id] = (
+                self._conn.execute(
+                    "SELECT 1 FROM domain_fts WHERE snapshot_id = ? LIMIT 1",
+                    (snapshot_id,),
+                ).fetchone()
+                is not None
+            )
         return self._fts_covered[snapshot_id]
 
     def search(
@@ -194,51 +200,78 @@ class DomainEntitySearch:
         """
         diags: list[SearchDiagnostic] = []
         if not self.available():
-            return (), 0, (SearchDiagnostic(
-                code="domain-facet-unavailable", severity="info",
-                message="tabelas de domínio ausentes (schema <v9)"),)
+            return (
+                (),
+                0,
+                (
+                    SearchDiagnostic(
+                        code="domain-facet-unavailable",
+                        severity="info",
+                        message="tabelas de domínio ausentes (schema <v9)",
+                    ),
+                ),
+            )
         if req.language:
-            return (), 0, (SearchDiagnostic(
-                code="domain-facet-skipped", severity="info",
-                message="filtro language não se aplica a entidades de "
-                        "domínio — faceta omitida"),)
+            return (
+                (),
+                0,
+                (
+                    SearchDiagnostic(
+                        code="domain-facet-skipped",
+                        severity="info",
+                        message="filtro language não se aplica a entidades de "
+                        "domínio — faceta omitida",
+                    ),
+                ),
+            )
         q = req.query.strip()
         if not q:
             return (), 0, ()
         limit = max(1, min(req.limit or 20, _MAX_LIMIT))
 
         rows, total, capped, fb_diag, used_fts = self._direct_rows(
-            req, repository_id, snapshot_id, q)
+            req, repository_id, snapshot_id, q
+        )
         if fb_diag is not None:
             diags.append(fb_diag)
         if capped:
-            diags.append(SearchDiagnostic(
-                code="domain-facet-capped", severity="info",
-                message=f"faceta de domínio escaneou os primeiros "
-                        f"{_CANDIDATE_CAP} de {total} matches diretos"))
+            diags.append(
+                SearchDiagnostic(
+                    code="domain-facet-capped",
+                    severity="info",
+                    message=f"faceta de domínio escaneou os primeiros "
+                    f"{_CANDIDATE_CAP} de {total} matches diretos",
+                )
+            )
         direct_ids = [int(r["entity_id"]) for r in rows]
         occ_paths = self._representative_occurrences(
-            snapshot_id, [int(r["first_occurrence_id"]) for r in rows])
+            snapshot_id, [int(r["first_occurrence_id"]) for r in rows]
+        )
 
         hits = [
             self._direct_hit(
-                r, q, occ_paths.get(int(r["first_occurrence_id"]), {}),
-                repository_id, snapshot_id, used_fts)
+                r,
+                q,
+                occ_paths.get(int(r["first_occurrence_id"]), {}),
+                repository_id,
+                snapshot_id,
+                used_fts,
+            )
             for r in rows
         ]
 
         related_total = 0
         if include_related and hits:
             related, rel_diags = self._related_hits(
-                req, repository_id, snapshot_id, set(direct_ids))
+                req, repository_id, snapshot_id, set(direct_ids)
+            )
             diags.extend(rel_diags)
             related_total = len(related)
             hits.extend(related)
 
         # Ordem determinística: exato > direto > via_relation, depois
         # identidade da entidade — nunca depende de ordem de scan.
-        hits.sort(key=lambda h: (
-            -h.score, h.domain, h.kind, h.qualified_name, h.entity_id))
+        hits.sort(key=lambda h: (-h.score, h.domain, h.kind, h.qualified_name, h.entity_id))
         return tuple(hits[:limit]), total + related_total, tuple(diags)
 
     @staticmethod
@@ -267,7 +300,8 @@ class DomainEntitySearch:
         return DomainSearchHit(
             entity_id=int(r["entity_id"]),
             occurrence_id=int(r["first_occurrence_id"]),
-            domain=str(r["domain"]), kind=str(r["kind"]),
+            domain=str(r["domain"]),
+            kind=str(r["kind"]),
             qualified_name=str(r["qualified_name"]),
             name=str(r["name"]),
             identity_key=str(r["identity_key"]),
@@ -293,35 +327,36 @@ class DomainEntitySearch:
         repository_id: int,
         snapshot_id: int,
         q: str,
-    ) -> tuple[
-        list[sqlite3.Row], int, bool, SearchDiagnostic | None, bool
-    ]:
+    ) -> tuple[list[sqlite3.Row], int, bool, SearchDiagnostic | None, bool]:
         """Despacha FTS→LIKE — ``(rows, total, capped, diag, used_fts)``."""
         if self._fts_usable_for(snapshot_id):
             try:
-                out = self._direct_rows_fts(
-                    req, repository_id, snapshot_id, q)
+                out = self._direct_rows_fts(req, repository_id, snapshot_id, q)
             except sqlite3.OperationalError as exc:
-                return (*self._direct_rows_like(
-                    req, repository_id, snapshot_id, q),
+                return (
+                    *self._direct_rows_like(req, repository_id, snapshot_id, q),
                     SearchDiagnostic(
-                        code="domain-fts-error", severity="warning",
-                        message=f"MATCH de domínio falhou ({exc}) — "
-                                "LIKE bounded aplicado"), False)
+                        code="domain-fts-error",
+                        severity="warning",
+                        message=f"MATCH de domínio falhou ({exc}) — LIKE bounded aplicado",
+                    ),
+                    False,
+                )
             if out is not None:
                 return *out, None, True
             # query não expressível em MATCH (sem tokens): LIKE cobre.
-            return (*self._direct_rows_like(
-                req, repository_id, snapshot_id, q), None, False)
+            return (*self._direct_rows_like(req, repository_id, snapshot_id, q), None, False)
         if self._fts_present:
-            return (*self._direct_rows_like(
-                req, repository_id, snapshot_id, q),
+            return (
+                *self._direct_rows_like(req, repository_id, snapshot_id, q),
                 SearchDiagnostic(
-                    code="domain-fts-fallback", severity="info",
-                    message="snapshot sem cobertura domain_fts (pré-v12) "
-                            "— LIKE bounded aplicado"), False)
-        return (*self._direct_rows_like(
-            req, repository_id, snapshot_id, q), None, False)
+                    code="domain-fts-fallback",
+                    severity="info",
+                    message="snapshot sem cobertura domain_fts (pré-v12) — LIKE bounded aplicado",
+                ),
+                False,
+            )
+        return (*self._direct_rows_like(req, repository_id, snapshot_id, q), None, False)
 
     def _direct_rows_fts(
         self,
@@ -359,8 +394,7 @@ class DomainEntitySearch:
         # (match, snapshot) — ordem textual dos placeholders.
         sel_params = [like, q, q, match, snapshot_id, repository_id, *params]
         list_sql = (
-            _FTS_SELECT + outer
-            + " GROUP BY de.id"
+            _FTS_SELECT + outer + " GROUP BY de.id"
             " ORDER BY m_exact DESC, m_rank,"
             " de.domain, de.kind, de.qualified_name, de.id LIMIT ?"
         )
@@ -370,11 +404,12 @@ class DomainEntitySearch:
             " WHERE domain_fts MATCH ? AND snapshot_id = ? LIMIT -1) f"
             " JOIN domain_entities de ON de.id = f.entity_id " + outer
         )
-        rows = self._conn.execute(
-            list_sql, [*sel_params, _CANDIDATE_CAP]).fetchall()
-        total = int(self._conn.execute(
-            count_sql, [match, snapshot_id, repository_id, *params]
-        ).fetchone()["n"])
+        rows = self._conn.execute(list_sql, [*sel_params, _CANDIDATE_CAP]).fetchall()
+        total = int(
+            self._conn.execute(count_sql, [match, snapshot_id, repository_id, *params]).fetchone()[
+                "n"
+            ]
+        )
         return rows, total, total > _CANDIDATE_CAP
 
     def _direct_rows_like(
@@ -420,11 +455,10 @@ class DomainEntitySearch:
             "LEFT JOIN source_files sf ON sf.id = deo.source_file_id "
             f"WHERE de.repository_id = ? AND {where}"
         )
-        rows = self._conn.execute(
-            list_sql, [*sel_params, _CANDIDATE_CAP]).fetchall()
-        total = int(self._conn.execute(
-            count_sql, [snapshot_id, repository_id, *params]
-        ).fetchone()["n"])
+        rows = self._conn.execute(list_sql, [*sel_params, _CANDIDATE_CAP]).fetchall()
+        total = int(
+            self._conn.execute(count_sql, [snapshot_id, repository_id, *params]).fetchone()["n"]
+        )
         return rows, total, total > _CANDIDATE_CAP
 
     def _representative_occurrences(
@@ -489,14 +523,16 @@ class DomainEntitySearch:
             " WHERE r.snapshot_id = ?"
             " AND te.entity_id IN (SELECT value FROM json_each(?))"
             " ORDER BY rel_id LIMIT ?",
-            (snapshot_id, ids_json, snapshot_id, ids_json,
-             _RELATED_EDGE_CAP),
+            (snapshot_id, ids_json, snapshot_id, ids_json, _RELATED_EDGE_CAP),
         ).fetchall()
         if len(edge_rows) >= _RELATED_EDGE_CAP:
-            diags.append(SearchDiagnostic(
-                code="domain-related-capped", severity="info",
-                message=f"expansão via_relation leu o teto de "
-                        f"{_RELATED_EDGE_CAP} arestas"))
+            diags.append(
+                SearchDiagnostic(
+                    code="domain-related-capped",
+                    severity="info",
+                    message=f"expansão via_relation leu o teto de {_RELATED_EDGE_CAP} arestas",
+                )
+            )
         via: dict[int, str] = {}
         for r in edge_rows:
             fe, te = int(r["from_entity"]), int(r["to_entity"])
@@ -507,8 +543,7 @@ class DomainEntitySearch:
         if not via:
             return [], tuple(diags)
         extra_conds = ""
-        params: list[object] = [snapshot_id, repository_id,
-                                json.dumps(sorted(via))]
+        params: list[object] = [snapshot_id, repository_id, json.dumps(sorted(via))]
         if req.domain:
             extra_conds += " AND de.domain = ?"
             params.append(req.domain)
@@ -528,9 +563,7 @@ class DomainEntitySearch:
             "   ON deo.entity_id = de.id AND deo.snapshot_id = ?"
             " LEFT JOIN source_files sf ON sf.id = deo.source_file_id"
             " WHERE de.repository_id = ?"
-            " AND de.id IN (SELECT value FROM json_each(?))"
-            + extra_conds
-            + " GROUP BY de.id"
+            " AND de.id IN (SELECT value FROM json_each(?))" + extra_conds + " GROUP BY de.id"
             " ORDER BY de.domain, de.kind, de.qualified_name, de.id"
         )
         rows = self._conn.execute(related_sql, params).fetchall()
@@ -538,7 +571,8 @@ class DomainEntitySearch:
             DomainSearchHit(
                 entity_id=int(r["entity_id"]),
                 occurrence_id=int(r["first_occurrence_id"]),
-                domain=str(r["domain"]), kind=str(r["kind"]),
+                domain=str(r["domain"]),
+                kind=str(r["kind"]),
                 qualified_name=str(r["qualified_name"]),
                 name=str(r["name"]),
                 identity_key=str(r["identity_key"]),
@@ -553,8 +587,7 @@ class DomainEntitySearch:
                 snapshot_id=snapshot_id,
                 score=_RELATED_SCORE,
                 matched_fields=("via_relation",),
-                evidence=(f"de:{int(r['entity_id'])}",
-                          via[int(r["entity_id"])]),
+                evidence=(f"de:{int(r['entity_id'])}", via[int(r["entity_id"])]),
             )
             for r in rows
         ]

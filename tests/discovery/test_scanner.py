@@ -115,8 +115,7 @@ def test_default_ignores_pruned(tmp_path: Path) -> None:
     assert paths(res) == {"keep.py"}
 
 
-@pytest.mark.skipif(sys.platform == "win32",
-                    reason="os.symlink exige privilégio no Windows")
+@pytest.mark.skipif(sys.platform == "win32", reason="os.symlink exige privilégio no Windows")
 def test_symlink_escape_outside(tmp_path: Path) -> None:
     outside = tmp_path / "outside"
     outside.mkdir()
@@ -133,8 +132,7 @@ def test_symlink_escape_outside(tmp_path: Path) -> None:
     assert not any("outside" in f.path or "escape" in f.path for f in res.files)
 
 
-@pytest.mark.skipif(sys.platform == "win32",
-                    reason="os.symlink exige privilégio no Windows")
+@pytest.mark.skipif(sys.platform == "win32", reason="os.symlink exige privilégio no Windows")
 def test_symlink_inside_allowed(tmp_path: Path) -> None:
     (tmp_path / "real.py").write_text("x=1\n")
     os.symlink(tmp_path / "real.py", tmp_path / "link.py")
@@ -142,8 +140,7 @@ def test_symlink_inside_allowed(tmp_path: Path) -> None:
     assert "link.py" in paths(res)
 
 
-@pytest.mark.skipif(sys.platform == "win32",
-                    reason="os.symlink exige privilégio no Windows")
+@pytest.mark.skipif(sys.platform == "win32", reason="os.symlink exige privilégio no Windows")
 def test_circular_symlink_no_loop(tmp_path: Path) -> None:
     (tmp_path / "a").mkdir()
     os.symlink(tmp_path / "a", tmp_path / "a" / "loop")
@@ -157,9 +154,7 @@ def test_unicode_and_space_names(tmp_path: Path) -> None:
     for name in ("arquivo com espaços.py", "ação.py", "日本語.py", "café.md"):
         (tmp_path / name).write_text("x\n")
     res = scan(tmp_path)
-    assert paths(res) == {
-        "arquivo com espaços.py", "ação.py", "日本語.py", "café.md"
-    }
+    assert paths(res) == {"arquivo com espaços.py", "ação.py", "日本語.py", "café.md"}
 
 
 def test_binary_and_malformed_utf8(tmp_path: Path) -> None:

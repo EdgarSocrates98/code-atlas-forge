@@ -24,6 +24,7 @@ class ParserAdapter(Protocol):
     language: str
     extensions: tuple[str, ...]
     capabilities: ParserCapability
+
     def parse(self, request: ParseRequest) -> ParseResult: ...
 ```
 

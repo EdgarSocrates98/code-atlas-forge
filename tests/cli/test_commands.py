@@ -14,18 +14,38 @@ def test_help_clean_of_future_verbs(capsys: pytest.CaptureFixture[str]) -> None:
     with pytest.raises(SystemExit):
         cli.main(["--help"])
     out = capsys.readouterr().out
-    for cmd in ("doctor", "init", "index", "status",
-                "search", "symbol", "references", "graph",
-                "index-plan", "definitions", "dependencies"):
+    for cmd in (
+        "doctor",
+        "init",
+        "index",
+        "status",
+        "search",
+        "symbol",
+        "references",
+        "graph",
+        "index-plan",
+        "definitions",
+        "dependencies",
+    ):
         assert cmd in out
     for fake in ("serve", "ui", "workspace", "plugin"):
         assert fake not in out
 
 
 def test_each_subcommand_help(capsys: pytest.CaptureFixture[str]) -> None:
-    for cmd in ("doctor", "init", "index", "status",
-                "search", "symbol", "references", "graph",
-                "index-plan", "definitions", "dependencies"):
+    for cmd in (
+        "doctor",
+        "init",
+        "index",
+        "status",
+        "search",
+        "symbol",
+        "references",
+        "graph",
+        "index-plan",
+        "definitions",
+        "dependencies",
+    ):
         with pytest.raises(SystemExit) as exc:
             cli.main([cmd, "--help"])
         assert exc.value.code == 0

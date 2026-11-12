@@ -111,9 +111,7 @@ class ParseEngine:
             )
         return result
 
-    def parse_batch(
-        self, items: Iterable[tuple[str, bytes]]
-    ) -> list[ParseResult]:
+    def parse_batch(self, items: Iterable[tuple[str, bytes]]) -> list[ParseResult]:
         """Parse de lote — isolamento garantido por arquivo."""
         return [self.parse(path, content) for path, content in items]
 

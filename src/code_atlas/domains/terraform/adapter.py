@@ -90,26 +90,28 @@ class TerraformAdapter:
     def discovery_rules(self) -> tuple[DiscoveryRule, ...]:
         return (
             DiscoveryRule(
-                glob="*.tf", artifact_kind="tf-configuration",
+                glob="*.tf",
+                artifact_kind="tf-configuration",
                 notes="HCL configuration files (any depth)",
             ),
             DiscoveryRule(
-                glob="*.tf.json", artifact_kind="tf-json",
+                glob="*.tf.json",
+                artifact_kind="tf-json",
                 notes="JSON-flavoured Terraform configuration",
             ),
             DiscoveryRule(
-                glob="*.tfvars", artifact_kind="tf-vars",
+                glob="*.tfvars",
+                artifact_kind="tf-vars",
                 notes="variable assignments — secrets never surfaced",
             ),
             DiscoveryRule(
-                glob="*.tfvars.json", artifact_kind="tf-vars-json",
+                glob="*.tfvars.json",
+                artifact_kind="tf-vars-json",
                 notes="JSON variable assignments",
             ),
         )
 
-    def extract(
-        self, request: DomainExtractionRequest
-    ) -> DomainExtractionResult:
+    def extract(self, request: DomainExtractionRequest) -> DomainExtractionResult:
         try:
             return extract(request, self.adapter_version, self._base)
         except Exception as exc:  # última linha de defesa — nunca levanta

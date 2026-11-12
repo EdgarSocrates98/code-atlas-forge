@@ -67,11 +67,27 @@ DOMAIN_ID = "terraform"
 # dependência direta.
 _DOC_ATTRS = frozenset(
     {
-        "policy", "policy_document", "assume_role_policy", "definition",
-        "document", "inline_policy", "statement", "statements", "json",
-        "template", "body", "user_data", "container_definitions", "input",
-        "resources", "actions", "principals", "identifiers",
-        "managed_policy_arns", "policy_arns", "values",
+        "policy",
+        "policy_document",
+        "assume_role_policy",
+        "definition",
+        "document",
+        "inline_policy",
+        "statement",
+        "statements",
+        "json",
+        "template",
+        "body",
+        "user_data",
+        "container_definitions",
+        "input",
+        "resources",
+        "actions",
+        "principals",
+        "identifiers",
+        "managed_policy_arns",
+        "policy_arns",
+        "values",
     }
 )
 
@@ -79,26 +95,31 @@ _DOC_ATTRS = frozenset(
 # é ``ASSUMES_ROLE`` (o recurso opera sob aquela identidade).
 _ROLE_ATTRS = frozenset(
     {
-        "role", "role_arn", "service_role", "service_role_arn",
-        "task_role", "task_role_arn", "execution_role_arn",
-        "job_role_arn", "instance_role", "instance_profile",
-        "delivery_stream_role_arn", "crawler_role", "role_name",
+        "role",
+        "role_arn",
+        "service_role",
+        "service_role_arn",
+        "task_role",
+        "task_role_arn",
+        "execution_role_arn",
+        "job_role_arn",
+        "instance_role",
+        "instance_profile",
+        "delivery_stream_role_arn",
+        "crawler_role",
+        "role_name",
         "service_linked_role_arn",
     }
 )
 
 # Attachments vinculam policy↔role — não é "assumir" a role.
-_ROLE_BINDING_TYPES = frozenset(
-    {"aws_iam_role_policy_attachment", "aws_iam_policy_attachment"}
-)
+_ROLE_BINDING_TYPES = frozenset({"aws_iam_role_policy_attachment", "aws_iam_policy_attachment"})
 
 # Variáveis que qualificam ambiente quando o default é literal estático.
 _ENV_VAR_NAMES = frozenset({"environment", "env", "stage", "workspace"})
 
 # Princípios de serviço literais em trust policies ("Service": "x").
-_SERVICE_PRINCIPAL_RE = re.compile(
-    r'"?Service"?\s*[:=]\s*(?:"([^"\[\]]+?)"|\[\s*"([^"\[\]]+?)")'
-)
+_SERVICE_PRINCIPAL_RE = re.compile(r'"?Service"?\s*[:=]\s*(?:"([^"\[\]]+?)"|\[\s*"([^"\[\]]+?)")')
 
 _MAX_LISTED = 40
 _MAX_DEPTH = 8
@@ -108,13 +129,13 @@ _MAX_DEPTH = 8
 class _Parsed:
     """Artefato parseado — conteúdo lido somente via ``base_path``."""
 
-    path: str                 # rel POSIX
-    directory: str            # dir POSIX rel ("" = raiz do recorte)
+    path: str  # rel POSIX
+    directory: str  # dir POSIX rel ("" = raiz do recorte)
     sha256: str
-    kind: str                 # tf | tfjson | tfvars
+    kind: str  # tf | tfjson | tfvars
     parsed: HclFile
     tfvars: tuple[tuple[str, str, bool], ...] = ()  # (nome, valor, redigido)
-    line_starts: tuple[int, ...] = ()               # byte offsets de "\n"
+    line_starts: tuple[int, ...] = ()  # byte offsets de "\n"
 
 
 def _line_starts(text: str) -> tuple[int, ...]:
@@ -128,16 +149,17 @@ def _line_starts(text: str) -> tuple[int, ...]:
     return tuple(starts)
 
 
-def _byte_span(
-    line_starts: tuple[int, ...], start: int, end: int
-) -> SourceSpan:
+def _byte_span(line_starts: tuple[int, ...], start: int, end: int) -> SourceSpan:
     """Byte offsets → ``SourceSpan`` com linha/col calculados."""
     li = bisect.bisect_right(line_starts, start) - 1
     lj = bisect.bisect_right(line_starts, end) - 1
     return SourceSpan(
-        start_byte=start, end_byte=end,
-        start_line=li + 1, start_col=start - line_starts[li],
-        end_line=lj + 1, end_col=end - line_starts[lj],
+        start_byte=start,
+        end_byte=end,
+        start_line=li + 1,
+        start_col=start - line_starts[li],
+        end_line=lj + 1,
+        end_col=end - line_starts[lj],
     )
 
 
@@ -148,16 +170,12 @@ class _Builder:
     request: DomainExtractionRequest
     adapter_version: str
     evidence: list[EvidenceRecord] = field(default_factory=list)
-    _evi_index: dict[tuple[str, tuple[int, ...] | None], int] = field(
-        default_factory=dict
-    )
+    _evi_index: dict[tuple[str, tuple[int, ...] | None], int] = field(default_factory=dict)
     entities: list[ExtractedDomainEntity] = field(default_factory=list)
     relations: list[ExtractedDomainRelation] = field(default_factory=list)
     diagnostics: list[DomainDiagnostic] = field(default_factory=list)
     stats: dict[str, int] = field(default_factory=dict)
-    id_by_addr: dict[tuple[str, str], DomainIdentity] = field(
-        default_factory=dict
-    )
+    id_by_addr: dict[tuple[str, str], DomainIdentity] = field(default_factory=dict)
     mod_addr: dict[str, DomainIdentity] = field(default_factory=dict)
 
     def evi(self, path: str, sha: str, span: SourceSpan | None) -> int:
@@ -167,8 +185,12 @@ class _Builder:
             None
             if span is None
             else (
-                span.start_byte, span.end_byte, span.start_line,
-                span.start_col, span.end_line, span.end_col,
+                span.start_byte,
+                span.end_byte,
+                span.start_line,
+                span.start_col,
+                span.end_line,
+                span.end_col,
             ),
         )
         idx = self._evi_index.get(key)
@@ -178,20 +200,23 @@ class _Builder:
             evidence_record(
                 adapter_domain=DOMAIN_ID,
                 adapter_version=self.adapter_version,
-                path=path, content_hash=sha, span=span,
+                path=path,
+                content_hash=sha,
+                span=span,
             )
         )
         idx = len(self.evidence) - 1
         self._evi_index[key] = idx
         return idx
 
-    def diag(
-        self, code: str, severity: str, message: str, path: str = ""
-    ) -> None:
+    def diag(self, code: str, severity: str, message: str, path: str = "") -> None:
         self.diagnostics.append(
             DomainDiagnostic(
-                code=code, severity=severity, message=message,
-                path=path, adapter_id=DOMAIN_ID,
+                code=code,
+                severity=severity,
+                message=message,
+                path=path,
+                adapter_id=DOMAIN_ID,
             )
         )
 
@@ -235,30 +260,35 @@ class _Builder:
         if target is not None:
             self.relations.append(
                 ExtractedDomainRelation(
-                    relation_type=rtype, path=path,
-                    from_identity=from_id, to_identity=target,
+                    relation_type=rtype,
+                    path=path,
+                    from_identity=from_id,
+                    to_identity=target,
                     resolution=self._res(
-                        ResolutionStatus.RESOLVED, target=target,
+                        ResolutionStatus.RESOLVED,
+                        target=target,
                     ),
-                    span=span, evidence=evi,
+                    span=span,
+                    evidence=evi,
                 )
             )
             return
         text = f"{namespace}.{qname}" if namespace else qname
         self.relations.append(
             ExtractedDomainRelation(
-                relation_type=rtype, path=path,
+                relation_type=rtype,
+                path=path,
                 from_identity=from_id,
                 to_unresolved=text,
                 resolution=self._res(
-                    ResolutionStatus.UNRESOLVED, unresolved_text=text,
+                    ResolutionStatus.UNRESOLVED,
+                    unresolved_text=text,
                 ),
-                span=span, evidence=evi,
+                span=span,
+                evidence=evi,
             )
         )
-        self.stats["unresolved_targets"] = (
-            self.stats.get("unresolved_targets", 0) + 1
-        )
+        self.stats["unresolved_targets"] = self.stats.get("unresolved_targets", 0) + 1
 
     def rel_external(
         self,
@@ -273,13 +303,16 @@ class _Builder:
         clean = sanitize_value(text)
         self.relations.append(
             ExtractedDomainRelation(
-                relation_type=rtype, path=path,
+                relation_type=rtype,
+                path=path,
                 from_identity=from_id,
                 to_unresolved=clean,
                 resolution=self._res(
-                    ResolutionStatus.EXTERNAL, unresolved_text=clean,
+                    ResolutionStatus.EXTERNAL,
+                    unresolved_text=clean,
                 ),
-                span=span, evidence=evi,
+                span=span,
+                evidence=evi,
             )
         )
         self.stats["external_refs"] = self.stats.get("external_refs", 0) + 1
@@ -303,9 +336,7 @@ def _artifact_kind(path: str) -> str:
     return ""
 
 
-def _read_one(
-    b: _Builder, rel_path: str, base_path: Path | None
-) -> bytes | None:
+def _read_one(b: _Builder, rel_path: str, base_path: Path | None) -> bytes | None:
     """Bytes do artefato — ``None`` + diag em falha/fora-da-raiz.
 
     Com ``base_path`` o path do request é hostil: absoluto, ``..`` ou
@@ -317,15 +348,18 @@ def _read_one(
             return Path(rel_path).read_bytes()
         except OSError as exc:
             b.diag(
-                "artifact-unreadable", "error",
-                f"cannot read {rel_path}: {exc}", rel_path,
+                "artifact-unreadable",
+                "error",
+                f"cannot read {rel_path}: {exc}",
+                rel_path,
             )
             return None
     base = base_path.resolve()
     fs = artifact_path_confined(rel_path, base)
     if fs is None:
         b.diag(
-            "artifact-outside-root", "error",
+            "artifact-outside-root",
+            "error",
             f"artifact path escapes repository root: {rel_path}",
             rel_path,
         )
@@ -333,7 +367,8 @@ def _read_one(
     raw = read_file_verified(fs, base)
     if raw is None:
         b.diag(
-            "artifact-unreadable", "error",
+            "artifact-unreadable",
+            "error",
             f"cannot read {rel_path}: unsafe or vanished",
             rel_path,
         )
@@ -341,15 +376,14 @@ def _read_one(
     return raw
 
 
-def _read_artifacts(
-    b: _Builder, base_path: Path | None
-) -> list[_Parsed]:
+def _read_artifacts(b: _Builder, base_path: Path | None) -> list[_Parsed]:
     out: list[_Parsed] = []
     for art in b.request.artifacts:
         kind = _artifact_kind(art.path)
         if not kind:
             b.diag(
-                "unsupported-artifact", "warning",
+                "unsupported-artifact",
+                "warning",
                 f"artifact not handled by terraform adapter: {art.path}",
                 art.path,
             )
@@ -363,8 +397,10 @@ def _read_artifacts(
         except UnicodeDecodeError:
             text = raw.decode("utf-8", errors="replace")
             b.diag(
-                "encoding-warning", "warning",
-                "non-UTF-8 bytes replaced during decode", art.path,
+                "encoding-warning",
+                "warning",
+                "non-UTF-8 bytes replaced during decode",
+                art.path,
             )
         tfvars: tuple[tuple[str, str, bool], ...] = ()
         if kind == "tf":
@@ -383,15 +419,18 @@ def _read_artifacts(
         for d in parsed.diagnostics:
             b.diag(
                 d.code,
-                "error" if "unterminated" in d.code or "error" in d.code
-                else "warning",
+                "error" if "unterminated" in d.code or "error" in d.code else "warning",
                 f"{d.message} (line {d.line})" if d.line else d.message,
                 art.path,
             )
         out.append(
             _Parsed(
-                path=art.path, directory=posixpath.dirname(art.path),
-                sha256=sha, kind=kind, parsed=parsed, tfvars=tfvars,
+                path=art.path,
+                directory=posixpath.dirname(art.path),
+                sha256=sha,
+                kind=kind,
+                parsed=parsed,
+                tfvars=tfvars,
                 line_starts=_line_starts(text),
             )
         )
@@ -422,9 +461,9 @@ def _norm_source(directory: str, source: str) -> str:
 @dataclass(frozen=True)
 class _ModuleCall:
     name: str
-    directory: str          # dir do arquivo que contém o bloco
-    source: str             # valor bruto (unquoted)
-    local_dir: str          # dir normalizado quando source é local, "" senão
+    directory: str  # dir do arquivo que contém o bloco
+    source: str  # valor bruto (unquoted)
+    local_dir: str  # dir normalizado quando source é local, "" senão
     block: HclBlock
     parsed: _Parsed
 
@@ -441,10 +480,12 @@ def _module_calls(parsed: list[_Parsed]) -> list[_ModuleCall]:
             source = _unquote(src_attr.value) if src_attr else ""
             calls.append(
                 _ModuleCall(
-                    name=blk.labels[0], directory=p.directory,
+                    name=blk.labels[0],
+                    directory=p.directory,
                     source=source,
                     local_dir=_norm_source(p.directory, source),
-                    block=blk, parsed=p,
+                    block=blk,
+                    parsed=p,
                 )
             )
     return calls
@@ -461,9 +502,7 @@ def _module_addresses(
     Um dir instanciado por N chamadas produz N endereços — nenhuma
     expansão é fabricada, os endereços são literais.
     """
-    tf_dirs = sorted(
-        {p.directory for p in parsed if p.kind in ("tf", "tfjson")}
-    )
+    tf_dirs = sorted({p.directory for p in parsed if p.kind in ("tf", "tfjson")})
     targeted = {c.local_dir for c in calls if c.local_dir}
     candidates = [d for d in tf_dirs if d not in targeted]
     pool = candidates or tf_dirs
@@ -477,23 +516,16 @@ def _module_addresses(
             if not c.local_dir or c.local_dir not in addrs:
                 continue
             for base in sorted(addrs.get(c.directory, ())):
-                addr = (
-                    f"{base}.module.{c.name}" if base else f"module.{c.name}"
-                )
+                addr = f"{base}.module.{c.name}" if base else f"module.{c.name}"
                 if addr not in addrs[c.local_dir]:
                     addrs[c.local_dir].add(addr)
                     grew = True
         if not grew:
             break
-    return {
-        d: tuple(sorted(v)) if v else (f"unresolved:{d}",)
-        for d, v in addrs.items()
-    }
+    return {d: tuple(sorted(v)) if v else (f"unresolved:{d}",) for d, v in addrs.items()}
 
 
-def _dir_env(
-    b: _Builder, parsed: list[_Parsed]
-) -> dict[str, tuple[str, str]]:
+def _dir_env(b: _Builder, parsed: list[_Parsed]) -> dict[str, tuple[str, str]]:
     """dir → ``(environment, source)`` — env estático por diretório.
 
     ``request.environment`` vence sempre; depois, default literal de
@@ -544,10 +576,7 @@ def _env_var_default(blk: HclBlock) -> str | None:
 
 def _multiplicity(block: HclBlock) -> str:
     """count/for_each → multiplicidade declarada, nunca expandida."""
-    if (
-        block.attribute("count") is not None
-        or block.attribute("for_each") is not None
-    ):
+    if block.attribute("count") is not None or block.attribute("for_each") is not None:
         return "dynamic"
     return "single"
 
@@ -607,9 +636,7 @@ def _scan_var_block(
     names.append(vname)
     if _is_sensitive_var(blk):
         sensitive.append(vname)
-        b.stats["secrets_redacted"] = (
-            b.stats.get("secrets_redacted", 0) + 1
-        )
+        b.stats["secrets_redacted"] = b.stats.get("secrets_redacted", 0) + 1
         return ""
     return _env_var_default(blk) or ""
 
@@ -635,9 +662,7 @@ def _attach_var_attrs(
             default = _scan_var_block(b, blk, names, sensitive)
             if default:
                 env_default = default
-    _var_summary_attrs(
-        attrs, names, sensitive, env_default, env_hints.get(directory)
-    )
+    _var_summary_attrs(attrs, names, sensitive, env_default, env_hints.get(directory))
 
 
 def _var_summary_attrs(
@@ -675,9 +700,7 @@ def _source_kind(source: str) -> str:
     return "registry"
 
 
-def _module_attrs(
-    block: HclBlock, ns: str, env_src: str, source: str
-) -> dict[str, str]:
+def _module_attrs(block: HclBlock, ns: str, env_src: str, source: str) -> dict[str, str]:
     attrs: dict[str, str] = {
         "module_path": ns,
         "multiplicity": _multiplicity(block),
@@ -710,20 +733,25 @@ def _emit_entities(
                 elif blk.type == "data" and len(blk.labels) >= 2:
                     _emit_data(b, p, blk, ns, p_env, p_src, evi)
                 elif blk.type == "module" and blk.labels:
-                    _emit_module(
-                        b, p, blk, ns, parsed, env, env_hints, evi
-                    )
+                    _emit_module(b, p, blk, ns, parsed, env, env_hints, evi)
                 elif blk.type in ("resource", "data", "module"):
                     b.diag(
-                        "malformed-block", "error",
-                        f"{blk.type} block missing labels", p.path,
+                        "malformed-block",
+                        "error",
+                        f"{blk.type} block missing labels",
+                        p.path,
                     )
     _emit_root_module(b, parsed, addresses, env, env_hints)
 
 
 def _emit_resource(
-    b: _Builder, p: _Parsed, blk: HclBlock, ns: str,
-    env_val: str, env_src: str, evi: int,
+    b: _Builder,
+    p: _Parsed,
+    blk: HclBlock,
+    ns: str,
+    env_val: str,
+    env_src: str,
+    evi: int,
 ) -> None:
     rtype, rname = blk.labels[0], blk.labels[1]
     kind = (
@@ -740,9 +768,14 @@ def _emit_resource(
             attrs["trusted_services"] = ",".join(svc)
     b.entities.append(
         ExtractedDomainEntity(
-            identity=ident, kind=kind, name=qname,
-            path=p.path, span=blk.span, content_hash=p.sha256,
-            attributes=attrs, evidence=(evi,),
+            identity=ident,
+            kind=kind,
+            name=qname,
+            path=p.path,
+            span=blk.span,
+            content_hash=p.sha256,
+            attributes=attrs,
+            evidence=(evi,),
         )
     )
     b.id_by_addr[(ns, qname)] = ident
@@ -751,8 +784,13 @@ def _emit_resource(
 
 
 def _emit_data(
-    b: _Builder, p: _Parsed, blk: HclBlock, ns: str,
-    env_val: str, env_src: str, evi: int,
+    b: _Builder,
+    p: _Parsed,
+    blk: HclBlock,
+    ns: str,
+    env_val: str,
+    env_src: str,
+    evi: int,
 ) -> None:
     rtype, rname = blk.labels[0], blk.labels[1]
     qname = f"data.{rtype}.{rname}"
@@ -766,9 +804,14 @@ def _emit_data(
             attrs["backend"] = sanitize_value(_unquote(backend.value))
     b.entities.append(
         ExtractedDomainEntity(
-            identity=ident, kind=DomainEntityKind.TERRAFORM_RESOURCE,
-            name=qname, path=p.path, span=blk.span,
-            content_hash=p.sha256, attributes=attrs, evidence=(evi,),
+            identity=ident,
+            kind=DomainEntityKind.TERRAFORM_RESOURCE,
+            name=qname,
+            path=p.path,
+            span=blk.span,
+            content_hash=p.sha256,
+            attributes=attrs,
+            evidence=(evi,),
         )
     )
     b.id_by_addr[(ns, qname)] = ident
@@ -776,7 +819,10 @@ def _emit_data(
 
 
 def _emit_module(
-    b: _Builder, p: _Parsed, blk: HclBlock, ns: str,
+    b: _Builder,
+    p: _Parsed,
+    blk: HclBlock,
+    ns: str,
     parsed: list[_Parsed],
     env: dict[str, tuple[str, str]],
     env_hints: dict[str, list[str]],
@@ -796,9 +842,14 @@ def _emit_module(
         _attach_var_attrs(b, parsed, local_dir, attrs, env_hints)
     b.entities.append(
         ExtractedDomainEntity(
-            identity=ident, kind=DomainEntityKind.TERRAFORM_MODULE,
-            name=qname, path=p.path, span=blk.span,
-            content_hash=p.sha256, attributes=attrs, evidence=(evi,),
+            identity=ident,
+            kind=DomainEntityKind.TERRAFORM_MODULE,
+            name=qname,
+            path=p.path,
+            span=blk.span,
+            content_hash=p.sha256,
+            attributes=attrs,
+            evidence=(evi,),
         )
     )
     b.id_by_addr[(ns, qname)] = ident
@@ -824,7 +875,8 @@ def _emit_root_module(
     env_val, env_src = env.get(root_dir, ("", ""))
     ident = b.ident("", env_val, "module.root")
     attrs: dict[str, str] = {
-        "module_role": "root", "module_path": "",
+        "module_role": "root",
+        "module_path": "",
         "declared": "synthesized",
     }
     if env_src:
@@ -832,8 +884,11 @@ def _emit_root_module(
     _attach_var_attrs(b, parsed, root_dir, attrs, env_hints)
     b.entities.append(
         ExtractedDomainEntity(
-            identity=ident, kind=DomainEntityKind.TERRAFORM_MODULE,
-            name="module.root", path="", attributes=attrs,
+            identity=ident,
+            kind=DomainEntityKind.TERRAFORM_MODULE,
+            name="module.root",
+            path="",
+            attributes=attrs,
         )
     )
     b.id_by_addr[("", "module.root")] = ident
@@ -854,9 +909,7 @@ def _attr_index(block: HclBlock) -> list[tuple[int, int, str]]:
         if depth > _MAX_DEPTH:
             return
         for a in blk.attributes:
-            out.append(
-                (a.value_span.start_byte, a.value_span.end_byte, a.name)
-            )
+            out.append((a.value_span.start_byte, a.value_span.end_byte, a.name))
         for c in blk.children:
             walk(c, depth + 1)
 
@@ -916,9 +969,10 @@ def _role_chain_edge(
     prin = b.id_by_addr.get((ns, target_qname))
     if prin is None:
         b.diag(
-            "role-principal-unresolved", "info",
-            f"trust policy principal {target_qname} not extracted "
-            "in this snapshot", p.path,
+            "role-principal-unresolved",
+            "info",
+            f"trust policy principal {target_qname} not extracted in this snapshot",
+            p.path,
         )
         return True
     key = (prin, str(from_id), "ASSUMES_ROLE")
@@ -931,9 +985,11 @@ def _role_chain_edge(
                 from_identity=prin,
                 to_identity=from_id,
                 resolution=b._res(
-                    ResolutionStatus.RESOLVED, target=from_id,
+                    ResolutionStatus.RESOLVED,
+                    target=from_id,
                 ),
-                span=span, evidence=evi,
+                span=span,
+                evidence=evi,
             )
         )
     return True
@@ -975,26 +1031,24 @@ def _emit_one_ref(
     ns = from_id.namespace
     # tf: match em offsets de arquivo reais; tfjson: offsets no body
     # serializado → evidência cai para o span do bloco.
-    span = (
-        _byte_span(p.line_starts, m.start, m.end)
-        if p.kind == "tf"
-        else block.span
-    )
+    span = _byte_span(p.line_starts, m.start, m.end) if p.kind == "tf" else block.span
     evi = (b.evi(p.path, p.sha256, span or block.header_span),)
     if m.kind == "arn":
         key = (from_id, f"arn:{m.name}", "REFERENCES")
         if key not in seen:
             seen.add(key)
             b.rel_external(
-                str(DomainRelationKind.REFERENCES), p.path, from_id,
-                m.name, span, evi,
+                str(DomainRelationKind.REFERENCES),
+                p.path,
+                from_id,
+                m.name,
+                span,
+                evi,
             )
         return
     if m.kind == "data":
         tqn = f"data.{m.type_name}.{m.name}"
-        dtype = (
-            "DEPENDS_ON" if explicit else str(DomainRelationKind.REFERENCES)
-        )
+        dtype = "DEPENDS_ON" if explicit else str(DomainRelationKind.REFERENCES)
         key = (from_id, f"{ns}.{tqn}", dtype)
         if key not in seen:
             seen.add(key)
@@ -1006,14 +1060,17 @@ def _emit_one_ref(
         if key not in seen:
             seen.add(key)
             b.rel_to_entity(
-                str(DomainRelationKind.DEPENDS_ON), p.path, from_id,
-                ns, mqname, span, evi,
+                str(DomainRelationKind.DEPENDS_ON),
+                p.path,
+                from_id,
+                ns,
+                mqname,
+                span,
+                evi,
             )
         return
     # ref a recurso managed
-    if not explicit and _role_chain_edge(
-        b, p, block, m, enclosing, from_id, span, evi, seen
-    ):
+    if not explicit and _role_chain_edge(b, p, block, m, enclosing, from_id, span, evi, seen):
         return
     target_qname = f"{m.type_name}.{m.name}"
     for rtype in _managed_ref_kinds(block, m, explicit, enclosing):
@@ -1041,14 +1098,10 @@ def _emit_block_relations(
     refs = scan_refs(block.body, base_byte=block.body_start)
     seen: set[tuple[DomainIdentity, str, str]] = set()
     for m in refs:
-        explicit = (
-            dep_span is not None and dep_span[0] <= m.start <= dep_span[1]
-        )
+        explicit = dep_span is not None and dep_span[0] <= m.start <= dep_span[1]
         enclosing = "" if explicit else _enclosing_attr(attr_spans, m.start)
         for from_id in from_ids:
-            _emit_one_ref(
-                b, p, block, m, explicit, enclosing, from_id, seen
-            )
+            _emit_one_ref(b, p, block, m, explicit, enclosing, from_id, seen)
 
 
 def _emit_terraform_block(
@@ -1066,8 +1119,12 @@ def _emit_terraform_block(
         for from_id in from_ids:
             evi = (b.evi(p.path, p.sha256, child.header_span or child.span),)
             b.rel_external(
-                str(DomainRelationKind.REFERENCES), p.path, from_id,
-                target, child.header_span, evi,
+                str(DomainRelationKind.REFERENCES),
+                p.path,
+                from_id,
+                target,
+                child.header_span,
+                evi,
             )
 
 
@@ -1108,9 +1165,7 @@ def _emit_relations(
     for p in parsed:
         if p.kind not in ("tf", "tfjson"):
             continue
-        ns_list = addresses.get(
-            p.directory, (f"unresolved:{p.directory}",)
-        )
+        ns_list = addresses.get(p.directory, (f"unresolved:{p.directory}",))
         for blk in p.parsed.blocks:
             _emit_relations_for_block(b, p, blk, ns_list)
     _emit_provisions(b, calls, addresses)
@@ -1132,8 +1187,12 @@ def _emit_module_relations(
     for from_id in from_ids:
         evi = (b.evi(p.path, p.sha256, src_attr.value_span),)
         b.rel_external(
-            str(DomainRelationKind.REFERENCES), p.path, from_id,
-            source, src_attr.value_span, evi,
+            str(DomainRelationKind.REFERENCES),
+            p.path,
+            from_id,
+            source,
+            src_attr.value_span,
+            evi,
         )
 
 
@@ -1150,8 +1209,12 @@ def _emit_remote_state_relations(
     for from_id in from_ids:
         evi = (b.evi(p.path, p.sha256, blk.header_span or blk.span),)
         b.rel_external(
-            str(DomainRelationKind.REFERENCES), p.path, from_id,
-            target, blk.header_span, evi,
+            str(DomainRelationKind.REFERENCES),
+            p.path,
+            from_id,
+            target,
+            blk.header_span,
+            evi,
         )
 
 
@@ -1164,17 +1227,12 @@ def _provision_call(
 ) -> None:
     """``module x { source = "./dir" }`` → ``PROVISIONS`` por recurso."""
     for parent_addr in addresses.get(call.directory, ()):
-        qname = (
-            f"{parent_addr}.module.{call.name}"
-            if parent_addr
-            else f"module.{call.name}"
-        )
+        qname = f"{parent_addr}.module.{call.name}" if parent_addr else f"module.{call.name}"
         mod_id = b.mod_addr.get(qname)
         if mod_id is None:
             continue
         evi = (
-            b.evi(call.parsed.path, call.parsed.sha256,
-                  call.block.header_span or call.block.span),
+            b.evi(call.parsed.path, call.parsed.sha256, call.block.header_span or call.block.span),
         )
         for target in res_by_ns.get(qname, []):
             if (mod_id, target) in prov_seen:
@@ -1183,12 +1241,15 @@ def _provision_call(
             b.relations.append(
                 ExtractedDomainRelation(
                     relation_type=str(DomainRelationKind.PROVISIONS),
-                    path=call.parsed.path, from_identity=mod_id,
+                    path=call.parsed.path,
+                    from_identity=mod_id,
                     to_identity=target,
                     resolution=b._res(
-                        ResolutionStatus.RESOLVED, target=target,
+                        ResolutionStatus.RESOLVED,
+                        target=target,
                     ),
-                    span=call.block.header_span, evidence=evi,
+                    span=call.block.header_span,
+                    evidence=evi,
                 )
             )
 
@@ -1202,11 +1263,10 @@ def _emit_provisions(
     res_by_ns: dict[str, list[DomainIdentity]] = {}
     for ent in b.entities:
         if ent.kind in (
-            DomainEntityKind.TERRAFORM_RESOURCE, DomainEntityKind.IAM_ROLE,
+            DomainEntityKind.TERRAFORM_RESOURCE,
+            DomainEntityKind.IAM_ROLE,
         ):
-            res_by_ns.setdefault(ent.identity.namespace, []).append(
-                ent.identity
-            )
+            res_by_ns.setdefault(ent.identity.namespace, []).append(ent.identity)
     prov_seen: set[tuple[DomainIdentity, DomainIdentity]] = set()
     for call in calls:
         if call.local_dir:
@@ -1217,15 +1277,15 @@ def _emit_provisions(
             b.relations.append(
                 ExtractedDomainRelation(
                     relation_type=str(DomainRelationKind.PROVISIONS),
-                    path="", from_identity=root, to_identity=target,
+                    path="",
+                    from_identity=root,
+                    to_identity=target,
                     resolution=b._res(ResolutionStatus.RESOLVED, target=target),
                 )
             )
 
 
-def _emit_tfvars(
-    b: _Builder, parsed: list[_Parsed]
-) -> dict[str, list[str]]:
+def _emit_tfvars(b: _Builder, parsed: list[_Parsed]) -> dict[str, list[str]]:
     """Hints de ambiente vindos de tfvars — valores sensíveis nunca saem."""
     env_hints: dict[str, list[str]] = {}
     for p in parsed:
@@ -1233,9 +1293,7 @@ def _emit_tfvars(
             continue
         for name, value, redacted in p.tfvars:
             if redacted:
-                b.stats["secrets_redacted"] = (
-                    b.stats.get("secrets_redacted", 0) + 1
-                )
+                b.stats["secrets_redacted"] = b.stats.get("secrets_redacted", 0) + 1
                 continue
             if name.lower() in _ENV_VAR_NAMES and value:
                 vals = env_hints.setdefault(p.directory, [])

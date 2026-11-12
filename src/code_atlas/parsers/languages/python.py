@@ -50,8 +50,15 @@ class _PyExtractor:
 
     # -- símbolos -----------------------------------------------------
 
-    def _emit(self, kind: str, name: str, name_node: Node, node: Node,
-              scope: tuple[str, ...], **kw: object) -> str:
+    def _emit(
+        self,
+        kind: str,
+        name: str,
+        name_node: Node,
+        node: Node,
+        scope: tuple[str, ...],
+        **kw: object,
+    ) -> str:
         qname = ".".join((*scope, name)) if scope else name
         qname = f"{self.module}.{qname}" if self.module else qname
         self.symbols.append(
@@ -83,8 +90,9 @@ class _PyExtractor:
             return None
         return self.text(s).strip("\"' \n")[:500]
 
-    def _handle_class(self, node: Node, scope: tuple[str, ...],
-                      decorators: tuple[str, ...]) -> None:
+    def _handle_class(
+        self, node: Node, scope: tuple[str, ...], decorators: tuple[str, ...]
+    ) -> None:
         name_node = node.child_by_field_name("name")
         if name_node is None:
             return
@@ -104,7 +112,11 @@ class _PyExtractor:
                 )
         body = node.child_by_field_name("body")
         qname = self._emit(
-            "class", name, name_node, node, scope,
+            "class",
+            name,
+            name_node,
+            node,
+            scope,
             signature=self._signature(node, body),
             docstring=self._docstring(body),
             decorators=decorators,
@@ -141,8 +153,9 @@ class _PyExtractor:
                     names.append(self.text(inner))
         return tuple(names)
 
-    def _handle_function(self, node: Node, scope: tuple[str, ...],
-                         decorators: tuple[str, ...], in_class: bool) -> None:
+    def _handle_function(
+        self, node: Node, scope: tuple[str, ...], decorators: tuple[str, ...], in_class: bool
+    ) -> None:
         name_node = node.child_by_field_name("name")
         if name_node is None:
             return
@@ -154,7 +167,11 @@ class _PyExtractor:
         params = node.child_by_field_name("parameters")
         kind = "method" if in_class else "function"
         self._emit(
-            kind, name, name_node, node, scope,
+            kind,
+            name,
+            name_node,
+            node,
+            scope,
             signature=self._signature(node, body),
             params=self._param_names(params),
             docstring=self._docstring(body),
@@ -177,24 +194,23 @@ class _PyExtractor:
             base = self.text(mod) if mod is not None else ""
             for c in node.named_children:
                 # `is not` NÃO funciona entre wrappers Node — comparar .id
-                if c.type in ("dotted_name", "aliased_import") and (
-                    mod is None or c.id != mod.id
-                ):
+                if c.type in ("dotted_name", "aliased_import") and (mod is None or c.id != mod.id):
                     target, alias = self._import_pair(c)
                     # base relativo termina em "." — sem separador extra
                     # (`from . import u` → `.u`, não `..u`)
                     full = (
-                        f"{base}{target}" if base.endswith(".")
-                        else f"{base}.{target}" if base else target
+                        f"{base}{target}"
+                        if base.endswith(".")
+                        else f"{base}.{target}"
+                        if base
+                        else target
                     )
                     binding = alias or target.split(".")[-1]
                     self._emit_import(self.module, full, binding, full, c, scope)
                 elif c.type == "wildcard_import":
                     # `from base import *` — aresta de dependência real
                     # no módulo, sem binding de membro (lf-0024).
-                    self._emit_import(
-                        self.module, base or "*", "*", base or "*", c, scope
-                    )
+                    self._emit_import(self.module, base or "*", "*", base or "*", c, scope)
 
     def _import_pair(self, node: Node) -> tuple[str, str | None]:
         if node.type == "aliased_import":
@@ -206,24 +222,38 @@ class _PyExtractor:
             )
         return self.text(node), None
 
-    def _emit_import(self, src_qname: str, target: str, binding: str,
-                     member_target: str, node: Node, scope: tuple[str, ...]) -> None:
+    def _emit_import(
+        self,
+        src_qname: str,
+        target: str,
+        binding: str,
+        member_target: str,
+        node: Node,
+        scope: tuple[str, ...],
+    ) -> None:
         self.refs.append(
             ExtractedReference(
-                name=target, context="import",
-                span=rt.span_of(node), scope_path=scope,
+                name=target,
+                context="import",
+                span=rt.span_of(node),
+                scope_path=scope,
             )
         )
         # binding local → alvo completo: alimenta a resolução do grafo
         self.refs.append(
             ExtractedReference(
-                name=binding, context="import-member",
-                span=rt.span_of(node), scope_path=scope, target=member_target,
+                name=binding,
+                context="import-member",
+                span=rt.span_of(node),
+                scope_path=scope,
+                target=member_target,
             )
         )
         self.relations.append(
             ExtractedRelation(
-                type="IMPORTS", from_name=src_qname, to_name=target,
+                type="IMPORTS",
+                from_name=src_qname,
+                to_name=target,
                 span=rt.span_of(node),
             )
         )
@@ -234,23 +264,26 @@ class _PyExtractor:
             return
         self.refs.append(
             ExtractedReference(
-                name=self.text(fn), context="call",
-                span=rt.span_of(fn), scope_path=scope,
+                name=self.text(fn),
+                context="call",
+                span=rt.span_of(fn),
+                scope_path=scope,
             )
         )
         caller = ".".join(scope)
         caller = f"{self.module}.{caller}" if self.module and caller else caller or self.module
         self.relations.append(
             ExtractedRelation(
-                type="CALLS", from_name=caller, to_name=self.text(fn),
+                type="CALLS",
+                from_name=caller,
+                to_name=self.text(fn),
                 span=rt.span_of(fn),
             )
         )
 
     # -- walk ----------------------------------------------------------
 
-    def _walk_children(self, node: Node | None, scope: tuple[str, ...],
-                       in_class: bool) -> None:
+    def _walk_children(self, node: Node | None, scope: tuple[str, ...], in_class: bool) -> None:
         if node is None:
             return
         for child in node.named_children:
@@ -260,9 +293,7 @@ class _PyExtractor:
         t = node.type
         if t == "decorated_definition":
             decs = tuple(
-                self.text(c).lstrip("@").strip()
-                for c in node.children
-                if c.type == "decorator"
+                self.text(c).lstrip("@").strip() for c in node.children if c.type == "decorator"
             )
             inner = next((c for c in node.children if c.type in _DEFS), None)
             if inner is not None:
@@ -295,9 +326,8 @@ class _PyExtractor:
                 name=self.module,
                 qualified_name=self.module,
                 span=module_span,
-                docstring=self._docstring(
-                    root if root.type == "module" else None
-                ) or self._module_doc(root),
+                docstring=self._docstring(root if root.type == "module" else None)
+                or self._module_doc(root),
             )
         )
         self._walk_children(root, (), in_class=False)
@@ -335,9 +365,7 @@ class PythonAdapter:
 
     def _load(self) -> rt.LanguageSpec:
         if self._spec is None:
-            self._spec = rt.load_language(
-                tree_sitter_python.language, "tree-sitter-python"
-            )
+            self._spec = rt.load_language(tree_sitter_python.language, "tree-sitter-python")
         return self._spec
 
     def parse(self, request: ParseRequest) -> ParseResult:

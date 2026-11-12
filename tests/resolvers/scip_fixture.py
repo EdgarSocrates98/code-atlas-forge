@@ -47,10 +47,7 @@ def tool_info(name: str = "scip-python", version: str = "0.11.0") -> bytes:
 
 def metadata(project_root: str, tool: bytes = b"") -> bytes:
     return (
-        f_varint(1, 0)
-        + f_msg(2, tool or tool_info())
-        + f_string(3, project_root)
-        + f_varint(4, 1)
+        f_varint(1, 0) + f_msg(2, tool or tool_info()) + f_string(3, project_root) + f_varint(4, 1)
     )
 
 
@@ -60,11 +57,7 @@ def slr(line: int, sc: int, ec: int) -> bytes:
 
 def occurrence(symbol: str, rng: bytes, roles: int = 0) -> bytes:
     # range multilinha via single_line_range (field 8)
-    return (
-        f_msg(8, rng)
-        + f_string(2, symbol)
-        + f_varint(3, roles)
-    )
+    return f_msg(8, rng) + f_string(2, symbol) + f_varint(3, roles)
 
 
 def symbol_info(symbol: str, kind: int = 0, docs: list[str] | None = None) -> bytes:
@@ -76,9 +69,12 @@ def symbol_info(symbol: str, kind: int = 0, docs: list[str] | None = None) -> by
     return out
 
 
-def document(path: str, language: str = "python",
-             occs: list[bytes] | None = None,
-             syms: list[bytes] | None = None) -> bytes:
+def document(
+    path: str,
+    language: str = "python",
+    occs: list[bytes] | None = None,
+    syms: list[bytes] | None = None,
+) -> bytes:
     out = f_string(1, path) + f_string(4, language)
     for o in occs or []:
         out += f_msg(2, o)
@@ -88,8 +84,7 @@ def document(path: str, language: str = "python",
     return out
 
 
-def index_bytes(project_root: str, docs: list[bytes],
-                tool: bytes = b"") -> bytes:
+def index_bytes(project_root: str, docs: list[bytes], tool: bytes = b"") -> bytes:
     out = f_msg(1, metadata(project_root, tool))
     for d in docs:
         out += f_msg(2, d)

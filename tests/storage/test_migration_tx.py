@@ -35,16 +35,11 @@ def test_failed_migration_rolls_back_all_or_nothing(
         mig.migrate(conn)
 
     # nada do script ruim pode ter sobrevivido
-    names = {
-        r["name"]
-        for r in conn.execute("SELECT name FROM sqlite_master WHERE type='table'")
-    }
+    names = {r["name"] for r in conn.execute("SELECT name FROM sqlite_master WHERE type='table'")}
     assert "poison_ok" not in names
     assert "boom" not in names
     # nem o registro de sucesso
-    v = conn.execute(
-        "SELECT version FROM schema_migrations WHERE version = 99"
-    ).fetchone()
+    v = conn.execute("SELECT version FROM schema_migrations WHERE version = 99").fetchone()
     assert v is None
 
 
@@ -57,9 +52,7 @@ def test_recovers_and_reruns_after_failed_migration(
 
     bad = mig.Migration(50, "will fail", "CREATE TABLE nope (bad syntax;")
     real = mig.migrations
-    monkeypatch.setattr(
-        mig, "migrations", lambda *, fts5: [*real(fts5=fts5), bad]
-    )
+    monkeypatch.setattr(mig, "migrations", lambda *, fts5: [*real(fts5=fts5), bad])
     with pytest.raises(mig.MigrationError):
         mig.migrate(conn)
     assert mig.schema_version(conn) == before  # estado preservado
@@ -87,8 +80,7 @@ def test_older_schema_db_opens_and_migrates(
     expected = 12 if has_fts5 else 11  # v12 é FTS5-gated (lf-0133)
     assert mig.migrate(conn2) == expected
     assert mig.migrate(conn2) == expected  # idempotente
-    names = {r[0] for r in conn2.execute(
-        "SELECT name FROM schema_migrations ORDER BY version")}
+    names = {r[0] for r in conn2.execute("SELECT name FROM schema_migrations ORDER BY version")}
     assert names == {m.name for m in mig.migrations(fts5=has_fts5)}
 
 

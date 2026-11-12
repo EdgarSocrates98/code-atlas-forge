@@ -109,12 +109,14 @@ def _resolver_factories(
         table["scip"] = scip
     if only:
         names = {n.strip() for n in only if n.strip()}
-        known_lsp = set(
-            ((resolvers or {}).get("lsp", {}) or {}).get("servers", {})
-            or {}
-        ) if isinstance((resolvers or {}).get("lsp"), dict) else set()
+        known_lsp = (
+            set(((resolvers or {}).get("lsp", {}) or {}).get("servers", {}) or {})
+            if isinstance((resolvers or {}).get("lsp"), dict)
+            else set()
+        )
         unknown = sorted(
-            n for n in names
+            n
+            for n in names
             if n not in ("syntactic", "scip", "lsp")
             and not (n.startswith("lsp:") and n[4:] in known_lsp)
         )
@@ -128,9 +130,7 @@ def _resolver_factories(
             servers = dict(lsp.get("servers") or {})
             if wanted:
                 lsp = dict(lsp)
-                lsp["servers"] = {
-                    k: v for k, v in servers.items() if k in wanted
-                }
+                lsp["servers"] = {k: v for k, v in servers.items() if k in wanted}
                 table["lsp"] = lsp
             else:
                 table.pop("lsp", None)
@@ -230,8 +230,7 @@ def run_doctor(args: argparse.Namespace) -> int:
         for c in checks:
             mark = "ok" if c.ok else "FAIL"
             suffix = f"  {c.detail}" if c.detail else ""
-            print(escape_control(
-                f"{c.name:<{width}}  {mark:<4}  {c.value}{suffix}"))
+            print(escape_control(f"{c.name:<{width}}  {mark:<4}  {c.value}{suffix}"))
         if failed:
             print(f"\n{len(failed)} check(s) failed", file=sys.stderr)
     return EXIT_ERROR if failed else EXIT_OK
@@ -251,9 +250,7 @@ def run_init(args: argparse.Namespace) -> int:
     conn = _open_db()
     try:
         # lf-0021: identidade lógica via probe git — sem scan completo.
-        repo_id = Store(conn).get_or_create_repository(
-            identity_key_for_root(root), str(root)
-        )
+        repo_id = Store(conn).get_or_create_repository(identity_key_for_root(root), str(root))
         conn.commit()
     finally:
         conn.close()
@@ -329,8 +326,7 @@ def run_status(args: argparse.Namespace) -> int:
             "index_jobs": "SELECT COUNT(*) AS c FROM index_jobs",
         }
         payload["counts"] = {
-            name: int(conn.execute(sql).fetchone()["c"])
-            for name, sql in count_queries.items()
+            name: int(conn.execute(sql).fetchone()["c"]) for name, sql in count_queries.items()
         }
         snap = store.latest_ready_snapshot(repo_id) if repo_id else None
         snap_payload: dict[str, object] | None = None
@@ -355,12 +351,16 @@ def run_status(args: argparse.Namespace) -> int:
         print(f"root:       {root}")
         print(f"schema:     v{payload['schema_version']}")
         if git_payload:
-            print(f"git:        {git_payload['branch'] or 'detached'}"
-                  f"@{str(git_payload['head_sha'])[:12]} "
-                  f"{'(dirty)' if git_payload['dirty'] else '(clean)'}")
+            print(
+                f"git:        {git_payload['branch'] or 'detached'}"
+                f"@{str(git_payload['head_sha'])[:12]} "
+                f"{'(dirty)' if git_payload['dirty'] else '(clean)'}"
+            )
         if snap_payload:
-            print(f"snapshot:   #{snap_payload['id']} {snap_payload['status']}"
-                  f" — {snap_payload['files']} files")
+            print(
+                f"snapshot:   #{snap_payload['id']} {snap_payload['status']}"
+                f" — {snap_payload['files']} files"
+            )
         else:
             print("snapshot:   none (run `code-atlas index`)")
     return EXIT_OK
@@ -380,8 +380,7 @@ def run_index(args: argparse.Namespace) -> int:
         print("error: refusing to index filesystem root", file=sys.stderr)
         return EXIT_UNSAFE
     if not target.is_dir():
-        print(f"error: {escape_control(str(target))} is not a directory",
-              file=sys.stderr)
+        print(f"error: {escape_control(str(target))} is not a directory", file=sys.stderr)
         return EXIT_UNSAFE
     conn = _open_db()
     try:
@@ -390,8 +389,7 @@ def run_index(args: argparse.Namespace) -> int:
         # lf-0032: --scip sobrescreve o index_path; --resolver restringe
         # os resolvers ativos — nome desconhecido é erro tipado (nunca
         # uma flag que silenciosamente não faz nada).
-        factories, boot_errors, res_versions, retain, fatal = (
-            _index_resolvers(target, args))
+        factories, boot_errors, res_versions, retain, fatal = _index_resolvers(target, args)
         if fatal:
             conn.close()
             return _emit_error(args, fatal)
@@ -404,22 +402,24 @@ def run_index(args: argparse.Namespace) -> int:
             conn.close()
             return _emit_error(args, dom_err)
         coord = IndexCoordinator(
-            conn, resolver_factories=factories,
+            conn,
+            resolver_factories=factories,
             resolver_versions=res_versions,
             snapshot_retention=retain,
             domain_registry=dom_reg,
-            cross_resolver=cross_res)
+            cross_resolver=cross_res,
+        )
         # lf-0022: incremental é o default — ``--full`` é o escape
         # (force desliga o caminho incremental internamente).
         # lf-0141: ``--verbose`` liga o callback de progresso — linhas
         # ``[index]`` em stderr, stdout fica livre para ``--json``.
         outcome: IndexOutcome = coord.index(
-            target, force=args.full, incremental=True,
-            progress=_index_progress
-            if getattr(args, "verbose", False) else None)
-        plan_counts = (
-            coord.last_plan.counts() if coord.last_plan is not None else {}
+            target,
+            force=args.full,
+            incremental=True,
+            progress=_index_progress if getattr(args, "verbose", False) else None,
         )
+        plan_counts = coord.last_plan.counts() if coord.last_plan is not None else {}
     finally:
         conn.close()
     payload = {
@@ -438,10 +438,7 @@ def run_index(args: argparse.Namespace) -> int:
         "stats": outcome.stats,
         "plan": plan_counts,
         "diagnostics": boot_errors,
-        "domains": (
-            sorted(d.domain_id for d in dom_reg.enabled())
-            if dom_reg is not None else []
-        ),
+        "domains": (sorted(d.domain_id for d in dom_reg.enabled()) if dom_reg is not None else []),
         "cross_domain": cross_res is not None,
     }
     if args.json:
@@ -466,7 +463,8 @@ def _index_progress(event: str, fields: Mapping[str, Any]) -> None:
 
 
 def _index_domains(
-    target: Path, args: argparse.Namespace,
+    target: Path,
+    args: argparse.Namespace,
 ) -> tuple[DomainRegistry | None, CrossDomainResolver | None, str]:
     """Flags de domínio do ``index`` → (registry, cross_resolver, fatal).
 
@@ -496,24 +494,25 @@ def _index_domains(
 
 def _print_index_human(outcome: IndexOutcome) -> None:
     if outcome.status == "success":
-        print(f"snapshot #{outcome.snapshot_id} READY — "
-              f"{outcome.files_indexed} inventory files")
+        print(f"snapshot #{outcome.snapshot_id} READY — {outcome.files_indexed} inventory files")
         s = outcome.stats
         if s.get("occurrences") or s.get("relations"):
-            print(f"graph: {s.get('symbols_new', 0)} symbols, "
-                  f"{s.get('occurrences', 0)} occurrences, "
-                  f"{s.get('relations', 0)} relations "
-                  f"({s.get('files_failed', 0)} files failed)")
+            print(
+                f"graph: {s.get('symbols_new', 0)} symbols, "
+                f"{s.get('occurrences', 0)} occurrences, "
+                f"{s.get('relations', 0)} relations "
+                f"({s.get('files_failed', 0)} files failed)"
+            )
         if s.get("domain_adapters"):
-            dom = {k: v for k, v in s.items()
-                   if k.startswith("domain_") and k != "domain_adapters"}
-            print(f"domains: {s['domain_adapters']} adapter(s) — "
-                  + ", ".join(f"{k}={v}" for k, v in sorted(dom.items())))
+            dom = {k: v for k, v in s.items() if k.startswith("domain_") and k != "domain_adapters"}
+            print(
+                f"domains: {s['domain_adapters']} adapter(s) — "
+                + ", ".join(f"{k}={v}" for k, v in sorted(dom.items()))
+            )
     elif outcome.status == "noop":
         print(f"snapshot #{outcome.snapshot_id} unchanged — no-op index")
     else:
-        print(f"index failed: {escape_control(outcome.error)}",
-              file=sys.stderr)
+        print(f"index failed: {escape_control(outcome.error)}", file=sys.stderr)
     if outcome.secrets_skipped:
         print(f"secrets excluded: {outcome.secrets_skipped}")
     for w in outcome.warnings:
@@ -521,7 +520,8 @@ def _print_index_human(outcome: IndexOutcome) -> None:
 
 
 def _index_resolvers(
-    target: Path, args: argparse.Namespace,
+    target: Path,
+    args: argparse.Namespace,
 ) -> tuple[Sequence[Any], list[str], dict[str, str], int, str]:
     """Flags de resolver do ``index`` → factories/versions/retain.
 
@@ -532,9 +532,9 @@ def _index_resolvers(
     for r in args.resolver or ():
         only.extend(p for p in r.split(",") if p.strip())
     factories, errors, versions, retain = _resolver_factories(
-        target, scip_path=args.scip, only=only or None)
-    bad = "; ".join(
-        e for e in errors if e.startswith("--resolver:"))
+        target, scip_path=args.scip, only=only or None
+    )
+    bad = "; ".join(e for e in errors if e.startswith("--resolver:"))
     return factories, errors, versions, retain, bad
 
 
@@ -546,10 +546,7 @@ def run_semantic_status(args: argparse.Namespace) -> int:
     nenhum server LSP é spawnado); ``used`` vem de
     ``relations.resolver`` — a única fonte autoritativa de uso real.
     """
-    target = (
-        Path(args.path).expanduser().resolve()
-        if args.path else resolve_root(args.root)
-    )
+    target = Path(args.path).expanduser().resolve() if args.path else resolve_root(args.root)
     conn = _open_db()
     try:
         payload = _semantic_payload(conn, target)
@@ -558,16 +555,11 @@ def run_semantic_status(args: argparse.Namespace) -> int:
     return _emit_page(args, payload)
 
 
-def _semantic_payload(
-    conn: sqlite3.Connection, target: Path
-) -> dict[str, Any]:
+def _semantic_payload(conn: sqlite3.Connection, target: Path) -> dict[str, Any]:
     """Monta o payload do ``semantic-status`` lendo só o READY."""
     search = StructuralSearch(conn)
     repo_id = search.repo_for_root(str(target))
-    snap = (
-        search.resolve_snapshot(repo_id, None)[0]
-        if repo_id is not None else None
-    )
+    snap = search.resolve_snapshot(repo_id, None)[0] if repo_id is not None else None
     coverage, used = _resolver_usage(conn, snap)
     reports, boot_errors = _resolver_reports(target, used)
     analyzer_versions = dict(snap.analyzer_versions) if snap else {}
@@ -581,8 +573,7 @@ def _semantic_payload(
         ).fetchone()
         if row is not None:
             last_job = json.loads(row["counts"] or "{}")
-    sem_keys = ("semantic_attempted", "semantic_enriched",
-                "semantic_diagnostics")
+    sem_keys = ("semantic_attempted", "semantic_enriched", "semantic_diagnostics")
     payload: dict[str, Any] = {
         "tool": "code-atlas",
         "version": __version__,
@@ -607,15 +598,14 @@ def _semantic_payload(
         "_human": [],
     }
     for rep in reports:
-        flags = "/".join(
-            k for k in ("installed", "enabled", "used") if rep[k])
-        payload["_human"].append(
-            f"{rep['id']}: {flags or 'none'} edges={rep['edges']}")
+        flags = "/".join(k for k in ("installed", "enabled", "used") if rep[k])
+        payload["_human"].append(f"{rep['id']}: {flags or 'none'} edges={rep['edges']}")
     cov = payload["coverage"]
     payload["_human"].append(
         f"coverage: resolved={cov['resolved']} "
         f"ambiguous={cov['ambiguous']} "
-        f"unresolved={cov['unresolved']} external={cov['external']}")
+        f"unresolved={cov['unresolved']} external={cov['external']}"
+    )
     for e in boot_errors:
         payload["_human"].append(f"diagnostic: {e}")
     return payload
@@ -635,10 +625,8 @@ def _resolver_usage(
         "GROUP BY resolver, resolution_status",
         (snap.id,),
     ):
-        coverage[r["resolution_status"]] = (
-            coverage.get(r["resolution_status"], 0) + r["c"])
-        used.setdefault(r["resolver"], {}).setdefault(
-            r["resolution_status"], 0)
+        coverage[r["resolution_status"]] = coverage.get(r["resolution_status"], 0) + r["c"]
+        used.setdefault(r["resolver"], {}).setdefault(r["resolution_status"], 0)
         used[r["resolver"]][r["resolution_status"]] += r["c"]
     return coverage, used
 
@@ -710,8 +698,16 @@ def _search_context(
 
 def _emit_error(args: argparse.Namespace, msg: str) -> int:
     if args.json:
-        print(json.dumps({"tool": "code-atlas", "version": __version__,
-                          "error": msg, "schema_version": SCHEMA_VERSION}))
+        print(
+            json.dumps(
+                {
+                    "tool": "code-atlas",
+                    "version": __version__,
+                    "error": msg,
+                    "schema_version": SCHEMA_VERSION,
+                }
+            )
+        )
     else:
         print(f"error: {escape_control(msg)}", file=sys.stderr)
     return EXIT_ERROR
@@ -726,10 +722,7 @@ def _emit_page(args: argparse.Namespace, payload: dict[str, Any]) -> int:
         for line in payload.pop("_human", []):
             print(escape_control(line))
         if "total" in payload:
-            print(
-                f"-- total={payload['total']} "
-                f"truncated={payload.get('truncated', False)}"
-            )
+            print(f"-- total={payload['total']} truncated={payload.get('truncated', False)}")
     return EXIT_OK
 
 
@@ -737,9 +730,7 @@ def run_search(args: argparse.Namespace) -> int:
     conn, repo_id, snap_id, repo_info, err = _search_context(args)
     if err:
         return _emit_error(args, err)
-    assert (
-        conn is not None and repo_id is not None and snap_id is not None
-    )
+    assert conn is not None and repo_id is not None and snap_id is not None
     strategy = getattr(args, "strategy", "structural") or "structural"
     if strategy != "structural":
         if repo_info is None:
@@ -748,7 +739,9 @@ def run_search(args: argparse.Namespace) -> int:
     try:
         search = StructuralSearch(conn)
         filters = SearchFilters(
-            language=args.language, kind=args.kind, path=args.path_filter,
+            language=args.language,
+            kind=args.kind,
+            path=args.path_filter,
         )
         limit = clamp_limit(args.limit)
         page = search.search_symbols(
@@ -756,19 +749,23 @@ def run_search(args: argparse.Namespace) -> int:
         )
         results = [dict(x) for x in page.items]
         payload: dict[str, Any] = {
-            "tool": "code-atlas", "version": __version__,
-            "schema_version": SCHEMA_VERSION, "command": "search",
-            "query": args.query, "snapshot_id": snap_id,
+            "tool": "code-atlas",
+            "version": __version__,
+            "schema_version": SCHEMA_VERSION,
+            "command": "search",
+            "query": args.query,
+            "snapshot_id": snap_id,
             "repository": repo_info,
             "diagnostics": [],
-            "filters": {"language": args.language, "kind": args.kind,
-                        "path": args.path_filter},
-            "limit": limit, "offset": args.offset,
-            "total": page.total, "truncated": page.truncated,
+            "filters": {"language": args.language, "kind": args.kind, "path": args.path_filter},
+            "limit": limit,
+            "offset": args.offset,
+            "total": page.total,
+            "truncated": page.truncated,
             "results": results,
             "_human": [
-                f"{r['symbol_id']:>5} {r['kind']:<9} {r['language']:<10} "
-                f"{r['qualified_name']}" for r in results
+                f"{r['symbol_id']:>5} {r['kind']:<9} {r['language']:<10} {r['qualified_name']}"
+                for r in results
             ],
         }
     finally:
@@ -790,9 +787,9 @@ def _run_search_engine(
     offset = max(0, args.offset)
     cursor = None
     if offset:
-        fp = query_fingerprint(args.query, {
-            "language": args.language, "kind": args.kind,
-            "path": args.path_filter})
+        fp = query_fingerprint(
+            args.query, {"language": args.language, "kind": args.kind, "path": args.path_filter}
+        )
         cursor = encode_cursor(offset, fp)
     try:
         res = SearchEngine(conn).search(
@@ -819,7 +816,8 @@ def _run_search_engine(
     payload["_human"] = [
         f"{h['qualified_name']:<40} {h['path']} "
         f"[{','.join(h['matched_fields']) or 'structural'} "
-        f"score={h['score']:.4f}]" for h in items
+        f"score={h['score']:.4f}]"
+        for h in items
     ]
     return _emit_page(args, payload)
 
@@ -838,14 +836,16 @@ def run_context(args: argparse.Namespace) -> int:
     )
 
     try:
-        pack = ContextEngine(conn).build(ContextRequest(
-            task=args.task,
-            repository_root=str(resolve_root(args.root)),
-            snapshot_id=snap_id,
-            level=args.level,
-            budget_tokens=args.budget,
-            max_symbols=clamp_limit(args.limit),
-        ))
+        pack = ContextEngine(conn).build(
+            ContextRequest(
+                task=args.task,
+                repository_root=str(resolve_root(args.root)),
+                snapshot_id=snap_id,
+                level=args.level,
+                budget_tokens=args.budget,
+                max_symbols=clamp_limit(args.limit),
+            )
+        )
     finally:
         conn.close()
     if args.format == "markdown":
@@ -856,13 +856,13 @@ def run_context(args: argparse.Namespace) -> int:
         return EXIT_OK
     # humano: linhas resumidas
     m = pack.manifest
-    print(f"# pack snapshot={m.snapshot_id} level={m.level} "
-          f"selected={m.selected} omitted={m.omitted} "
-          f"truncated={str(m.truncated).lower()}")
+    print(
+        f"# pack snapshot={m.snapshot_id} level={m.level} "
+        f"selected={m.selected} omitted={m.omitted} "
+        f"truncated={str(m.truncated).lower()}"
+    )
     for i in pack.items:
-        print(escape_control(
-            f"  [{i.priority}] {i.kind:<10} {i.title} "
-            f"(~{i.est_tokens} tok)"))
+        print(escape_control(f"  [{i.priority}] {i.kind:<10} {i.title} (~{i.est_tokens} tok)"))
     if pack.diagnostics.codes:
         print(f"diagnostics: {', '.join(pack.diagnostics.codes)}")
     return EXIT_OK
@@ -876,12 +876,11 @@ def run_context_expand(args: argparse.Namespace) -> int:
     assert conn is not None and snap_id is not None
     from code_atlas.context import ContextExpander, expansion_to_json
 
-    delivered = frozenset(
-        s for s in (args.delivered or "").split(",") if s)
+    delivered = frozenset(s for s in (args.delivered or "").split(",") if s)
     try:
         res = ContextExpander(conn).expand(
-            snap_id, args.symbol, delivered=delivered,
-            budget_tokens=args.budget)
+            snap_id, args.symbol, delivered=delivered, budget_tokens=args.budget
+        )
     finally:
         conn.close()
     if res.error:
@@ -890,20 +889,16 @@ def run_context_expand(args: argparse.Namespace) -> int:
         print(expansion_to_json(res))
     else:
         for i in res.added:
-            print(escape_control(
-                f"  + {i.symbol_key} (~{i.est_tokens} tok) {i.path}"))
+            print(escape_control(f"  + {i.symbol_key} (~{i.est_tokens} tok) {i.path}"))
         for r in res.remaining_refs:
             print(escape_control(f"  … {r.ref_id} ({r.reason})"))
     return EXIT_OK
 
 
 _MCP_MANIFESTS: dict[str, dict[str, Any]] = {
-    "claude-code": {"mcpServers": {"code-atlas": {
-        "command": "code-atlas", "args": ["mcp"]}}},
-    "codex-cli": {"mcp_servers": {"code-atlas": {
-        "command": "code-atlas", "args": ["mcp"]}}},
-    "generic": {"mcpServers": {"code-atlas": {
-        "command": "code-atlas", "args": ["mcp"]}}},
+    "claude-code": {"mcpServers": {"code-atlas": {"command": "code-atlas", "args": ["mcp"]}}},
+    "codex-cli": {"mcp_servers": {"code-atlas": {"command": "code-atlas", "args": ["mcp"]}}},
+    "generic": {"mcpServers": {"code-atlas": {"command": "code-atlas", "args": ["mcp"]}}},
 }
 
 
@@ -913,11 +908,9 @@ def run_api(args: argparse.Namespace) -> int:
 
     db_file = db_path()
     if not db_file.exists():
-        print("banco não existe — rode `code-atlas index` antes",
-              file=sys.stderr)
+        print("banco não existe — rode `code-atlas index` antes", file=sys.stderr)
         return EXIT_ERROR
-    server = serve(str(db_file), host=args.host, port=args.port,
-                   verbose=args.verbose)
+    server = serve(str(db_file), host=args.host, port=args.port, verbose=args.verbose)
     print(f"API Explorer em {server.url} — Ctrl+C para parar")
     try:
         server.serve_forever()
@@ -939,24 +932,26 @@ def run_explorer(args: argparse.Namespace) -> int:
 
     db_file = db_path()
     if not db_file.exists():
-        print("banco não existe — rode `code-atlas index` antes",
-              file=sys.stderr)
+        print("banco não existe — rode `code-atlas index` antes", file=sys.stderr)
         return EXIT_ERROR
     static = explorer_static_root(Path(__file__).resolve().parents[2])
     if static is None:
-        print("Explorer não compilado — servindo apenas a API "
-              "(build: cd explorer && npm run build)", file=sys.stderr)
+        print(
+            "Explorer não compilado — servindo apenas a API (build: cd explorer && npm run build)",
+            file=sys.stderr,
+        )
     try:
-        server = serve(str(db_file), host=args.host, port=args.port,
-                       verbose=args.verbose, static_root=static)
+        server = serve(
+            str(db_file), host=args.host, port=args.port, verbose=args.verbose, static_root=static
+        )
     except OSError as e:
-        print(f"porta indisponível: {escape_control(str(e))}",
-              file=sys.stderr)
+        print(f"porta indisponível: {escape_control(str(e))}", file=sys.stderr)
         return EXIT_ERROR
     url = f"http://{server.host}:{server.port}/"
     print(f"Explorer em {url} — API em {server.url}")
     if args.open:
         import webbrowser
+
         webbrowser.open(url)
     try:
         server.serve_forever()
@@ -980,8 +975,7 @@ def run_mcp(args: argparse.Namespace) -> int:
         host = getattr(args, "host", "generic") or "generic"
         manifest = _MCP_MANIFESTS.get(host, _MCP_MANIFESTS["generic"])
         print(json.dumps(manifest, indent=2))
-        print("# cole o JSON acima no config do host — Atlas nunca "
-              "escreve nele", file=sys.stderr)
+        print("# cole o JSON acima no config do host — Atlas nunca escreve nele", file=sys.stderr)
         return EXIT_OK
     if cmd == "doctor":
         return _mcp_doctor(args)
@@ -1008,8 +1002,7 @@ def _mcp_doctor(args: argparse.Namespace) -> int:
         checks["schema_version"] = schema_version(conn)
         conn.close()
     if args.json:
-        print(json.dumps({"tool": "code-atlas",
-                          "command": "mcp doctor", **checks}))
+        print(json.dumps({"tool": "code-atlas", "command": "mcp doctor", **checks}))
     else:
         for k, v in checks.items():
             print(f"{k:<16} {escape_control(str(v))}")
@@ -1020,26 +1013,23 @@ def run_symbol(args: argparse.Namespace) -> int:
     conn, repo_id, snap_id, repo_info, err = _search_context(args)
     if err:
         return _emit_error(args, err)
-    assert (
-        conn is not None and repo_id is not None and snap_id is not None
-    )
+    assert conn is not None and repo_id is not None and snap_id is not None
     try:
         search = StructuralSearch(conn)
         detail = search.symbol_detail(repo_id, snap_id, args.ident)
         if detail is None:
             return _emit_error(args, f"symbol {args.ident!r} not found")
         payload: dict[str, Any] = {
-            "tool": "code-atlas", "version": __version__,
-            "schema_version": SCHEMA_VERSION, "command": "symbol",
-            "snapshot_id": snap_id, "result": detail,
-            "repository": repo_info, "diagnostics": [],
-            "_human": [
-                f"{detail['kind']} {detail['qualified_name']} "
-                f"({detail['language']})"
-            ] + [
-                f"  {o['path']}:{o['line']} [{o['parse_status']}]"
-                for o in detail["occurrences"]
-            ],
+            "tool": "code-atlas",
+            "version": __version__,
+            "schema_version": SCHEMA_VERSION,
+            "command": "symbol",
+            "snapshot_id": snap_id,
+            "result": detail,
+            "repository": repo_info,
+            "diagnostics": [],
+            "_human": [f"{detail['kind']} {detail['qualified_name']} ({detail['language']})"]
+            + [f"  {o['path']}:{o['line']} [{o['parse_status']}]" for o in detail["occurrences"]],
         }
     finally:
         conn.close()
@@ -1050,25 +1040,33 @@ def run_references(args: argparse.Namespace) -> int:
     conn, repo_id, snap_id, repo_info, err = _search_context(args)
     if err:
         return _emit_error(args, err)
-    assert (
-        conn is not None and repo_id is not None and snap_id is not None
-    )
+    assert conn is not None and repo_id is not None and snap_id is not None
     try:
         search = StructuralSearch(conn)
         page, rerr = search.references(
-            repo_id, snap_id, args.ident, args.relation_type,
-            clamp_limit(args.limit), max(0, args.offset),
+            repo_id,
+            snap_id,
+            args.ident,
+            args.relation_type,
+            clamp_limit(args.limit),
+            max(0, args.offset),
         )
         if page is None:
             return _emit_error(args, rerr)
         results = [dict(x) for x in page.items]
         payload: dict[str, Any] = {
-            "tool": "code-atlas", "version": __version__,
-            "schema_version": SCHEMA_VERSION, "command": "references",
-            "symbol": args.ident, "snapshot_id": snap_id,
-            "repository": repo_info, "diagnostics": [],
-            "limit": clamp_limit(args.limit), "offset": args.offset,
-            "total": page.total, "truncated": page.truncated,
+            "tool": "code-atlas",
+            "version": __version__,
+            "schema_version": SCHEMA_VERSION,
+            "command": "references",
+            "symbol": args.ident,
+            "snapshot_id": snap_id,
+            "repository": repo_info,
+            "diagnostics": [],
+            "limit": clamp_limit(args.limit),
+            "offset": args.offset,
+            "total": page.total,
+            "truncated": page.truncated,
             "results": results,
             "_human": [
                 f"#{r['relation_id']} {r['type']} "
@@ -1087,23 +1085,29 @@ def run_graph(args: argparse.Namespace) -> int:
     conn, repo_id, snap_id, repo_info, err = _search_context(args)
     if err:
         return _emit_error(args, err)
-    assert (
-        conn is not None and repo_id is not None and snap_id is not None
-    )
+    assert conn is not None and repo_id is not None and snap_id is not None
     try:
         search = StructuralSearch(conn)
         filters = SearchFilters(
-            language=args.language, kind=args.kind,
-            path=args.path_filter, relation_type=args.relation_type,
+            language=args.language,
+            kind=args.kind,
+            path=args.path_filter,
+            relation_type=args.relation_type,
         )
         dump = search.graph_dump(snap_id, filters, clamp_limit(args.limit))
         payload: dict[str, Any] = {
-            "tool": "code-atlas", "version": __version__,
-            "schema_version": SCHEMA_VERSION, "command": "graph",
+            "tool": "code-atlas",
+            "version": __version__,
+            "schema_version": SCHEMA_VERSION,
+            "command": "graph",
             "snapshot_id": snap_id,
-            "repository": repo_info, "diagnostics": [], "filters": {
-                "language": args.language, "kind": args.kind,
-                "path": args.path_filter, "relation_type": args.relation_type,
+            "repository": repo_info,
+            "diagnostics": [],
+            "filters": {
+                "language": args.language,
+                "kind": args.kind,
+                "path": args.path_filter,
+                "relation_type": args.relation_type,
             },
             "limit": clamp_limit(args.limit),
             **dump,
@@ -1121,14 +1125,9 @@ def run_index_plan(args: argparse.Namespace) -> int:
     if args.path and ".." in Path(args.path).parts:
         print("error: '..' traversal is not allowed in PATH", file=sys.stderr)
         return EXIT_UNSAFE
-    target = (
-        Path(args.path).expanduser().resolve()
-        if args.path
-        else resolve_root(args.root)
-    )
+    target = Path(args.path).expanduser().resolve() if args.path else resolve_root(args.root)
     if not target.is_dir():
-        print(f"error: {escape_control(str(target))} is not a directory",
-              file=sys.stderr)
+        print(f"error: {escape_control(str(target))} is not a directory", file=sys.stderr)
         return EXIT_UNSAFE
     conn = _open_db()
     try:
@@ -1137,24 +1136,24 @@ def run_index_plan(args: argparse.Namespace) -> int:
         conn.close()
     assert plan is not None  # dry-run sempre materializa um plano
     payload: dict[str, Any] = {
-        "tool": "code-atlas", "version": __version__,
-        "schema_version": SCHEMA_VERSION, "command": "index-plan",
-        "root": str(target), "diagnostics": list(diag.values()),
+        "tool": "code-atlas",
+        "version": __version__,
+        "schema_version": SCHEMA_VERSION,
+        "command": "index-plan",
+        "root": str(target),
+        "diagnostics": list(diag.values()),
         "plan": plan.to_dict(),
     }
     if args.json:
         print(json.dumps(payload))
     else:
         counts = plan.counts()
-        print("index-plan (dry-run): " + ", ".join(
-            f"{k}={v}" for k, v in sorted(counts.items())
-        ))
+        print("index-plan (dry-run): " + ", ".join(f"{k}={v}" for k, v in sorted(counts.items())))
         if diag:
             for d in diag.values():
                 print(f"note: {escape_control(str(d))}")
         for f in plan.files:
-            print(escape_control(
-                f"  {f.action:<22} {f.path}  ({f.reason})"))
+            print(escape_control(f"  {f.action:<22} {f.path}  ({f.reason})"))
     return EXIT_OK
 
 
@@ -1163,9 +1162,7 @@ def run_definitions(args: argparse.Namespace) -> int:
     conn, repo_id, snap_id, repo_info, err = _search_context(args)
     if err:
         return _emit_error(args, err)
-    assert (
-        conn is not None and repo_id is not None and snap_id is not None
-    )
+    assert conn is not None and repo_id is not None and snap_id is not None
     try:
         search = StructuralSearch(conn)
         out = search.definitions(repo_id, snap_id, args.ident)
@@ -1173,21 +1170,22 @@ def run_definitions(args: argparse.Namespace) -> int:
             return _emit_error(args, f"symbol {args.ident!r} not found")
         defs = out["definitions"]
         payload: dict[str, Any] = {
-            "tool": "code-atlas", "version": __version__,
-            "schema_version": SCHEMA_VERSION, "command": "definitions",
-            "query": args.ident, "snapshot_id": snap_id,
-            "repository": repo_info, "diagnostics": [],
+            "tool": "code-atlas",
+            "version": __version__,
+            "schema_version": SCHEMA_VERSION,
+            "command": "definitions",
+            "query": args.ident,
+            "snapshot_id": snap_id,
+            "repository": repo_info,
+            "diagnostics": [],
             "symbol_id": out["symbol_id"],
             "qualified_name": out["qualified_name"],
-            "total": len(defs), "truncated": False,
+            "total": len(defs),
+            "truncated": False,
             "results": defs,
             "_human": [
                 f"{out['qualified_name']} ({out['kind']})",
-                *(
-                    f"  {d['path']}:{d['line']}:{d['col']}"
-                    f" [{d['parse_status']}]"
-                    for d in defs
-                ),
+                *(f"  {d['path']}:{d['line']}:{d['col']} [{d['parse_status']}]" for d in defs),
             ],
         }
     finally:
@@ -1207,25 +1205,21 @@ def run_impact(args: argparse.Namespace) -> int:
     root = resolve_root(args.root)
     conn = _open_db()
     try:
-        base = args.base or ("HEAD" if args.cmd in ("worktree", "diff")
-                             else "")
+        base = args.base or ("HEAD" if args.cmd in ("worktree", "diff") else "")
         req = ImpactRequest(
             repository_root=str(root),
             base_revision=base,
-            target_revision=(args.target if args.cmd != "worktree"
-                             else ""),
-            symbol=args.ident if args.cmd in ("symbol", "contract")
-            else None,
+            target_revision=(args.target if args.cmd != "worktree" else ""),
+            symbol=args.ident if args.cmd in ("symbol", "contract") else None,
             known_only=args.known_only,
             limits=ImpactLimits(
-                max_depth=args.depth, max_nodes=args.max_nodes,
-                max_paths=args.max_paths))
+                max_depth=args.depth, max_nodes=args.max_nodes, max_paths=args.max_paths
+            ),
+        )
         res = ImpactEngine(conn).analyze(req)
         if args.cmd == "tests":
             # relatório focado em candidatos a teste
-            res = replace(
-                res, symbol_changes=(), contract_changes=(),
-                impacts=())
+            res = replace(res, symbol_changes=(), contract_changes=(), impacts=())
         if args.format == "json":
             print(to_json(res))
             return 0
@@ -1233,28 +1227,27 @@ def run_impact(args: argparse.Namespace) -> int:
             print(to_markdown(res))
             return 0
         # humano: resumo determinístico
-        print("impact: "
-              + escape_control(f"{res.base_revision} → {res.target_revision}"))
-        print(f"  snapshots: {res.base_snapshot_id} → "
-              f"{res.target_snapshot_id}")
-        print(f"  changes: {len(res.symbol_changes)} símbolo(s), "
-              f"{len(res.contract_changes)} contrato(s)")
-        print(f"  impacts: {len(res.impacts)} "
-              f"(diretos: {sum(1 for i in res.impacts if i.impact.value == 'direct')})")
+        print("impact: " + escape_control(f"{res.base_revision} → {res.target_revision}"))
+        print(f"  snapshots: {res.base_snapshot_id} → {res.target_snapshot_id}")
+        print(
+            f"  changes: {len(res.symbol_changes)} símbolo(s), "
+            f"{len(res.contract_changes)} contrato(s)"
+        )
+        print(
+            f"  impacts: {len(res.impacts)} "
+            f"(diretos: {sum(1 for i in res.impacts if i.impact.value == 'direct')})"
+        )
         print(f"  tests: {len(res.test_candidates)} candidato(s)")
-        print(f"  risk: {res.risk.category.value} "
-              f"(uncertainty={res.risk.uncertainty})")
+        print(f"  risk: {res.risk.category.value} (uncertainty={res.risk.uncertainty})")
         for r in res.risk.reasons:
             print(escape_control(f"    - {r}"))
         for d in res.diagnostics:
-            print(escape_control(f"  diagnostic {d.code}: {d.message}"),
-                  file=sys.stderr)
+            print(escape_control(f"  diagnostic {d.code}: {d.message}"), file=sys.stderr)
         if res.truncated:
             # lf-0151: paridade com JSON/Markdown — as razões do
             # corte fazem parte do estado reportado.
             why = escape_control(", ".join(res.truncation_reasons))
-            print("  TRUNCATED — limites atingidos"
-                  + (f" ({why})" if why else ""))
+            print("  TRUNCATED — limites atingidos" + (f" ({why})" if why else ""))
         return 0
     finally:
         conn.close()
@@ -1270,8 +1263,10 @@ def _fed_cmd_add(fed: Federation, args: argparse.Namespace) -> dict[str, Any]:
     repo_id = fed.resolve_repository(args.repo)
     member = fed.add_member(ws, repo_id)
     return {
-        "workspace_id": ws.id, "workspace": ws.name,
-        "repository_id": member.repository_id, "member_id": member.id,
+        "workspace_id": ws.id,
+        "workspace": ws.name,
+        "repository_id": member.repository_id,
+        "member_id": member.id,
     }
 
 
@@ -1286,12 +1281,11 @@ def _fed_cmd_pin(fed: Federation, args: argparse.Namespace) -> dict[str, Any]:
         try:
             snap_id = int(args.snapshot)
         except ValueError as exc:
-            raise InvalidPinError(
-                f"snapshot must be an id or 'latest': {args.snapshot!r}"
-            ) from exc
+            raise InvalidPinError(f"snapshot must be an id or 'latest': {args.snapshot!r}") from exc
         member = fed.pin_member(ws, repo_id, snap_id)
     return {
-        "workspace_id": ws.id, "workspace": ws.name,
+        "workspace_id": ws.id,
+        "workspace": ws.name,
         "repository_id": member.repository_id,
         "pinned_snapshot_id": member.pinned_snapshot_id,
     }
@@ -1308,9 +1302,7 @@ def _fed_cmd_view(fed: Federation, args: argparse.Namespace) -> dict[str, Any]:
             continue
         repo, sep, snap = seg.partition(":")
         if not sep or not repo.isdigit() or not snap.isdigit():
-            raise InvalidPinError(
-                "pin must be repo:snapshot[,repo:snapshot…]"
-            )
+            raise InvalidPinError("pin must be repo:snapshot[,repo:snapshot…]")
         pins[int(repo)] = int(snap)
     return fed.resolve_view(ws, pins).to_dict()
 
@@ -1323,8 +1315,10 @@ _FED_COMMANDS = {
 }
 
 _FED_REQUIRED = {
-    "create": ("name",), "add": ("name", "repo"),
-    "pin": ("name", "repo", "snapshot"), "view": ("name",),
+    "create": ("name",),
+    "add": ("name", "repo"),
+    "pin": ("name", "repo", "snapshot"),
+    "view": ("name",),
 }
 
 
@@ -1338,11 +1332,9 @@ def run_federation(args: argparse.Namespace) -> int:
     from code_atlas.federation import Federation, FederationError
 
     cmd = getattr(args, "fed_cmd", "view") or "view"
-    missing = [k for k in _FED_REQUIRED.get(cmd, ())
-               if not getattr(args, k, None)]
+    missing = [k for k in _FED_REQUIRED.get(cmd, ()) if not getattr(args, k, None)]
     if missing:
-        print(f"error: federation {cmd} requires "
-              f"{', '.join(missing)}", file=sys.stderr)
+        print(f"error: federation {cmd} requires {', '.join(missing)}", file=sys.stderr)
         return EXIT_USAGE
     conn = _open_db()
     try:
@@ -1367,8 +1359,7 @@ def run_federation(args: argparse.Namespace) -> int:
             )
     else:
         for k, v in payload.items():
-            if not k.startswith("_") and k not in ("tool", "version",
-                                                   "command"):
+            if not k.startswith("_") and k not in ("tool", "version", "command"):
                 print(f"{k}: {escape_control(str(v))}")
     return EXIT_OK
 
@@ -1433,8 +1424,7 @@ def _domain_context(
         conn.close()
         return None, None, None, None, err or "repository unresolved"
     search = StructuralSearch(conn)
-    snap, serr = search.resolve_snapshot(
-        repo_id, getattr(args, "snapshot", None))
+    snap, serr = search.resolve_snapshot(repo_id, getattr(args, "snapshot", None))
     if serr or snap is None or snap.id is None:
         conn.close()
         return None, None, None, None, serr or "snapshot missing id"
@@ -1463,8 +1453,11 @@ def _dom_cmd_list(
                 f"{a['domain_id']:<{width}}  {a['adapter_version']:<8} "
                 f"{'yes' if a['enabled'] else 'no':<7}  "
                 + ",".join(a["artifact_support"]["extensions"] or ["-"])
-                + (f"; globs={a['artifact_support']['globs']}"
-                   if a["artifact_support"]["globs"] else "")
+                + (
+                    f"; globs={a['artifact_support']['globs']}"
+                    if a["artifact_support"]["globs"]
+                    else ""
+                )
                 for a in adapters
             ),
             "note: opt-in — `index --domains <ids|all>` enables extraction",
@@ -1498,8 +1491,8 @@ def _dom_cmd_entities(
         domain = (getattr(args, "domain", None) or "").strip()
         q = (getattr(args, "q", None) or "").strip()
         out = list_entities(
-            conn, repo_id, snap_id,
-            domain=domain, kind=kind, q=q, limit=limit, offset=offset)
+            conn, repo_id, snap_id, domain=domain, kind=kind, q=q, limit=limit, offset=offset
+        )
     finally:
         conn.close()
     notes = [NOTE_OPT_IN] if out["total"] == 0 else []
@@ -1564,8 +1557,7 @@ def _dom_cmd_entity(
         f"namespace={identd['namespace'] or '-'} "
         f"environment={identd['environment'] or '-'} "
         f"name={identd['name']}",
-        f"occurrences (snapshot {snap_id}): "
-        f"{len(detail['occurrences'])}",
+        f"occurrences (snapshot {snap_id}): {len(detail['occurrences'])}",
         *(
             f"  {o['path'] or '<synthesized>'}:{o['line'] or '-'}:"
             f"{o['col'] or '-'} [{o['extraction_status']}]"
@@ -1573,8 +1565,7 @@ def _dom_cmd_entity(
         ),
         f"relations: {sum(r['count'] for r in detail['relations_summary'])}",
         *(
-            f"  {r['direction']:<4} {r['type']:<20} {r['status']:<11} "
-            f"x{r['count']}"
+            f"  {r['direction']:<4} {r['type']:<20} {r['status']:<11} x{r['count']}"
             for r in detail["relations_summary"]
         ),
         f"evidence: {detail['evidence_count']} distinct row(s)",
@@ -1610,17 +1601,20 @@ def _dom_cmd_lineage(
         if entity is None:
             return None, eerr
         out = lineage(
-            conn, entity, snap_id,
+            conn,
+            entity,
+            snap_id,
             direction=getattr(args, "direction", "both"),
             depth=clamp_depth(getattr(args, "depth", 2)),
-            limit=clamp_limit(getattr(args, "limit", None)))
+            limit=clamp_limit(getattr(args, "limit", None)),
+        )
     finally:
         conn.close()
     types = ", ".join(sorted(DATA_FLOW_TYPES))
     notes = (
-        [f"no data-flow relations ({types}) touch this entity in "
-         f"snapshot {snap_id}"]
-        if not out["edges"] else []
+        [f"no data-flow relations ({types}) touch this entity in snapshot {snap_id}"]
+        if not out["edges"]
+        else []
     )
     ent = out["entity"]
     human = [
@@ -1631,16 +1625,16 @@ def _dom_cmd_lineage(
     if out["direction"] in ("up", "both"):
         human.append(f"upstream (feeds {ent['display_name']}):")
         human += [
-            f"  d{e['depth']} {e['from']} → {e['to']} "
-            f"[{e['type']} {e['resolution_status']}]"
-            for e in out["edges"] if e["via"] == "up"
+            f"  d{e['depth']} {e['from']} → {e['to']} [{e['type']} {e['resolution_status']}]"
+            for e in out["edges"]
+            if e["via"] == "up"
         ]
     if out["direction"] in ("down", "both"):
         human.append(f"downstream (fed by {ent['display_name']}):")
         human += [
-            f"  d{e['depth']} {e['from']} → {e['to']} "
-            f"[{e['type']} {e['resolution_status']}]"
-            for e in out["edges"] if e["via"] == "down"
+            f"  d{e['depth']} {e['from']} → {e['to']} [{e['type']} {e['resolution_status']}]"
+            for e in out["edges"]
+            if e["via"] == "down"
         ]
     human += notes
     payload = {
@@ -1675,11 +1669,9 @@ def run_domains(args: argparse.Namespace) -> int:
     nota, nunca erro.
     """
     cmd = getattr(args, "dom_cmd", "list") or "list"
-    missing = [k for k in _DOM_REQUIRED.get(cmd, ())
-               if not getattr(args, k, None)]
+    missing = [k for k in _DOM_REQUIRED.get(cmd, ()) if not getattr(args, k, None)]
     if missing:
-        print(f"error: domains {cmd} requires "
-              f"{', '.join(missing)}", file=sys.stderr)
+        print(f"error: domains {cmd} requires {', '.join(missing)}", file=sys.stderr)
         return EXIT_USAGE
     try:
         payload, err = _DOM_COMMANDS[cmd](args)
@@ -1699,29 +1691,37 @@ def run_dependencies(args: argparse.Namespace) -> int:
     conn, repo_id, snap_id, repo_info, err = _search_context(args)
     if err:
         return _emit_error(args, err)
-    assert (
-        conn is not None and repo_id is not None and snap_id is not None
-    )
+    assert conn is not None and repo_id is not None and snap_id is not None
     depth = clamp_depth(args.depth)
     try:
         search = StructuralSearch(conn)
         out, derr = search.dependencies(
-            repo_id, snap_id, args.ident, depth,
-            clamp_limit(args.limit), max(0, args.offset),
+            repo_id,
+            snap_id,
+            args.ident,
+            depth,
+            clamp_limit(args.limit),
+            max(0, args.offset),
         )
         if out is None:
             return _emit_error(args, derr)
         results = out["results"]
         payload: dict[str, Any] = {
-            "tool": "code-atlas", "version": __version__,
-            "schema_version": SCHEMA_VERSION, "command": "dependencies",
-            "query": args.ident, "snapshot_id": snap_id,
-            "repository": repo_info, "diagnostics": [],
+            "tool": "code-atlas",
+            "version": __version__,
+            "schema_version": SCHEMA_VERSION,
+            "command": "dependencies",
+            "query": args.ident,
+            "snapshot_id": snap_id,
+            "repository": repo_info,
+            "diagnostics": [],
             "symbol_id": out["symbol_id"],
             "qualified_name": out["qualified_name"],
-            "depth": depth, "limit": clamp_limit(args.limit),
+            "depth": depth,
+            "limit": clamp_limit(args.limit),
             "offset": max(0, args.offset),
-            "total": out["total"], "truncated": out["truncated"],
+            "total": out["total"],
+            "truncated": out["truncated"],
             "visited_symbols": out["visited_symbols"],
             "results": results,
             "_human": [
@@ -1767,28 +1767,36 @@ def build_parser() -> argparse.ArgumentParser:
     p_init.set_defaults(func=run_init)
 
     p_inst = sub.add_parser(
-        "install",
-        help="provisiona ambiente local (data dir, config, registro) + receipt")
+        "install", help="provisiona ambiente local (data dir, config, registro) + receipt"
+    )
     p_inst.add_argument(
-        "action", nargs="?", choices=("install", "uninstall", "status", "doctor"),
+        "action",
+        nargs="?",
+        choices=("install", "uninstall", "status", "doctor"),
         default="install",
-        help="install=aplica; uninstall=remove o instalado; status; doctor")
-    p_inst.add_argument("--scope", choices=("project", "user"),
-                        default="project",
-                        help="project=workspace atual; user=só data dir global")
-    p_inst.add_argument("--root", metavar="PATH",
-                        help="raiz do workspace (default: cwd)")
-    p_inst.add_argument("--profile",
-                        choices=("minimal", "recommended", "full"),
-                        default="recommended")
-    p_inst.add_argument("--components", metavar="CSV", default=None,
-                        help="csv de componentes: config,data-dir,repository")
-    p_inst.add_argument("--dry-run", action="store_true",
-                        help="mostra o plano; não escreve nada")
-    p_inst.add_argument("--yes", "-y", action="store_true",
-                        help="aprovação explícita para aplicar")
-    p_inst.add_argument("--purge", action="store_true",
-                        help="uninstall: também remove atlas.db/estado indexado")
+        help="install=aplica; uninstall=remove o instalado; status; doctor",
+    )
+    p_inst.add_argument(
+        "--scope",
+        choices=("project", "user"),
+        default="project",
+        help="project=workspace atual; user=só data dir global",
+    )
+    p_inst.add_argument("--root", metavar="PATH", help="raiz do workspace (default: cwd)")
+    p_inst.add_argument(
+        "--profile", choices=("minimal", "recommended", "full"), default="recommended"
+    )
+    p_inst.add_argument(
+        "--components",
+        metavar="CSV",
+        default=None,
+        help="csv de componentes: config,data-dir,repository",
+    )
+    p_inst.add_argument("--dry-run", action="store_true", help="mostra o plano; não escreve nada")
+    p_inst.add_argument("--yes", "-y", action="store_true", help="aprovação explícita para aplicar")
+    p_inst.add_argument(
+        "--purge", action="store_true", help="uninstall: também remove atlas.db/estado indexado"
+    )
     p_inst.add_argument("--json", action="store_true", help="saída em JSON")
     from code_atlas.install.cli import run_install
 
@@ -1797,36 +1805,45 @@ def build_parser() -> argparse.ArgumentParser:
     p_index = sub.add_parser("index", help="indexa inventário de um diretório (snapshot)")
     p_index.add_argument("path", nargs="?", metavar="PATH", help="diretório a indexar")
     p_index.add_argument("--root", metavar="PATH", help="raiz alternativa (se PATH ausente)")
+    p_index.add_argument("--full", action="store_true", help="força re-scan mesmo sem mudanças")
     p_index.add_argument(
-        "--full", action="store_true", help="força re-scan mesmo sem mudanças"
-    )
-    p_index.add_argument(
-        "--incremental", action="store_true", default=True,
+        "--incremental",
+        action="store_true",
+        default=True,
         help="indexação incremental (default ativo; --full desativa)",
     )
     p_index.add_argument(
-        "--scip", metavar="PATH", default=None,
+        "--scip",
+        metavar="PATH",
+        default=None,
         help="índice SCIP ad-hoc (sobrescreve [resolvers.scip].index_path)",
     )
     p_index.add_argument(
-        "--resolver", metavar="NAME", action="append", default=None,
+        "--resolver",
+        metavar="NAME",
+        action="append",
+        default=None,
         help="restringe resolvers ativos (syntactic|scip|lsp|lsp:<nome>); "
-             "repetível ou separado por vírgula",
+        "repetível ou separado por vírgula",
     )
     p_index.add_argument(
-        "--domains", metavar="LIST", default=None,
+        "--domains",
+        metavar="LIST",
+        default=None,
         help="adapters de domínio opt-in: ids separados por vírgula "
-             "(sql,pyspark,aws-data,terraform,cicd,api) ou 'all' — "
-             "default OFF (ver `code-atlas domains list`)",
+        "(sql,pyspark,aws-data,terraform,cicd,api) ou 'all' — "
+        "default OFF (ver `code-atlas domains list`)",
     )
     p_index.add_argument(
-        "--cross-domain", action="store_true",
+        "--cross-domain",
+        action="store_true",
         help="resolução cross-domain no snapshot (requer --domains)",
     )
     p_index.add_argument(
-        "--verbose", action="store_true",
+        "--verbose",
+        action="store_true",
         help="progresso por estágio em stderr: ms por etapa + files/s "
-             "no parse (stdout e --json não são tocados)",
+        "no parse (stdout e --json não são tocados)",
     )
     p_index.add_argument("--json", action="store_true", help="saída em JSON")
     p_index.set_defaults(func=run_index)
@@ -1835,20 +1852,14 @@ def build_parser() -> argparse.ArgumentParser:
         "semantic-status",
         help="resolvers instalados/habilitados/usados + cobertura semântica",
     )
-    p_sem.add_argument("path", nargs="?", metavar="PATH",
-                       help="diretório do workspace")
-    p_sem.add_argument("--root", metavar="PATH",
-                       help="raiz alternativa (se PATH ausente)")
+    p_sem.add_argument("path", nargs="?", metavar="PATH", help="diretório do workspace")
+    p_sem.add_argument("--root", metavar="PATH", help="raiz alternativa (se PATH ausente)")
     p_sem.add_argument("--json", action="store_true", help="saída em JSON")
     p_sem.set_defaults(func=run_semantic_status)
 
-    p_plan = sub.add_parser(
-        "index-plan", help="dry-run: plano de indexação em JSON (zero writes)"
-    )
-    p_plan.add_argument("path", nargs="?", metavar="PATH",
-                        help="diretório a planejar")
-    p_plan.add_argument("--root", metavar="PATH",
-                        help="raiz alternativa (se PATH ausente)")
+    p_plan = sub.add_parser("index-plan", help="dry-run: plano de indexação em JSON (zero writes)")
+    p_plan.add_argument("path", nargs="?", metavar="PATH", help="diretório a planejar")
+    p_plan.add_argument("--root", metavar="PATH", help="raiz alternativa (se PATH ausente)")
     p_plan.add_argument("--json", action="store_true", help="saída em JSON")
     p_plan.set_defaults(func=run_index_plan)
 
@@ -1857,46 +1868,54 @@ def build_parser() -> argparse.ArgumentParser:
     p_status.add_argument("--json", action="store_true", help="saída em JSON")
     p_status.set_defaults(func=run_status)
 
-    p_search = sub.add_parser(
-        "search", help="busca estrutural por símbolo (substring)"
-    )
+    p_search = sub.add_parser("search", help="busca estrutural por símbolo (substring)")
     p_search.add_argument("query", metavar="QUERY", help="substring do qualified_name")
     p_search.add_argument(
-        "--strategy", metavar="NAME", default="structural",
-        help="structural|lexical|graph|hybrid (default structural)")
+        "--strategy",
+        metavar="NAME",
+        default="structural",
+        help="structural|lexical|graph|hybrid (default structural)",
+    )
     _add_query_args(p_search, p_path=True)
     p_search.set_defaults(func=run_search)
 
-    p_ctx = sub.add_parser(
-        "context", help="context pack sob budget de tokens (lf-0040)")
+    p_ctx = sub.add_parser("context", help="context pack sob budget de tokens (lf-0040)")
     p_ctx.add_argument("task", metavar="TASK", help="descrição da tarefa")
-    p_ctx.add_argument("--level", choices=("orientation", "focus", "deep"),
-                       default="focus", help="nível de detalhe")
-    p_ctx.add_argument("--budget", metavar="TOKENS", type=int, default=4000,
-                       help="orçamento estimado (default 4000)")
-    p_ctx.add_argument("--format", choices=("json", "markdown", "human"),
-                       default="human", help="renderer de saída")
+    p_ctx.add_argument(
+        "--level",
+        choices=("orientation", "focus", "deep"),
+        default="focus",
+        help="nível de detalhe",
+    )
+    p_ctx.add_argument(
+        "--budget",
+        metavar="TOKENS",
+        type=int,
+        default=4000,
+        help="orçamento estimado (default 4000)",
+    )
+    p_ctx.add_argument(
+        "--format", choices=("json", "markdown", "human"), default="human", help="renderer de saída"
+    )
     _add_query_args(p_ctx, filters=False)
     p_ctx.set_defaults(func=run_context)
 
     p_exp = sub.add_parser(
-        "context-expand",
-        help="expande símbolo no MESMO snapshot do pack (lf-0041)")
-    p_exp.add_argument("--symbol", metavar="SYMBOL", required=True,
-                       help="qualified_name (ou sufixo) a expandir")
-    p_exp.add_argument("--delivered", metavar="IDS", default="",
-                       help="item_ids já entregues (csv) — dedup")
-    p_exp.add_argument("--budget", metavar="TOKENS", type=int,
-                       default=4000)
+        "context-expand", help="expande símbolo no MESMO snapshot do pack (lf-0041)"
+    )
+    p_exp.add_argument(
+        "--symbol", metavar="SYMBOL", required=True, help="qualified_name (ou sufixo) a expandir"
+    )
+    p_exp.add_argument(
+        "--delivered", metavar="IDS", default="", help="item_ids já entregues (csv) — dedup"
+    )
+    p_exp.add_argument("--budget", metavar="TOKENS", type=int, default=4000)
     _add_query_args(p_exp, filters=False)
     p_exp.set_defaults(func=run_context_expand)
 
-    p_mcp = sub.add_parser(
-        "mcp", help="servidor MCP stdio — JSON-RPC ndjson (lf-0042)")
-    p_mcp.add_argument("cmd", nargs="?", default="serve",
-                       choices=("serve", "doctor", "manifest"))
-    p_mcp.add_argument("--host", default="generic",
-                       choices=("claude-code", "codex-cli", "generic"))
+    p_mcp = sub.add_parser("mcp", help="servidor MCP stdio — JSON-RPC ndjson (lf-0042)")
+    p_mcp.add_argument("cmd", nargs="?", default="serve", choices=("serve", "doctor", "manifest"))
+    p_mcp.add_argument("--host", default="generic", choices=("claude-code", "codex-cli", "generic"))
     p_mcp.add_argument("--json", action="store_true")
     p_mcp.set_defaults(func=run_mcp)
 
@@ -1916,128 +1935,150 @@ def build_parser() -> argparse.ArgumentParser:
     _add_query_args(p_graph, p_path=True)
     p_graph.set_defaults(func=run_graph)
 
-    p_defs = sub.add_parser(
-        "definitions", help="sites de definição de um símbolo (path:span)"
-    )
-    p_defs.add_argument("ident", metavar="SYMBOL",
-                        help="id numérico ou qualified_name")
+    p_defs = sub.add_parser("definitions", help="sites de definição de um símbolo (path:span)")
+    p_defs.add_argument("ident", metavar="SYMBOL", help="id numérico ou qualified_name")
     _add_query_args(p_defs, filters=False)
     p_defs.set_defaults(func=run_definitions)
 
-    p_deps = sub.add_parser(
-        "dependencies", help="arestas saíntes de um símbolo (BFS limitado)"
-    )
-    p_deps.add_argument("ident", metavar="SYMBOL",
-                        help="id numérico ou qualified_name")
+    p_deps = sub.add_parser("dependencies", help="arestas saíntes de um símbolo (BFS limitado)")
+    p_deps.add_argument("ident", metavar="SYMBOL", help="id numérico ou qualified_name")
     p_deps.add_argument(
-        "--depth", metavar="N", type=int, default=1,
+        "--depth",
+        metavar="N",
+        type=int,
+        default=1,
         help=f"profundidade de traversal (default 1, teto {MAX_DEPTH})",
     )
     _add_query_args(p_deps, filters=False)
     p_deps.set_defaults(func=run_dependencies)
 
-    p_impact = sub.add_parser(
-        "impact", help="análise de impacto entre revisões (Cycle 5)")
+    p_impact = sub.add_parser("impact", help="análise de impacto entre revisões (Cycle 5)")
     p_impact.add_argument(
-        "cmd", nargs="?", default="report",
-        choices=("diff", "worktree", "symbol", "tests", "contract",
-                 "report"))
-    p_impact.add_argument("ident", nargs="?", metavar="SYMBOL",
-                          help="qualified_name para symbol/contract")
-    p_impact.add_argument("--base", metavar="REV", default="",
-                          help="revisão base (HEAD~1, sha, branch)")
-    p_impact.add_argument("--target", metavar="REV", default="",
-                          help="revisão alvo (vazio = worktree)")
+        "cmd",
+        nargs="?",
+        default="report",
+        choices=("diff", "worktree", "symbol", "tests", "contract", "report"),
+    )
+    p_impact.add_argument(
+        "ident", nargs="?", metavar="SYMBOL", help="qualified_name para symbol/contract"
+    )
+    p_impact.add_argument(
+        "--base", metavar="REV", default="", help="revisão base (HEAD~1, sha, branch)"
+    )
+    p_impact.add_argument(
+        "--target", metavar="REV", default="", help="revisão alvo (vazio = worktree)"
+    )
     p_impact.add_argument("--depth", metavar="N", type=int, default=4)
-    p_impact.add_argument("--max-nodes", metavar="N", type=int,
-                          default=500)
-    p_impact.add_argument("--max-paths", metavar="N", type=int,
-                          default=50)
+    p_impact.add_argument("--max-nodes", metavar="N", type=int, default=500)
+    p_impact.add_argument("--max-paths", metavar="N", type=int, default=50)
     p_impact.add_argument("--known-only", action="store_true")
-    p_impact.add_argument("--format",
-                          choices=("json", "markdown", "human"),
-                          default="human")
+    p_impact.add_argument("--format", choices=("json", "markdown", "human"), default="human")
     _add_query_args(p_impact, filters=False)
     p_impact.set_defaults(func=run_impact)
 
-    p_api = sub.add_parser(
-        "api", help="API HTTP local para o Explorer (loopback, read-only)")
-    p_api.add_argument("--host", metavar="HOST", default="127.0.0.1",
-                       help="bind (default 127.0.0.1 — público proibido)")
+    p_api = sub.add_parser("api", help="API HTTP local para o Explorer (loopback, read-only)")
+    p_api.add_argument(
+        "--host",
+        metavar="HOST",
+        default="127.0.0.1",
+        help="bind (default 127.0.0.1 — público proibido)",
+    )
     p_api.add_argument("--port", metavar="N", type=int, default=8741)
     p_api.add_argument("--verbose", action="store_true")
     p_api.set_defaults(func=run_api)
 
-    p_expl = sub.add_parser(
-        "explorer",
-        help="inicia o Explorer visual (API + assets compilados)")
+    p_expl = sub.add_parser("explorer", help="inicia o Explorer visual (API + assets compilados)")
     p_expl.add_argument("--host", metavar="HOST", default="127.0.0.1")
     p_expl.add_argument("--port", metavar="N", type=int, default=8741)
-    p_expl.add_argument("--open", action="store_true",
-                       help="abre o navegador (somente quando pedido)")
+    p_expl.add_argument(
+        "--open", action="store_true", help="abre o navegador (somente quando pedido)"
+    )
     p_expl.add_argument("--verbose", action="store_true")
     p_expl.set_defaults(func=run_explorer)
 
     p_fed = sub.add_parser(
-        "federation",
-        help="agrupa repos indexados numa view federada "
-             "(lf-0118; mutação via CLI)")
+        "federation", help="agrupa repos indexados numa view federada (lf-0118; mutação via CLI)"
+    )
     p_fed.add_argument(
-        "fed_cmd", metavar="CMD",
+        "fed_cmd",
+        metavar="CMD",
         choices=("create", "add", "pin", "view"),
-        help="create <name> | add <ws> <repo> | pin <ws> <repo> <snap|latest>"
-             " | view <ws>")
-    p_fed.add_argument("name", nargs="?", metavar="NAME",
-                       help="nome a criar (create) ou ref <ws> (demais)")
-    p_fed.add_argument("repo", nargs="?", metavar="REPO",
-                       help="repo id | identity_key | root_handle | path "
-                            "(add/pin)")
-    p_fed.add_argument("snapshot", nargs="?", metavar="SNAPSHOT",
-                       help="snapshot id a pinar, ou 'latest' para desfazer "
-                            "o pin (pin)")
-    p_fed.add_argument("--pin", metavar="REPO:SNAP,…", default="",
-                       help="overrides de pin na view (view)")
+        help="create <name> | add <ws> <repo> | pin <ws> <repo> <snap|latest> | view <ws>",
+    )
+    p_fed.add_argument(
+        "name", nargs="?", metavar="NAME", help="nome a criar (create) ou ref <ws> (demais)"
+    )
+    p_fed.add_argument(
+        "repo",
+        nargs="?",
+        metavar="REPO",
+        help="repo id | identity_key | root_handle | path (add/pin)",
+    )
+    p_fed.add_argument(
+        "snapshot",
+        nargs="?",
+        metavar="SNAPSHOT",
+        help="snapshot id a pinar, ou 'latest' para desfazer o pin (pin)",
+    )
+    p_fed.add_argument(
+        "--pin", metavar="REPO:SNAP,…", default="", help="overrides de pin na view (view)"
+    )
     p_fed.add_argument("--json", action="store_true", help="saída em JSON")
     p_fed.set_defaults(func=run_federation)
 
     p_dom = sub.add_parser(
         "domains",
         help="inteligência de domínio read-only (lf-0123): adapters, "
-             "entidades e linhagem — dados existem só quando o índice "
-             "rodou com `index --domains`")
+        "entidades e linhagem — dados existem só quando o índice "
+        "rodou com `index --domains`",
+    )
     p_dom.add_argument(
-        "dom_cmd", metavar="CMD",
+        "dom_cmd",
+        metavar="CMD",
         choices=("list", "entities", "entity", "lineage"),
-        help="list | entities | entity <key> | lineage <table>")
+        help="list | entities | entity <key> | lineage <table>",
+    )
     p_dom.add_argument(
-        "ident", nargs="?", metavar="KEY",
+        "ident",
+        nargs="?",
+        metavar="KEY",
         help="identity_key 'dom:…' | id numérico | qualified_name | "
-             "namespace.qualified_name (entity/lineage)")
+        "namespace.qualified_name (entity/lineage)",
+    )
     p_dom.add_argument(
-        "--repo", metavar="REF",
-        help="repo id | identity_key | root_handle | path "
-             "(como `federation add`)")
-    p_dom.add_argument("--domain", metavar="D",
-                       help="filtra por domain_id (entities)")
-    p_dom.add_argument("--kind", metavar="K",
-                       help="filtra por DomainEntityKind (entities)")
-    p_dom.add_argument("--q", metavar="SUBSTR",
-                       help="substring de qualified_name/name (entities)")
+        "--repo",
+        metavar="REF",
+        help="repo id | identity_key | root_handle | path (como `federation add`)",
+    )
+    p_dom.add_argument("--domain", metavar="D", help="filtra por domain_id (entities)")
+    p_dom.add_argument("--kind", metavar="K", help="filtra por DomainEntityKind (entities)")
+    p_dom.add_argument("--q", metavar="SUBSTR", help="substring de qualified_name/name (entities)")
     p_dom.add_argument(
-        "--direction", choices=("up", "down", "both"), default="both",
-        help="up=produtores, down=consumidores (lineage; default both)")
+        "--direction",
+        choices=("up", "down", "both"),
+        default="both",
+        help="up=produtores, down=consumidores (lineage; default both)",
+    )
     p_dom.add_argument(
-        "--depth", metavar="N", type=int, default=2,
-        help=f"hops do traversal (lineage; default 2, teto {MAX_DEPTH})")
+        "--depth",
+        metavar="N",
+        type=int,
+        default=2,
+        help=f"hops do traversal (lineage; default 2, teto {MAX_DEPTH})",
+    )
     p_dom.add_argument(
-        "--limit", metavar="N", type=int,
-        help=f"máx. de resultados (default {DEFAULT_LIMIT}, teto {MAX_LIMIT})")
-    p_dom.add_argument("--offset", metavar="N", type=int, default=0,
-                       help="deslocamento de paginação (entities)")
-    p_dom.add_argument("--snapshot", metavar="ID", type=int,
-                       help="snapshot alvo (default: READY mais recente)")
-    p_dom.add_argument("--root", metavar="PATH",
-                       help="raiz do workspace (default: cwd)")
+        "--limit",
+        metavar="N",
+        type=int,
+        help=f"máx. de resultados (default {DEFAULT_LIMIT}, teto {MAX_LIMIT})",
+    )
+    p_dom.add_argument(
+        "--offset", metavar="N", type=int, default=0, help="deslocamento de paginação (entities)"
+    )
+    p_dom.add_argument(
+        "--snapshot", metavar="ID", type=int, help="snapshot alvo (default: READY mais recente)"
+    )
+    p_dom.add_argument("--root", metavar="PATH", help="raiz do workspace (default: cwd)")
     p_dom.add_argument("--json", action="store_true", help="saída em JSON")
     p_dom.set_defaults(func=run_domains)
 
@@ -2054,18 +2095,23 @@ def _add_query_args(
 ) -> None:
     """Args comuns dos comandos read-only de consulta."""
     p.add_argument("--root", metavar="PATH", help="raiz do workspace (default: cwd)")
-    p.add_argument("--snapshot", metavar="ID", type=int,
-                   help="snapshot alvo (default: READY mais recente)")
-    p.add_argument("--limit", metavar="N", type=int,
-                   help=f"máx. de resultados (default {DEFAULT_LIMIT}, teto {MAX_LIMIT})")
-    p.add_argument("--offset", metavar="N", type=int, default=0,
-                   help="deslocamento de paginação")
+    p.add_argument(
+        "--snapshot", metavar="ID", type=int, help="snapshot alvo (default: READY mais recente)"
+    )
+    p.add_argument(
+        "--limit",
+        metavar="N",
+        type=int,
+        help=f"máx. de resultados (default {DEFAULT_LIMIT}, teto {MAX_LIMIT})",
+    )
+    p.add_argument("--offset", metavar="N", type=int, default=0, help="deslocamento de paginação")
     if filters:
         p.add_argument("--language", metavar="LANG", help="filtra por linguagem")
         p.add_argument("--kind", metavar="KIND", help="filtra por NodeKind")
         if p_path:
-            p.add_argument("--path", dest="path_filter", metavar="SUBSTR",
-                           help="substring de relative_path")
+            p.add_argument(
+                "--path", dest="path_filter", metavar="SUBSTR", help="substring de relative_path"
+            )
     else:
         p.set_defaults(language=None, kind=None, path_filter=None)
     p.add_argument("--json", action="store_true", help="saída em JSON")

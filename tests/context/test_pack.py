@@ -19,17 +19,9 @@ from code_atlas.storage import connect, migrate
 
 _REPO = {
     "pkg/__init__.py": "",
-    "pkg/util.py": (
-        'def helper():\n    """Utility helper function."""\n    return 1\n'
-    ),
-    "pkg/engine.py": (
-        "from pkg.util import helper\n\n"
-        "def run():\n    return helper()\n"
-    ),
-    "pkg/cli.py": (
-        "from pkg.engine import run\n\n"
-        "def main():\n    return run()\n"
-    ),
+    "pkg/util.py": ('def helper():\n    """Utility helper function."""\n    return 1\n'),
+    "pkg/engine.py": ("from pkg.util import helper\n\ndef run():\n    return helper()\n"),
+    "pkg/cli.py": ("from pkg.engine import run\n\ndef main():\n    return run()\n"),
 }
 
 
@@ -50,9 +42,9 @@ def env(tmp_path: Path):
 
 def _pack(env, task="helper", level="focus", budget=4000):
     conn, root = env
-    return ContextEngine(conn).build(ContextRequest(
-        task=task, repository_root=root, level=level,
-        budget_tokens=budget))
+    return ContextEngine(conn).build(
+        ContextRequest(task=task, repository_root=root, level=level, budget_tokens=budget)
+    )
 
 
 def test_pack_envelope_and_estimates_declared(env) -> None:

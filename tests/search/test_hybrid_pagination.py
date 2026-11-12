@@ -25,8 +25,8 @@ def env(tmp_path):
 
 def _search(conn, root, **kw):
     return SearchEngine(conn).search(
-        SearchRequest(query=kw.pop("query", "e"), strategy="hybrid",
-                      repository_root=root, **kw))
+        SearchRequest(query=kw.pop("query", "e"), strategy="hybrid", repository_root=root, **kw)
+    )
 
 
 def test_hybrid_respects_limit(env) -> None:
@@ -57,8 +57,7 @@ def test_hybrid_pages_have_no_duplicates(env) -> None:
     while last.truncated and last.next_cursor:
         cur = last.next_cursor
         last = _search(conn, root, limit=2, cursor=cur)
-        assert not last.items or not (
-            {h.occurrence_id for h in last.items} & seen)
+        assert not last.items or not ({h.occurrence_id for h in last.items} & seen)
         seen |= {h.occurrence_id for h in last.items}
     assert last.truncated is False
 
@@ -73,19 +72,18 @@ def test_hybrid_cursor_invalid(env) -> None:
 def test_hybrid_cursor_bound_to_query(env) -> None:
     conn, root = env
     p1 = _search(conn, root, query="a", limit=1)
-    res = _search(conn, root, query="zz_other", limit=1,
-                  cursor=p1.next_cursor)
+    res = _search(conn, root, query="zz_other", limit=1, cursor=p1.next_cursor)
     assert any(d.code == "invalid-cursor" for d in res.diagnostics)
 
 
 def test_hybrid_cursor_bound_to_snapshot(env) -> None:
     conn, root = env
     from code_atlas.indexing import IndexCoordinator
+
     p1 = _search(conn, root, limit=1)
     assert p1.next_cursor
     # novo snapshot (mesmo conteúdo → no-op? força com arquivo novo)
-    (Path(root) / "pkg" / "extra.py").write_text(
-        "def extra_fn():\n    return 1\n")
+    (Path(root) / "pkg" / "extra.py").write_text("def extra_fn():\n    return 1\n")
     IndexCoordinator(conn).index(Path(root))
     res = _search(conn, root, limit=1, cursor=p1.next_cursor)
     assert any(d.code == "invalid-cursor" for d in res.diagnostics)

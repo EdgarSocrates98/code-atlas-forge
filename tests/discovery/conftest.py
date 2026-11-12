@@ -14,10 +14,14 @@ GIT = shutil.which("git")
 def git(repo: Path, *args: str) -> None:
     assert GIT is not None
     subprocess.run(
-        [GIT, "-C", str(repo), *args], check=True, capture_output=True,
+        [GIT, "-C", str(repo), *args],
+        check=True,
+        capture_output=True,
         env={
-            "GIT_AUTHOR_NAME": "atlas-test", "GIT_AUTHOR_EMAIL": "t@t",
-            "GIT_COMMITTER_NAME": "atlas-test", "GIT_COMMITTER_EMAIL": "t@t",
+            "GIT_AUTHOR_NAME": "atlas-test",
+            "GIT_AUTHOR_EMAIL": "t@t",
+            "GIT_COMMITTER_NAME": "atlas-test",
+            "GIT_COMMITTER_EMAIL": "t@t",
             "PATH": __import__("os").environ["PATH"],
             "HOME": str(repo),  # isola user gitconfig
         },

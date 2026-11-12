@@ -61,8 +61,14 @@ def _canonical(db: sqlite3.Connection, snapshot_id: int) -> dict[str, set]:
         (snapshot_id,),
     ).fetchall()
     nodes = {
-        (r["kind"], r["qualified_name"], r["language"],
-         r["relative_path"], r["parse_status"], r["content_hash"])
+        (
+            r["kind"],
+            r["qualified_name"],
+            r["language"],
+            r["relative_path"],
+            r["parse_status"],
+            r["content_hash"],
+        )
         for r in occs
     }
     rels = db.execute(
@@ -85,9 +91,16 @@ def _canonical(db: sqlite3.Connection, snapshot_id: int) -> dict[str, set]:
         (snapshot_id,),
     ).fetchall()
     edges = {
-        (r["type"], r["fp"], r["fq"], r["tp"], r["tq"],
-         r["to_unresolved"] or "", r["resolution_status"],
-         r["confidence_class"])
+        (
+            r["type"],
+            r["fp"],
+            r["fq"],
+            r["tp"],
+            r["tq"],
+            r["to_unresolved"] or "",
+            r["resolution_status"],
+            r["confidence_class"],
+        )
         for r in rels
     }
     return {"nodes": nodes, "edges": edges}
@@ -158,9 +171,7 @@ class _Mut:
             self._undo = lambda: p.write_bytes(old)
         elif self.name == "parser_version_change":
             # simula upgrade do tree-sitter-python — cache key + manifest
-            self._patch = mock.patch.object(
-                rt, "parser_version", return_value="99.0.0"
-            )
+            self._patch = mock.patch.object(rt, "parser_version", return_value="99.0.0")
             self._patch.start()
             self._undo = self._patch.stop
         elif self.name == "resolver_version_change":
@@ -214,9 +225,8 @@ def bench_size(tmp: Path, n_files: int) -> dict[str, object]:
             rec = _rec(inc, inc_s, coord)
             full, full_s = _timed_index(coord, corpus, force=True)
             rec["full_index_s"] = round(full_s, 4)
-            rec["matches_full"] = (
-                _canonical(conn, inc.snapshot_id)
-                == _canonical(conn, full.snapshot_id)
+            rec["matches_full"] = _canonical(conn, inc.snapshot_id) == _canonical(
+                conn, full.snapshot_id
             )
             runs[name] = rec
         # restaura baseline (não-timed) — plano do próximo cenário fica
@@ -226,32 +236,24 @@ def bench_size(tmp: Path, n_files: int) -> dict[str, object]:
     # 9. full rebuild sobre corpus pristine
     out, secs = _timed_index(coord, corpus, force=True)
     rec = _rec(out, secs, coord)
-    rec["matches_cold"] = (
-        _canonical(conn, out.snapshot_id) == _canonical(conn, base_snap)
-    )
+    rec["matches_cold"] = _canonical(conn, out.snapshot_id) == _canonical(conn, base_snap)
     runs["full_rebuild"] = rec
 
     return {
         "files": n_files,
         "runs": runs,
         "db_size_mb": round(
-            sum(
-                p.stat().st_size
-                for p in (db_path, Path(str(db_path) + "-wal"))
-                if p.exists()
-            ) / 1e6,
+            sum(p.stat().st_size for p in (db_path, Path(str(db_path) + "-wal")) if p.exists())
+            / 1e6,
             2,
         ),
     }
 
 
 def main() -> int:
-    p = argparse.ArgumentParser(
-        description="Benchmark de cenários incrementais do Code Atlas"
-    )
+    p = argparse.ArgumentParser(description="Benchmark de cenários incrementais do Code Atlas")
     p.add_argument("--sizes", type=int, nargs="+", default=[100, 1000, 5000])
-    p.add_argument("--json", type=Path, default=None,
-                   help="grava resultado em arquivo JSON")
+    p.add_argument("--json", type=Path, default=None, help="grava resultado em arquivo JSON")
     args = p.parse_args()
 
     env = {

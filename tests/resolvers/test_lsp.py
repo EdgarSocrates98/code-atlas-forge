@@ -33,8 +33,11 @@ ROOT_URI = "file:///repo"
 
 def _spec(**kw) -> LspServerSpec:
     base = dict(
-        name="fake", cmd=("python3", "-c", "pass"), root_uri=ROOT_URI,
-        enabled=True, request_timeout_s=2.0,
+        name="fake",
+        cmd=("python3", "-c", "pass"),
+        root_uri=ROOT_URI,
+        enabled=True,
+        request_timeout_s=2.0,
         languages=frozenset({"python"}),
     )
     base.update(kw)
@@ -55,8 +58,7 @@ def _universe(tmp_path: Path):
     (repo / "pkg" / "util.py").write_text("def helper():\n    return 1\n")
     s = scan(repo)
     eng = ParseEngine()
-    results = eng.parse_batch(
-        [(f.path, (repo / f.path).read_bytes()) for f in s.files])
+    results = eng.parse_batch([(f.path, (repo / f.path).read_bytes()) for f in s.files])
     b = GraphBuilder()
     b.build("repo", s, results)
     return b.universe
@@ -85,9 +87,11 @@ def test_capability_gating_blocks_method(tmp_path: Path) -> None:
     u = _universe(tmp_path)
     resolver = LspResolver(client, u)
     req = ResolutionRequest(
-        name="x", kind="reference", path="pkg/util.py",
-        span=SourceSpan(start_byte=0, end_byte=0,
-                        start_line=1, start_col=0, end_line=1, end_col=0))
+        name="x",
+        kind="reference",
+        path="pkg/util.py",
+        span=SourceSpan(start_byte=0, end_byte=0, start_line=1, start_col=0, end_line=1, end_col=0),
+    )
     res = resolver.resolve(req)
     assert res.diagnostics[0].code == "capability-unsupported"
     client.shutdown()
@@ -135,9 +139,19 @@ def test_disabled_spec_no_client() -> None:
 
 def _req(kind="reference", span_line=1):
     return ResolutionRequest(
-        name="helper", kind=kind, path="pkg/engine.py", language="python",
-        span=SourceSpan(start_byte=0, end_byte=0, start_line=span_line,
-                        start_col=15, end_line=span_line, end_col=21))
+        name="helper",
+        kind=kind,
+        path="pkg/engine.py",
+        language="python",
+        span=SourceSpan(
+            start_byte=0,
+            end_byte=0,
+            start_line=span_line,
+            start_col=15,
+            end_line=span_line,
+            end_col=21,
+        ),
+    )
 
 
 def test_lsp_resolver_conformance(tmp_path: Path) -> None:
@@ -151,11 +165,17 @@ def test_lsp_resolver_conformance(tmp_path: Path) -> None:
 
 
 def test_lsp_resolves_reference_to_module(tmp_path: Path) -> None:
-    server = FakeLspServer(reference_locations=[
-        {"uri": f"{ROOT_URI}/pkg/util.py",
-         "range": {"start": {"line": 0, "character": 4},
-                   "end": {"line": 0, "character": 10}}},
-    ])
+    server = FakeLspServer(
+        reference_locations=[
+            {
+                "uri": f"{ROOT_URI}/pkg/util.py",
+                "range": {
+                    "start": {"line": 0, "character": 4},
+                    "end": {"line": 0, "character": 10},
+                },
+            },
+        ]
+    )
     client = _client(server)
     resolver = LspResolver(client, _universe(tmp_path))
     res = resolver.resolve(_req())
@@ -168,11 +188,14 @@ def test_lsp_resolves_reference_to_module(tmp_path: Path) -> None:
 
 
 def test_lsp_foreign_uri_external(tmp_path: Path) -> None:
-    server = FakeLspServer(reference_locations=[
-        {"uri": "file:///other-site/lib.py",
-         "range": {"start": {"line": 0, "character": 0},
-                   "end": {"line": 0, "character": 3}}},
-    ])
+    server = FakeLspServer(
+        reference_locations=[
+            {
+                "uri": "file:///other-site/lib.py",
+                "range": {"start": {"line": 0, "character": 0}, "end": {"line": 0, "character": 3}},
+            },
+        ]
+    )
     client = _client(server)
     resolver = LspResolver(client, _universe(tmp_path))
     res = resolver.resolve(_req())
@@ -199,11 +222,17 @@ def test_lsp_unavailable_server_diag(tmp_path: Path) -> None:
 
 
 def test_lsp_definition_locations_defs(tmp_path: Path) -> None:
-    server = FakeLspServer(definition_locations=[
-        {"uri": f"{ROOT_URI}/pkg/util.py",
-         "range": {"start": {"line": 0, "character": 4},
-                   "end": {"line": 0, "character": 10}}},
-    ])
+    server = FakeLspServer(
+        definition_locations=[
+            {
+                "uri": f"{ROOT_URI}/pkg/util.py",
+                "range": {
+                    "start": {"line": 0, "character": 4},
+                    "end": {"line": 0, "character": 10},
+                },
+            },
+        ]
+    )
     client = _client(server)
     resolver = LspResolver(client, _universe(tmp_path))
     res = resolver.resolve(_req(kind="definition"))
@@ -211,6 +240,7 @@ def test_lsp_definition_locations_defs(tmp_path: Path) -> None:
     assert res.definitions[0].path == "pkg/util.py"
     assert res.reference is not None and res.reference.status == "resolved"
     client.shutdown()
+
 
 # -- lf-0029: documentSymbol, publishDiagnostics, recovery -----------------
 
@@ -224,6 +254,7 @@ def test_document_symbol_request(tmp_path: Path) -> None:
 
 def test_document_symbol_capability_gated(tmp_path: Path) -> None:
     import pytest as _pt
+
     client = _client(FakeLspServer(caps=frozenset({"definitionProvider"})))
     with _pt.raises(LspError):
         client.document_symbol("file:///repo/x.py")
@@ -250,11 +281,15 @@ def test_recovery_restart_after_crash(tmp_path: Path) -> None:
     consegue reanexar transporte vivo, o retry resolve."""
     server = FakeLspServer(
         crash_after=1,
-        reference_locations=[{
-            "uri": f"{ROOT_URI}/pkg/util.py",
-            "range": {"start": {"line": 0, "character": 4},
-                      "end": {"line": 0, "character": 10}},
-        }],
+        reference_locations=[
+            {
+                "uri": f"{ROOT_URI}/pkg/util.py",
+                "range": {
+                    "start": {"line": 0, "character": 4},
+                    "end": {"line": 0, "character": 10},
+                },
+            }
+        ],
     )
     client = _client(server)
     resolver = LspResolver(client, _universe(tmp_path))
@@ -262,9 +297,9 @@ def test_recovery_restart_after_crash(tmp_path: Path) -> None:
     # restart real chamaria spawn — no teste reanexa um fake vivo.
     def fake_restart() -> None:
         client.close()
-        transport, _ = start_fake(FakeLspServer(
-            reference_locations=server.reference_locations))
+        transport, _ = start_fake(FakeLspServer(reference_locations=server.reference_locations))
         client.attach(transport)
+
     client.restart = fake_restart  # type: ignore[method-assign]
 
     res = resolver.resolve(_req())
@@ -275,11 +310,18 @@ def test_recovery_restart_after_crash(tmp_path: Path) -> None:
 
 def test_restart_failure_typed_diagnostic(tmp_path: Path) -> None:
     """Crash + restart impossível → server-error tipado, nunca crash."""
-    server = FakeLspServer(crash_after=1, reference_locations=[
-        {"uri": f"{ROOT_URI}/pkg/util.py",
-         "range": {"start": {"line": 0, "character": 4},
-                   "end": {"line": 0, "character": 10}}},
-    ])
+    server = FakeLspServer(
+        crash_after=1,
+        reference_locations=[
+            {
+                "uri": f"{ROOT_URI}/pkg/util.py",
+                "range": {
+                    "start": {"line": 0, "character": 4},
+                    "end": {"line": 0, "character": 10},
+                },
+            },
+        ],
+    )
     client = _client(server)
     resolver = LspResolver(client, _universe(tmp_path))
     res = resolver.resolve(_req())

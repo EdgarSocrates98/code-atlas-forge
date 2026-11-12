@@ -31,56 +31,95 @@ from code_atlas.storage.migrations import migrate, migrations, schema_version
 EXPECTED_VERSION = "1.1.2"
 
 #: Subcomandos top-level do CLI — todos devem continuar existindo.
-CLI_COMMANDS = frozenset({
-    "doctor", "init", "install", "index", "semantic-status", "index-plan",
-    "status", "search", "context", "context-expand", "mcp",
-    "symbol", "references", "graph", "definitions", "dependencies",
-    "impact", "api", "explorer", "federation", "domains",
-})
+CLI_COMMANDS = frozenset(
+    {
+        "doctor",
+        "init",
+        "install",
+        "index",
+        "semantic-status",
+        "index-plan",
+        "status",
+        "search",
+        "context",
+        "context-expand",
+        "mcp",
+        "symbol",
+        "references",
+        "graph",
+        "definitions",
+        "dependencies",
+        "impact",
+        "api",
+        "explorer",
+        "federation",
+        "domains",
+    }
+)
 
 #: Choices posicionais dentro de subcomandos agrupadores.
 CLI_SUBACTIONS: dict[str, tuple[str, frozenset[str]]] = {
-    "impact": ("cmd", frozenset(
-        {"diff", "worktree", "symbol", "tests", "contract", "report"})),
+    "impact": ("cmd", frozenset({"diff", "worktree", "symbol", "tests", "contract", "report"})),
     "mcp": ("cmd", frozenset({"serve", "doctor", "manifest"})),
-    "federation": ("fed_cmd", frozenset(
-        {"create", "add", "pin", "view"})),
-    "domains": ("dom_cmd", frozenset(
-        {"list", "entities", "entity", "lineage"})),
+    "federation": ("fed_cmd", frozenset({"create", "add", "pin", "view"})),
+    "domains": ("dom_cmd", frozenset({"list", "entities", "entity", "lineage"})),
 }
 
 #: Tools MCP expostas — o contrato do servidor (15 tools no RC).
-MCP_TOOLS = frozenset({
-    "atlas_context", "atlas_dependencies", "atlas_diff",
-    "atlas_domain_entity", "atlas_domain_lineage", "atlas_domains",
-    "atlas_evidence", "atlas_expand", "atlas_federation_view",
-    "atlas_impact", "atlas_references", "atlas_search",
-    "atlas_status", "atlas_symbol", "atlas_test_impact",
-})
+MCP_TOOLS = frozenset(
+    {
+        "atlas_context",
+        "atlas_dependencies",
+        "atlas_diff",
+        "atlas_domain_entity",
+        "atlas_domain_lineage",
+        "atlas_domains",
+        "atlas_evidence",
+        "atlas_expand",
+        "atlas_federation_view",
+        "atlas_impact",
+        "atlas_references",
+        "atlas_search",
+        "atlas_status",
+        "atlas_symbol",
+        "atlas_test_impact",
+    }
+)
 
 #: Rotas GET — as URLs concretas do despacho em handlers.handle.
-API_GET_ROUTES = frozenset({
-    "/health", "/capabilities", "/diagnostics", "/repositories",
-    "/graph/overview", "/graph/neighbors", "/search", "/index/status",
-    "/domains", "/domains/entities", "/domains/relations",
-    "/domains/lineage",
-    "/repositories/1/snapshots", "/symbols/1", "/evidence/1",
-    "/files/1/occurrences", "/domains/entities/1/neighbors",
-    "/federation/workspaces",
-    "/federation/workspaces/1/view",
-    "/federation/workspaces/1/entities/x/occurrences",
-    "/federation/workspaces/1/graph",
-    "/federation/workspaces/1/search",
-    "/federation/workspaces/1",
-})
+API_GET_ROUTES = frozenset(
+    {
+        "/health",
+        "/capabilities",
+        "/diagnostics",
+        "/repositories",
+        "/graph/overview",
+        "/graph/neighbors",
+        "/search",
+        "/index/status",
+        "/domains",
+        "/domains/entities",
+        "/domains/relations",
+        "/domains/lineage",
+        "/repositories/1/snapshots",
+        "/symbols/1",
+        "/evidence/1",
+        "/files/1/occurrences",
+        "/domains/entities/1/neighbors",
+        "/federation/workspaces",
+        "/federation/workspaces/1/view",
+        "/federation/workspaces/1/entities/x/occurrences",
+        "/federation/workspaces/1/graph",
+        "/federation/workspaces/1/search",
+        "/federation/workspaces/1",
+    }
+)
 
 API_POST_ROUTES = frozenset({"/context", "/impact/analyze"})
 
 
 def _subparser_action(parser: argparse.ArgumentParser):
-    return next(
-        a for a in parser._actions
-        if isinstance(a, argparse._SubParsersAction))
+    return next(a for a in parser._actions if isinstance(a, argparse._SubParsersAction))
 
 
 class _StubServer:
@@ -117,8 +156,7 @@ def test_cli_command_manifest() -> None:
     missing = CLI_COMMANDS - commands
     extra = commands - CLI_COMMANDS
     assert not missing, f"subcomandos removidos: {sorted(missing)}"
-    assert not extra, (
-        f"subcomandos novos fora do manifesto: {sorted(extra)}")
+    assert not extra, f"subcomandos novos fora do manifesto: {sorted(extra)}"
 
 
 @pytest.mark.parametrize("cmd", sorted(CLI_COMMANDS))
@@ -133,13 +171,9 @@ def test_cli_grouped_subactions_preserved() -> None:
     """Choices internos dos agrupadores (impact/mcp/federation/domains)."""
     subs = _subparser_action(build_parser())
     for cmd, (dest, expected) in CLI_SUBACTIONS.items():
-        action = next(
-            a for a in subs.choices[cmd]._actions
-            if getattr(a, "dest", None) == dest)
+        action = next(a for a in subs.choices[cmd]._actions if getattr(a, "dest", None) == dest)
         got = set(action.choices or ())
-        assert expected <= got, (
-            f"{cmd} {dest}: choices removidos "
-            f"{sorted(expected - got)}")
+        assert expected <= got, f"{cmd} {dest}: choices removidos {sorted(expected - got)}"
 
 
 def test_cli_version_flag(capsys) -> None:
@@ -168,16 +202,15 @@ def test_mcp_tool_manifest() -> None:
 
 def test_mcp_tools_list_matches_registry() -> None:
     """``tools/list`` do protocolo expõe exatamente o registro."""
-    resp = AtlasMcpServer()._dispatch(
-        {"id": 1, "method": "tools/list", "params": {}})
+    resp = AtlasMcpServer()._dispatch({"id": 1, "method": "tools/list", "params": {}})
     names = {t["name"] for t in resp["result"]["tools"]}
     assert names == MCP_TOOLS
 
 
 def test_mcp_server_version() -> None:
     resp = AtlasMcpServer()._dispatch(
-        {"id": 1, "method": "initialize",
-         "params": {"protocolVersion": "2024-11-05"}})
+        {"id": 1, "method": "initialize", "params": {"protocolVersion": "2024-11-05"}}
+    )
     info = resp["result"]["serverInfo"]
     assert info["version"] == EXPECTED_VERSION == __version__
 
@@ -197,8 +230,7 @@ def test_api_get_route_exists(route: str) -> None:
     try:
         api_handlers.handle(_StubServer(), "GET", route, _StubHandler())
     except ApiError as exc:
-        assert exc.code != "not-found", (
-            f"rota GET {route} não existe mais")
+        assert exc.code != "not-found", f"rota GET {route} não existe mais"
 
 
 @pytest.mark.parametrize("route", sorted(API_POST_ROUTES))
@@ -206,15 +238,13 @@ def test_api_post_route_exists(route: str) -> None:
     try:
         api_handlers.handle(_StubServer(), "POST", route, _StubHandler())
     except ApiError as exc:
-        assert exc.code != "not-found", (
-            f"rota POST {route} não existe mais")
+        assert exc.code != "not-found", f"rota POST {route} não existe mais"
 
 
 def test_api_unknown_route_fails_honestly() -> None:
     """Controle do manifesto: rota inexistente → not-found tipado."""
     with pytest.raises(ApiError) as exc:
-        api_handlers.handle(
-            _StubServer(), "GET", "/rota-inexistente", _StubHandler())
+        api_handlers.handle(_StubServer(), "GET", "/rota-inexistente", _StubHandler())
     assert exc.value.code == "not-found"
 
 
@@ -226,12 +256,10 @@ def test_api_unknown_route_fails_honestly() -> None:
 def test_version_endpoints_report_package_version(tmp_path) -> None:
     srv = _StubServer()
     srv.db_path = str(tmp_path / "atlas.db")
-    health = api_handlers.handle(
-        srv, "GET", "/health", _StubHandler())
+    health = api_handlers.handle(srv, "GET", "/health", _StubHandler())
     assert health["status"] == "ok"
     assert health["version"] == 1  # versão do protocolo da API
-    diag = api_handlers.handle(
-        srv, "GET", "/diagnostics", _StubHandler())
+    diag = api_handlers.handle(srv, "GET", "/diagnostics", _StubHandler())
     assert diag["version"] == EXPECTED_VERSION == __version__
     assert diag["api_version"] == 1
     # schema_version = head real das migrações desta build

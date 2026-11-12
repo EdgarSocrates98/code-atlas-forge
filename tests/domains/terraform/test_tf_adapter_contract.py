@@ -21,8 +21,12 @@ class TestContract:
     def test_supported_artifacts(self, adapter: TerraformAdapter) -> None:
         s = adapter.supported_artifacts()
         for good in (
-            "main.tf", "env/dev/main.tf", "m.tf.json", "dev.tfvars",
-            "x.auto.tfvars", "vars.tfvars.json",
+            "main.tf",
+            "env/dev/main.tf",
+            "m.tf.json",
+            "dev.tfvars",
+            "x.auto.tfvars",
+            "vars.tfvars.json",
         ):
             assert s.matches(good), good
         for bad in ("main.py", "package.json", "README.md", ""):
@@ -46,9 +50,7 @@ class TestContract:
             }
         )
 
-    def test_confidence_model_forbids_inferred(
-        self, adapter: TerraformAdapter
-    ) -> None:
+    def test_confidence_model_forbids_inferred(self, adapter: TerraformAdapter) -> None:
         cm = adapter.confidence_model()
         assert not cm.admits(ConfidenceClass.INFERRED)
         assert cm.admits(ConfidenceClass.SYNTACTIC)
@@ -59,9 +61,7 @@ class TestContract:
         assert reg.is_enabled("terraform")
         assert reg.require("terraform") is adapter
 
-    def test_extract_never_raises_on_empty_request(
-        self, adapter: TerraformAdapter
-    ) -> None:
+    def test_extract_never_raises_on_empty_request(self, adapter: TerraformAdapter) -> None:
         res = adapter.extract(make_request(paths=()))
         assert isinstance(res, DomainExtractionResult)
         assert res.entities == ()

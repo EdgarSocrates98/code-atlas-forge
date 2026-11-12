@@ -68,16 +68,35 @@ _SESSION_ATTRS = frozenset({"spark", "spark_session"})  # self.spark
 _SESSION_READ_ATTRS = frozenset({"read", "readStream"})
 _SESSION_METHODS = frozenset(
     {
-        "read", "readStream", "sql", "table", "createDataFrame", "range",
-        "newSession", "getActiveSession", "sparkContext", "conf",
-        "catalog", "udf", "streams", "version", "stop",
+        "read",
+        "readStream",
+        "sql",
+        "table",
+        "createDataFrame",
+        "range",
+        "newSession",
+        "getActiveSession",
+        "sparkContext",
+        "conf",
+        "catalog",
+        "udf",
+        "streams",
+        "version",
+        "stop",
     }
 )
 # Métodos de sessão que definitivamente NÃO devolvem DataFrame.
 _SESSION_NON_DF = frozenset(
     {
-        "sparkContext", "conf", "catalog", "udf", "streams", "version",
-        "stop", "getActiveSession", "newSession",
+        "sparkContext",
+        "conf",
+        "catalog",
+        "udf",
+        "streams",
+        "version",
+        "stop",
+        "getActiveSession",
+        "newSession",
     }
 )
 
@@ -86,91 +105,171 @@ _SESSION_NON_DF = frozenset(
 # API pública documentada).
 _DF_TRANSFORMS = frozenset(
     {
-        "select", "selectExpr", "filter", "where", "join", "crossJoin",
-        "joinWith", "union", "unionByName", "unionAll",
-        "intersect", "intersectAll", "exceptAll", "subtract",
-        "groupBy", "agg", "rollup", "cube",
-        "withColumn", "withColumns", "withColumnRenamed",
-        "withColumnsRenamed", "withMetadata", "withField",
-        "drop", "dropDuplicates", "drop_duplicates",
-        "dropDuplicatesWithinWatermark", "distinct",
-        "orderBy", "sort", "sortWithinPartitions", "limit", "alias",
-        "repartition", "repartitionByRange", "coalesce",
-        "cache", "persist", "unpersist", "checkpoint", "localCheckpoint",
-        "dropna", "fillna", "replace", "sample", "sampleBy",
-        "transform", "toDF", "toJSON", "describe", "summary",
-        "hint", "observe", "withWatermark", "mapInPandas",
+        "select",
+        "selectExpr",
+        "filter",
+        "where",
+        "join",
+        "crossJoin",
+        "joinWith",
+        "union",
+        "unionByName",
+        "unionAll",
+        "intersect",
+        "intersectAll",
+        "exceptAll",
+        "subtract",
+        "groupBy",
+        "agg",
+        "rollup",
+        "cube",
+        "withColumn",
+        "withColumns",
+        "withColumnRenamed",
+        "withColumnsRenamed",
+        "withMetadata",
+        "withField",
+        "drop",
+        "dropDuplicates",
+        "drop_duplicates",
+        "dropDuplicatesWithinWatermark",
+        "distinct",
+        "orderBy",
+        "sort",
+        "sortWithinPartitions",
+        "limit",
+        "alias",
+        "repartition",
+        "repartitionByRange",
+        "coalesce",
+        "cache",
+        "persist",
+        "unpersist",
+        "checkpoint",
+        "localCheckpoint",
+        "dropna",
+        "fillna",
+        "replace",
+        "sample",
+        "sampleBy",
+        "transform",
+        "toDF",
+        "toJSON",
+        "describe",
+        "summary",
+        "hint",
+        "observe",
+        "withWatermark",
+        "mapInPandas",
         "applyInPandas",
     }
 )
 # Transformações cujo primeiro argumento também é um DataFrame.
 _DF_ARG_OPS = frozenset(
     {
-        "join", "crossJoin", "joinWith", "union", "unionByName",
-        "unionAll", "exceptAll", "subtract", "intersect", "intersectAll",
+        "join",
+        "crossJoin",
+        "joinWith",
+        "union",
+        "unionByName",
+        "unionAll",
+        "exceptAll",
+        "subtract",
+        "intersect",
+        "intersectAll",
     }
 )
 # Chamadas que definitivamente NÃO devolvem DataFrame (ações/terminais).
 _DF_NON_DF_CALLS = frozenset(
     {
-        "collect", "count", "show", "take", "head", "first", "tail",
-        "foreach", "foreachPartition", "reduce", "explain",
-        "printSchema", "toPandas", "toLocalIterator", "inputFiles",
-        "isLocal", "isEmpty", "countApprox", "approxQuantile",
-        "randomSplit", "countByValue",
+        "collect",
+        "count",
+        "show",
+        "take",
+        "head",
+        "first",
+        "tail",
+        "foreach",
+        "foreachPartition",
+        "reduce",
+        "explain",
+        "printSchema",
+        "toPandas",
+        "toLocalIterator",
+        "inputFiles",
+        "isLocal",
+        "isEmpty",
+        "countApprox",
+        "approxQuantile",
+        "randomSplit",
+        "countByValue",
     }
 )
-_DF_NON_DF_ATTRS = frozenset(
-    {"columns", "schema", "dtypes", "rdd", "isStreaming"}
-)
+_DF_NON_DF_ATTRS = frozenset({"columns", "schema", "dtypes", "rdd", "isStreaming"})
 
 # Terminais de ``df.write.*`` que escrevem em PATH.
-_WRITER_PATH_TERMINALS = frozenset(
-    {"parquet", "csv", "json", "orc", "text", "avro", "save"}
-)
+_WRITER_PATH_TERMINALS = frozenset({"parquet", "csv", "json", "orc", "text", "avro", "save"})
 # Terminais de ``df.write.*`` que escrevem em TABELA de catálogo.
 _WRITER_TABLE_TERMINALS = frozenset({"saveAsTable", "insertInto", "jdbc"})
 _WRITER_OPTS = frozenset(
-    {"mode", "format", "option", "options", "partitionBy",
-     "bucketBy", "sortBy"}
+    {"mode", "format", "option", "options", "partitionBy", "bucketBy", "sortBy"}
 )
 # Terminais de ``df.writeTo(t)`` (DataFrameWriterV2 — Iceberg-style).
 _V2_TERMINALS = frozenset(
-    {"append", "overwrite", "overwritePartitions", "replace",
-     "createOrReplace", "create"}
+    {"append", "overwrite", "overwritePartitions", "replace", "createOrReplace", "create"}
 )
 _V2_OPTS = frozenset(
-    {"using", "option", "options", "tableProperty", "partitionedBy",
-     "clusteredBy"}
+    {"using", "option", "options", "tableProperty", "partitionedBy", "clusteredBy"}
 )
 # Temp views — ``df.createOrReplaceTempView("v")`` etc.
 _TEMP_VIEW_METHODS = frozenset(
     {
-        "createOrReplaceTempView", "createTempView",
-        "createOrReplaceGlobalTempView", "createGlobalTempView",
+        "createOrReplaceTempView",
+        "createTempView",
+        "createOrReplaceGlobalTempView",
+        "createGlobalTempView",
         "registerTempTable",
     }
 )
 _NA_METHODS = frozenset({"drop", "fill", "replace"})
 _TRANSPARENT_FNS = frozenset({"broadcast"})
 # Formatos de path do DataFrameReader (``spark.read.<fmt>(path)``).
-_READER_PATH_FORMATS = frozenset(
-    {"parquet", "csv", "json", "orc", "text", "avro"}
-)
+_READER_PATH_FORMATS = frozenset({"parquet", "csv", "json", "orc", "text", "avro"})
 
 # Gate fraco do arquivo: ops camelCase distintivas da API DataFrame
 # (``.filter``/``.select`` minúsculos ficam de fora — pandas colide).
 _CAMEL_DF_OPS = frozenset(
     {
-        "groupBy", "agg", "rollup", "cube", "withColumn", "withColumns",
-        "withColumnRenamed", "withColumnsRenamed", "dropDuplicates",
-        "drop_duplicates", "dropDuplicatesWithinWatermark",
-        "unionByName", "unionAll", "selectExpr", "repartition",
-        "repartitionByRange", "coalesce", "withWatermark", "joinWith",
-        "writeTo", "saveAsTable", "insertInto",
-        "createOrReplaceTempView", "createGlobalTempView",
-        "createTempView", "registerTempTable", "exceptAll",
-        "intersectAll", "localCheckpoint", "foreachBatch",
+        "groupBy",
+        "agg",
+        "rollup",
+        "cube",
+        "withColumn",
+        "withColumns",
+        "withColumnRenamed",
+        "withColumnsRenamed",
+        "dropDuplicates",
+        "drop_duplicates",
+        "dropDuplicatesWithinWatermark",
+        "unionByName",
+        "unionAll",
+        "selectExpr",
+        "repartition",
+        "repartitionByRange",
+        "coalesce",
+        "withWatermark",
+        "joinWith",
+        "writeTo",
+        "saveAsTable",
+        "insertInto",
+        "createOrReplaceTempView",
+        "createGlobalTempView",
+        "createTempView",
+        "registerTempTable",
+        "exceptAll",
+        "intersectAll",
+        "localCheckpoint",
+        "foreachBatch",
     }
 )
 
@@ -212,8 +311,8 @@ class _Str(_E):
 class _Read:
     """Alvo de leitura observado (identidade emitida na materialização)."""
 
-    ident_key: str       # logical_key da entidade (tabela|path|view)
-    fmt: str             # parquet|csv|json|table|jdbc|iceberg|…
+    ident_key: str  # logical_key da entidade (tabela|path|view)
+    fmt: str  # parquet|csv|json|table|jdbc|iceberg|…
     span: SourceSpan | None = None
 
 
@@ -464,9 +563,7 @@ class _Flat:
 class _Walker:
     """Percorre o ``ast`` de um ``.py`` emitindo fatos no ``Sink``."""
 
-    def __init__(
-        self, sink: Sink, path: str, sha: str, text: str
-    ) -> None:
+    def __init__(self, sink: Sink, path: str, sha: str, text: str) -> None:
         self.sink = sink
         self.path = path
         self.sha = sha
@@ -501,8 +598,10 @@ class _Walker:
         return SourceSpan(
             start_byte=self._offs[lineno - 1] + col,
             end_byte=self._offs[end_line - 1] + end_col,
-            start_line=lineno, start_col=col,
-            end_line=end_line, end_col=end_col,
+            start_line=lineno,
+            start_col=col,
+            end_line=end_line,
+            end_col=end_col,
         )
 
     def _txt(self, node: ast.AST) -> str:
@@ -531,8 +630,10 @@ class _Walker:
             tree = ast.parse(self.text)
         except (SyntaxError, ValueError, RecursionError) as exc:
             self.sink.diag(
-                "parse-error", "error",
-                f"python ast.parse failed: {exc}", self.path,
+                "parse-error",
+                "error",
+                f"python ast.parse failed: {exc}",
+                self.path,
             )
             self.sink.bump("parse_errors")
             return
@@ -562,22 +663,33 @@ class _Walker:
         stem = self.path[:-3] if self.path.endswith(".py") else self.path
         req = self.sink.request
         ident = DomainIdentity(
-            domain=DOMAIN_ID, repository=req.repository, root=req.root,
-            environment=req.environment, qualified_name=stem,
+            domain=DOMAIN_ID,
+            repository=req.repository,
+            root=req.root,
+            environment=req.environment,
+            qualified_name=stem,
         )
         evi = self.sink.evi(self.path, self.sha, None, notes="spark-job")
         attrs = {"entry_point": self.path, "language": "python"}
         if self.app_name:
             attrs["app_name"] = self.app_name
         self.sink.add_entity(
-            ident, DomainEntityKind.SPARK_JOB, stem,
-            path=self.path, content_hash=self.sha,
-            attributes=attrs, roles=("job",), evidence=(evi,),
+            ident,
+            DomainEntityKind.SPARK_JOB,
+            stem,
+            path=self.path,
+            content_hash=self.sha,
+            attributes=attrs,
+            roles=("job",),
+            evidence=(evi,),
         )
         for t in self.transform_idents:
             self.sink.add_rel(
-                str(EdgeKind.CONTAINS), ident,
-                path=self.path, to_i=t, evidence=(evi,),
+                str(EdgeKind.CONTAINS),
+                ident,
+                path=self.path,
+                to_i=t,
+                evidence=(evi,),
             )
         self.sink.bump("spark_jobs")
 
@@ -600,9 +712,7 @@ class _Walker:
                         self.sparky = True
             elif isinstance(node, ast.Name) and node.id == "SparkSession":
                 self.sparky = True
-            elif isinstance(node, ast.Call) and isinstance(
-                node.func, ast.Attribute
-            ):
+            elif isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute):
                 self._prescan_call(node)
 
     def _prescan_importfrom(self, node: ast.ImportFrom) -> None:
@@ -628,10 +738,8 @@ class _Walker:
             self.sparky = True
             if base is not None:
                 self.implicit_sessions.add(base)
-        if (
-            attrs[0] in ("write", "writeStream")
-            and attrs[-1]
-            in (_WRITER_PATH_TERMINALS | _WRITER_TABLE_TERMINALS)
+        if attrs[0] in ("write", "writeStream") and attrs[-1] in (
+            _WRITER_PATH_TERMINALS | _WRITER_TABLE_TERMINALS
         ):
             self.sparky = True
         if attrs[-1] in _CAMEL_DF_OPS:
@@ -729,9 +837,7 @@ class _Walker:
     def _st_assert(self, st: ast.Assert, env: _Env) -> None:
         self._after_eval(self._eval(st.test, env), st.test)
 
-    def _branches(
-        self, bodies: list[list[ast.stmt]], env: _Env, lineno: int
-    ) -> None:
+    def _branches(self, bodies: list[list[ast.stmt]], env: _Env, lineno: int) -> None:
         """Processa branches em escopos-filho e funde bindings.
 
         Cada branch pode vincular o mesmo nome a transformações
@@ -752,9 +858,7 @@ class _Walker:
                 if n not in names:
                     names.append(n)
         for name in names:
-            candidates: list[_Bind | None] = [
-                ch[name] for ch in childs if name in ch
-            ]
+            candidates: list[_Bind | None] = [ch[name] for ch in childs if name in ch]
             covered = sum(1 for ch in childs if name in ch)
             if covered < len(childs) and name in parent:
                 candidates.append(parent[name])
@@ -779,9 +883,7 @@ class _Walker:
             return _BDf(dfkeys[0])
         if len(dfkeys) > 1:
             dfv = _Dfv(parents=[_PKey(k) for k in dfkeys])
-            ident = self._materialize(
-                dfv, f"{name}@merge@{lineno}", None
-            )
+            ident = self._materialize(dfv, f"{name}@merge@{lineno}", None)
             return _BDf(ident.logical_key())
         for cls in (_BSession, _BWriter, _BParamDf):
             for b in bound:
@@ -793,27 +895,19 @@ class _Walker:
 
     # -- assignments -------------------------------------------------------------
 
-    def _bind_targets(
-        self, targets: list[ast.expr], value: _E, env: _Env
-    ) -> bool:
+    def _bind_targets(self, targets: list[ast.expr], value: _E, env: _Env) -> bool:
         """Liga RHS avaliado aos targets. True quando algo vinculou."""
         bound_any = False
         for t in targets:
             if isinstance(t, ast.Name):
                 self._bind_name(t.id, value, env, t)
                 bound_any = True
-            elif isinstance(t, ast.Starred) and isinstance(
-                t.value, ast.Name
-            ):
+            elif isinstance(t, ast.Starred) and isinstance(t.value, ast.Name):
                 env.bind(t.value.id, _BUnknown())
                 bound_any = True
             elif isinstance(t, (ast.Tuple, ast.List)):
-                if isinstance(value, _SeqE) and len(t.elts) == len(
-                    value.items
-                ):
-                    for el, item in zip(
-                        t.elts, value.items, strict=True
-                    ):
+                if isinstance(value, _SeqE) and len(t.elts) == len(value.items):
+                    for el, item in zip(t.elts, value.items, strict=True):
                         if isinstance(el, ast.Name):
                             self._bind_name(el.id, item, env, el)
                             bound_any = True
@@ -831,18 +925,14 @@ class _Walker:
             if isinstance(t, ast.Name):
                 env.bind(t.id, _BUnknown())
 
-    def _bind_name(
-        self, name: str, value: _E, env: _Env, node: ast.expr
-    ) -> None:
+    def _bind_name(self, name: str, value: _E, env: _Env, node: ast.expr) -> None:
         if isinstance(value, _Dfv):
             if value.is_trivial():
                 key_parent = value.parents[0]
                 assert isinstance(key_parent, _PKey)
                 env.bind(name, _BDf(key_parent.ident_key))
                 return
-            ident = self._materialize(
-                value, f"{name}@{node.lineno}", self._span(node)
-            )
+            ident = self._materialize(value, f"{name}@{node.lineno}", self._span(node))
             env.bind(name, _BDf(ident.logical_key()))
         elif isinstance(value, _Session):
             env.bind(name, _BSession())
@@ -857,9 +947,7 @@ class _Walker:
 
     # -- functions -------------------------------------------------------------
 
-    def _function(
-        self, st: ast.FunctionDef | ast.AsyncFunctionDef, env: _Env
-    ) -> None:
+    def _function(self, st: ast.FunctionDef | ast.AsyncFunctionDef, env: _Env) -> None:
         for d in st.decorator_list:
             self._after_eval(self._eval(d, env), d)
         args = st.args
@@ -870,7 +958,9 @@ class _Walker:
                 self._after_eval(self._eval(kd, env), kd)
         env.push()
         params: list[ast.arg] = [
-            *args.posonlyargs, *args.args, *args.kwonlyargs,
+            *args.posonlyargs,
+            *args.args,
+            *args.kwonlyargs,
         ]
         if args.vararg is not None:
             params.append(args.vararg)
@@ -913,9 +1003,7 @@ class _Walker:
             out.update(vs if vs else {k})
         return out
 
-    def _materialize(
-        self, dfv: _Dfv, anchor: str, span: SourceSpan | None
-    ) -> DomainIdentity:
+    def _materialize(self, dfv: _Dfv, anchor: str, span: SourceSpan | None) -> DomainIdentity:
         """Cria o ``data_transformation`` + arestas; devolve a identidade."""
         if dfv.is_trivial():
             pk = dfv.parents[0]
@@ -925,17 +1013,9 @@ class _Walker:
         self._flatten(dfv, flat)
         ident = self.sink.transform_ident(self.path, anchor)
         key = ident.logical_key()
-        evi = self.sink.evi(
-            self.path, self.sha, span, notes=f"df:{anchor}"
-        )
-        operation = (
-            "sql" if flat.sql
-            else "read" if flat.reads and not flat.pkeys
-            else "transform"
-        )
-        variable = "" if anchor.startswith("expr@") else anchor.split(
-            "@", 1
-        )[0]
+        evi = self.sink.evi(self.path, self.sha, span, notes=f"df:{anchor}")
+        operation = "sql" if flat.sql else "read" if flat.reads and not flat.pkeys else "transform"
+        variable = "" if anchor.startswith("expr@") else anchor.split("@", 1)[0]
         attrs = {
             "artifact": self.path,
             "variable": variable,
@@ -943,23 +1023,32 @@ class _Walker:
             "line": str(anchor.rsplit("@", 1)[-1]),
         }
         self.sink.add_entity(
-            ident, DomainEntityKind.DATA_TRANSFORMATION, anchor,
-            path=self.path, span=span, content_hash=self.sha,
-            attributes=attrs, evidence=(evi,),
+            ident,
+            DomainEntityKind.DATA_TRANSFORMATION,
+            anchor,
+            path=self.path,
+            span=span,
+            content_hash=self.sha,
+            attributes=attrs,
+            evidence=(evi,),
         )
         src_keys: set[str] = set()
         for r in flat.reads:
             src_keys.add(r.ident_key)
             self.sink.add_rel(
-                DomainRelationKind.READS_FROM.value, ident,
-                path=self.path, to_i=self._ident_by_key(r.ident_key),
-                span=r.span, evidence=(evi,),
+                DomainRelationKind.READS_FROM.value,
+                ident,
+                path=self.path,
+                to_i=self._ident_by_key(r.ident_key),
+                span=r.span,
+                evidence=(evi,),
             )
         for pkey in flat.pkeys:
             if pkey == key:
                 continue  # auto-aresta não é linhagem
             self.sink.add_rel(
-                DomainRelationKind.DERIVES_FROM.value, ident,
+                DomainRelationKind.DERIVES_FROM.value,
+                ident,
                 path=self.path,
                 to_i=self._ident_by_key(pkey),
                 evidence=(evi,),
@@ -969,14 +1058,22 @@ class _Walker:
         for text, pspan in flat.unres:
             partial = True
             self.sink.add_rel(
-                DomainRelationKind.DERIVES_FROM.value, ident,
-                path=self.path, to_text=text,
-                span=pspan or span, evidence=(evi,),
+                DomainRelationKind.DERIVES_FROM.value,
+                ident,
+                path=self.path,
+                to_text=text,
+                span=pspan or span,
+                evidence=(evi,),
             )
         for lit in flat.sql:
             sql_src, sql_unres = delegate_sql_literal(
-                self.sink, lit, self.path, self.sha,
-                call_evi=evi, call_span=span, t_ident=ident,
+                self.sink,
+                lit,
+                self.path,
+                self.sha,
+                call_evi=evi,
+                call_span=span,
+                t_ident=ident,
             )
             src_keys.update(sql_src)
             partial = partial or sql_unres
@@ -1015,9 +1112,7 @@ class _Walker:
         if isinstance(b, _BWriter):
             return b.writer
         if isinstance(b, _BParamDf):
-            return _Dfv(
-                parents=[_PUnres(f"param:{node.id}", self._span(node))]
-            )
+            return _Dfv(parents=[_PUnres(f"param:{node.id}", self._span(node))])
         if isinstance(b, _BStr):
             return _Str(b.value)
         if isinstance(b, _BNotDf):
@@ -1038,9 +1133,7 @@ class _Walker:
         b = self._eval(node.orelse, env)
         return self._merge_ifexp(a, b, node)
 
-    def _e_seq(
-        self, node: ast.Tuple | ast.List | ast.Set, env: _Env
-    ) -> _E:
+    def _e_seq(self, node: ast.Tuple | ast.List | ast.Set, env: _Env) -> _E:
         return _SeqE([self._eval(el, env) for el in node.elts])
 
     def _e_dict(self, node: ast.Dict, env: _Env) -> _E:
@@ -1070,9 +1163,7 @@ class _Walker:
         self._after_eval(self._eval(node.slice, env), node.slice)
         return _Unknown(self._txt(node), self._span(node))
 
-    def _e_unwrap(
-        self, node: ast.Await | ast.Starred | ast.YieldFrom, env: _Env
-    ) -> _E:
+    def _e_unwrap(self, node: ast.Await | ast.Starred | ast.YieldFrom, env: _Env) -> _E:
         # o valor interno é quem conta
         return self._eval(node.value, env)
 
@@ -1096,18 +1187,10 @@ class _Walker:
             return _Dfv(parents=[_PAnon(a), _PAnon(b)])
         if da:
             assert isinstance(a, _Dfv)
-            return _Dfv(
-                parents=[
-                    _PAnon(a), _PUnres(self._txt(node.orelse), None)
-                ]
-            )
+            return _Dfv(parents=[_PAnon(a), _PUnres(self._txt(node.orelse), None)])
         if db:
             assert isinstance(b, _Dfv)
-            return _Dfv(
-                parents=[
-                    _PAnon(b), _PUnres(self._txt(node.body), None)
-                ]
-            )
+            return _Dfv(parents=[_PAnon(b), _PUnres(self._txt(node.body), None)])
         return _Unknown(self._txt(node), self._span(node))
 
     def _comprehension(self, node: ast.expr, env: _Env) -> None:
@@ -1162,12 +1245,11 @@ class _Walker:
     def _unknown_attr(self, base: _Unknown, node: ast.Attribute) -> _E:
         if node.attr in ("write", "writeStream"):
             return _Writer(
-                dfv=None, unknown_recv=base.text,
+                dfv=None,
+                unknown_recv=base.text,
                 span=self._span(node),
             )
-        return _Unknown(
-            f"{base.text}.{node.attr}", self._span(node)
-        )
+        return _Unknown(f"{base.text}.{node.attr}", self._span(node))
 
     # -- calls ---------------------------------------------------------------
 
@@ -1195,9 +1277,7 @@ class _Walker:
         for kw in node.keywords:
             self._after_eval(self._eval(kw.value, env), kw.value)
 
-    def _method(
-        self, recv: _E, method: str, node: ast.Call, env: _Env
-    ) -> _E:
+    def _method(self, recv: _E, method: str, node: ast.Call, env: _Env) -> _E:
         handler = _METHOD_RECV.get(type(recv))
         if handler is not None:
             return handler(self, recv, method, node, env)
@@ -1205,9 +1285,7 @@ class _Walker:
         self._sweep_args(node, env)
         return _Unknown(self._txt(node.func), self._span(node))
 
-    def _m_sclass(
-        self, recv: _SClass, method: str, node: ast.Call, env: _Env
-    ) -> _E:
+    def _m_sclass(self, recv: _SClass, method: str, node: ast.Call, env: _Env) -> _E:
         del recv
         if method == "builder":
             return _SBuilder()
@@ -1216,9 +1294,7 @@ class _Walker:
         self._sweep_args(node, env)
         return _Unknown(self._txt(node.func), self._span(node))
 
-    def _m_sbuilder(
-        self, recv: _SBuilder, method: str, node: ast.Call, env: _Env
-    ) -> _E:
+    def _m_sbuilder(self, recv: _SBuilder, method: str, node: ast.Call, env: _Env) -> _E:
         if method == "getOrCreate":
             return _Session()
         if method == "appName" and node.args:
@@ -1228,9 +1304,7 @@ class _Walker:
         self._sweep_args(node, env)
         return recv
 
-    def _m_naops(
-        self, recv: _NaOps, method: str, node: ast.Call, env: _Env
-    ) -> _E:
+    def _m_naops(self, recv: _NaOps, method: str, node: ast.Call, env: _Env) -> _E:
         self._sweep_args(node, env)
         if method in _NA_METHODS:
             return recv.dfv
@@ -1238,9 +1312,7 @@ class _Walker:
 
     # -- métodos de sessão ------------------------------------------------------
 
-    def _session_method(
-        self, recv: _Session, method: str, node: ast.Call, env: _Env
-    ) -> _E:
+    def _session_method(self, recv: _Session, method: str, node: ast.Call, env: _Env) -> _E:
         del recv
         if method in _SESSION_READ_ATTRS:
             self._sweep_args(node, env)
@@ -1261,8 +1333,10 @@ class _Walker:
     def _spark_sql(self, node: ast.Call, env: _Env) -> _E:
         if not node.args:
             self.sink.diag(
-                "empty-sql", "info",
-                "spark.sql() without positional query", self.path,
+                "empty-sql",
+                "info",
+                "spark.sql() without positional query",
+                self.path,
             )
             self._sweep_args(node, env)
             return _Dfv()
@@ -1270,74 +1344,67 @@ class _Walker:
         span = self._span(node)
         if lit is None:
             self.sink.diag(
-                "dynamic-sql", "warning",
-                "spark.sql() argument is not a static string literal "
-                "— no table deps fabricated", self.path,
+                "dynamic-sql",
+                "warning",
+                "spark.sql() argument is not a static string literal — no table deps fabricated",
+                self.path,
             )
             self.sink.bump("sql_dynamic")
             self._sweep_args(node, env)
-            return _Dfv(
-                parents=[
-                    _PUnres(f"sql:{self._txt(node.args[0])}", span)
-                ]
-            )
+            return _Dfv(parents=[_PUnres(f"sql:{self._txt(node.args[0])}", span)])
         self.sink.bump("sql_literals")
         self._sweep_args(node, env)
-        return _Dfv(
-            sql=[_SqlLit(literal=lit, span=span, line=node.lineno)]
-        )
+        return _Dfv(sql=[_SqlLit(literal=lit, span=span, line=node.lineno)])
 
     def _read_table(self, node: ast.Call, env: _Env, *, via: str) -> _E:
         """``spark.table(t)`` / ``spark.read.table(t)`` — catálogo."""
         self._sweep_args(node, env)
         if not node.args:
             self.sink.diag(
-                "missing-source", "info",
-                f"{via}() without table argument", self.path,
+                "missing-source",
+                "info",
+                f"{via}() without table argument",
+                self.path,
             )
             return _Dfv()
         lit = self._literal_arg(node.args[0], env)
         span = self._span(node.args[0]) or self._span(node)
         if lit is None:
             self.sink.diag(
-                "dynamic-source", "warning",
-                f"{via}() table is not a static literal — "
-                "unresolved read recorded", self.path,
+                "dynamic-source",
+                "warning",
+                f"{via}() table is not a static literal — unresolved read recorded",
+                self.path,
             )
-            return _Dfv(
-                parents=[_PUnres(self._txt(node.args[0]), span)]
-            )
+            return _Dfv(parents=[_PUnres(self._txt(node.args[0]), span)])
         parts = split_table_name(lit)
         if parts is None:
             self.sink.diag(
-                "dynamic-source", "warning",
-                f"{via}() table name is dynamic: {lit!r}", self.path,
+                "dynamic-source",
+                "warning",
+                f"{via}() table name is dynamic: {lit!r}",
+                self.path,
             )
-            return _Dfv(
-                parents=[_PUnres(f"table:{lit}", span)]
-            )
+            return _Dfv(parents=[_PUnres(f"table:{lit}", span)])
         # temp view registrada neste arquivo sombreia o catálogo —
         # mantém a aresta de leitura na view (que deriva das fontes)
         tv_key = self.temp_views.get(".".join(parts))
         if tv_key is not None:
-            return _Dfv(
-                reads=[_Read(ident_key=tv_key, fmt="tempview", span=span)]
-            )
+            return _Dfv(reads=[_Read(ident_key=tv_key, fmt="tempview", span=span)])
         ident = self.sink.table_ident(parts)
         self._emit_table(
-            ident, parts[-1], via=via, roles=("read",),
-            written=lit, span=span,
+            ident,
+            parts[-1],
+            via=via,
+            roles=("read",),
+            written=lit,
+            span=span,
         )
-        return _Dfv(
-            reads=[_Read(ident_key=ident.logical_key(), fmt="table",
-                         span=span)]
-        )
+        return _Dfv(reads=[_Read(ident_key=ident.logical_key(), fmt="table", span=span)])
 
     # -- métodos de DataFrameReader ------------------------------------------------
 
-    def _reader_method(
-        self, recv: _Reader, method: str, node: ast.Call, env: _Env
-    ) -> _E:
+    def _reader_method(self, recv: _Reader, method: str, node: ast.Call, env: _Env) -> _E:
         if method == "format":
             fmt = self._literal_arg(node.args[0], env) if node.args else None
             self._sweep_args(node, env)
@@ -1354,88 +1421,86 @@ class _Walker:
         self._sweep_args(node, env)
         return _Unknown(self._txt(node.func), self._span(node))
 
-    def _read_path(
-        self, node: ast.Call, env: _Env, recv: _Reader, method: str
-    ) -> _E:
+    def _read_path(self, node: ast.Call, env: _Env, recv: _Reader, method: str) -> _E:
         """``spark.read.parquet|csv|json|…(path)`` e ``.format(f).load(path)``."""
         self._sweep_args(node, env)
         fmt = recv.fmt if method == "load" else method
         if not node.args:
             self.sink.diag(
-                "missing-source", "info",
-                f"spark.read.{method}() without path — source "
-                "recorded as unresolved", self.path,
+                "missing-source",
+                "info",
+                f"spark.read.{method}() without path — source recorded as unresolved",
+                self.path,
             )
-            return _Dfv(
-                parents=[_PUnres(f"read:{method}()", self._span(node))]
-            )
+            return _Dfv(parents=[_PUnres(f"read:{method}()", self._span(node))])
         lit = self._literal_arg(node.args[0], env)
         span = self._span(node.args[0]) or self._span(node)
         if lit is None:
             self.sink.diag(
-                "dynamic-source", "warning",
-                f"spark.read.{method}() path is not a static "
-                "literal — unresolved read recorded", self.path,
+                "dynamic-source",
+                "warning",
+                f"spark.read.{method}() path is not a static literal — unresolved read recorded",
+                self.path,
             )
-            return _Dfv(
-                parents=[_PUnres(self._txt(node.args[0]), span)]
-            )
+            return _Dfv(parents=[_PUnres(self._txt(node.args[0]), span)])
         ident = self.sink.path_ident(lit)
         self.sink.add_entity(
-            ident, DomainEntityKind.DATA_TABLE, lit.strip(),
-            path=self.path, span=span, content_hash=self.sha,
+            ident,
+            DomainEntityKind.DATA_TABLE,
+            lit.strip(),
+            path=self.path,
+            span=span,
+            content_hash=self.sha,
             attributes={
-                "storage": "path", "format": fmt,
+                "storage": "path",
+                "format": fmt,
                 "uri_scheme": uri_scheme(lit),
-                "written_name": lit.strip(), "via": f"spark.read.{method}",
+                "written_name": lit.strip(),
+                "via": f"spark.read.{method}",
             },
             roles=("read",),
-            evidence=(self.sink.evi(
-                self.path, self.sha, span, notes=f"read:{method}"
-            ),),
+            evidence=(self.sink.evi(self.path, self.sha, span, notes=f"read:{method}"),),
         )
-        return _Dfv(
-            reads=[_Read(ident_key=ident.logical_key(), fmt=fmt, span=span)]
-        )
+        return _Dfv(reads=[_Read(ident_key=ident.logical_key(), fmt=fmt, span=span)])
 
     def _read_jdbc(self, node: ast.Call, env: _Env) -> _E:
         """``spark.read.jdbc(url, table)`` — o catálogo é o 2º argumento."""
         self._sweep_args(node, env)
         if len(node.args) < 2:
             self.sink.diag(
-                "missing-source", "info",
-                "spark.read.jdbc() without table argument", self.path,
+                "missing-source",
+                "info",
+                "spark.read.jdbc() without table argument",
+                self.path,
             )
             return _Dfv()
         lit = self._literal_arg(node.args[1], env)
         span = self._span(node.args[1]) or self._span(node)
         if lit is None:
             self.sink.diag(
-                "dynamic-source", "warning",
+                "dynamic-source",
+                "warning",
                 "spark.read.jdbc() table is not a static literal",
                 self.path,
             )
-            return _Dfv(
-                parents=[_PUnres(self._txt(node.args[1]), span)]
-            )
+            return _Dfv(parents=[_PUnres(self._txt(node.args[1]), span)])
         parts = split_table_name(lit)
         if parts is None:
             return _Dfv(parents=[_PUnres(f"table:{lit}", span)])
         ident = self.sink.table_ident(parts)
         self._emit_table(
-            ident, parts[-1], via="spark.read.jdbc", roles=("read",),
-            written=lit, span=span,
+            ident,
+            parts[-1],
+            via="spark.read.jdbc",
+            roles=("read",),
+            written=lit,
+            span=span,
         )
-        return _Dfv(
-            reads=[_Read(ident_key=ident.logical_key(), fmt="jdbc",
-                         span=span)]
-        )
+        return _Dfv(reads=[_Read(ident_key=ident.logical_key(), fmt="jdbc", span=span)])
 
     # -- métodos de DataFrame ---------------------------------------------------
 
-    def _df_method(
-        self, recv: _Dfv, method: str, node: ast.Call, env: _Env
-    ) -> _E:
+    def _df_method(self, recv: _Dfv, method: str, node: ast.Call, env: _Env) -> _E:
         if method == "writeTo":
             return self._write_to(recv, node, env)
         if method in _TEMP_VIEW_METHODS:
@@ -1463,16 +1528,15 @@ class _Walker:
         self._sweep_args(node, env)
         return _Unknown(self._txt(node.func), self._span(node))
 
-    def _temp_view(
-        self, recv: _Dfv, method: str, node: ast.Call, env: _Env
-    ) -> _E:
+    def _temp_view(self, recv: _Dfv, method: str, node: ast.Call, env: _Env) -> _E:
         self._sweep_args(node, env)
         if not node.args:
             return _NotDf()
         lit = self._literal_arg(node.args[0], env)
         if lit is None:
             self.sink.diag(
-                "dynamic-source", "warning",
+                "dynamic-source",
+                "warning",
                 f"df.{method}() view name is not a static literal",
                 self.path,
             )
@@ -1485,34 +1549,41 @@ class _Walker:
         flat = _Flat()
         self._flatten(recv, flat)
         ident = self.sink.table_ident(parts)
-        evi = self.sink.evi(
-            self.path, self.sha, self._span(node), notes=f"tempview:{name}"
-        )
+        evi = self.sink.evi(self.path, self.sha, self._span(node), notes=f"tempview:{name}")
         self.sink.add_entity(
-            ident, DomainEntityKind.DATA_VIEW, name,
-            path=self.path, span=self._span(node),
+            ident,
+            DomainEntityKind.DATA_VIEW,
+            name,
+            path=self.path,
+            span=self._span(node),
             content_hash=self.sha,
             attributes={
-                "temporary": "true", "via": f"df.{method}",
+                "temporary": "true",
+                "via": f"df.{method}",
                 "written_name": name,
             },
-            roles=("declare",), evidence=(evi,),
+            roles=("declare",),
+            evidence=(evi,),
         )
         self.temp_views[".".join(parts)] = ident.logical_key()
         vsrc: set[str] = set()
         for r in flat.reads:
             vsrc.add(r.ident_key)
             self.sink.add_rel(
-                DomainRelationKind.DERIVES_FROM.value, ident,
-                path=self.path, to_i=self._ident_by_key(r.ident_key),
+                DomainRelationKind.DERIVES_FROM.value,
+                ident,
+                path=self.path,
+                to_i=self._ident_by_key(r.ident_key),
                 evidence=(evi,),
             )
         for pk in flat.pkeys:
             if pk == ident.logical_key():
                 continue
             self.sink.add_rel(
-                DomainRelationKind.DERIVES_FROM.value, ident,
-                path=self.path, to_i=self._ident_by_key(pk),
+                DomainRelationKind.DERIVES_FROM.value,
+                ident,
+                path=self.path,
+                to_i=self._ident_by_key(pk),
                 evidence=(evi,),
             )
             vsrc.update(self.sink.sources.get(pk, set()))
@@ -1522,28 +1593,26 @@ class _Walker:
 
     # -- writes -----------------------------------------------------------------
 
-    def _writer_method(
-        self, recv: _Writer, method: str, node: ast.Call, env: _Env
-    ) -> _E:
+    def _writer_method(self, recv: _Writer, method: str, node: ast.Call, env: _Env) -> _E:
         if method == "mode":
-            lit = (
-                self._literal_arg(node.args[0], env)
-                if node.args else None
-            )
+            lit = self._literal_arg(node.args[0], env) if node.args else None
             self._sweep_args(node, env)
             return _Writer(
-                dfv=recv.dfv, unknown_recv=recv.unknown_recv,
-                mode=lit or recv.mode, fmt=recv.fmt, span=recv.span,
+                dfv=recv.dfv,
+                unknown_recv=recv.unknown_recv,
+                mode=lit or recv.mode,
+                fmt=recv.fmt,
+                span=recv.span,
             )
         if method == "format":
-            lit = (
-                self._literal_arg(node.args[0], env)
-                if node.args else None
-            )
+            lit = self._literal_arg(node.args[0], env) if node.args else None
             self._sweep_args(node, env)
             return _Writer(
-                dfv=recv.dfv, unknown_recv=recv.unknown_recv,
-                mode=recv.mode, fmt=lit or recv.fmt, span=recv.span,
+                dfv=recv.dfv,
+                unknown_recv=recv.unknown_recv,
+                mode=recv.mode,
+                fmt=lit or recv.fmt,
+                span=recv.span,
             )
         if method in _WRITER_OPTS:
             self._sweep_args(node, env)
@@ -1557,9 +1626,7 @@ class _Walker:
         self._sweep_args(node, env)
         return _Unknown(self._txt(node.func), self._span(node))
 
-    def _v2_method(
-        self, recv: _WriterV2, method: str, node: ast.Call, env: _Env
-    ) -> _E:
+    def _v2_method(self, recv: _WriterV2, method: str, node: ast.Call, env: _Env) -> _E:
         if method in _V2_OPTS:
             via = recv.via
             if method == "using" and node.args:
@@ -1568,9 +1635,12 @@ class _Walker:
                     via = lit
             self._sweep_args(node, env)
             return _WriterV2(
-                dfv=recv.dfv, unknown_recv=recv.unknown_recv,
+                dfv=recv.dfv,
+                unknown_recv=recv.unknown_recv,
                 target_lit=recv.target_lit,
-                target_span=recv.target_span, via=via, span=recv.span,
+                target_span=recv.target_span,
+                via=via,
+                span=recv.span,
             )
         if method in _V2_TERMINALS:
             self._emit_v2_write(recv, node, env, method)
@@ -1590,7 +1660,9 @@ class _Walker:
         for kw in node.keywords:
             self._after_eval(self._eval(kw.value, env), kw.value)
         return _WriterV2(
-            dfv=recv, target_lit=target_lit, target_span=target_span,
+            dfv=recv,
+            target_lit=target_lit,
+            target_span=target_span,
             span=self._span(node),
         )
 
@@ -1603,37 +1675,40 @@ class _Walker:
             ident = self._materialize(dfv, f"expr@{node.lineno}", span)
             return ident, self.sink.sources.get(ident.logical_key(), set())
         self.sink.diag(
-            "unresolved-dataframe", "info",
-            f"write on unresolved receiver {unknown_recv!r} — "
-            "partial lineage", self.path,
+            "unresolved-dataframe",
+            "info",
+            f"write on unresolved receiver {unknown_recv!r} — partial lineage",
+            self.path,
         )
-        ident = self.sink.transform_ident(
-            self.path, f"expr@{node.lineno}"
-        )
-        evi = self.sink.evi(
-            self.path, self.sha, span, notes="df:write"
-        )
+        ident = self.sink.transform_ident(self.path, f"expr@{node.lineno}")
+        evi = self.sink.evi(self.path, self.sha, span, notes="df:write")
         self.sink.add_entity(
-            ident, DomainEntityKind.DATA_TRANSFORMATION,
-            f"expr@{node.lineno}", path=self.path, span=span,
+            ident,
+            DomainEntityKind.DATA_TRANSFORMATION,
+            f"expr@{node.lineno}",
+            path=self.path,
+            span=span,
             content_hash=self.sha,
             attributes={
-                "artifact": self.path, "operation": "write",
-                "line": str(node.lineno), "lineage": "partial",
+                "artifact": self.path,
+                "operation": "write",
+                "line": str(node.lineno),
+                "lineage": "partial",
             },
             evidence=(evi,),
         )
         self.sink.add_rel(
-            DomainRelationKind.DERIVES_FROM.value, ident,
-            path=self.path, to_text=unknown_recv,
-            span=span, evidence=(evi,),
+            DomainRelationKind.DERIVES_FROM.value,
+            ident,
+            path=self.path,
+            to_text=unknown_recv,
+            span=span,
+            evidence=(evi,),
         )
         self.transform_idents.append(ident)
         return ident, set()
 
-    def _emit_path_write(
-        self, recv: _Writer, node: ast.Call, env: _Env, method: str
-    ) -> None:
+    def _emit_path_write(self, recv: _Writer, node: ast.Call, env: _Env, method: str) -> None:
         for a in node.args[1:]:
             self._after_eval(self._eval(a, env), a)
         for kw in node.keywords:
@@ -1643,44 +1718,52 @@ class _Walker:
         evi = self.sink.evi(self.path, self.sha, span, notes="df:write")
         if not node.args:
             self.sink.diag(
-                "missing-target", "info",
-                f"df.write.{method}() without target", self.path,
+                "missing-target",
+                "info",
+                f"df.write.{method}() without target",
+                self.path,
             )
             return
         lit = self._literal_arg(node.args[0], env)
         if lit is None:
             self.sink.diag(
-                "dynamic-write-target", "warning",
+                "dynamic-write-target",
+                "warning",
                 f"df.write.{method}() target is not a static literal",
                 self.path,
             )
             self.sink.add_rel(
-                DomainRelationKind.WRITES_TO.value, tid,
-                path=self.path, to_text=self._txt(node.args[0]),
-                span=span, evidence=(evi,),
+                DomainRelationKind.WRITES_TO.value,
+                tid,
+                path=self.path,
+                to_text=self._txt(node.args[0]),
+                span=span,
+                evidence=(evi,),
             )
             return
         fmt = method if method != "save" else (recv.fmt or "save")
         ident = self.sink.path_ident(lit)
         arg_span = self._span(node.args[0]) or span
         self.sink.add_entity(
-            ident, DomainEntityKind.DATA_TABLE, lit.strip(),
-            path=self.path, span=arg_span, content_hash=self.sha,
+            ident,
+            DomainEntityKind.DATA_TABLE,
+            lit.strip(),
+            path=self.path,
+            span=arg_span,
+            content_hash=self.sha,
             attributes={
-                "storage": "path", "format": fmt,
+                "storage": "path",
+                "format": fmt,
                 "uri_scheme": uri_scheme(lit),
-                "written_name": lit.strip(), "via": f"df.write.{method}",
+                "written_name": lit.strip(),
+                "via": f"df.write.{method}",
             },
             roles=("write",),
-            evidence=(self.sink.evi(
-                self.path, self.sha, arg_span, notes="df:write.target"
-            ),),
+            evidence=(self.sink.evi(self.path, self.sha, arg_span, notes="df:write.target"),),
         )
         self._write_edges(tid, ident, srcs, span, evi)
 
-    def _emit_table_write(
-        self, recv: _Writer, node: ast.Call, env: _Env, method: str
-    ) -> None:
+    def _emit_table_write(self, recv: _Writer, node: ast.Call, env: _Env, method: str) -> None:
         # jdbc(url, table) usa o 2º argumento; demais usam o 1º
         arg_idx = 1 if method == "jdbc" else 0
         for i, a in enumerate(node.args):
@@ -1693,43 +1776,54 @@ class _Walker:
         evi = self.sink.evi(self.path, self.sha, span, notes="df:write")
         if len(node.args) <= arg_idx:
             self.sink.diag(
-                "missing-target", "info",
-                f"df.write.{method}() without target", self.path,
+                "missing-target",
+                "info",
+                f"df.write.{method}() without target",
+                self.path,
             )
             return
         lit = self._literal_arg(node.args[arg_idx], env)
         if lit is None:
             self.sink.diag(
-                "dynamic-write-target", "warning",
+                "dynamic-write-target",
+                "warning",
                 f"df.write.{method}() target is not a static literal",
                 self.path,
             )
             self.sink.add_rel(
-                DomainRelationKind.WRITES_TO.value, tid,
+                DomainRelationKind.WRITES_TO.value,
+                tid,
                 path=self.path,
                 to_text=self._txt(node.args[arg_idx]),
-                span=span, evidence=(evi,),
+                span=span,
+                evidence=(evi,),
             )
             return
         parts = split_table_name(lit)
         if parts is None:
             self.sink.add_rel(
-                DomainRelationKind.WRITES_TO.value, tid,
-                path=self.path, to_text=f"table:{lit}",
-                span=span, evidence=(evi,),
+                DomainRelationKind.WRITES_TO.value,
+                tid,
+                path=self.path,
+                to_text=f"table:{lit}",
+                span=span,
+                evidence=(evi,),
             )
             return
         ident = self.sink.table_ident(parts)
         arg_span = self._span(node.args[arg_idx]) or span
         self._emit_table(
-            ident, parts[-1], via=f"df.write.{method}", roles=("write",),
-            mode=recv.mode, written=lit, span=arg_span,
+            ident,
+            parts[-1],
+            via=f"df.write.{method}",
+            roles=("write",),
+            mode=recv.mode,
+            written=lit,
+            span=arg_span,
         )
         self._write_edges(tid, ident, srcs, span, evi)
 
-    def _emit_v2_write(
-        self, recv: _WriterV2, node: ast.Call, env: _Env, method: str
-    ) -> None:
+    def _emit_v2_write(self, recv: _WriterV2, node: ast.Call, env: _Env, method: str) -> None:
         self._sweep_args(node, env)
         tid, srcs = self._emit_write_base(recv.dfv, recv.unknown_recv, node)
         span = self._span(node)
@@ -1737,38 +1831,48 @@ class _Walker:
         lit = recv.target_lit
         if lit is None:
             self.sink.diag(
-                "dynamic-write-target", "warning",
-                f"df.writeTo().{method}() target is not a static "
-                "literal", self.path,
+                "dynamic-write-target",
+                "warning",
+                f"df.writeTo().{method}() target is not a static literal",
+                self.path,
             )
             self.sink.add_rel(
-                DomainRelationKind.WRITES_TO.value, tid,
-                path=self.path, to_text="writeTo(<dynamic>)",
-                span=span, evidence=(evi,),
+                DomainRelationKind.WRITES_TO.value,
+                tid,
+                path=self.path,
+                to_text="writeTo(<dynamic>)",
+                span=span,
+                evidence=(evi,),
             )
             return
         parts = split_table_name(lit)
         if parts is None:
             self.sink.add_rel(
-                DomainRelationKind.WRITES_TO.value, tid,
-                path=self.path, to_text=f"table:{lit}",
-                span=span, evidence=(evi,),
+                DomainRelationKind.WRITES_TO.value,
+                tid,
+                path=self.path,
+                to_text=f"table:{lit}",
+                span=span,
+                evidence=(evi,),
             )
             return
         ident = self.sink.table_ident(parts)
         tgt_span = recv.target_span or span
         self.sink.add_entity(
-            ident, DomainEntityKind.ICEBERG_TABLE, parts[-1],
-            path=self.path, span=tgt_span,
+            ident,
+            DomainEntityKind.ICEBERG_TABLE,
+            parts[-1],
+            path=self.path,
+            span=tgt_span,
             content_hash=self.sha,
             attributes={
-                "api": "df.writeTo", "written_name": lit.strip(),
-                "using": recv.via, "op": method,
+                "api": "df.writeTo",
+                "written_name": lit.strip(),
+                "using": recv.via,
+                "op": method,
             },
             roles=("write",),
-            evidence=(self.sink.evi(
-                self.path, self.sha, tgt_span, notes="df:writeTo.target"
-            ),),
+            evidence=(self.sink.evi(self.path, self.sha, tgt_span, notes="df:writeTo.target"),),
         )
         self._write_edges(tid, ident, srcs, span, evi)
 
@@ -1781,48 +1885,49 @@ class _Walker:
         evi: int,
     ) -> None:
         self.sink.add_rel(
-            DomainRelationKind.WRITES_TO.value, tid,
-            path=self.path, to_i=sink_ident,
-            span=span, evidence=(evi,),
+            DomainRelationKind.WRITES_TO.value,
+            tid,
+            path=self.path,
+            to_i=sink_ident,
+            span=span,
+            evidence=(evi,),
         )
         skey = sink_ident.logical_key()
         for sk in sorted(srcs):
             if sk == skey:
                 continue  # auto-derivação não é aresta
             self.sink.add_rel(
-                DomainRelationKind.DERIVES_FROM.value, sink_ident,
-                path=self.path, to_i=self._ident_by_key(sk),
-                span=span, evidence=(evi,),
+                DomainRelationKind.DERIVES_FROM.value,
+                sink_ident,
+                path=self.path,
+                to_i=self._ident_by_key(sk),
+                span=span,
+                evidence=(evi,),
             )
         self.sink.bump("writes")
 
     # -- desconhecido ------------------------------------------------------------
 
-    def _unknown_method(
-        self, recv: _Unknown, method: str, node: ast.Call, env: _Env
-    ) -> _E:
+    def _unknown_method(self, recv: _Unknown, method: str, node: ast.Call, env: _Env) -> _E:
         if method == "writeTo":
-            target_lit = (
-                self._literal_arg(node.args[0], env)
-                if node.args else None
-            )
+            target_lit = self._literal_arg(node.args[0], env) if node.args else None
             for a in node.args[1:]:
                 self._after_eval(self._eval(a, env), a)
             for kw in node.keywords:
                 self._after_eval(self._eval(kw.value, env), kw.value)
             return _WriterV2(
-                dfv=None, unknown_recv=recv.text,
+                dfv=None,
+                unknown_recv=recv.text,
                 target_lit=target_lit,
-                target_span=(
-                    self._span(node.args[0]) if node.args else None
-                ),
+                target_span=(self._span(node.args[0]) if node.args else None),
                 span=self._span(node),
             )
         if method in _DF_TRANSFORMS:
             self.sink.diag(
-                "unresolved-dataframe", "info",
-                f"DataFrame op {method!r} on unresolved receiver "
-                f"{recv.text!r} — partial lineage", self.path,
+                "unresolved-dataframe",
+                "info",
+                f"DataFrame op {method!r} on unresolved receiver {recv.text!r} — partial lineage",
+                self.path,
             )
             parents: list[_Parent] = [_PUnres(recv.text, recv.span)]
             for i, a in enumerate(node.args):
@@ -1840,9 +1945,7 @@ class _Walker:
                 self._after_eval(self._eval(kw.value, env), kw.value)
             return _Dfv(parents=parents)
         self._sweep_args(node, env)
-        return _Unknown(
-            f"{recv.text}.{method}", self._span(node)
-        )
+        return _Unknown(f"{recv.text}.{method}", self._span(node))
 
     # -- pós-avaliação --------------------------------------------------------------
 
@@ -1852,35 +1955,48 @@ class _Walker:
             if value.is_interesting():
                 line = getattr(node, "lineno", 0) if node is not None else 0
                 self._materialize(
-                    value, f"expr@{line}",
+                    value,
+                    f"expr@{line}",
                     self._span(node) if node is not None else None,
                 )
         elif isinstance(value, (_Writer, _WriterV2)):
             self.sink.diag(
-                "write-never-executed", "info",
-                "DataFrameWriter built but no terminal op observed "
-                "— no write emitted", self.path,
+                "write-never-executed",
+                "info",
+                "DataFrameWriter built but no terminal op observed — no write emitted",
+                self.path,
             )
 
     # -- emissão compartilhada -------------------------------------------------
 
     def _emit_table(
-        self, ident: DomainIdentity, name: str, *, via: str,
-        roles: tuple[str, ...], written: str,
+        self,
+        ident: DomainIdentity,
+        name: str,
+        *,
+        via: str,
+        roles: tuple[str, ...],
+        written: str,
         span: SourceSpan | None,
         mode: str = "",
     ) -> None:
         attrs = {
-            "storage": "catalog", "via": via, "written_name": written,
+            "storage": "catalog",
+            "via": via,
+            "written_name": written,
         }
         if mode:
             attrs["write_mode"] = mode
         self.sink.add_entity(
-            ident, DomainEntityKind.DATA_TABLE, name,
-            path=self.path, span=span, content_hash=self.sha,
-            attributes=attrs, roles=roles,
-            evidence=(self.sink.evi(self.path, self.sha, span,
-                                    notes=f"table:{name}"),),
+            ident,
+            DomainEntityKind.DATA_TABLE,
+            name,
+            path=self.path,
+            span=span,
+            content_hash=self.sha,
+            attributes=attrs,
+            roles=roles,
+            evidence=(self.sink.evi(self.path, self.sha, span, notes=f"table:{name}"),),
         )
 
 

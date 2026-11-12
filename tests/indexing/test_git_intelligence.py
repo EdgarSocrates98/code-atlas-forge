@@ -24,9 +24,7 @@ from code_atlas.indexing.change_detector import detect_changes
 from code_atlas.storage import connect, migrate
 from code_atlas.storage.store import Store
 
-pytestmark = pytest.mark.skipif(
-    git_binary() is None, reason="git binary absent"
-)
+pytestmark = pytest.mark.skipif(git_binary() is None, reason="git binary absent")
 
 _GIT_CFG = ["-c", "user.email=atlas@test", "-c", "user.name=atlas"]
 
@@ -104,8 +102,7 @@ def test_identity_key_priority() -> None:
     from code_atlas.discovery.models import GitInfo
 
     root = Path("/tmp/whatever")
-    g = GitInfo(available=True, is_repo=True,
-                remote_url="https://x/r.git", root_commit="abc")
+    g = GitInfo(available=True, is_repo=True, remote_url="https://x/r.git", root_commit="abc")
     assert identity_key(g, root) == "git-remote:https://x/r.git"
     g2 = GitInfo(available=True, is_repo=True, root_commit="abc")
     assert identity_key(g2, root) == "git-root:abc"
@@ -133,9 +130,9 @@ def test_relocation_preserves_identity(
     ).fetchone()["repository_id"]
     assert rid2 == rid1
     # root_handle atualizado para diagnóstico
-    rh = db.execute(
-        "SELECT root_handle FROM repositories WHERE id = ?", (rid1,)
-    ).fetchone()["root_handle"]
+    rh = db.execute("SELECT root_handle FROM repositories WHERE id = ?", (rid1,)).fetchone()[
+        "root_handle"
+    ]
     assert rh == str(moved.resolve())
 
 
@@ -148,10 +145,7 @@ def test_two_clones_share_identity(db: sqlite3.Connection, git_repo: Path, tmp_p
     _git(clone, "remote", "set-url", "origin", "https://x.test/shared.git")
     o2 = _index(db, clone)
     assert o2.status in ("success", "noop")  # type: ignore[attr-defined]
-    ids = {
-        r["repository_id"]
-        for r in db.execute("SELECT repository_id FROM snapshots")
-    }
+    ids = {r["repository_id"] for r in db.execute("SELECT repository_id FROM snapshots")}
     assert len(ids) == 1
 
 
@@ -241,9 +235,7 @@ def test_fs_only_rename_by_hash(db: sqlite3.Connection, git_repo: Path) -> None:
     assert renamed is not None and renamed.old_path == "util.py"
 
 
-def test_delete_detected_and_dependency_invalidated(
-    db: sqlite3.Connection, git_repo: Path
-) -> None:
+def test_delete_detected_and_dependency_invalidated(db: sqlite3.Connection, git_repo: Path) -> None:
     (git_repo / "app.py").write_text(
         "from util import helper\n\n\ndef main():\n    return helper()\n"
     )
@@ -270,21 +262,16 @@ def test_reexport_invalidation(db: sqlite3.Connection, tmp_path: Path) -> None:
     """Remover símbolo de barrel reexportado revalida importadores."""
     r = tmp_path / "rr"
     (r / "pkg").mkdir(parents=True)
-    (r / "pkg" / "__init__.py").write_text(
-        "from .impl import thing\n"
-    )
+    (r / "pkg" / "__init__.py").write_text("from .impl import thing\n")
     (r / "pkg" / "impl.py").write_text("def thing():\n    return 1\n")
-    (r / "use.py").write_text(
-        "from pkg import thing\n\n\ndef go():\n    return thing()\n"
-    )
+    (r / "use.py").write_text("from pkg import thing\n\n\ndef go():\n    return thing()\n")
     o1 = _index(db, r)
     assert o1.status == "success"  # type: ignore[attr-defined]
     (r / "pkg" / "__init__.py").write_text("")
     o2 = _index(db, r, incremental=True)
     assert o2.status == "success"  # type: ignore[attr-defined]
     rels = db.execute(
-        "SELECT e.to_unresolved FROM relations e"
-        " WHERE e.snapshot_id = ? AND e.type = 'CALLS'",
+        "SELECT e.to_unresolved FROM relations e WHERE e.snapshot_id = ? AND e.type = 'CALLS'",
         (o2.snapshot_id,),  # type: ignore[attr-defined]
     ).fetchall()
     assert any("thing" in (x["to_unresolved"] or "") for x in rels)
@@ -305,9 +292,7 @@ def test_case_only_rename(db: sqlite3.Connection, git_repo: Path) -> None:
     assert renamed is not None and renamed.old_path == "util.py"
 
 
-def test_ignored_files_after_branch_switch(
-    db: sqlite3.Connection, git_repo: Path
-) -> None:
+def test_ignored_files_after_branch_switch(db: sqlite3.Connection, git_repo: Path) -> None:
     """Arquivo ignorado permanece fora do inventário após branch switch."""
     _git(git_repo, "checkout", "-qb", "feat")
     (git_repo / ".gitignore").write_text("ignored.py\n")
