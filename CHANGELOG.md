@@ -4,6 +4,12 @@ Todas as mudanças notáveis deste projeto serão documentadas aqui.
 Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/),
 versionamento [SemVer](https://semver.org/lang/pt-BR/).
 
+## [1.1.4] — 2026-11-13
+
+### Changed
+
+- Unified platform release: version bump + VERSION_DUMP.unified-release.json.
+
 ## [Unreleased]
 
 ## [1.1.3] - 2026-11-12
