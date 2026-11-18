@@ -44,6 +44,15 @@ class FederationStore:
         ).fetchone()
         return _ws_from_row(row) if row is not None else None
 
+    def delete_workspace(self, workspace_id: int) -> bool:
+        """Remove a workspace row — caller decides emptiness (receipt-proven
+        uninstall removes only groups install created and left empty)."""
+        cur = self._conn.execute(
+            "DELETE FROM federation_workspaces WHERE id = ?",
+            (workspace_id,),
+        )
+        return int(cur.rowcount or 0) > 0
+
     def list_workspaces(self) -> list[FederationWorkspace]:
         rows = self._conn.execute(
             "SELECT id, name, created_at FROM federation_workspaces ORDER BY name"
