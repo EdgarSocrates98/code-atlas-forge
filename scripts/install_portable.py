@@ -17,11 +17,14 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import platform
+import re
 import shlex
 import subprocess
 import sys
 import threading
 import time
+import tomllib
 from datetime import UTC, datetime
 from pathlib import Path
 
@@ -43,9 +46,20 @@ _REMEDIES = {
     "FORGE-INSTALL-CLI-MISSING": (
         "the package installed but exposes no console script — check pyproject [project.scripts]"
     ),
+    "FORGE-INSTALL-REGISTRY-FAILED": (
+        "the federation registration could not be written — "
+        "check permissions on ~/.forge/installations/"
+    ),
 }
 
-_STEPS = ["create venv", "install runtime", "write launcher", "write receipt", "verify cli"]
+_STEPS = [
+    "create venv",
+    "install runtime",
+    "write launcher",
+    "write receipt",
+    "verify cli",
+    "register install",
+]
 
 
 def _root() -> Path:
@@ -257,6 +271,61 @@ def _write_launcher(home: Path) -> Path:
     return launcher
 
 
+def _register(home: Path, launcher: Path, venv_python: Path, mode: str) -> Path:
+    """Register this install into the federation installations registry.
+
+    ``~/.forge/installations/<forge_id>.json`` is how The Forge discovers
+    installed specialists for typed delegation (``forge/InstallationManifest/v1``
+    — the same shape ``scripts/forge_bootstrap.py`` writes in sibling forges).
+    Without it the atlas is invisible to ``theforge setup``.
+    """
+
+    pyproject = tomllib.loads((_root() / "pyproject.toml").read_text(encoding="utf-8"))
+    cfg = json.loads((_root() / "forge.json").read_text(encoding="utf-8"))
+    # version is dynamic (setuptools attr) — extract it from the source tree
+    _init_src = (
+        _root() / "src" / cfg.get("package", "code_atlas") / "__init__.py"
+    ).read_text(encoding="utf-8")
+    _m = re.search(r'^__version__\s*=\s*["\']([^"\']+)', _init_src, re.M)
+    version = (_m.group(1) if _m else None) or cfg.get("version") or "0.0.0"
+    forge_home = Path(os.environ.get("FORGE_HOME_OVERRIDE") or Path.home()) / ".forge"
+    doc = {
+        "schema": "forge/InstallationManifest/v1",
+        "forge_id": FORGE_ID,
+        "package": cfg.get("package", "code_atlas"),
+        "distribution": cfg.get("distribution", FORGE_ID),
+        "cli": {"name": CLI, "version_cmd": [CLI, "--version"], "shim": str(launcher)},
+        "version": version,
+        "install_root": str(home),
+        "venv": str(_venv_path(home)),
+        "python": {
+            "executable": str(venv_python),
+            "version": platform.python_version(),
+            "satisfies": pyproject["project"]["requires-python"],
+        },
+        "source": {"kind": "local-checkout", "path": str(_root()), "mode": mode},
+        "installation_method": "local-source",
+        "installed_at": datetime.now(UTC).isoformat(),
+        "updated_at": datetime.now(UTC).isoformat(),
+        "installed_by": {"agent": "install_portable", "version": version},
+        # service forge — installs no host payloads
+        "hosts": {},
+        "installation_kind": cfg.get("installation_kind", "service"),
+    }
+    if cfg.get("install"):
+        doc["install"] = dict(cfg["install"])
+    if cfg.get("depends_on"):
+        doc["depends_on"] = [str(d) for d in cfg["depends_on"]]
+    if cfg.get("mcp_verify_tool"):
+        doc["mcp_verify_tool"] = cfg["mcp_verify_tool"]
+    path = forge_home / "installations" / f"{FORGE_ID}.json"
+    path.parent.mkdir(parents=True, exist_ok=True)
+    tmp = path.with_suffix(".tmp")
+    tmp.write_text(json.dumps(doc, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    os.replace(tmp, path)
+    return path
+
+
 def _emit_json(doc: dict) -> None:
     print(json.dumps(doc, indent=2))
 
@@ -333,6 +402,14 @@ def _install(args: argparse.Namespace, ui: _Ux, refuse, mode: str) -> int:
             f"console script not found at {_cli_executable(home)}",
         )
 
+    ui.step_start(6, n, _STEPS[5])
+    try:
+        registrations = _register(home, launcher, venv_python, mode)
+        ui.step_done(6, n, _STEPS[5], ok=True, note=str(registrations))
+    except Exception as exc:
+        ui.step_done(6, n, _STEPS[5], ok=False)
+        return refuse("FORGE-INSTALL-REGISTRY-FAILED", f"register failed: {exc}")
+
     ui.summary(
         [
             ("cli", CLI),
@@ -340,6 +417,7 @@ def _install(args: argparse.Namespace, ui: _Ux, refuse, mode: str) -> int:
             ("venv", str(_venv_path(home))),
             ("launcher", str(launcher)),
             ("receipt", str(home / "install.json")),
+            ("registered", str(registrations)),
         ],
         f"add to PATH: {launcher.parent} — then run `{CLI} --help`",
         dry_run=False,
