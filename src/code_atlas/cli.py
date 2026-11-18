@@ -1780,7 +1780,8 @@ def build_parser() -> argparse.ArgumentParser:
         "--scope",
         choices=("project", "user", "workspace"),
         default="project",
-        help="project=workspace atual (alias: workspace); user=só data dir global",
+        help="project=um repo root; workspace=descobre membros multi-repo "
+        "sob a raiz; user=só data dir global",
     )
     p_inst.add_argument("--root", metavar="PATH", help="raiz do workspace (default: cwd)")
     p_inst.add_argument(
@@ -1791,6 +1792,20 @@ def build_parser() -> argparse.ArgumentParser:
         metavar="CSV",
         default=None,
         help="csv de componentes: config,data-dir,repository",
+    )
+    p_inst.add_argument(
+        "--host",
+        metavar="HOST",
+        default=None,
+        help="aceito e ignorado — service forge não instala payloads de host "
+        "(contrato de delegação the-forge)",
+    )
+    p_inst.add_argument(
+        "--gateway-profile",
+        metavar="PROFILE",
+        default=None,
+        help="aceito e ignorado — sem perfil de execução "
+        "(contrato de delegação the-forge)",
     )
     p_inst.add_argument("--dry-run", action="store_true", help="mostra o plano; não escreve nada")
     p_inst.add_argument("--yes", "-y", action="store_true", help="aprovação explícita para aplicar")
