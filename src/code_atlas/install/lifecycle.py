@@ -672,7 +672,7 @@ def _ensure_federation(ctx: _ApplyCtx) -> tuple[str, str]:
     fstore = FederationStore(conn)
     ws = fstore.workspace_by_name(name)
     created = ws is None
-    ws_id = fstore.create_workspace(name) if created else ws.id
+    ws_id = fstore.create_workspace(name) if ws is None else ws.id
     conn.commit()
     ctx.fed = {
         "workspace_id": ws_id,
