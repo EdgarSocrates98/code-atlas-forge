@@ -353,7 +353,7 @@ def _install(args: argparse.Namespace, ui: _Ux, refuse, mode: str) -> int:
         install_args = [
             str(venv_python), "-m", "pip", "install",
             "--disable-pip-version-check", "--no-input",
-            "-e" if args.editable else ".",
+            *(["-e", "."] if args.editable else ["."]),
         ]
         _run(install_args, cwd=root, quiet=args.quiet)
         ui.step_done(2, n, _STEPS[1], ok=True, note=f"{mode} from {root.name}/")

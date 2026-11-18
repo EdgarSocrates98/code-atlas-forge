@@ -79,3 +79,36 @@ def test_register_writes_installation_manifest(tmp_path: Path, monkeypatch) -> N
     assert doc["hosts"] == {}
     assert set(doc["install"]["operations"]) >= {"plan", "apply", "status", "doctor"}
     assert doc["mcp_verify_tool"] == "atlas_status"
+
+
+def test_editable_install_passes_project_path_to_pip(tmp_path: Path, monkeypatch) -> None:
+    """Regression: `--editable` must emit `pip install -e .` — a bare `-e`
+    makes pip exit 2 ('-e option requires 1 argument')."""
+    import importlib.util
+
+    spec = importlib.util.spec_from_file_location("install_portable", SCRIPT)
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+
+    calls: list[list[str]] = []
+
+    def fake_run(cmd, **_kw):
+        calls.append(list(cmd))
+
+    home = tmp_path / "install"
+    venv_bin = home / "venv" / ("Scripts" if os.name == "nt" else "bin")
+    venv_bin.mkdir(parents=True)
+    (venv_bin / ("python.exe" if os.name == "nt" else "python")).touch()
+    (venv_bin / ("code-atlas.exe" if os.name == "nt" else "code-atlas")).touch()
+
+    monkeypatch.setattr(mod, "_run", fake_run)
+    monkeypatch.setattr(mod, "_write_launcher", lambda _h: tmp_path / "bin" / "code-atlas")
+    monkeypatch.setattr(mod, "_register", lambda *a, **kw: tmp_path / "reg.json")
+    monkeypatch.setenv("FORGE_INSTALL_HOME", str(home))
+    monkeypatch.setenv("FORGE_HOME_OVERRIDE", str(tmp_path / "forgehome"))
+
+    rc = mod.main(["--editable", "--quiet", "--json"])
+    assert rc == 0
+    pip = next(c for c in calls if "pip" in c and "install" in c)
+    assert "-e" in pip
+    assert pip.index("-e") + 1 < len(pip) and pip[pip.index("-e") + 1] == "."
