@@ -4,8 +4,46 @@
   "distribution": "code-atlas-forge",
   "cli": "code-atlas",
   "python": ">=3.12",
+  "version": "1.1.4",
   "mcp_server_name": "code-atlas",
   "mcp_command": ["code-atlas", "mcp"],
+  "mcp_verify_tool": "atlas_status",
+  "installation_kind": "service",
+  "install": {
+    "operations": [
+      "plan",
+      "apply",
+      "status",
+      "doctor",
+      "uninstall"
+    ],
+    "flags": [
+      "--scope",
+      "--root",
+      "--profile",
+      "--components",
+      "--host",
+      "--gateway-profile",
+      "--dry-run",
+      "--yes",
+      "--purge",
+      "--json"
+    ],
+    "hosts": [],
+    "scopes": [
+      "project",
+      "workspace",
+      "user"
+    ],
+    "profiles": [
+      "minimal",
+      "recommended",
+      "full"
+    ],
+    "gateway_profiles": [],
+    "approval": "--yes"
+  },
+  "depends_on": [],
   "extras": ["mcp", "vector"],
   "install_command": ["code-atlas", "install", "--yes"],
   "smoke_command": ["code-atlas", "doctor"]

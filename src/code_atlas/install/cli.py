@@ -36,8 +36,8 @@ def _tty() -> bool:
 def _install(**kw: Any) -> dict[str, Any]:
     """Map the wizard's keyword contract onto the real lifecycle.
 
-    ``host``/``gateway_profile`` are accepted and ignored — the atlas
-    installs no host payloads and has no execution profile.
+    ``host``/``gateway_profile`` are forwarded for honest recording —
+    the atlas installs no host payloads and has no execution profile.
     """
     return lifecycle.install(
         scope=kw.get("scope", "project"),
@@ -45,6 +45,8 @@ def _install(**kw: Any) -> dict[str, Any]:
         components=kw.get("components"),
         dry_run=bool(kw.get("dry_run")),
         yes=bool(kw.get("yes")),
+        host=kw.get("host"),
+        gateway_profile=kw.get("gateway_profile"),
     )
 
 
@@ -63,7 +65,7 @@ def run_guided_install() -> int:
         doctor_fn=_doctor,
         hosts_available=(),
         gateway_profiles=(),
-        scopes=("project", "user"),
+        scopes=("project", "workspace", "user"),
         component_order=lifecycle.COMPONENTS,
         component_labels=_COMPONENT_LABELS,
         component_details=_COMPONENT_DETAILS,
@@ -82,8 +84,16 @@ def run_flag_install(
     root: str | None,
     dry_run: bool,
     yes: bool,
+    host: str | None = None,
+    gateway_profile: str | None = None,
 ) -> dict[str, Any]:
-    """Non-interactive flag path — returns the receipt doc."""
+    """Non-interactive flag path — returns the receipt doc.
+
+    ``host``/``gateway_profile`` ride the delegation surface (the-forge
+    always sends them): accepted, recorded on the receipt, and honestly
+    ignored — a service forge installs no host payloads and runs no
+    execution profile.
+    """
     comps = tuple(c.strip() for c in components.split(",") if c.strip()) if components else None
     return lifecycle.install(
         scope=scope,
@@ -92,20 +102,28 @@ def run_flag_install(
         root=Path(root) if root else None,
         dry_run=dry_run,
         yes=yes,
+        host=host,
+        gateway_profile=gateway_profile,
     )
 
 
 def _render_install_doc(doc: dict[str, Any]) -> None:
     print(f"{doc.get('operation', 'install')}: {doc.get('status', '?')}")
+    ver = (doc.get("verification") or {}).get("status")
+    if ver:
+        print(f"  verification: {ver}")
     for s in doc.get("applied", []):
-        print(f"  {s['component']:<10} {s['action']:<22} {s['target']}")
+        print(f"  {s['component']:<12} {s['action']:<22} {s['target']}")
     for s in doc.get("skipped", []):
-        print(f"  skipped    {s['component']:<10} {s.get('result', s['target'])}")
+        print(f"  skipped    {s['component']:<12} {s.get('result', s['target'])}")
     for s in doc.get("unverified", []):
-        print(f"  unverified {s['component']:<10} {s['result']}")
+        print(f"  unverified {s['component']:<12} {s['result']}")
     if doc.get("status") == "planned":
         for s in doc.get("plan", []):
-            print(f"  plan       {s['component']:<10} {s['action']:<22} {s['target']}")
+            print(f"  plan       {s['component']:<12} {s['action']:<22} {s['target']}")
+    ws = doc.get("workspace")
+    if isinstance(ws, dict):
+        print(f"  workspace  {ws.get('members_discovered')} member(s) under {ws.get('root')}")
     if doc.get("error"):
         print(f"  refused    {doc['error'].get('kind')}: {doc['error'].get('detail')}")
 
@@ -122,18 +140,26 @@ def _render_check_doc(doc: dict[str, Any]) -> None:
 
 
 def run_install(args: Any) -> int:
-    """argparse handler — ``install|status|doctor`` actions."""
+    """argparse handler — ``install|status|doctor`` actions.
+
+    Delegated calls (the-forge always sends ``--host``) emit the
+    ``forge/InstallReceipt/v1`` doc on stdout like ``--json`` — plan
+    mode writes nothing, so stdout is the only receipt channel.
+    """
     from code_atlas.observability.logging import escape_control
 
     action = getattr(args, "action", "install")
-    # Installkit contract: ecosystem hosts pass ``--scope workspace``;
-    # atlas' canonical name for the same thing is ``project``.
-    scope = "project" if args.scope == "workspace" else args.scope
+    scope = args.scope
+    delegated = getattr(args, "host", None) is not None or (
+        getattr(args, "gateway_profile", None) is not None
+    )
     try:
         if action == "status":
             doc = lifecycle.status()
         elif action == "doctor":
-            doc = lifecycle.doctor(scope=scope)
+            doc = lifecycle.doctor(
+                scope=scope, root=Path(args.root) if args.root else None
+            )
         elif action == "uninstall":
             doc = lifecycle.uninstall(
                 scope=scope,
@@ -150,12 +176,14 @@ def run_install(args: Any) -> int:
                 root=args.root,
                 dry_run=args.dry_run,
                 yes=args.yes,
+                host=getattr(args, "host", None),
+                gateway_profile=getattr(args, "gateway_profile", None),
             )
     except ValueError as exc:
         print(f"error: {escape_control(str(exc))}", file=sys.stderr)
         return 2
 
-    if getattr(args, "json", False):
+    if getattr(args, "json", False) or (delegated and action == "install"):
         print(json.dumps(doc, indent=2, ensure_ascii=False))
     elif action in ("install", "uninstall"):
         _render_install_doc(doc)

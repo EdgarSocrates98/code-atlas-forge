@@ -12,6 +12,32 @@ versionamento [SemVer](https://semver.org/lang/pt-BR/).
 
 ## [Unreleased]
 
+### Added
+- **Install-2.1 (Forge Cycle 16 Wave-08)** — `code-atlas install` agora é
+  um Service Forge delegável:
+  - `forge.json` declara `installation_kind: "service"`,
+    `mcp_verify_tool: "atlas_status"`, `depends_on: []` e a superfície
+    tipada completa (operations/flags/scopes/profiles; `hosts` e
+    `gateway_profiles` vazios e honestos).
+  - Recibos no envelope canônico `forge/InstallReceipt/v1`
+    (`verification.status` PASS/FAIL/UNVERIFIED honesto — dry-run e
+    recusa nunca PASS).
+  - `--scope workspace` descobre membros multi-repo por markers (`.git`
+    ou manifesto — membros sem git contam), com segurança anti
+    symlink/junction, ignore-dirs e profundidade máxima; cada membro é
+    registrado com identidade estável e agrupado em
+    `federation_workspaces`. Install **nunca indexa**.
+  - `--host`/`--gateway-profile` aceitos e honestamente ignorados
+    (registrados como `NOT_APPLICABLE` no recibo); `--json` emite o
+    recibo, e chamadas delegadas emitem JSON em stdout mesmo sem a flag.
+  - Recibos por alvo em `<alvo>/.code-atlas/receipts/` (convenção
+    `.<state>/receipts` do The Forge) + recibo global no data dir.
+  - Componentes desconhecidos viram recusa tipada
+    `CA-INSTALL-UNSUPPORTED-COMPONENTS` num recibo FAIL — sem exit-2.
+  - Uninstall remove apenas o que o recibo prova (arquivos de usuário
+    preservados; workspace federation só sai se criado pelo install e
+    vazio); `--purge` continua exigido para `atlas.db`.
+
 ## [1.1.3] - 2026-11-12
 
 Cycle 2.7 patch release: federated SDD contracts and adapters, forge-context kind taxonomy, universal Obsidian export verbs, portal and install UX improvements, provider context-registry wiring, CI hardening and generated-artifact refresh.

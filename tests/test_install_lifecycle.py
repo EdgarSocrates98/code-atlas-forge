@@ -36,7 +36,11 @@ def _receipt_file(env) -> Path:
 def test_dry_run_plans_and_writes_nothing(env) -> None:
     doc = lifecycle.install(dry_run=True)
     assert doc["status"] == "planned"
-    assert doc["schema"] == "forge/CodeAtlasInstallReceipt/v1"
+    # install-2.1: canonical delegation envelope, atlas extras on top
+    assert doc["schema"] == "forge/InstallReceipt/v1"
+    assert doc["forge_id"] == "code-atlas-forge"
+    assert doc["operation"] == "install"
+    assert doc["verification"]["status"] == "UNVERIFIED"
     kinds = {(s["component"], s["action"]) for s in doc["plan"]}
     assert ("data-dir", "mkdir") in kinds
     assert ("config", "write-if-absent") in kinds
@@ -59,16 +63,27 @@ def test_apply_without_yes_is_declined_and_writes_nothing(env) -> None:
 def test_apply_project_scope(env) -> None:
     doc = lifecycle.install(yes=True)
     assert doc["status"] == "completed"
+    assert doc["verification"]["status"] == "PASS"
     assert env["data"].is_dir()
     assert (env["conf"] / "config.toml").is_file()
     receipt = json.loads(_receipt_file(env).read_text(encoding="utf-8"))
+    assert receipt["schema"] == "forge/InstallReceipt/v1"
     assert receipt["forge_id"] == "code-atlas-forge"
+    assert receipt["operation"] == "install"
+    assert receipt["verification"]["status"] == "PASS"
     assert receipt["scope"] == "project"
     applied = {s["component"] for s in doc["applied"]}
     assert {"data-dir", "config", "repository", "receipt"} <= applied
     reg = next(s for s in doc["applied"] if s["component"] == "repository")
     assert reg["result"].startswith("repository_id=")
     assert (env["data"] / "atlas.db").is_file()
+    # per-target receipt under <root>/.code-atlas/receipts (delegation dir)
+    receipts = list((env["root"] / ".code-atlas" / "receipts").glob("*.json"))
+    assert len(receipts) == 1
+    target = json.loads(receipts[0].read_text(encoding="utf-8"))
+    assert target["schema"] == "forge/InstallReceipt/v1"
+    assert target["target_root"] == str(env["root"])
+    assert (env["root"] / ".code-atlas" / ".gitignore").read_text() == "*\n"
 
 
 def test_reinstall_skips_existing_config(env) -> None:
@@ -90,7 +105,7 @@ def test_user_scope_skips_workspace_components(env) -> None:
 
 def test_minimal_profile_only_data_dir(env) -> None:
     doc = lifecycle.install(profile="minimal", yes=True)
-    assert doc["components"] == ["data-dir"]
+    assert doc["components"] == {"selected": ["data-dir"]}
     assert env["data"].is_dir()
     assert not (env["conf"] / "config.toml").exists()
 
@@ -105,10 +120,20 @@ def test_unknown_scope_and_profile_rejected(env) -> None:
         lifecycle.install(profile="bogus", dry_run=True)
 
 
-def test_unknown_component_rejected(env) -> None:
-    with pytest.raises(ValueError) as exc:
-        lifecycle.install(components=("bogus",), dry_run=True)
-    assert "bogus" in str(exc.value)
+def test_unknown_component_is_typed_refusal(env) -> None:
+    # Orchestrator-style component names get a typed refusal receipt —
+    # a valid forge/InstallReceipt/v1 with FAIL, never a ValueError/exit-2.
+    doc = lifecycle.install(components=("bogus", "skills"), dry_run=True)
+    assert doc["schema"] == "forge/InstallReceipt/v1"
+    assert doc["status"] == "failed"
+    assert doc["verification"]["status"] == "FAIL"
+    assert doc["error"]["kind"] == "CA-INSTALL-UNSUPPORTED-COMPONENTS"
+    assert doc["error"]["rejected"] == ["bogus", "skills"]
+    assert "bogus" in doc["error"]["detail"]
+    assert not _receipt_file(env).exists()  # refusal writes nothing
+    doc = lifecycle.install(components=("agents",), yes=True)
+    assert doc["status"] == "failed"
+    assert not _receipt_file(env).exists()
 
 
 def test_missing_root_rejected(env) -> None:
