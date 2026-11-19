@@ -13,6 +13,50 @@ versionamento [SemVer](https://semver.org/lang/pt-BR/).
 ## [Unreleased]
 
 ### Added
+- **Install lifecycle portátil (Forge Cycle 16.1 Wave-09)** — recibos e
+  saúde alinhados aos contratos versionados do ecossistema:
+  - Todo recibo `forge/InstallReceipt/v1` passa a carregar um bloco
+    derivado `lifecycle` (`forge/InstallLifecycle/v1`): `planned`,
+    `blocked`, `failed`, `applied`, `verified`, `unverified` — derivado
+    do `status` + `verification`, nunca afirmado solto. `completed`+`PASS`
+    continua sendo o único par que o verificador do The Forge aceita.
+  - `install status` / `install doctor` emitem
+    `forge/InstallationHealth/v1`: `healthy`/`degraded`/`broken`/
+    `unverified` — sem recibo é `unverified` (não `healthy` por
+    omissão); recibo corrompido é `broken`; drift de arquivo gerenciado
+    rebaixa para `degraded`. Lifecycle mapeado: `ready` /
+    `partially_applied` / `failed` / `unverified`.
+  - `status`/`doctor` expõem `drift` (`missing`/`modified` por sha256)
+    e `context` com apenas métricas observáveis (`managed_entries`,
+    `tools_exposed` — contagem real das tools MCP).
+  - Recusas de aprovação e de componentes agora emitem
+    `status: "blocked"` (era `declined`; o vocabulário legado continua
+    aceito na leitura de recibos antigos), com `lifecycle.state: "blocked"`.
+  - CLI humano de install/status/doctor renderiza o novo vocabulário e
+    aceita os shapes de check antigos.
+
+### Fixed
+- **Reinstalação incremental** — `code-atlas install` executado de novo
+  não reescreve assets inalterados: path+sha256 são comparados com o
+  recibo anterior, `config.toml` e `.code-atlas/.gitignore` mantêm bytes
+  e `mtime`, e o novo recibo registra `action: "unchanged"`. A posse só
+  é carregada com prova (recibo anterior + hash confere); arquivo
+  modificado ou estranho nunca é adotado nem sobrescrito.
+- **Evidência de recibo nunca sobrescrita** — duas operações de install
+  dentro do mesmo segundo produziam o mesmo nome
+  `install-<ts>.json` por alvo; agora o mais novo recebe sufixo `-NN`.
+- **Posse da federation preservada no reinstall** — o recibo passa a
+  registrar `install_owned` (proveniência) além de `created` (ação da
+  execução); sem isso, um reinstall marcava a federation como
+  `created: false` e o uninstall deixava o grupo e os membros para trás.
+- **Uninstall drift-aware** — arquivo gerenciado modificado depois do
+  install (sha divergente do recibo) é preservado como conteúdo do
+  usuário em vez de deletado; só sai o que o recibo prova.
+- Documentados retroativamente (já mergeados na Wave-08):
+  `a3984f8` registra a instalação em `~/.forge/installations` (#56);
+  `75041ab` corrige `--editable` para emitir `pip install -e .` em vez
+  de um `-e` solto (#57).
+
 - **Install-2.1 (Forge Cycle 16 Wave-08)** — `code-atlas install` agora é
   um Service Forge delegável:
   - `forge.json` declara `installation_kind: "service"`,

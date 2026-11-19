@@ -108,12 +108,59 @@ UNVERIFIED/FAIL explícitos). Detalhes atlas ficam em extensões (`plan`,
 `applied`, `skipped`, `unverified`, `members`, `workspace`, `data_dir`,
 `checks`, `extras`).
 
+Cada recibo carrega também um bloco derivado `lifecycle`
+(`forge/InstallLifecycle/v1`) — o ciclo de vida portátil do ecossistema,
+derivado do status da operação + verificação, nunca afirmado solto:
+
+| `status` da operação | `verification` | `lifecycle.state` |
+|---|---|---|
+| `planned` (dry-run) | — | `planned` |
+| `blocked` (recusa: aprovação, componentes) | — | `blocked` |
+| `completed` | `PASS` | `verified` |
+| `completed` | outro/ausente | `applied` |
+| `completed` | `FAIL` | `failed` |
+| `failed` | — | `failed` |
+
+Sucesso terminal é `verified`/`ready`/`certified` — `applied` sozinho
+não é conclusão certificada. O par `completed`+`PASS` continua sendo o
+que o verificador de recibos-filho do The Forge aceita como sucesso.
+
 - **Por alvo**: `<alvo>/.code-atlas/receipts/install-*.json` — a
   convenção `.<state>/receipts` que o The Forge varre. Em workspace, a
-  raiz recebe o doc consolidado e cada membro o seu.
+  raiz recebe o doc consolidado e cada membro o seu. Recibos nunca são
+  reescritos: duas operações dentro do mesmo segundo ganham sufixo
+  `-NN`, preservando a evidência anterior.
 - **Global**: `<data-dir>/install/receipt.json` — prova de posse que
   `status`/`uninstall` leem.
 - `dry-run` e recusas **não gravam recibo nem estado**.
+
+### Reinstalação incremental
+
+Rodar `install` de novo compara cada arquivo gerenciado com o recibo
+anterior (path + `sha256`): o que não mudou **não é reescrito** — nem
+byte nem `mtime` — e entra no novo recibo como `action: "unchanged"`.
+A posse só é carregada quando o recibo anterior prova que o install
+escreveu o arquivo **e** o hash atual ainda confere; arquivo modificado
+pelo usuário ou estranho é preservado sem adoção. O mesmo vale para a
+federation: o `install_owned` vem do recibo anterior, então o
+`uninstall` continua removendo exatamente o que é do install.
+
+### `status` e `doctor` — saúde honesta
+
+`code-atlas install status` e `install doctor` emitem documentos
+`forge/InstallationHealth/v1`:
+
+- `status`: `healthy` | `degraded` | `broken` | `unverified` — sem
+  recibo é `unverified` (ausência de evidência ≠ saudável); recibo
+  corrompido é `broken`.
+- `lifecycle.state`: `healthy→ready`, `degraded→partially_applied`,
+  `broken→failed`, `unverified→unverified`.
+- `drift`: arquivos gerenciados que faltam (`missing`) ou cujo hash
+  diverge do recibo (`modified`) — drift rebaixa para `degraded`.
+- `context`: só métricas observáveis — `managed_entries` (do recibo) e
+  `tools_exposed` (contagem real da tabela de tools MCP).
+- `checks` (doctor): probes `{id, status, detail, repairable}` — PASS /
+  FAIL / NOT_APPLICABLE / UNVERIFIED.
 
 ### Posse e privacidade
 
@@ -124,9 +171,11 @@ serviço — `atlas.db`, índice, config global — vive no XDG data dir
 de instalação, nunca diretório de estado. Nenhum segredo é escrito no
 workspace. Uninstall remove apenas o que o recibo prova que o install
 criou: arquivos estranhos/de usuário são preservados (`kept`), o
-`.gitignore` só sai se o conteúdo for exatamente o gerenciado, e o
-workspace federation só sai se o recibo provar que o install o criou e
-ele estiver vazio. `--purge` é exigido para apagar `atlas.db`.
+`.gitignore` só sai se o conteúdo for exatamente o gerenciado, um
+arquivo gerenciado **modificado depois do install** (sha divergente do
+recibo) é mantido como conteúdo estranho, e o workspace federation só
+sai se o recibo provar posse do install (`install_owned`) e ele estiver
+vazio. `--purge` é exigido para apagar `atlas.db`.
 
 ### Exemplos
 
@@ -146,7 +195,9 @@ code-atlas install --components skills,agents --json
 
 | Sintoma | Causa provável | Caminho |
 |---|---|---|
-| `status: declined` / `CA-INSTALL-DECLINED` | faltou `-y` | rerodar com `--yes` |
+| `status: blocked` / `CA-INSTALL-DECLINED` | faltou `-y` | rerodar com `--yes` |
+| `status: unverified` (status/doctor) | nenhum install neste escopo | rodar `code-atlas install -y` |
+| `status: degraded` + `drift.modified` | arquivo gerenciado editado fora do install | reinstalar (`install -y`) ou reverter a edição |
 | `CA-INSTALL-UNSUPPORTED-COMPONENTS` | componente fora de `config,data-dir,repository` | ajustar `--components` ou usar `--profile` |
 | `verification: UNVERIFIED` | escrita de recibo/registro falhou parcialmente | ver `unverified[]` no recibo; permissões/disco |
 | workspace achou 0 membros | raiz sem markers ou tudo ignorado/profundo | `--root` correto; markers dentro de 2 níveis |
