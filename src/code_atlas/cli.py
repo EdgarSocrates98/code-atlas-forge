@@ -895,11 +895,18 @@ def run_context_expand(args: argparse.Namespace) -> int:
     return EXIT_OK
 
 
-_MCP_MANIFESTS: dict[str, dict[str, Any]] = {
-    "claude-code": {"mcpServers": {"code-atlas": {"command": "code-atlas", "args": ["mcp"]}}},
-    "codex-cli": {"mcp_servers": {"code-atlas": {"command": "code-atlas", "args": ["mcp"]}}},
-    "generic": {"mcpServers": {"code-atlas": {"command": "code-atlas", "args": ["mcp"]}}},
-}
+def _mcp_manifests() -> dict[str, dict[str, Any]]:
+    # PATH-independent argv: o interpretador atual + ``-m code_atlas`` —
+    # nunca depende de ``code-atlas`` estar no PATH do host (§9.3).
+    argv = {"command": sys.executable, "args": ["-m", "code_atlas", "mcp"]}
+    return {
+        "claude-code": {"mcpServers": {"code-atlas": dict(argv)}},
+        "codex-cli": {"mcp_servers": {"code-atlas": dict(argv)}},
+        "generic": {"mcpServers": {"code-atlas": dict(argv)}},
+    }
+
+
+_MCP_MANIFESTS: dict[str, dict[str, Any]] = {}
 
 
 def run_api(args: argparse.Namespace) -> int:
@@ -973,7 +980,7 @@ def run_mcp(args: argparse.Namespace) -> int:
     cmd = getattr(args, "cmd", "serve") or "serve"
     if cmd == "manifest":
         host = getattr(args, "host", "generic") or "generic"
-        manifest = _MCP_MANIFESTS.get(host, _MCP_MANIFESTS["generic"])
+        manifest = _mcp_manifests().get(host, _mcp_manifests()["generic"])
         print(json.dumps(manifest, indent=2))
         print("# cole o JSON acima no config do host — Atlas nunca escreve nele", file=sys.stderr)
         return EXIT_OK
