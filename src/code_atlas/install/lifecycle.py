@@ -1009,7 +1009,9 @@ def _apply_gitignore_step(s: dict[str, Any], ctx: _ApplyCtx) -> None:
             )
             return
         p.parent.mkdir(parents=True, exist_ok=True)
-        p.write_text(_GITIGNORE_PAYLOAD, encoding="utf-8")
+        # bytes, not text — text-mode would emit `*\r\n` on Windows and the
+        # managed sha256 would diverge per platform for identical content.
+        p.write_bytes(_GITIGNORE_PAYLOAD.encode("utf-8"))
     except OSError as exc:
         ctx.unverified.append({**s, "result": f"unverified:{exc}"})
         ctx.checks.append(
