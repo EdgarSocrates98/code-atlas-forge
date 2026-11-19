@@ -302,14 +302,22 @@ def _receipt_filename(created_at: str) -> str:
     return f"install-{created_at.replace(':', '').replace('-', '')}.json"
 
 
-def _receipt_targets(scope: str, resolved: Path | None, members: list[Path]) -> list[Path]:
+def _receipt_targets(
+    scope: str, resolved: Path | None, members: list[Path], comps: tuple[str, ...]
+) -> list[Path]:
     """Targets that get ``.<state>/receipts`` evidence — the workspace
     root plus every member under ``workspace`` scope, just the root
-    under ``project`` scope, nothing under ``user``."""
+    under ``project`` scope, nothing under ``user``.
+
+    Member receipts exist only when ``repository`` is installed: a
+    member that was never registered is not part of this install, and
+    writing ``.code-atlas/`` evidence into it would falsely claim a
+    failed member operation (§F1 — discovered ≠ attempted)."""
     if scope == "workspace" and resolved is not None:
         seen: set[Path] = set()
         out: list[Path] = []
-        for t in [resolved, *members]:
+        targets = [resolved, *members] if "repository" in comps else [resolved]
+        for t in targets:
             if t not in seen:
                 seen.add(t)
                 out.append(t)
@@ -388,7 +396,7 @@ def _plan(
                     "target": "workspace-scoped — needs a project root",
                 }
             )
-    for target in _receipt_targets(scope, root, members):
+    for target in _receipt_targets(scope, root, members, comps):
         steps.append(
             {
                 "component": "receipt",

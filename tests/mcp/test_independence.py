@@ -26,7 +26,9 @@ def test_mcp_manifest_does_not_write_host_config(capsys) -> None:
     out = capsys.readouterr()
     assert rc == 0
     d = json.loads(out.out)
-    assert d["mcpServers"]["code-atlas"]["args"] == ["mcp"]
+    entry = d["mcpServers"]["code-atlas"]
+    assert Path(entry["command"]).is_absolute()
+    assert entry["args"] == ["-m", "code_atlas", "mcp"]
     assert "nunca escreve" in out.err  # só emite + instrui
 
 
