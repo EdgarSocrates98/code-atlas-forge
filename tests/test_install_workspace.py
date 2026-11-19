@@ -146,7 +146,11 @@ def test_workspace_install_is_idempotent(env) -> None:
     assert doc["status"] == "completed"
     assert doc["verification"]["status"] == "PASS"
     assert doc["members"][0]["status"] == "existing"
+    # the row was adopted, not recreated — but provenance is carried
+    # forward so uninstall can still prove install owns the group
     assert doc["federation"]["created"] is False
+    assert doc["federation"]["install_owned"] is True
+    assert doc["lifecycle"]["state"] == "verified"
 
 
 def test_workspace_dry_run_writes_nothing(env) -> None:
@@ -284,6 +288,30 @@ def test_cli_json_flag_prints_receipt(env, capsys) -> None:
 # ------------------------------------------------------------ uninstall
 
 
+def test_reinstall_then_uninstall_removes_federation(env) -> None:
+    """§7.4 ownership continuity: an incremental reinstall adopts the
+    existing federation row but must not lose the `created` proof — the
+    latest receipt still backs uninstall removing install-owned rows."""
+    ws = env["ws"]
+    _make_member(ws, "api", "pyproject.toml")
+    lifecycle.install(scope="workspace", yes=True)
+    doc = lifecycle.install(scope="workspace", yes=True)
+    # ownership carried forward — the row was adopted, still install-owned
+    assert doc["federation"]["created"] is False
+    assert doc["federation"]["install_owned"] is True
+    assert doc["federation"]["member_repository_ids"]
+    lifecycle.uninstall(scope="workspace", yes=True)
+    import sqlite3
+
+    conn = sqlite3.connect(env["data"] / "atlas.db")
+    try:
+        ws_rows = conn.execute("SELECT COUNT(*) FROM federation_workspaces").fetchone()[0]
+        mem_rows = conn.execute("SELECT COUNT(*) FROM federation_members").fetchone()[0]
+    finally:
+        conn.close()
+    assert ws_rows == 0 and mem_rows == 0
+
+
 def test_uninstall_workspace_removes_managed_state(env) -> None:
     ws = env["ws"]
     _make_member(ws, "api", "pyproject.toml")
@@ -316,9 +344,12 @@ def test_status_after_workspace_install(env) -> None:
     lifecycle.install(scope="workspace", yes=True)
     st = lifecycle.status()
     assert st["installed"] is True
+    assert st["status"] == "healthy"
+    assert st["lifecycle"]["state"] == "ready"
     assert st["receipt"]["schema"] == "forge/InstallReceipt/v1"
+    assert st["receipt"]["lifecycle"]["schema"] == "forge/InstallLifecycle/v1"
     doc = lifecycle.doctor(scope="workspace")
-    states = {c["check"]: c["state"] for c in doc["checks"]}
-    assert states["receipt"] == "ok"
-    assert states["target-receipt"] == "ok"
+    states = {c["id"]: c["status"] for c in doc["checks"]}
+    assert states["receipt"] == "PASS"
+    assert states["target-receipt"] == "PASS"
     assert doc["status"] == "healthy"

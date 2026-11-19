@@ -8,8 +8,23 @@ returns the plan and writes nothing; apply requires ``yes``.
 Receipt contract (install-2.1): ``forge/InstallReceipt/v1`` — the
 envelope the-forge's delegation verifier reads (``forge_id`` +
 ``operation="install"`` + ``status`` + ``verification.status``).
-Atlas-specific detail rides in extras (``plan``, ``applied``,
-``skipped``, ``unverified``, ``members``, ``workspace``, ``data_dir``).
+Every receipt also carries a ``lifecycle`` block —
+``forge/InstallLifecycle/v1``: the finer-grained position of the
+installation *derived* from ``status`` + ``verification``, never
+asserted by the writer (the same derivation the-forge applies —
+``planned`` → ``applied`` → ``verified``, with ``blocked``, ``failed``
+and ``unverified`` for gate refusals, errors and evidence gaps).
+``status`` uses the v1 receipt vocabulary: an approval-gate refusal is
+``blocked`` (was ``declined`` pre-16.1), a plan is ``planned``, a
+finished operation ``completed`` — which never implies readiness.
+
+Health contract (cycle 16.1): ``status``/``doctor`` emit
+``forge/InstallationHealth/v1``-aligned docs — closed ``status``
+vocabulary (``healthy|degraded|broken|unverified``), checks as
+``{id, status, detail, repairable}``, a ``context`` block with
+observable metrics only, and the same derived ``lifecycle`` block
+(``healthy → ready``, ``degraded → partially_applied``,
+``broken → failed``, ``unverified → unverified``).
 
 ``installation_kind=service``: the atlas is a local service — no host
 payloads, no execution profiles. ``host``/``gateway_profile`` are
@@ -68,10 +83,17 @@ PROFILE_COMPONENTS = {
     "full": ("config", "data-dir", "repository"),
 }
 SCHEMA_RECEIPT = "forge/InstallReceipt/v1"
+SCHEMA_HEALTH = "forge/InstallationHealth/v1"
+SCHEMA_LIFECYCLE = "forge/InstallLifecycle/v1"
 
 E_UNSUPPORTED_COMPONENTS = "CA-INSTALL-UNSUPPORTED-COMPONENTS"
 E_INSTALL_DECLINED = "CA-INSTALL-DECLINED"
 E_UNINSTALL_DECLINED = "CA-UNINSTALL-DECLINED"
+
+# Receipt ``status`` values that mean a gate refused the operation —
+# the-forge's ``_BLOCKED_STATUSES`` family (``blocked|refused|unsupported``)
+# plus ``declined``, kept so pre-16.1 receipts still derive correctly.
+_BLOCKED_STATUSES = frozenset({"blocked", "refused", "unsupported", "declined"})
 
 # Content the install-owned ``<target>/.code-atlas/.gitignore`` carries —
 # only a file with exactly this payload is removed on uninstall.
@@ -108,6 +130,64 @@ def read_receipt() -> dict[str, Any] | None:
         return None
 
 
+def _receipt_lifecycle(doc: dict[str, Any]) -> dict[str, Any]:
+    """Derive the ``forge/InstallLifecycle/v1`` block of a receipt.
+
+    The state is a *view* over ``status`` + ``verification`` — the same
+    closed derivation the-forge applies in ``install/lifecycle.py`` so a
+    reader recomputing it reaches the same answer. ``planned`` →
+    ``applied`` → ``verified`` is the success line; gate refusals are
+    ``blocked``, errors ``failed``, evidence gaps ``unverified``. The
+    atlas never emits batch ``forges[]`` rows, so ``partially_applied``
+    is not derivable here — member-level gaps surface as
+    ``verification=UNVERIFIED`` → ``applied`` instead of a false PASS.
+    """
+    status = str(doc.get("status") or "")
+    verification = str((doc.get("verification") or {}).get("status") or "")
+    if status == "planned":
+        state, detail = "planned", "plan emitted — nothing written"
+    elif status in _BLOCKED_STATUSES:
+        state, detail = "blocked", f"gate refusal: {status}"
+    elif status == "completed":
+        if verification == "PASS":
+            state, detail = "verified", "writes executed and receipt checks pass"
+        elif verification == "FAIL":
+            state, detail = "failed", "writes executed but verification failed"
+        else:
+            state, detail = (
+                "applied",
+                f"writes executed; verification {verification or 'absent'}",
+            )
+    elif status == "failed":
+        state, detail = "failed", "operation errored"
+    else:
+        state, detail = (
+            "unverified",
+            f"status {status!r} outside the known receipt vocabulary",
+        )
+    return {"schema": SCHEMA_LIFECYCLE, "state": state, "detail": detail}
+
+
+def _health_lifecycle(health_status: str) -> dict[str, Any]:
+    """``forge/InstallLifecycle/v1`` for an InstallationHealth doc —
+    the-forge's ``health_state`` table: ``healthy → ready``,
+    ``degraded → partially_applied``, ``broken → failed``,
+    ``unverified → unverified``."""
+    table = {
+        "healthy": ("ready", "managed evidence verified on disk"),
+        "degraded": (
+            "partially_applied",
+            "drift or failing checks on part of the managed set — repairable",
+        ),
+        "broken": ("failed", "managed state unrecoverable by repair"),
+        "unverified": ("unverified", "no installation evidence at this scope"),
+    }
+    state, detail = table.get(
+        health_status, ("unverified", f"health status {health_status!r} unknown")
+    )
+    return {"schema": SCHEMA_LIFECYCLE, "state": state, "detail": detail}
+
+
 def _profile_components(profile: str, components: tuple[str, ...] | None) -> tuple[str, ...]:
     if components:
         return components
@@ -122,6 +202,100 @@ def _rel(target_root: Path | None, path: Path) -> str:
         except ValueError:
             pass
     return str(path)
+
+
+def _resolve_managed(receipt: dict[str, Any], raw: Any) -> Path | None:
+    """Absolute path of a ``managed_files`` entry — relative entries hang
+    off the receipt's ``target_root``; absolute ones resolve as-is."""
+    if not isinstance(raw, str) or not raw:
+        return None
+    p = Path(raw)
+    if p.is_absolute():
+        return p.resolve()
+    troot = receipt.get("target_root")
+    if not isinstance(troot, str):
+        return None
+    return (Path(troot) / p).resolve()
+
+
+def _prior_managed_map(receipt: dict[str, Any] | None) -> dict[str, str]:
+    """``{resolved managed path: sha256}`` from the *previous* global
+    receipt — the ownership evidence an incremental reinstall uses to
+    carry forward still-managed assets as ``unchanged`` (§7.4)."""
+    out: dict[str, str] = {}
+    if not isinstance(receipt, dict):
+        return out
+    for entry in receipt.get("managed_files") or []:
+        if not isinstance(entry, dict):
+            continue
+        p = _resolve_managed(receipt, entry.get("path"))
+        sha = entry.get("sha256")
+        if p is not None and isinstance(sha, str):
+            out[str(p)] = sha
+    return out
+
+
+def _prior_unchanged(ctx: _ApplyCtx, path: Path) -> bool:
+    """True when the previous receipt lists ``path`` as managed AND its
+    on-disk sha still matches — the asset is ours and untouched, so the
+    reinstall records it ``unchanged`` instead of dropping ownership."""
+    prior_sha = ctx.prior_managed.get(str(path.resolve()))
+    if prior_sha is None:
+        return False
+    try:
+        return _sha_file(path) == prior_sha
+    except OSError:
+        return False
+
+
+def _managed_drift(receipt: dict[str, Any] | None) -> list[dict[str, Any]]:
+    """Drift over the receipt's ``managed_files`` — the atlas ledger.
+
+    ``ok`` = on disk with the recorded sha; ``modified`` = content or
+    readability diverged; ``missing`` = not on disk.
+    """
+    out: list[dict[str, Any]] = []
+    if not isinstance(receipt, dict):
+        return out
+    for entry in receipt.get("managed_files") or []:
+        if not isinstance(entry, dict) or not isinstance(entry.get("path"), str):
+            continue
+        p = _resolve_managed(receipt, entry["path"])
+        if p is None or not p.is_file():
+            out.append({"path": entry["path"], "status": "missing"})
+            continue
+        try:
+            same = _sha_file(p) == entry.get("sha256")
+        except OSError:
+            same = False
+        out.append({"path": entry["path"], "status": "ok" if same else "modified"})
+    return out
+
+
+def _managed_sha_for(receipt: dict[str, Any] | None, path: Path) -> str | None:
+    """The sha256 the receipt records for ``path`` — ``""`` when a
+    managed entry proves ownership but carries no hash, ``None`` when no
+    entry resolves to the path."""
+    if not isinstance(receipt, dict):
+        return None
+    target = str(path.resolve())
+    for entry in receipt.get("managed_files") or []:
+        if not isinstance(entry, dict):
+            continue
+        p = _resolve_managed(receipt, entry.get("path"))
+        if p is not None and str(p) == target:
+            return entry["sha256"] if isinstance(entry.get("sha256"), str) else ""
+    return None
+
+
+def _tool_count() -> int | None:
+    """Tools the MCP server would enumerate — a static, observable count
+    (never inferred; ``None`` when the tool table cannot be read)."""
+    try:
+        from code_atlas.mcp import _TOOLS
+    except Exception:
+        return None
+    return len(_TOOLS)
 
 
 def _receipt_filename(created_at: str) -> str:
@@ -338,6 +512,7 @@ def _refusal_doc(
     doc["verification"] = {"status": "FAIL"}
     doc["checks"].append({"id": "components", "status": "FAIL", "detail": detail})
     doc["error"] = {"kind": kind, "detail": detail, "rejected": rejected}
+    doc["lifecycle"] = _receipt_lifecycle(doc)
     return doc
 
 
@@ -424,13 +599,19 @@ def install(
             "members_discovered": len(members),
         }
     if dry_run:
+        doc["lifecycle"] = _receipt_lifecycle(doc)
         return doc
     if not yes:
-        return {
+        # Approval-gate refusal — ``blocked`` is the v1 receipt status a
+        # reader derives the ``blocked`` lifecycle state from (was
+        # ``declined`` pre-16.1; ``_BLOCKED_STATUSES`` still accepts it).
+        doc = {
             **doc,
-            "status": "declined",
+            "status": "blocked",
             "error": {"kind": E_INSTALL_DECLINED, "detail": "needs --yes - nothing written"},
         }
+        doc["lifecycle"] = _receipt_lifecycle(doc)
+        return doc
     return _apply_install(doc, steps, members, resolved, scope, ws_identity)
 
 
@@ -475,6 +656,8 @@ def _apply_install(
     _write_target_receipts(steps, doc, ctx)
     # -- the global receipt is persisted last; it records the final doc -
     _persist_global_receipt(doc)
+    # -- the returned doc always carries the final derived state -------
+    doc["lifecycle"] = _receipt_lifecycle(doc)
     return doc
 
 
@@ -491,6 +674,19 @@ def _workspace_surface(
     return discover_projects(resolved), identity, _federation_name(identity)
 
 
+def _unclaimed_receipt_path(path: Path) -> Path:
+    """A receipt filename that is not already taken — prior receipt
+    evidence is never overwritten (two installs inside the same second
+    collide on the timestamp name, so the newer one gets ``-NN``)."""
+    if not path.exists():
+        return path
+    for n in range(1, 100):
+        cand = path.with_name(f"{path.stem}-{n:02d}{path.suffix}")
+        if not cand.exists():
+            return cand
+    return path.with_name(f"{path.stem}-{time.time_ns()}{path.suffix}")
+
+
 def _write_target_receipts(
     steps: list[dict[str, Any]], doc: dict[str, Any], ctx: _ApplyCtx
 ) -> None:
@@ -501,16 +697,17 @@ def _write_target_receipts(
         if s["component"] != "receipt" or s["action"] != "write":
             continue
         tdoc = target_docs.get(str(s.get("receipt_target") or "")) or doc
-        tdoc["receipt"] = s["target"]
+        tdoc["lifecycle"] = _receipt_lifecycle(tdoc)
         try:
-            p = Path(s["target"])
+            p = _unclaimed_receipt_path(Path(s["target"]))
+            tdoc["receipt"] = str(p)
             p.parent.mkdir(parents=True, exist_ok=True)
             p.write_text(json.dumps(tdoc, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
-            ctx.applied.append({**s, "result": s["target"]})
+            ctx.applied.append({**s, "result": str(p)})
             ctx.checks.append(
                 {"id": f"receipt:{p.name}", "status": "PASS", "detail": s["target"]}
             )
-            doc["receipt_files"].append(s["target"])
+            doc["receipt_files"].append(str(p))
         except OSError as exc:
             ctx.unverified.append({**s, "result": f"unverified:{exc}"})
             ctx.checks.append(
@@ -568,6 +765,13 @@ class _ApplyCtx:
         self.resolved = resolved
         self.scope = scope
         self.ws_identity = ws_identity
+        # Ownership evidence from the *previous* global receipt — what an
+        # incremental reinstall may carry forward as ``unchanged`` (§7.4).
+        prior = read_receipt()
+        self.prior_managed = _prior_managed_map(prior)
+        self.prior_federation = (
+            prior.get("federation") if isinstance(prior, dict) else None
+        )
         self.conn: sqlite3.Connection | None = None
         self.fed: dict[str, Any] | None = None
         self.applied: list[dict[str, Any]] = []
@@ -638,6 +842,23 @@ def _apply_step(s: dict[str, Any], ctx: _ApplyCtx) -> tuple[str, str]:
     if action == "write-if-absent" and comp == "config":
         if ctx.resolved is None:
             return "skipped", "user-scope"
+        cfg = Path(target)
+        if cfg.exists():
+            # §7.4 incremental reinstall — an existing config is never
+            # rewritten. It stays managed only when the previous receipt
+            # proves install created it unchanged; a foreign or drifted
+            # config is preserved and *not* adopted.
+            if _prior_unchanged(ctx, cfg):
+                ctx.managed.append(
+                    {
+                        "path": _rel(ctx.resolved, cfg),
+                        "sha256": ctx.prior_managed[str(cfg.resolve())],
+                        "kind": "config",
+                        "action": "unchanged",
+                    }
+                )
+                return "skipped", "exists — unchanged (install-managed)"
+            return "skipped", "exists — preserved (not proven install-owned)"
         try:
             cfg = write_config(ctx.resolved)  # raises if config exists
         except ConfigError as exc:
@@ -671,17 +892,45 @@ def _ensure_federation(ctx: _ApplyCtx) -> tuple[str, str]:
     conn = ctx.db()
     fstore = FederationStore(conn)
     ws = fstore.workspace_by_name(name)
-    created = ws is None
+    row_created = ws is None
     ws_id = fstore.create_workspace(name) if ws is None else ws.id
+    # §7.4: an incremental reinstall adopts the existing row — but the
+    # prior receipt may prove install created it, in which case the
+    # workspace AND its install-added members stay install-owned (the
+    # uninstall ledger is the latest receipt; losing `created` here
+    # would leak the group and its rows).
+    owned = row_created
+    inherited_ids: list[int] = []
+    prior = ctx.prior_federation
+    if (
+        not row_created
+        and isinstance(prior, dict)
+        and prior.get("created")
+        and prior.get("workspace_id") == ws_id
+    ):
+        owned = True
+        inherited_ids = [
+            int(r) for r in (prior.get("member_repository_ids") or []) if isinstance(r, int)
+        ]
     conn.commit()
     ctx.fed = {
         "workspace_id": ws_id,
         "name": name,
-        "created": created,
-        "member_repository_ids": [],
+        # ``created`` reports this run; ``install_owned`` is the
+        # provenance uninstall needs — a row created by an earlier
+        # install stays ours to remove.
+        "created": row_created,
+        "install_owned": owned,
+        "member_repository_ids": inherited_ids,
     }
-    return ("applied" if created else "skipped"), (
-        f"federation_workspace_id={ws_id} name={name} ({'created' if created else 'existing'})"
+    if row_created:
+        detail = "created"
+    elif owned:
+        detail = "existing — still install-owned"
+    else:
+        detail = "existing"
+    return ("applied" if row_created else "skipped"), (
+        f"federation_workspace_id={ws_id} name={name} ({detail})"
     )
 
 
@@ -725,10 +974,30 @@ def _register_step(ctx: _ApplyCtx, member: Path) -> tuple[str, str]:
 
 def _apply_gitignore_step(s: dict[str, Any], ctx: _ApplyCtx) -> None:
     """``<target>/.code-atlas/.gitignore`` — write-if-absent, real sha256;
-    a pre-existing file (user or foreign) is preserved, never adopted."""
+    a pre-existing file (user or foreign) is preserved, never adopted —
+    unless the previous receipt proves install wrote it unchanged, in
+    which case the reinstall carries it forward as ``unchanged``."""
     p = Path(s["target"])
     target_root = Path(s["receipt_target"])
     try:
+        if p.exists() and _prior_unchanged(ctx, p):
+            ctx.skipped.append({**s, "result": "exists — unchanged (install-managed)"})
+            ctx.checks.append(
+                {
+                    "id": f"file:{p.parent.name}/{p.name}",
+                    "status": "PASS",
+                    "detail": "unchanged — still managed (prior receipt proof)",
+                }
+            )
+            ctx.managed.append(
+                {
+                    "path": _rel(target_root, p),
+                    "sha256": ctx.prior_managed[str(p.resolve())],
+                    "kind": "config",
+                    "action": "unchanged",
+                }
+            )
+            return
         if p.exists():
             ctx.skipped.append({**s, "result": "exists"})
             ctx.checks.append(
@@ -836,6 +1105,8 @@ def _target_docs(doc: dict[str, Any], ctx: _ApplyCtx) -> dict[str, dict[str, Any
 
 
 def _write_global_receipt(doc: dict[str, Any]) -> str:
+    # persisted evidence always carries the state derived at write time
+    doc["lifecycle"] = _receipt_lifecycle(doc)
     p = _receipt_path()
     p.parent.mkdir(parents=True, exist_ok=True)
     p.write_text(json.dumps(doc, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
@@ -906,13 +1177,16 @@ def uninstall(
         "version": __version__,
     }
     if dry_run:
+        doc["lifecycle"] = _receipt_lifecycle(doc)
         return doc
     if not yes:
-        return {
+        doc = {
             **doc,
-            "status": "declined",
+            "status": "blocked",
             "error": {"kind": E_UNINSTALL_DECLINED, "detail": "needs --yes - nothing removed"},
         }
+        doc["lifecycle"] = _receipt_lifecycle(doc)
+        return doc
 
     applied: list[dict[str, Any]] = []
     skipped: list[dict[str, Any]] = []
@@ -932,6 +1206,7 @@ def uninstall(
     doc["unverified"] = unverified
     doc["checks"] = checks
     doc["verification"] = {"status": _aggregate(checks)}
+    doc["lifecycle"] = _receipt_lifecycle(doc)
     return doc
 
 
@@ -941,9 +1216,21 @@ def _uninstall_plan(
     receipt = read_receipt()
     steps: list[dict[str, Any]] = []
     owned = _owned_components(receipt)
+    cfg = config_file()
+    # Ownership proof: the applied-component set (legacy receipts) or a
+    # managed_files entry resolving to the config — ``unchanged``
+    # entries from incremental reinstalls count (they are still ours).
+    cfg_sha = _managed_sha_for(receipt, cfg)
     if scope in ("project", "workspace") and resolved is not None:
-        if receipt and "config" in owned:
-            steps.append({"component": "config", "action": "remove", "target": str(config_file())})
+        if receipt and ("config" in owned or cfg_sha is not None):
+            steps.append(
+                {
+                    "component": "config",
+                    "action": "remove",
+                    "target": str(cfg),
+                    "sha256": cfg_sha,
+                }
+            )
         else:
             steps.append(
                 {
@@ -986,9 +1273,14 @@ def _uninstall_managed_steps(
                 "target": str(state_dir(Path(t))),
             }
         )
-    # Federation group — only when the receipt proves install created it.
+    # Federation group — only when the receipt proves install owns it
+    # (``install_owned``; legacy receipts carry only ``created``).
     fed = receipt.get("federation") if isinstance(receipt, dict) else None
-    if isinstance(fed, dict) and fed.get("created") and isinstance(fed.get("workspace_id"), int):
+    if (
+        isinstance(fed, dict)
+        and bool(fed.get("install_owned", fed.get("created")))
+        and isinstance(fed.get("workspace_id"), int)
+    ):
         steps.append(
             {
                 "component": "federation",
@@ -1003,11 +1295,30 @@ def _uninstall_managed_steps(
     return steps
 
 
+def _remove_config_step(p: Path, expected_sha: str | None) -> tuple[str, str]:
+    """Drift-aware config removal: the receipt proves install wrote it,
+    but a user edit since then makes it foreign content — kept, never
+    deleted. ``sha256=""``/missing means owned without a recorded hash."""
+    if expected_sha:
+        try:
+            actual = _sha_file(p) if p.is_file() else None
+        except OSError:
+            actual = None
+        if actual != expected_sha:
+            return "skipped", "kept — modified since install"
+    if p.exists():
+        p.unlink()
+        return "applied", "removed"
+    return "skipped", "absent"
+
+
 def _remove_step(s: dict[str, Any]) -> tuple[str, str]:
     """One uninstall step -> ("applied"|"skipped", result)."""
     if s["action"] == "skipped":
         return "skipped", s["target"]
     p = Path(s["target"])
+    if s["component"] == "config":
+        return _remove_config_step(p, s.get("sha256"))
     if s["component"] == "receipt":
         # receipt dir goes wholesale — install/ holds only receipts
         receipt_dir = p.parent
@@ -1109,34 +1420,89 @@ def _receipt_state() -> str:
 
 
 def status() -> dict[str, Any]:
+    """Ledger + receipt + drift summary — ``forge/InstallationHealth/v1``.
+
+    Health derives from real evidence: a missing receipt is
+    ``unverified`` (no proof either way), a corrupt one ``broken``; a
+    readable receipt plus on-disk drift over ``managed_files`` maps to
+    ``healthy``/``degraded``/``broken`` (all managed drifted)."""
     r = read_receipt()
+    r_state = _receipt_state()
+    drift = _managed_drift(r)
+    ok = sum(1 for d in drift if d["status"] == "ok")
+    bad = [d for d in drift if d["status"] != "ok"]
+    if r_state == "missing":
+        health = "unverified"
+    elif r_state == "error" or (drift and not ok):
+        health = "broken"
+    elif bad:
+        health = "degraded"
+    else:
+        health = "healthy"
     return {
+        "schema": SCHEMA_HEALTH,
         "forge_id": FORGE_ID,
+        "status": health,
+        "lifecycle": _health_lifecycle(health),
         "installed": r is not None,
-        "receipt_state": _receipt_state(),
+        "receipt_state": r_state,
+        "drift": {
+            "ok": ok,
+            "modified": [d["path"] for d in bad if d["status"] == "modified"],
+            "missing": [d["path"] for d in bad if d["status"] == "missing"],
+        },
+        # Observable context budget only (contract §7.1): the managed
+        # entries the receipt actually lists and the tools the MCP
+        # server enumerates — nothing inferred.
+        "context": {
+            "managed_entries": len((r or {}).get("managed_files") or []),
+            "tools_exposed": _tool_count(),
+        },
         "receipt": r,
+        "checked_at": _utc_now(),
     }
 
 
 def doctor(*, scope: str = "project", root: Path | None = None) -> dict[str, Any]:
-    """Health check — receipt readable, data dir writable, db openable."""
+    """Health check — ``forge/InstallationHealth/v1``-aligned probes:
+    receipt readable, data dir writable, db openable, plus a derived
+    ``forge/InstallLifecycle/v1`` block."""
     checks: list[dict[str, Any]] = []
     r_state = _receipt_state()
-    checks.append({"check": "receipt", "state": r_state, "target": str(_receipt_path())})
+    checks.append(
+        {
+            "id": "receipt",
+            "status": {"ok": "PASS", "missing": "UNVERIFIED", "error": "FAIL"}[r_state],
+            "detail": str(_receipt_path()),
+            "repairable": r_state != "ok",
+        }
+    )
     dd = data_dir()
     try:
         dd.mkdir(parents=True, exist_ok=True)
         probe = dd / ".atlas-probe"
         probe.write_text("ok")
         probe.unlink()
-        state = "ok"
+        dd_state = "ok"
     except OSError:
-        state = "unwritable"
-    checks.append({"check": "data-dir", "state": state, "target": str(dd)})
+        dd_state = "unwritable"
+    checks.append(
+        {
+            "id": "data-dir",
+            "status": "PASS" if dd_state == "ok" else "FAIL",
+            "detail": str(dd),
+            "repairable": False,
+        }
+    )
     cfg = config_file()
     if scope in ("project", "workspace"):
         checks.append(
-            {"check": "config", "state": "ok" if cfg.exists() else "missing", "target": str(cfg)}
+            {
+                "id": "config",
+                "status": "PASS" if cfg.exists() else "UNVERIFIED",
+                "detail": str(cfg),
+                "repairable": True,
+            }
         )
     resolved = (
         resolve_root(str(root) if root else None) if scope in ("project", "workspace") else None
@@ -1145,9 +1511,10 @@ def doctor(*, scope: str = "project", root: Path | None = None) -> dict[str, Any
         rdir = receipts_dir(resolved)
         checks.append(
             {
-                "check": "target-receipt",
-                "state": "ok" if rdir.is_dir() and any(rdir.glob("*.json")) else "missing",
-                "target": str(rdir),
+                "id": "target-receipt",
+                "status": "PASS" if rdir.is_dir() and any(rdir.glob("*.json")) else "UNVERIFIED",
+                "detail": str(rdir),
+                "repairable": True,
             }
         )
     db = dd / "atlas.db"
@@ -1158,21 +1525,49 @@ def doctor(*, scope: str = "project", root: Path | None = None) -> dict[str, Any
         db_state = "ok"
     except sqlite3.Error:
         db_state = "error"
-    checks.append({"check": "database", "state": db_state, "target": str(db)})
     checks.append(
         {
-            "check": "python>=3.12",
-            "state": "ok" if sys.version_info >= (3, 12) else "fail",
-            "target": sys.version.split()[0],
+            "id": "database",
+            "status": "PASS" if db_state == "ok" else "FAIL",
+            "detail": str(db),
+            "repairable": True,
         }
     )
-    bad = {"unwritable", "error", "fail"}
-    ok = r_state == "ok" and all(c["state"] not in bad for c in checks)
+    checks.append(
+        {
+            "id": "python>=3.12",
+            "status": "PASS" if sys.version_info >= (3, 12) else "FAIL",
+            "detail": sys.version.split()[0],
+            "repairable": False,
+        }
+    )
+    # Same aggregation the-forge applies: any FAIL degrades — but only
+    # when there is install evidence; without a readable receipt a FAIL
+    # means ``broken`` and no FAIL means ``unverified``.
+    installed = r_state == "ok"
+    if any(c["status"] == "FAIL" for c in checks):
+        overall = "degraded" if installed else "broken"
+    elif not installed:
+        overall = "unverified"
+    else:
+        overall = "healthy"
+    receipt = read_receipt() if installed else None
     return {
+        "schema": SCHEMA_HEALTH,
         "forge_id": FORGE_ID,
         "scope": scope,
+        "status": overall,
         "checks": checks,
-        "status": "healthy" if ok else "degraded",
+        "lifecycle": _health_lifecycle(overall),
+        # Observable context budget only (contract §7.1) — managed
+        # entries the receipt lists; tools the MCP server enumerates.
+        "context": {
+            "managed_entries": (
+                len(receipt.get("managed_files") or []) if isinstance(receipt, dict) else None
+            ),
+            "tools_exposed": _tool_count(),
+        },
+        "checked_at": _utc_now(),
     }
 
 
@@ -1181,6 +1576,8 @@ __all__ = [
     "FORGE_ID",
     "PROFILES",
     "PROFILE_COMPONENTS",
+    "SCHEMA_HEALTH",
+    "SCHEMA_LIFECYCLE",
     "SCHEMA_RECEIPT",
     "SCOPES",
     "doctor",

@@ -112,6 +112,9 @@ def _render_install_doc(doc: dict[str, Any]) -> None:
     ver = (doc.get("verification") or {}).get("status")
     if ver:
         print(f"  verification: {ver}")
+    lifecycle_state = (doc.get("lifecycle") or {}).get("state")
+    if lifecycle_state:
+        print(f"  lifecycle: {lifecycle_state}")
     for s in doc.get("applied", []):
         print(f"  {s['component']:<12} {s['action']:<22} {s['target']}")
     for s in doc.get("skipped", []):
@@ -129,12 +132,29 @@ def _render_install_doc(doc: dict[str, Any]) -> None:
 
 
 def _render_check_doc(doc: dict[str, Any]) -> None:
+    """Human render for ``install status|doctor`` — reads the v1
+    ``{id, status, detail}`` check shape (falls back to the pre-16.1
+    ``{check, state, target}`` keys so older docs still render)."""
     for k, v in doc.items():
         if k == "checks":
             for c in v:
-                print(f"  {c['state']:<10} {c['check']:<18} {c['target']}")
-        elif k != "receipt":
+                ident = c.get("id") or c.get("check") or "?"
+                state = c.get("status") or c.get("state") or "?"
+                detail = c.get("detail") or c.get("target") or ""
+                print(f"  {state:<13} {ident:<18} {detail}")
+        elif k == "lifecycle":
+            print(f"lifecycle: {(v or {}).get('state')}")
+        elif k in ("receipt", "context", "drift"):
+            continue
+        else:
             print(f"{k}: {v}")
+    drift = doc.get("drift")
+    if isinstance(drift, dict):
+        print(
+            f"drift: {drift.get('ok', 0)} ok, "
+            f"{len(drift.get('modified') or [])} modified, "
+            f"{len(drift.get('missing') or [])} missing"
+        )
     if doc.get("receipt") is not None:
         print(f"receipt: {json.dumps(doc['receipt'], ensure_ascii=False)}")
 
@@ -193,7 +213,9 @@ def run_install(args: Any) -> int:
     if action in ("install", "uninstall"):
         return 0 if doc.get("status") in ("completed", "planned") else 1
     if action == "doctor":
-        return 0 if doc.get("status") == "healthy" else 1
+        # ``unverified`` is an honest non-failure — no install evidence —
+        # the same convention the-forge applies to its own doctor.
+        return 0 if doc.get("status") in ("healthy", "unverified") else 1
     return 0
 
 
